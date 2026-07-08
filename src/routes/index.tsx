@@ -22,7 +22,7 @@ export const Route = createFileRoute("/")({
       { title: "Dashboard · Orion POS" },
       { name: "description", content: "Offline-first retail command center — sales, orders, profit and inventory at a glance." },
       { property: "og:title", content: "Dashboard · Orion POS" },
-      { property: "og:description", content: "Offline-first retail command center for modern shops." },
+      { property: "og:description", content: "Offline-first retail command center — sales, orders, profit and inventory at a glance." },
     ],
   }),
   component: Dashboard,
