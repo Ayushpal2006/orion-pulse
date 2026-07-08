@@ -27,13 +27,13 @@ import { useApp, type Role } from "@/lib/store";
 import { CommandPalette } from "./command-palette";
 import { cn } from "@/lib/utils";
 
-const nav = [
+const nav: Array<{ to: string; label: string; icon: typeof LayoutDashboard; exact?: boolean }> = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard, exact: true },
   { to: "/billing", label: "Billing", icon: ShoppingCart },
   { to: "/inventory", label: "Inventory", icon: Package },
   { to: "/customers", label: "Customers", icon: Users },
   { to: "/reports", label: "Reports", icon: BarChart3 },
-] as const;
+];
 
 export function AppShell({ children }: { children: ReactNode }) {
   const setPaletteOpen = useApp((s) => s.setPaletteOpen);
