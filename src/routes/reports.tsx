@@ -177,7 +177,7 @@ function ChartCard({
                 borderRadius: 12,
                 fontSize: 12,
               }}
-              formatter={(v: number) => [inr(v), "Value"]}
+              formatter={((v: unknown) => [inr(Number(v)), "Value"]) as never}
             />
             <Bar dataKey="value" fill="var(--color-success)" radius={[6, 6, 0, 0]} />
           </BarChart>

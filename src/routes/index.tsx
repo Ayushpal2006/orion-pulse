@@ -148,7 +148,7 @@ function Dashboard() {
                     borderRadius: 12,
                     fontSize: 12,
                   }}
-                  formatter={(v: number) => [inr(v), "Sales"]}
+                  formatter={((v: unknown) => [inr(Number(v)), "Sales"]) as never}
                 />
                 <Area
                   type="monotone"
