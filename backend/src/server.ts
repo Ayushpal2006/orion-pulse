@@ -2,6 +2,9 @@ import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 import productRoutes from "./routes/product.routes";
+import customerRoutes from "./routes/customer.routes";
+import checkoutRoutes from "./routes/checkout.routes";
+import salesRoutes from "./routes/sales.routes";
 import { initDb } from "./database/init";
 import { errorMiddleware } from "./middleware/error.middleware";
 
@@ -17,6 +20,9 @@ app.use(express.json());
 
 // Routes
 app.use("/products", productRoutes);
+app.use("/customers", customerRoutes);
+app.use("/checkout", checkoutRoutes);
+app.use("/sales", salesRoutes);
 
 // Root Health Check Route
 app.get("/", (req, res) => {

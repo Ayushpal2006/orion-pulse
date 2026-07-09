@@ -1,0 +1,12 @@
+CREATE TABLE IF NOT EXISTS sales (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  invoice_number TEXT UNIQUE NOT NULL,
+  customer_id INTEGER,
+  cashier_name TEXT,
+  payment_method TEXT NOT NULL,
+  subtotal INTEGER NOT NULL,
+  discount INTEGER DEFAULT 0,
+  gst INTEGER DEFAULT 0,
+  grand_total INTEGER NOT NULL,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);

@@ -1,0 +1,144 @@
+import { Request, Response, NextFunction } from "express";
+import { CustomerService } from "../services/customer.service";
+import { CreateCustomerSchema, UpdateCustomerSchema } from "../validation/customer.validation";
+
+export class CustomerController {
+  private service: CustomerService;
+
+  constructor() {
+    this.service = new CustomerService();
+  }
+
+  getAll = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const customers = await this.service.getAll();
+      res.status(200).json({
+        success: true,
+        data: customers,
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  getById = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const id = parseInt(req.params.id, 10);
+      if (isNaN(id)) {
+        res.status(400).json({
+          success: false,
+          message: "Validation Error",
+          error: "ID must be a number",
+        });
+        return;
+      }
+      const customer = await this.service.getById(id);
+      res.status(200).json({
+        success: true,
+        data: customer,
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  getByPhone = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const phone = req.params.phone;
+      if (!/^\d{10}$/.test(phone)) {
+        res.status(400).json({
+          success: false,
+          message: "Validation Error",
+          error: "Phone number must be exactly 10 digits",
+        });
+        return;
+      }
+      const customer = await this.service.getByPhone(phone);
+      res.status(200).json({
+        success: true,
+        data: customer,
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  create = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      // Validate incoming request schema
+      const dto = CreateCustomerSchema.parse(req.body);
+      const customer = await this.service.create(dto);
+      res.status(201).json({
+        success: true,
+        data: customer,
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  update = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const id = parseInt(req.params.id, 10);
+      if (isNaN(id)) {
+        res.status(400).json({
+          success: false,
+          message: "Validation Error",
+          error: "ID must be a number",
+        });
+        return;
+      }
+      // Validate incoming request schema
+      const dto = UpdateCustomerSchema.parse(req.body);
+      const customer = await this.service.update(id, dto);
+      res.status(200).json({
+        success: true,
+        data: customer,
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  delete = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const id = parseInt(req.params.id, 10);
+      if (isNaN(id)) {
+        res.status(400).json({
+          success: false,
+          message: "Validation Error",
+          error: "ID must be a number",
+        });
+        return;
+      }
+      await this.service.delete(id);
+      res.status(200).json({
+        success: true,
+        data: null,
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  search = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const query = String(req.query.q || "");
+      if (!req.query.q) {
+        res.status(400).json({
+          success: false,
+          message: "Validation Error",
+          error: "Search query parameter 'q' is required",
+        });
+        return;
+      }
+      const customers = await this.service.search(query);
+      res.status(200).json({
+        success: true,
+        data: customers,
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
+}

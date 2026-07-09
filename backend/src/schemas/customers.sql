@@ -1,0 +1,13 @@
+CREATE TABLE IF NOT EXISTS customers (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL,
+  phone TEXT UNIQUE NOT NULL,
+  email TEXT,
+  address TEXT,
+  notes TEXT,
+  total_orders INTEGER DEFAULT 0,
+  lifetime_value INTEGER DEFAULT 0,
+  last_visit DATETIME,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);

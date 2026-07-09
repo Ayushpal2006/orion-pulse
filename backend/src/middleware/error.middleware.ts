@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from "express";
 import { ZodError } from "zod";
 import { ValidationError, NotFoundError } from "../services/product.service";
+import { ConflictError } from "../services/customer.service";
 
 export function errorMiddleware(
   err: any,
@@ -9,13 +10,18 @@ export function errorMiddleware(
   next: NextFunction
 ): void {
   // Log unexpected errors
-  if (!(err instanceof ValidationError) && !(err instanceof NotFoundError) && !(err instanceof ZodError)) {
+  if (
+    !(err instanceof ValidationError) &&
+    !(err instanceof NotFoundError) &&
+    !(err instanceof ZodError) &&
+    !(err instanceof ConflictError)
+  ) {
     console.error("💥 Unhandled Error:", err);
   }
 
   // Handle Zod Schema validation errors
   if (err instanceof ZodError) {
-    const errorDetails = err.errors
+    const errorDetails = err.issues
       .map((e) => `${e.path.join(".")}: ${e.message}`)
       .join(", ");
     
@@ -32,6 +38,16 @@ export function errorMiddleware(
     res.status(400).json({
       success: false,
       message: "Business Validation Error",
+      error: err.message,
+    });
+    return;
+  }
+
+  // Handle Conflict errors (e.g. duplicate phone)
+  if (err instanceof ConflictError) {
+    res.status(409).json({
+      success: false,
+      message: "Conflict Error",
       error: err.message,
     });
     return;
