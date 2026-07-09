@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
-import { ScanBarcode, Search, X, Plus, Minus, Trash2, User, ArrowRight, CheckCircle2, Loader2 } from "lucide-react";
+import { ScanBarcode, Search, X, Plus, Minus, Trash2, User, ArrowRight, CheckCircle2, Loader2, PauseCircle, UserPlus } from "lucide-react";
 import { toast } from "sonner";
 import { QRCodeSVG } from "qrcode.react";
 import { Input } from "@/components/ui/input";
@@ -8,9 +8,10 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { cartTotals, useApp, type Payment } from "@/lib/store";
-import { customers } from "@/lib/mock-data";
 import { inr } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { ParkedSalesPopover } from "@/components/parked-sales";
+import { CustomerDialog } from "@/components/customer-dialog";
 
 export const Route = createFileRoute("/billing")({
   head: () => ({
@@ -41,6 +42,7 @@ const CHECKOUT_STEPS = [
 
 function Billing() {
   const products = useApp((s) => s.products);
+  const customers = useApp((s) => s.customers);
   const cart = useApp((s) => s.cart);
   const addToCart = useApp((s) => s.addToCart);
   const inc = useApp((s) => s.incQty);
@@ -54,14 +56,16 @@ function Billing() {
   const setMobile = useApp((s) => s.setCustomerMobile);
   const name = useApp((s) => s.customerName);
   const setName = useApp((s) => s.setCustomerName);
+  const parkSale = useApp((s) => s.parkSale);
 
   const [q, setQ] = useState("");
   const [step, setStep] = useState(-1);
   const [showSlip, setShowSlip] = useState(false);
+  const [addCustomerOpen, setAddCustomerOpen] = useState(false);
 
   const knownCustomer = useMemo(
     () => customers.find((c) => c.mobile === mobile),
-    [mobile],
+    [mobile, customers],
   );
 
   const filtered = useMemo(() => {
@@ -71,7 +75,8 @@ function Billing() {
       (p) =>
         p.name.toLowerCase().includes(t) ||
         p.sku.toLowerCase().includes(t) ||
-        p.barcode.includes(t),
+        p.barcode.includes(t) ||
+        p.category.toLowerCase().includes(t),
     );
   }, [q, products]);
 
@@ -85,14 +90,8 @@ function Billing() {
   };
 
   const runCheckout = async () => {
-    if (cart.length === 0) {
-      toast.error("Cart is empty");
-      return;
-    }
-    if (mobile.length < 10) {
-      toast.error("Enter customer mobile (10 digits)");
-      return;
-    }
+    if (cart.length === 0) { toast.error("Cart is empty"); return; }
+    if (mobile.length < 10) { toast.error("Enter customer mobile (10 digits)"); return; }
     for (let i = 0; i < CHECKOUT_STEPS.length; i++) {
       setStep(i);
       await new Promise((r) => setTimeout(r, 380));
@@ -106,6 +105,12 @@ function Billing() {
     setStep(-1);
     clearCart();
     toast.success("Sale complete", { description: `Invoice queued · WhatsApp sent to +91 ${mobile}` });
+  };
+
+  const doPark = () => {
+    if (cart.length === 0) { toast.error("Nothing to park"); return; }
+    parkSale();
+    toast.success("Sale parked", { description: "Resume anytime from Parked list." });
   };
 
   return (
@@ -134,6 +139,7 @@ function Billing() {
             <Button onClick={scan} className="h-11 rounded-xl">
               <ScanBarcode className="mr-2 size-4" /> Scan barcode
             </Button>
+            <ParkedSalesPopover />
           </div>
         </div>
 
@@ -148,16 +154,14 @@ function Billing() {
                 "hover:border-foreground/20 hover:shadow-md",
               )}
             >
-              <div className="grid size-12 place-items-center rounded-xl bg-muted text-2xl">
-                {p.emoji}
+              <div className="grid size-12 place-items-center overflow-hidden rounded-xl bg-muted text-2xl">
+                {p.image ? <img src={p.image} alt="" className="size-full object-cover" /> : p.emoji}
               </div>
               <div className="mt-3 line-clamp-1 text-sm font-medium">{p.name}</div>
               <div className="text-[11px] text-muted-foreground">{p.sku}</div>
               <div className="mt-3 flex items-center justify-between">
                 <span className="tabular text-sm font-semibold text-money">{inr(p.price)}</span>
-                <span className="text-[11px] text-muted-foreground tabular">
-                  {p.stock} in stock
-                </span>
+                <span className="text-[11px] text-muted-foreground tabular">{p.stock} in stock</span>
               </div>
             </button>
           ))}
@@ -174,11 +178,18 @@ function Billing() {
                 {cart.length} item{cart.length === 1 ? "" : "s"}
               </div>
             </div>
-            {cart.length > 0 && (
-              <Button variant="ghost" size="sm" onClick={clearCart} className="text-muted-foreground">
-                Clear
-              </Button>
-            )}
+            <div className="flex gap-1">
+              {cart.length > 0 && (
+                <>
+                  <Button variant="ghost" size="sm" onClick={doPark} className="text-muted-foreground">
+                    <PauseCircle className="mr-1 size-4" /> Hold
+                  </Button>
+                  <Button variant="ghost" size="sm" onClick={clearCart} className="text-muted-foreground">
+                    Clear
+                  </Button>
+                </>
+              )}
+            </div>
           </div>
 
           <div className="flex-1 overflow-auto">
@@ -188,50 +199,29 @@ function Billing() {
                   <ScanBarcode className="size-6 text-muted-foreground" />
                 </div>
                 <div className="mt-3 text-sm font-medium">Cart is empty</div>
-                <div className="mt-1 text-xs text-muted-foreground">
-                  Scan or tap a product to begin.
-                </div>
+                <div className="mt-1 text-xs text-muted-foreground">Scan or tap a product to begin.</div>
               </div>
             ) : (
               <ul className="divide-y divide-border">
                 {cart.map((l) => (
-                  <li key={l.productId} className="p-4">
+                  <li key={l.productId} className="p-4 animate-fade-in">
                     <div className="flex items-start gap-3">
-                      <div className="grid size-10 shrink-0 place-items-center rounded-xl bg-muted text-xl">
-                        {l.emoji}
-                      </div>
+                      <div className="grid size-10 shrink-0 place-items-center rounded-xl bg-muted text-xl">{l.emoji}</div>
                       <div className="min-w-0 flex-1">
                         <div className="flex items-start justify-between gap-2">
                           <div className="min-w-0">
                             <div className="truncate text-sm font-medium">{l.name}</div>
-                            <div className="text-[11px] text-muted-foreground">
-                              {inr(l.price)} · GST {l.gst}%
-                            </div>
+                            <div className="text-[11px] text-muted-foreground">{inr(l.price)} · GST {l.gst}%</div>
                           </div>
-                          <button
-                            onClick={() => remove(l.productId)}
-                            className="rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-danger"
-                          >
+                          <button onClick={() => remove(l.productId)} className="rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-danger">
                             <Trash2 className="size-4" />
                           </button>
                         </div>
                         <div className="mt-2 flex items-center justify-between gap-2">
                           <div className="inline-flex items-center rounded-lg border border-border">
-                            <button
-                              onClick={() => dec(l.productId)}
-                              className="grid size-8 place-items-center hover:bg-muted"
-                            >
-                              <Minus className="size-3.5" />
-                            </button>
-                            <span className="tabular w-8 text-center text-sm font-medium">
-                              {l.qty}
-                            </span>
-                            <button
-                              onClick={() => inc(l.productId)}
-                              className="grid size-8 place-items-center hover:bg-muted"
-                            >
-                              <Plus className="size-3.5" />
-                            </button>
+                            <button onClick={() => dec(l.productId)} className="grid size-8 place-items-center hover:bg-muted"><Minus className="size-3.5" /></button>
+                            <span className="tabular w-8 text-center text-sm font-medium">{l.qty}</span>
+                            <button onClick={() => inc(l.productId)} className="grid size-8 place-items-center hover:bg-muted"><Plus className="size-3.5" /></button>
                           </div>
                           <div className="flex items-center gap-1">
                             <span className="text-[11px] text-muted-foreground">Disc</span>
@@ -240,9 +230,7 @@ function Billing() {
                               min={0}
                               max={100}
                               value={l.discount}
-                              onChange={(e) =>
-                                setLineDiscount(l.productId, Number(e.target.value) || 0)
-                              }
+                              onChange={(e) => setLineDiscount(l.productId, Number(e.target.value) || 0)}
                               className="tabular h-7 w-12 rounded-md border border-border bg-elevated px-1.5 text-center text-xs"
                             />
                             <span className="text-[11px] text-muted-foreground">%</span>
@@ -262,17 +250,11 @@ function Billing() {
           <div className="space-y-3 border-t border-border p-4">
             <div className="rounded-xl border border-border bg-muted/40 p-3">
               <div className="mb-2 flex items-center justify-between">
-                <label className="text-xs font-medium text-muted-foreground">
-                  Customer mobile
-                </label>
+                <label className="text-xs font-medium text-muted-foreground">Customer mobile</label>
                 {knownCustomer ? (
-                  <Badge variant="secondary" className="rounded-full bg-success/15 text-success-foreground">
-                    Returning
-                  </Badge>
+                  <Badge variant="secondary" className="rounded-full bg-success/15 text-success-foreground">Returning customer</Badge>
                 ) : mobile.length >= 10 ? (
-                  <Badge variant="secondary" className="rounded-full bg-warn/25 text-warn-foreground">
-                    New customer
-                  </Badge>
+                  <Badge variant="secondary" className="rounded-full bg-warn/25 text-warn-foreground">New customer</Badge>
                 ) : null}
               </div>
               <div className="flex items-center gap-2">
@@ -289,17 +271,22 @@ function Billing() {
                 />
               </div>
               {knownCustomer ? (
-                <div className="mt-2 text-xs text-muted-foreground">
-                  <span className="font-medium text-foreground">{knownCustomer.name}</span> · LTV{" "}
-                  {inr(knownCustomer.ltv)} · {knownCustomer.visits} visits
+                <div className="mt-2 space-y-0.5 text-xs text-muted-foreground">
+                  <div><span className="font-medium text-foreground">{knownCustomer.name}</span></div>
+                  <div>LTV {inr(knownCustomer.ltv)} · {knownCustomer.visits} visits · Last: {knownCustomer.lastVisit}</div>
                 </div>
               ) : mobile.length >= 10 ? (
-                <Input
-                  placeholder="Customer name (optional)"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  className="mt-2 h-9 rounded-lg"
-                />
+                <div className="mt-2 space-y-2">
+                  <Input
+                    placeholder="Customer name (optional)"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    className="h-9 rounded-lg"
+                  />
+                  <Button variant="outline" size="sm" className="w-full h-9 rounded-lg" onClick={() => setAddCustomerOpen(true)}>
+                    <UserPlus className="mr-1.5 size-3.5" /> Quick add customer
+                  </Button>
+                </div>
               ) : null}
             </div>
 
@@ -312,9 +299,7 @@ function Billing() {
                     onClick={() => setPayment(p.label)}
                     className={cn(
                       "rounded-xl border p-2 text-center transition-colors",
-                      payment === p.label
-                        ? "border-foreground bg-foreground text-background"
-                        : "border-border hover:border-foreground/30",
+                      payment === p.label ? "border-foreground bg-foreground text-background" : "border-border hover:border-foreground/30",
                     )}
                   >
                     <div className="text-xs font-semibold">{p.label}</div>
@@ -339,10 +324,7 @@ function Billing() {
         </div>
       </div>
 
-      <CheckoutDialog
-        open={step >= 0 && !showSlip}
-        step={step}
-      />
+      <CheckoutDialog open={step >= 0 && !showSlip} step={step} />
       <SlipDialog
         open={showSlip}
         onClose={finalizeSale}
@@ -351,6 +333,16 @@ function Billing() {
         mobile={mobile}
         customerName={knownCustomer?.name ?? name ?? "Walk-in"}
       />
+      <CustomerDialog
+        open={addCustomerOpen}
+        onOpenChange={setAddCustomerOpen}
+        mode="add"
+        defaultMobile={mobile}
+        onSaved={(c) => {
+          setName(c.name);
+          toast.success("Customer added — continue billing");
+        }}
+      />
     </div>
   );
 }
@@ -358,9 +350,7 @@ function Billing() {
 function Row({ label, value, muted, bold }: { label: string; value: string; muted?: boolean; bold?: boolean }) {
   return (
     <div className="flex items-center justify-between">
-      <span className={cn(muted && "text-muted-foreground", bold && "text-base font-semibold")}>
-        {label}
-      </span>
+      <span className={cn(muted && "text-muted-foreground", bold && "text-base font-semibold")}>{label}</span>
       <span className={cn(bold && "text-base font-semibold")}>{value}</span>
     </div>
   );
@@ -387,13 +377,9 @@ function CheckoutDialog({ open, step }: { open: boolean; step: number }) {
                   !done && !active && "border-border opacity-60",
                 )}
               >
-                {done ? (
-                  <CheckCircle2 className="size-4 text-success" />
-                ) : active ? (
-                  <Loader2 className="size-4 animate-spin text-foreground" />
-                ) : (
-                  <div className="size-4 rounded-full border border-border" />
-                )}
+                {done ? <CheckCircle2 className="size-4 text-success" /> :
+                  active ? <Loader2 className="size-4 animate-spin text-foreground" /> :
+                  <div className="size-4 rounded-full border border-border" />}
                 <span className={cn(done && "text-muted-foreground line-through")}>{label}</span>
               </li>
             );
@@ -405,25 +391,17 @@ function CheckoutDialog({ open, step }: { open: boolean; step: number }) {
 }
 
 function SlipDialog({
-  open,
-  onClose,
-  totals,
-  payment,
-  mobile,
-  customerName,
+  open, onClose, totals, payment, mobile, customerName,
 }: {
-  open: boolean;
-  onClose: () => void;
-  totals: ReturnType<typeof cartTotals>;
-  payment: Payment;
-  mobile: string;
-  customerName: string;
+  open: boolean; onClose: () => void; totals: ReturnType<typeof cartTotals>;
+  payment: Payment; mobile: string; customerName: string;
 }) {
   const shop = useApp((s) => s.shopName);
   const gstin = useApp((s) => s.gstin);
   const cart = useApp((s) => s.cart);
+  const upiId = useApp((s) => s.upiId);
   const invId = `INV-${Math.floor(10240 + Math.random() * 500)}`;
-  const upi = `upi://pay?pa=orionpos@upi&pn=${encodeURIComponent(shop)}&am=${totals.total.toFixed(2)}&tn=${invId}&cu=INR`;
+  const upi = `upi://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(shop)}&am=${totals.total.toFixed(2)}&tn=${invId}&cu=INR`;
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
@@ -447,47 +425,27 @@ function SlipDialog({
           <div className="space-y-1">
             {cart.map((l) => (
               <div key={l.productId} className="flex justify-between">
-                <span className="truncate pr-2">
-                  {l.qty}× {l.name}
-                </span>
+                <span className="truncate pr-2">{l.qty}× {l.name}</span>
                 <span className="tabular">{inr(l.price * l.qty * (1 - l.discount / 100))}</span>
               </div>
             ))}
           </div>
           <div className="my-2 border-t border-dashed border-border" />
-          <div className="flex justify-between tabular">
-            <span>Subtotal</span>
-            <span>{inr(totals.subtotal)}</span>
-          </div>
-          <div className="flex justify-between tabular text-muted-foreground">
-            <span>Disc</span>
-            <span>− {inr(totals.discount)}</span>
-          </div>
-          <div className="flex justify-between tabular text-muted-foreground">
-            <span>GST</span>
-            <span>{inr(totals.gst)}</span>
-          </div>
+          <div className="flex justify-between tabular"><span>Subtotal</span><span>{inr(totals.subtotal)}</span></div>
+          <div className="flex justify-between tabular text-muted-foreground"><span>Disc</span><span>− {inr(totals.discount)}</span></div>
+          <div className="flex justify-between tabular text-muted-foreground"><span>GST</span><span>{inr(totals.gst)}</span></div>
           <div className="my-1 border-t border-dashed border-border" />
-          <div className="flex justify-between text-sm font-bold tabular">
-            <span>TOTAL</span>
-            <span>{inr(totals.total)}</span>
-          </div>
+          <div className="flex justify-between text-sm font-bold tabular"><span>TOTAL</span><span>{inr(totals.total)}</span></div>
           <div className="mt-2 text-[10px] text-muted-foreground">Paid via {payment}</div>
           {payment === "UPI" && (
             <div className="mt-3 flex flex-col items-center gap-1">
-              <div className="rounded-lg bg-white p-2">
-                <QRCodeSVG value={upi} size={96} />
-              </div>
+              <div className="rounded-lg bg-white p-2"><QRCodeSVG value={upi} size={96} /></div>
               <div className="text-[10px] text-muted-foreground">Scan to pay {inr(totals.total)}</div>
             </div>
           )}
-          <div className="mt-3 text-center text-[10px] text-muted-foreground">
-            *** Thank you — visit again ***
-          </div>
+          <div className="mt-3 text-center text-[10px] text-muted-foreground">*** Thank you — visit again ***</div>
         </div>
-        <Button onClick={onClose} className="h-11 rounded-xl">
-          Done · New sale
-        </Button>
+        <Button onClick={onClose} className="h-11 rounded-xl">Done · New sale</Button>
       </DialogContent>
     </Dialog>
   );
