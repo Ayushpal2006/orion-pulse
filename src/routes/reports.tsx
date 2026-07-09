@@ -1,12 +1,20 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useMemo, useState } from "react";
+import { format } from "date-fns";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { FileText, FileSpreadsheet } from "lucide-react";
+import {
+  Popover, PopoverContent, PopoverTrigger,
+} from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { FileText, FileSpreadsheet, CalendarIcon } from "lucide-react";
 import { toast } from "sonner";
 import { salesSeries, invoices } from "@/lib/mock-data";
 import { inr } from "@/lib/format";
 import { useCan } from "@/components/role-gate";
+import { cn } from "@/lib/utils";
+import type { DateRange } from "react-day-picker";
 
 export const Route = createFileRoute("/reports")({
   head: () => ({
@@ -20,8 +28,54 @@ export const Route = createFileRoute("/reports")({
   component: Reports,
 });
 
+type Filter =
+  | "today"
+  | "yesterday"
+  | "last7"
+  | "last30"
+  | "thisMonth"
+  | "lastMonth"
+  | "thisYear"
+  | "custom";
+
+const FILTERS: { key: Filter; label: string }[] = [
+  { key: "today", label: "Today" },
+  { key: "yesterday", label: "Yesterday" },
+  { key: "last7", label: "Last 7 days" },
+  { key: "last30", label: "Last 30 days" },
+  { key: "thisMonth", label: "This month" },
+  { key: "lastMonth", label: "Last month" },
+  { key: "thisYear", label: "This year" },
+];
+
+function seriesFor(filter: Filter, range?: DateRange) {
+  switch (filter) {
+    case "today": return salesSeries.Today;
+    case "yesterday": return salesSeries.Yesterday;
+    case "last7": return salesSeries.Last7;
+    case "last30": return salesSeries.Last30;
+    case "thisMonth": return salesSeries.Month;
+    case "lastMonth": return salesSeries.LastMonth;
+    case "thisYear": return salesSeries.Year;
+    case "custom": {
+      if (!range?.from) return salesSeries.Last7;
+      const start = range.from;
+      const end = range.to ?? range.from;
+      const days = Math.max(1, Math.round((end.getTime() - start.getTime()) / 86400000) + 1);
+      return Array.from({ length: Math.min(30, days) }, (_, i) => ({
+        label: format(new Date(start.getTime() + i * 86400000), "d MMM"),
+        value: 8000 + Math.round(Math.sin(i / 2) * 5000 + i * 400),
+      }));
+    }
+  }
+}
+
 function Reports() {
   const canProfit = useCan(["Admin", "Manager"]);
+  const [filter, setFilter] = useState<Filter>("last7");
+  const [range, setRange] = useState<DateRange | undefined>();
+
+  const data = useMemo(() => seriesFor(filter, range), [filter, range]);
 
   const doExport = (fmt: "PDF" | "Excel") =>
     toast.success(`Export queued`, { description: `${fmt} will download when device is idle.` });
@@ -51,6 +105,56 @@ function Reports() {
         </div>
       </div>
 
+      {/* Filter bar */}
+      <div className="card-soft flex flex-wrap items-center gap-1.5 p-2">
+        {FILTERS.map((f) => (
+          <button
+            key={f.key}
+            onClick={() => setFilter(f.key)}
+            className={cn(
+              "rounded-full border px-3 py-1.5 text-xs font-medium transition-colors",
+              filter === f.key
+                ? "border-foreground bg-foreground text-background"
+                : "border-border text-muted-foreground hover:bg-muted",
+            )}
+          >
+            {f.label}
+          </button>
+        ))}
+        <Popover>
+          <PopoverTrigger asChild>
+            <button
+              onClick={() => setFilter("custom")}
+              className={cn(
+                "inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors",
+                filter === "custom"
+                  ? "border-foreground bg-foreground text-background"
+                  : "border-border text-muted-foreground hover:bg-muted",
+              )}
+            >
+              <CalendarIcon className="size-3.5" />
+              {range?.from
+                ? range.to
+                  ? `${format(range.from, "d MMM")} – ${format(range.to, "d MMM")}`
+                  : format(range.from, "d MMM yyyy")
+                : "Custom range"}
+            </button>
+          </PopoverTrigger>
+          <PopoverContent align="end" className="w-auto p-0">
+            <Calendar
+              mode="range"
+              selected={range}
+              onSelect={(r) => {
+                setRange(r);
+                setFilter("custom");
+              }}
+              numberOfMonths={1}
+              className={cn("p-3 pointer-events-auto")}
+            />
+          </PopoverContent>
+        </Popover>
+      </div>
+
       <Tabs defaultValue="sales">
         <TabsList className="rounded-xl">
           <TabsTrigger value="sales" className="rounded-lg">Sales</TabsTrigger>
@@ -60,11 +164,8 @@ function Reports() {
           <TabsTrigger value="gst" className="rounded-lg">GST</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="sales" className="mt-4 space-y-4">
-          <div className="grid gap-4 md:grid-cols-2">
-            <ChartCard title="Daily sales" subtitle="Last 7 days" data={salesSeries.Week} />
-            <ChartCard title="Monthly sales" subtitle="This year" data={salesSeries.Year} />
-          </div>
+        <TabsContent value="sales" className="mt-4 space-y-4 animate-fade-in">
+          <ChartCard title="Sales" subtitle={FILTERS.find((f) => f.key === filter)?.label ?? "Custom range"} data={data} />
           <div className="card-soft overflow-hidden">
             <div className="border-b border-border p-4 text-sm font-semibold">Recent invoices</div>
             <table className="w-full text-sm">
@@ -91,10 +192,10 @@ function Reports() {
         </TabsContent>
 
         {canProfit && (
-          <TabsContent value="profit" className="mt-4 space-y-4">
+          <TabsContent value="profit" className="mt-4 space-y-4 animate-fade-in">
             <div className="grid gap-4 md:grid-cols-3">
               <div className="card-soft p-5">
-                <div className="text-xs text-muted-foreground">Gross profit (MTD)</div>
+                <div className="text-xs text-muted-foreground">Gross profit</div>
                 <div className="tabular mt-2 text-3xl font-semibold text-money">{inr(184320)}</div>
                 <div className="mt-1 text-xs text-muted-foreground">Margin 31.4%</div>
               </div>
@@ -109,13 +210,15 @@ function Reports() {
                 <div className="mt-1 text-xs text-danger">Review pricing</div>
               </div>
             </div>
-            <ChartCard title="Profit trend" subtitle="Last 12 months" data={salesSeries.Year} />
+            <ChartCard title="Profit trend" subtitle="Selected range" data={data} />
           </TabsContent>
         )}
 
-        <TabsContent value="gst" className="mt-4 space-y-4">
+        <TabsContent value="gst" className="mt-4 space-y-4 animate-fade-in">
           <div className="card-soft overflow-hidden">
-            <div className="border-b border-border p-4 text-sm font-semibold">GST summary · Nov 2026</div>
+            <div className="border-b border-border p-4 text-sm font-semibold">
+              GST summary · {FILTERS.find((f) => f.key === filter)?.label ?? "Custom range"}
+            </div>
             <table className="w-full text-sm">
               <thead className="bg-muted/40 text-xs uppercase tracking-wide text-muted-foreground">
                 <tr>
@@ -160,7 +263,7 @@ function ChartCard({
   data: { label: string; value: number }[];
 }) {
   return (
-    <div className="card-soft p-5">
+    <div className="card-soft p-5 animate-fade-in">
       <div className="text-sm font-semibold">{title}</div>
       <div className="text-xs text-muted-foreground">{subtitle}</div>
       <div className="mt-3 h-56">
