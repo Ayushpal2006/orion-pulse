@@ -9,6 +9,7 @@ export interface Product {
   stock: number;
   minimum_stock: number;
   gst: number;            // Percentage (default 18)
+  is_active?: number;     // 1 = active, 0 = archived (soft deleted)
   created_at: string;
   updated_at: string;
 }

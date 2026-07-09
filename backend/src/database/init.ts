@@ -17,10 +17,19 @@ export function initDb(): void {
         stock INTEGER DEFAULT 0,
         minimum_stock INTEGER DEFAULT 0,
         gst INTEGER DEFAULT 18,
+        is_active INTEGER DEFAULT 1,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
       );
     `);
+
+    // Alter products to add is_active column if missing (migration)
+    try {
+      db.exec("ALTER TABLE products ADD COLUMN is_active INTEGER DEFAULT 1;");
+      console.log("✈️ Added is_active column to products table.");
+    } catch (e) {
+      // Ignore if column already exists
+    }
 
     // Create customers table if it doesn't exist
     db.exec(`

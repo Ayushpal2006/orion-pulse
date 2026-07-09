@@ -7,7 +7,7 @@ const CheckoutItemSchema = z.object({
 
 export const CheckoutRequestSchema = z.object({
   customerPhone: z.string().trim().regex(/^\d{10}$/, "Phone number must be exactly 10 digits"),
-  paymentMethod: z.enum(["Cash", "UPI", "Card", "Wallet"], {
+  paymentMethod: z.enum(["Cash", "UPI", "Card", "Wallet"] as const, {
     errorMap: () => ({ message: "Payment method must be one of: Cash, UPI, Card, Wallet" }),
   }),
   cashierName: z.string().trim().min(1, "Cashier name is required"),

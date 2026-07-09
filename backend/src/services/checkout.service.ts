@@ -55,8 +55,8 @@ export class CheckoutService {
 
       for (const item of req.items) {
         const product = this.productRepo.getById(item.productId);
-        if (!product) {
-          throw new NotFoundError(`Product with ID ${item.productId} not found`);
+        if (!product || product.is_active === 0) {
+          throw new NotFoundError(`Product with ID ${item.productId} not found or inactive`);
         }
 
         if (product.stock < item.quantity) {

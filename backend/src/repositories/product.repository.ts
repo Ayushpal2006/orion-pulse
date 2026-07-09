@@ -3,7 +3,7 @@ import { Product, CreateProductDTO, UpdateProductDTO } from "../types/product.ty
 
 export class ProductRepository {
   getAll(): Product[] {
-    const stmt = db.prepare("SELECT * FROM products ORDER BY id DESC");
+    const stmt = db.prepare("SELECT * FROM products WHERE is_active = 1 ORDER BY id DESC");
     return stmt.all() as Product[];
   }
 
@@ -83,7 +83,7 @@ export class ProductRepository {
   }
 
   delete(id: number): boolean {
-    const stmt = db.prepare("DELETE FROM products WHERE id = ?");
+    const stmt = db.prepare("UPDATE products SET is_active = 0, updated_at = CURRENT_TIMESTAMP WHERE id = ?");
     const result = stmt.run(id);
     return result.changes > 0;
   }
@@ -92,9 +92,10 @@ export class ProductRepository {
     const likeQuery = `%${query}%`;
     const stmt = db.prepare(`
       SELECT * FROM products 
-      WHERE name LIKE ? 
-         OR sku LIKE ? 
-         OR barcode LIKE ?
+      WHERE is_active = 1 
+        AND (name LIKE ? 
+          OR sku LIKE ? 
+          OR barcode LIKE ?)
       ORDER BY id DESC
     `);
     return stmt.all(likeQuery, likeQuery, likeQuery) as Product[];
