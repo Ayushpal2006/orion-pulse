@@ -151,6 +151,9 @@
   * {
     border-color: var(--color-border);
   }
+  html {
+    transition: background-color 0.3s ease, color 0.3s ease;
+  }
   html, body {
     background-color: var(--color-surface);
     color: var(--color-foreground);
@@ -167,4 +170,6 @@
   border: 1px solid var(--color-border);
   border-radius: var(--radius-2xl);
   box-shadow: 0 1px 2px oklch(0 0 0 / 0.04), 0 8px 24px -12px oklch(0 0 0 / 0.08);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.3s ease;
 }
+
