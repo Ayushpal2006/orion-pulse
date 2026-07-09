@@ -1,0 +1,25 @@
+CREATE TABLE IF NOT EXISTS products (
+
+id INTEGER PRIMARY KEY AUTOINCREMENT,
+
+name TEXT NOT NULL,
+
+sku TEXT UNIQUE NOT NULL,
+
+barcode TEXT UNIQUE,
+
+category TEXT,
+
+purchase_price INTEGER NOT NULL,
+
+selling_price INTEGER NOT NULL,
+
+stock INTEGER DEFAULT 0,
+
+minimum_stock INTEGER DEFAULT 0,
+
+gst INTEGER DEFAULT 18,
+
+created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+
+);
