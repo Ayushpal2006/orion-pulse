@@ -76,7 +76,7 @@ export class InvoiceController {
 
       const receipt = await this.salesService.getReceipt(invoiceNumber);
       const pdfFilename = `${receipt.invoiceNumber}.pdf`;
-      const pdfPath = path.join(__dirname, "../../../uploads/invoices", pdfFilename);
+      const pdfPath = path.join(__dirname, "../../uploads/invoices", pdfFilename);
 
       // Generate A4 PDF if missing
       if (!fs.existsSync(pdfPath)) {

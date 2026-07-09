@@ -16,6 +16,9 @@ router.get("/", controller.getAll);
 // GET customer by ID
 router.get("/:id", controller.getById);
 
+// GET customer invoices
+router.get("/:id/invoices", controller.getInvoices);
+
 // POST create customer
 router.post("/", controller.create);
 

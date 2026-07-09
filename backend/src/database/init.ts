@@ -3,7 +3,7 @@ import db from "./db";
 export function initDb(): void {
   try {
     console.log("⏳ Initializing database...");
-    
+
     // Create products table if it doesn't exist
     db.exec(`
       CREATE TABLE IF NOT EXISTS products (
@@ -52,10 +52,19 @@ export function initDb(): void {
         total_orders INTEGER DEFAULT 0,
         lifetime_value INTEGER DEFAULT 0,
         last_visit DATETIME,
+        is_active INTEGER DEFAULT 1,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
       );
     `);
+
+    // Alter customers to add is_active column if missing (migration)
+    try {
+      db.exec("ALTER TABLE customers ADD COLUMN is_active INTEGER DEFAULT 1;");
+      console.log("✈️ Added is_active column to customers table.");
+    } catch (e) {
+      // Ignore if column already exists
+    }
 
     // Create sales table if it doesn't exist
     db.exec(`
@@ -78,19 +87,28 @@ export function initDb(): void {
 
     // Run schema alterations/migrations for older databases safely
     try {
-      db.exec("ALTER TABLE sales ADD COLUMN public_token TEXT UNIQUE");
+      db.exec("ALTER TABLE sales ADD COLUMN public_token TEXT");
       console.log("📝 Added public_token column to sales table.");
-    } catch (e) {}
+    } catch (e) {
+      // Column might already exist, which is fine
+    }
+
+    try {
+      db.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_sales_public_token ON sales(public_token)");
+      console.log("📝 Created unique index on public_token.");
+    } catch (e) {
+      console.error("⚠️ Failed to create unique index on public_token:", e);
+    }
 
     try {
       db.exec("ALTER TABLE sales ADD COLUMN pdf_url TEXT");
       console.log("📝 Added pdf_url column to sales table.");
-    } catch (e) {}
+    } catch (e) { }
 
     try {
       db.exec("ALTER TABLE sales ADD COLUMN shared_at DATETIME");
       console.log("📝 Added shared_at column to sales table.");
-    } catch (e) {}
+    } catch (e) { }
 
     // Backfill public tokens for older sales records
     const stmtNullTokens = db.prepare("SELECT id FROM sales WHERE public_token IS NULL");
@@ -128,6 +146,21 @@ export function initDb(): void {
       );
     `);
 
+    // Create sync_jobs table if it doesn't exist
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS sync_jobs (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        job_type TEXT NOT NULL,
+        payload TEXT NOT NULL,
+        status TEXT DEFAULT 'pending',
+        retry_count INTEGER DEFAULT 0,
+        error_message TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        last_attempt DATETIME
+      );
+    `);
+
     // Create settings table if it doesn't exist
     db.exec(`
       CREATE TABLE IF NOT EXISTS settings (
@@ -144,7 +177,7 @@ export function initDb(): void {
       const insertSetting = db.prepare("INSERT INTO settings (key, value) VALUES (?, ?)");
       insertSetting.run("shop_name", "Orion Store");
       insertSetting.run("shop_gstin", "27AAAAA1111A1Z1");
-      insertSetting.run("shop_phone", "9876543210");
+      insertSetting.run("shop_phone", "8285068670");
       insertSetting.run("shop_address", "123, POS Center, Sector V, Salt Lake, Kolkata, 700091");
       insertSetting.run("shop_upi_id", "orion@upi");
       insertSetting.run("whatsapp_footer", "Thank you for shopping. Visit Again.");
@@ -154,12 +187,20 @@ export function initDb(): void {
       insertSetting.run("business_website", "https://orionpos.in");
       insertSetting.run("instagram_url", "https://instagram.com/orionpos");
       insertSetting.run("maps_url", "https://maps.google.com");
+      insertSetting.run("google_sheet_id", "");
+      insertSetting.run("google_sync_enabled", "0");
+    } else {
+      // Ensure Google Sheets keys exist on existing databases
+      try {
+        db.prepare("INSERT OR IGNORE INTO settings (key, value) VALUES ('google_sheet_id', '')").run();
+        db.prepare("INSERT OR IGNORE INTO settings (key, value) VALUES ('google_sync_enabled', '0')").run();
+      } catch (e) {}
     }
 
     // Seed customers if empty
     const checkCustomers = db.prepare("SELECT COUNT(*) as count FROM customers");
     const { count } = checkCustomers.get() as { count: number };
-    
+
     if (count === 0) {
       console.log("🌱 Seeding initial customer records...");
       const seedStmt = db.prepare(`
@@ -173,7 +214,7 @@ export function initDb(): void {
       const initialCustomers = [
         {
           name: "Rahul Sharma",
-          phone: "9876543210",
+          phone: "8285068670",
           email: "rahul@example.com",
           address: "Delhi",
           notes: "Regular customer, prefers weekend visits",
@@ -281,7 +322,7 @@ export function initDb(): void {
       insertMany(initialCustomers);
       console.log("🌱 Customer seeding complete.");
     }
-    
+
     console.log("✅ Database tables checked/created successfully.");
   } catch (error) {
     console.error("❌ Database initialization failed:", error);

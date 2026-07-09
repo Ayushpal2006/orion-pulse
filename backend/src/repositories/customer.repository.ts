@@ -3,7 +3,7 @@ import { Customer, CreateCustomerDTO, UpdateCustomerDTO } from "../types/custome
 
 export class CustomerRepository {
   getAll(): Customer[] {
-    const stmt = db.prepare("SELECT * FROM customers ORDER BY id DESC");
+    const stmt = db.prepare("SELECT * FROM customers WHERE is_active = 1 ORDER BY id DESC");
     return stmt.all() as Customer[];
   }
 
@@ -76,7 +76,7 @@ export class CustomerRepository {
   }
 
   delete(id: number): boolean {
-    const stmt = db.prepare("DELETE FROM customers WHERE id = ?");
+    const stmt = db.prepare("UPDATE customers SET is_active = 0, updated_at = CURRENT_TIMESTAMP WHERE id = ?");
     const result = stmt.run(id);
     return result.changes > 0;
   }
@@ -84,11 +84,22 @@ export class CustomerRepository {
   search(query: string): Customer[] {
     const likeQuery = `%${query}%`;
     const stmt = db.prepare(`
-      SELECT * FROM customers 
-      WHERE name LIKE ? 
-         OR phone LIKE ? 
+      SELECT DISTINCT c.* 
+      FROM customers c
+      LEFT JOIN sales s ON s.customer_id = c.id
+      WHERE c.is_active = 1 
+        AND (c.name LIKE ? OR c.phone LIKE ? OR s.invoice_number LIKE ?)
+      ORDER BY c.id DESC
+    `);
+    return stmt.all(likeQuery, likeQuery, likeQuery) as Customer[];
+  }
+
+  getCustomerInvoices(customerId: number): any[] {
+    const stmt = db.prepare(`
+      SELECT * FROM sales
+      WHERE customer_id = ?
       ORDER BY id DESC
     `);
-    return stmt.all(likeQuery, likeQuery) as Customer[];
+    return stmt.all(customerId);
   }
 }

@@ -14,6 +14,8 @@ export class ReportsService {
     const paymentMethodSplit = this.repo.getPaymentSplit(filter, startDate, endDate);
     const salesSeries = this.repo.getTrendSeries(filter, startDate, endDate);
     const recentInvoices = this.repo.getRecentInvoices(filter, startDate, endDate);
+    const topCustomers = this.repo.getTopCustomers(filter, startDate, endDate);
+    const lowStockCount = this.repo.getLowStockCount();
 
     return {
       ...summary,
@@ -22,6 +24,8 @@ export class ReportsService {
       paymentMethodSplit,
       salesSeries,
       recentInvoices,
+      topCustomers,
+      lowStockCount,
     };
   }
 }

@@ -176,7 +176,7 @@ export class SalesController {
 
       const receipt = await this.service.getReceipt(id);
       const pdfFilename = `${receipt.invoiceNumber}.pdf`;
-      const pdfPath = path.join(__dirname, "../../../uploads/invoices", pdfFilename);
+      const pdfPath = path.join(__dirname, "../../uploads/invoices", pdfFilename);
 
       if (!fs.existsSync(pdfPath)) {
         const pdfService = new PdfService();

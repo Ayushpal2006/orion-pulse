@@ -106,7 +106,7 @@ export class SalesService {
 
   async getReceipt(idOrInvoice: string): Promise<ReceiptResponse> {
     let sale: Sale | null = null;
-    
+
     // Check if numeric lookup or invoice lookup
     const numericId = parseInt(idOrInvoice, 10);
     if (!isNaN(numericId) && String(numericId) === idOrInvoice) {
@@ -136,7 +136,7 @@ export class SalesService {
     const shop = {
       name: getSetting("shop_name", "Orion Store"),
       gstin: getSetting("shop_gstin", "27AAAAA1111A1Z1"),
-      phone: getSetting("shop_phone", "9876543210"),
+      phone: getSetting("shop_phone", "8285068670"),
       address: getSetting("shop_address", "123, POS Center, Sector V, Salt Lake, Kolkata, 700091"),
       upiId: getSetting("shop_upi_id", "orion@upi"),
     };

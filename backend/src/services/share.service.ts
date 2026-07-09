@@ -17,11 +17,11 @@ export class ShareService {
     const invoiceNum = receipt.invoiceNumber;
     const amount = receipt.grandTotal;
     const token = receipt.publicToken || "";
-    
+
     const host = "http://localhost:8080";
     const viewUrl = `${host}/invoice/v/${token}`;
     const downloadUrl = `${host}/invoice/v/${token}/download`;
-    const shopPhone = receipt.shop.phone || "9876543210";
+    const shopPhone = receipt.shop.phone || "8285068670";
 
     const lines: string[] = [
       `Hi ${customerName} \uD83D\uDC4B`,
@@ -53,16 +53,16 @@ export class ShareService {
   generateWhatsAppLink(receipt: any): string {
     const rawMessage = this.generateWhatsAppMessage(receipt);
     const encoded = encodeURIComponent(rawMessage);
-    
+
     // Normalize phone number to strip spacing, non-digits
     let phone = receipt.customer.phone || "";
     phone = phone.replace(/[^0-9]/g, "");
-    
+
     // Add default country code if 10 digits
     if (phone.length === 10) {
       phone = "91" + phone;
     }
-    
+
     return `https://wa.me/${phone}?text=${encoded}`;
   }
 }

@@ -10,6 +10,7 @@ import reportsRoutes from "./routes/reports.routes";
 import printerRoutes from "./routes/printer.routes";
 import settingsRoutes from "./routes/settings.routes";
 import invoiceRoutes from "./routes/invoice.routes";
+import syncRoutes from "./routes/sync.routes";
 import { initDb } from "./database/init";
 import { errorMiddleware } from "./middleware/error.middleware";
 
@@ -36,6 +37,7 @@ app.use("/reports", reportsRoutes);
 app.use("/printer", printerRoutes);
 app.use("/settings", settingsRoutes);
 app.use("/invoice", invoiceRoutes);
+app.use("/sync", syncRoutes);
 
 // Root Health Check Route
 app.get("/", (req, res) => {

@@ -141,4 +141,26 @@ export class CustomerController {
       next(error);
     }
   };
+
+  getInvoices = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const id = parseInt(req.params.id as string, 10);
+      if (isNaN(id)) {
+        res.status(400).json({
+          success: false,
+          message: "Validation Error",
+          error: "ID must be a number",
+        });
+        return;
+      }
+      const invoices = await this.service.getCustomerInvoices(id);
+      res.status(200).json({
+        success: true,
+        data: invoices,
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
 }
+

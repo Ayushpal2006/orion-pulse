@@ -64,7 +64,7 @@ export class ReportsRepository {
       FROM sale_items si
       JOIN sales s ON si.sale_id = s.id
       JOIN products p ON si.product_id = p.id
-      WHERE s.is_active = 1 AND ${clause.replace(/created_at/g, "s.created_at")}
+      WHERE ${clause.replace(/created_at/g, "s.created_at")}
     `);
     const profit = (profitStmt.get(params) as { profit: number }).profit;
 
@@ -146,6 +146,21 @@ export class ReportsRepository {
         ORDER BY hr ASC
       `);
       const rows = stmt.all(params) as { hr: string; amount: number }[];
+
+      const profitRows = db.prepare(`
+        SELECT strftime('%H', s.created_at, 'localtime') as hr,
+               SUM(si.line_total - (p.purchase_price * si.quantity)) as profit
+        FROM sale_items si
+        JOIN sales s ON si.sale_id = s.id
+        JOIN products p ON si.product_id = p.id
+        WHERE ${clause.replace(/created_at/g, "s.created_at")}
+        GROUP BY hr
+      `).all(params) as { hr: string; profit: number }[];
+      
+      const profitMap = new Map<number, number>();
+      for (const pr of profitRows) {
+        profitMap.set(parseInt(pr.hr, 10), pr.profit / 100.0);
+      }
       
       // Pre-populate standard hours: 9 AM to 6 PM (9a to 6p)
       const hoursMap = new Map<number, number>();
@@ -154,12 +169,7 @@ export class ReportsRepository {
       }
       for (const r of rows) {
         const hourNum = parseInt(r.hr, 10);
-        if (hoursMap.has(hourNum)) {
-          hoursMap.set(hourNum, r.amount / 100.0);
-        } else {
-          // If transaction happened outside 9am-6p, add it to closest or keep it
-          hoursMap.set(hourNum, r.amount / 100.0);
-        }
+        hoursMap.set(hourNum, r.amount / 100.0);
       }
 
       const formatHourLabel = (h: number): string => {
@@ -173,6 +183,7 @@ export class ReportsRepository {
       return sortedHours.map((h) => ({
         label: formatHourLabel(h),
         value: hoursMap.get(h) || 0,
+        profit: profitMap.get(h) || 0,
       }));
     }
 
@@ -185,6 +196,21 @@ export class ReportsRepository {
         ORDER BY mnth ASC
       `);
       const rows = stmt.all(params) as { mnth: string; amount: number }[];
+
+      const profitRows = db.prepare(`
+        SELECT strftime('%m', s.created_at, 'localtime') as mnth,
+               SUM(si.line_total - (p.purchase_price * si.quantity)) as profit
+        FROM sale_items si
+        JOIN sales s ON si.sale_id = s.id
+        JOIN products p ON si.product_id = p.id
+        WHERE ${clause.replace(/created_at/g, "s.created_at")}
+        GROUP BY mnth
+      `).all(params) as { mnth: string; profit: number }[];
+      
+      const profitMap = new Map<number, number>();
+      for (const pr of profitRows) {
+        profitMap.set(parseInt(pr.mnth, 10), pr.profit / 100.0);
+      }
       
       const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
       const monthsMap = new Map<number, number>();
@@ -198,6 +224,7 @@ export class ReportsRepository {
       return Array.from(monthsMap.keys()).map((m) => ({
         label: monthNames[m - 1],
         value: monthsMap.get(m) || 0,
+        profit: profitMap.get(m) || 0,
       }));
     }
 
@@ -213,6 +240,21 @@ export class ReportsRepository {
     const salesMap = new Map<string, number>();
     for (const r of rows) {
       salesMap.set(r.dy, r.amount / 100.0);
+    }
+
+    const profitRows = db.prepare(`
+      SELECT date(s.created_at, 'localtime') as dy,
+             SUM(si.line_total - (p.purchase_price * si.quantity)) as profit
+      FROM sale_items si
+      JOIN sales s ON si.sale_id = s.id
+      JOIN products p ON si.product_id = p.id
+      WHERE ${clause.replace(/created_at/g, "s.created_at")}
+      GROUP BY dy
+    `).all(params) as { dy: string; profit: number }[];
+    
+    const profitMap = new Map<string, number>();
+    for (const pr of profitRows) {
+      profitMap.set(pr.dy, pr.profit / 100.0);
     }
 
     // Generate date sequence in JS to populate days with 0 sales
@@ -248,7 +290,6 @@ export class ReportsRepository {
 
     return dates.map((d) => {
       const dateObj = new Date(d);
-      // Format: "4 Jul" or abbreviated day names for last7
       const label = filter === "last7" 
         ? dateObj.toLocaleDateString("en-IN", { weekday: "short" }) 
         : dateObj.toLocaleDateString("en-IN", { day: "numeric", month: "short" });
@@ -256,6 +297,7 @@ export class ReportsRepository {
       return {
         label,
         value: salesMap.get(d) || 0,
+        profit: profitMap.get(d) || 0,
       };
     });
   }
@@ -280,4 +322,30 @@ export class ReportsRepository {
       total: r.total / 100.0,
     }));
   }
+
+  getTopCustomers(filter: string, startDate?: string, endDate?: string) {
+    const { clause, params } = this.getDateCondition(filter, startDate, endDate);
+    const stmt = db.prepare(`
+      SELECT c.name, c.phone, COUNT(s.id) as ordersCount, SUM(s.grand_total) as totalSpend
+      FROM sales s
+      JOIN customers c ON s.customer_id = c.id
+      WHERE ${clause.replace(/created_at/g, "s.created_at")}
+      GROUP BY s.customer_id
+      ORDER BY totalSpend DESC
+      LIMIT 5
+    `);
+    const rows = stmt.all(params) as { name: string; phone: string; ordersCount: number; totalSpend: number }[];
+    return rows.map((r) => ({
+      name: r.name,
+      phone: r.phone,
+      orders: r.ordersCount,
+      spend: r.totalSpend / 100.0,
+    }));
+  }
+
+  getLowStockCount() {
+    const stmt = db.prepare("SELECT COUNT(*) as count FROM products WHERE stock < minimum_stock AND is_active = 1");
+    return (stmt.get() as { count: number }).count;
+  }
 }
+

@@ -60,7 +60,7 @@ curl http://localhost:8080/customers/1
   "data": {
     "id": 1,
     "name": "Rahul Sharma",
-    "phone": "9876543210",
+    "phone": "8285068670",
     "email": "rahul@example.com",
     "address": "Delhi",
     "notes": "Regular customer, prefers weekend visits",
@@ -136,7 +136,7 @@ curl "http://localhost:8080/customers/search?q=Sharma"
     {
       "id": 1,
       "name": "Rahul Sharma",
-      "phone": "9876543210",
+      "phone": "8285068670",
       "email": "rahul@example.com",
       "address": "Delhi",
       "notes": "Regular customer, prefers weekend visits",
@@ -165,7 +165,7 @@ curl -X POST http://localhost:8080/customers \
   -H "Content-Type: application/json" \
   -d '{
     "name": "Rahul Sharma",
-    "phone": "9876543210",
+    "phone": "8285068670",
     "email": "rahul@example.com",
     "address": "Delhi"
   }'
@@ -177,7 +177,7 @@ If the phone number already exists:
 {
   "success": false,
   "message": "Conflict Error",
-  "error": "Phone number \"9876543210\" already exists"
+  "error": "Phone number \"8285068670\" already exists"
 }
 ```
 
@@ -217,7 +217,7 @@ curl -X PUT http://localhost:8080/customers/1 \
   "data": {
     "id": 1,
     "name": "Rahul Sharma",
-    "phone": "9876543210",
+    "phone": "8285068670",
     "email": "rahul@example.com",
     "address": "New Delhi, Connaught Place",
     "notes": "Prefers premium packaging",

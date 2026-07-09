@@ -37,13 +37,35 @@ export class CustomerService {
   }
 
   async create(dto: CreateCustomerDTO): Promise<Customer> {
-    // 1. Validate phone number uniqueness
+    // 1. Validate phone number uniqueness or reactivate if soft-deleted
     const existing = this.repository.getByPhone(dto.phone);
     if (existing) {
+      if (existing.is_active === 0) {
+        const reactivated = this.repository.update(existing.id, {
+          name: dto.name,
+          email: dto.email,
+          address: dto.address,
+          notes: dto.notes,
+          is_active: 1,
+        });
+        if (!reactivated) {
+          throw new Error("Failed to reactivate customer");
+        }
+        try {
+          const { SyncQueueManager } = require("./sync.service");
+          SyncQueueManager.getInstance().enqueue("customer", reactivated);
+        } catch (e) {}
+        return reactivated;
+      }
       throw new ConflictError(`Phone number "${dto.phone}" already exists`);
     }
 
-    return this.repository.create(dto);
+    const created = this.repository.create(dto);
+    try {
+      const { SyncQueueManager } = require("./sync.service");
+      SyncQueueManager.getInstance().enqueue("customer", created);
+    } catch (e) {}
+    return created;
   }
 
   async update(id: number, dto: UpdateCustomerDTO): Promise<Customer> {
@@ -64,6 +86,10 @@ export class CustomerService {
     if (!updatedCustomer) {
       throw new NotFoundError(`Customer with ID ${id} not found`);
     }
+    try {
+      const { SyncQueueManager } = require("./sync.service");
+      SyncQueueManager.getInstance().enqueue("customer", updatedCustomer);
+    } catch (e) {}
     return updatedCustomer;
   }
 
@@ -73,9 +99,21 @@ export class CustomerService {
       throw new NotFoundError(`Customer with ID ${id} not found`);
     }
     this.repository.delete(id);
+    try {
+      const { SyncQueueManager } = require("./sync.service");
+      SyncQueueManager.getInstance().enqueue("customer", { ...existing, is_active: 0 });
+    } catch (e) {}
   }
 
   async search(query: string): Promise<Customer[]> {
     return this.repository.search(query);
+  }
+
+  async getCustomerInvoices(customerId: number): Promise<any[]> {
+    const customer = this.repository.getById(customerId);
+    if (!customer) {
+      throw new NotFoundError(`Customer with ID ${customerId} not found`);
+    }
+    return this.repository.getCustomerInvoices(customerId);
   }
 }

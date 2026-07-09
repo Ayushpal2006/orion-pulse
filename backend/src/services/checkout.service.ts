@@ -144,6 +144,20 @@ export class CheckoutService {
     });
 
     // Run transaction block
-    return checkoutTx(request);
+    const result = checkoutTx(request);
+
+    // Asynchronously enqueue Google Sync background job (do not block client checkout)
+    try {
+      const { SalesService } = require("./sales.service");
+      const salesService = new SalesService();
+      salesService.getReceipt(result.invoice).then((receipt: any) => {
+        const { SyncQueueManager } = require("./sync.service");
+        SyncQueueManager.getInstance().enqueue("sale", receipt);
+      }).catch((e: any) => console.error("Sync getReceipt fail:", e));
+    } catch (e) {
+      console.error("Failed to enqueue sync job for sale:", e);
+    }
+
+    return result;
   }
 }

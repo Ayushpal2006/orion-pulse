@@ -59,7 +59,12 @@ export class ProductService {
       }
     }
 
-    return this.repository.create(dto);
+    const product = this.repository.create(dto);
+    try {
+      const { SyncQueueManager } = require("./sync.service");
+      SyncQueueManager.getInstance().enqueue("product", product);
+    } catch (e) {}
+    return product;
   }
 
   async update(id: number, dto: UpdateProductDTO): Promise<Product> {
@@ -103,6 +108,10 @@ export class ProductService {
     if (!updatedProduct) {
       throw new NotFoundError(`Product with ID ${id} not found`);
     }
+    try {
+      const { SyncQueueManager } = require("./sync.service");
+      SyncQueueManager.getInstance().enqueue("product", updatedProduct);
+    } catch (e) {}
     return updatedProduct;
   }
 
@@ -112,6 +121,10 @@ export class ProductService {
       throw new NotFoundError(`Product with ID ${id} not found`);
     }
     this.repository.delete(id);
+    try {
+      const { SyncQueueManager } = require("./sync.service");
+      SyncQueueManager.getInstance().enqueue("product", { ...existing, is_active: 0 });
+    } catch (e) {}
   }
 
   async search(query: string): Promise<Product[]> {

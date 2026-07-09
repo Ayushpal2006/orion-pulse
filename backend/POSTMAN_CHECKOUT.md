@@ -18,7 +18,7 @@ Executes a POS checkout transaction. If the customer does not exist, they are au
 curl -X POST http://localhost:8080/checkout \
   -H "Content-Type: application/json" \
   -d '{
-    "customerPhone": "9876543210",
+    "customerPhone": "8285068670",
     "paymentMethod": "UPI",
     "cashierName": "Admin",
     "items": [
@@ -119,7 +119,7 @@ curl http://localhost:8080/sales/1
     "customer": {
       "id": 1,
       "name": "Rahul Sharma",
-      "phone": "9876543210",
+      "phone": "8285068670",
       "email": "rahul@example.com",
       "address": "Delhi",
       "notes": "Regular customer, prefers weekend visits",
@@ -185,7 +185,7 @@ curl http://localhost:8080/sales/invoice/INV-2026-000001
     "customer": {
       "id": 1,
       "name": "Rahul Sharma",
-      "phone": "9876543210",
+      "phone": "8285068670",
       "email": "rahul@example.com",
       "address": "Delhi",
       "notes": "Regular customer, prefers weekend visits",
