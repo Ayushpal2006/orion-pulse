@@ -1,30 +1,16 @@
 import type { ReactNode } from "react";
 import { Link, useRouterState } from "@tanstack/react-router";
 import {
-  LayoutDashboard,
-  ShoppingCart,
-  Package,
-  Users,
-  BarChart3,
-  Search,
-  Wifi,
-  Settings,
-  LogOut,
-  UserCog,
+  LayoutDashboard, ShoppingCart, Package, Users, BarChart3, Search, Wifi, Settings, LogOut, UserCog,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
+  DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useApp, type Role } from "@/lib/store";
 import { CommandPalette } from "./command-palette";
+import { ThemeToggle, useThemeInit } from "./theme-toggle";
 import { cn } from "@/lib/utils";
 
 const nav: Array<{ to: string; label: string; icon: typeof LayoutDashboard; exact?: boolean }> = [
@@ -36,6 +22,7 @@ const nav: Array<{ to: string; label: string; icon: typeof LayoutDashboard; exac
 ];
 
 export function AppShell({ children }: { children: ReactNode }) {
+  useThemeInit();
   const setPaletteOpen = useApp((s) => s.setPaletteOpen);
   const role = useApp((s) => s.role);
   const setRole = useApp((s) => s.setRole);
@@ -49,9 +36,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       {/* Desktop sidebar */}
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-60 flex-col border-r border-border bg-elevated lg:flex">
         <div className="flex h-16 items-center gap-2 px-5">
-          <div className="grid size-9 place-items-center rounded-xl bg-primary text-primary-foreground font-black">
-            O
-          </div>
+          <div className="grid size-9 place-items-center rounded-xl bg-primary text-primary-foreground font-black">O</div>
           <div className="leading-tight">
             <div className="text-sm font-semibold tracking-tight">Orion POS</div>
             <div className="text-[11px] text-muted-foreground">Retail OS · v1.0</div>
@@ -67,9 +52,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                 to={n.to}
                 className={cn(
                   "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors",
-                  active
-                    ? "bg-primary text-primary-foreground"
-                    : "text-ink-soft hover:bg-muted hover:text-foreground",
+                  active ? "bg-primary text-primary-foreground" : "text-ink-soft hover:bg-muted hover:text-foreground",
                 )}
               >
                 <Icon className="size-4" />
@@ -92,14 +75,14 @@ export function AppShell({ children }: { children: ReactNode }) {
           >
             <Search className="size-4" />
             <span className="truncate">Search products, customers, invoices…</span>
-            <kbd className="ml-auto hidden rounded-md border border-border bg-elevated px-1.5 py-0.5 text-[10px] font-medium sm:inline-block">
-              ⌘K
-            </kbd>
+            <kbd className="ml-auto hidden rounded-md border border-border bg-elevated px-1.5 py-0.5 text-[10px] font-medium sm:inline-block">⌘K</kbd>
           </button>
 
           <div className="hidden lg:block">
             <OfflineBadge />
           </div>
+
+          <ThemeToggle />
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -112,13 +95,8 @@ export function AppShell({ children }: { children: ReactNode }) {
             <DropdownMenuContent align="end" className="w-56">
               <DropdownMenuLabel>Signed in as {role}</DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">
-                Switch role
-              </DropdownMenuLabel>
-              <DropdownMenuRadioGroup
-                value={role}
-                onValueChange={(v) => setRole(v as Role)}
-              >
+              <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">Switch role</DropdownMenuLabel>
+              <DropdownMenuRadioGroup value={role} onValueChange={(v) => setRole(v as Role)}>
                 <DropdownMenuRadioItem value="Admin">Admin</DropdownMenuRadioItem>
                 <DropdownMenuRadioItem value="Manager">Manager</DropdownMenuRadioItem>
                 <DropdownMenuRadioItem value="Cashier">Cashier</DropdownMenuRadioItem>
@@ -126,17 +104,11 @@ export function AppShell({ children }: { children: ReactNode }) {
               <DropdownMenuSeparator />
               {role !== "Cashier" && (
                 <DropdownMenuItem asChild>
-                  <Link to="/settings">
-                    <Settings className="mr-2 size-4" /> Settings
-                  </Link>
+                  <Link to="/settings"><Settings className="mr-2 size-4" /> Settings</Link>
                 </DropdownMenuItem>
               )}
-              <DropdownMenuItem>
-                <UserCog className="mr-2 size-4" /> Account
-              </DropdownMenuItem>
-              <DropdownMenuItem>
-                <LogOut className="mr-2 size-4" /> Sign out
-              </DropdownMenuItem>
+              <DropdownMenuItem><UserCog className="mr-2 size-4" /> Account</DropdownMenuItem>
+              <DropdownMenuItem><LogOut className="mr-2 size-4" /> Sign out</DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
@@ -157,17 +129,9 @@ export function AppShell({ children }: { children: ReactNode }) {
               <Link
                 key={n.to}
                 to={n.to}
-                className={cn(
-                  "flex flex-col items-center gap-1 py-2.5 text-[11px] font-medium transition-colors",
-                  active ? "text-foreground" : "text-muted-foreground",
-                )}
+                className={cn("flex flex-col items-center gap-1 py-2.5 text-[11px] font-medium transition-colors", active ? "text-foreground" : "text-muted-foreground")}
               >
-                <div
-                  className={cn(
-                    "grid size-9 place-items-center rounded-xl transition-colors",
-                    active ? "bg-primary text-primary-foreground" : "",
-                  )}
-                >
+                <div className={cn("grid size-9 place-items-center rounded-xl transition-colors", active ? "bg-primary text-primary-foreground" : "")}>
                   <Icon className="size-[18px]" />
                 </div>
                 {n.label}
