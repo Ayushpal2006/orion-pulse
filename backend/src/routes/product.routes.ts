@@ -1,27 +1,25 @@
 import { Router } from "express";
+import { ProductController } from "../controllers/product.controller";
 
 const router = Router();
+const controller = new ProductController();
 
-let products: any[] = [];
+// GET products search (MUST be defined before GET /:id)
+router.get("/search", controller.search);
 
 // GET all products
-router.get("/", (req, res) => {
-  res.json(products);
-});
+router.get("/", controller.getAll);
 
-// POST product
-router.post("/", (req, res) => {
-  const product = {
-    id: products.length + 1,
-    ...req.body,
-  };
+// GET product by ID
+router.get("/:id", controller.getById);
 
-  products.push(product);
+// POST create product
+router.post("/", controller.create);
 
-  res.status(201).json({
-    message: "Product created successfully",
-    product,
-  });
-});
+// PUT update product
+router.put("/:id", controller.update);
+
+// DELETE product
+router.delete("/:id", controller.delete);
 
 export default router;
