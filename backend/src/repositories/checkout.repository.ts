@@ -1,13 +1,15 @@
 import db from "../database/db";
 import { Sale, SaleItem } from "../types/checkout.types";
+import crypto from "crypto";
 
 export class CheckoutRepository {
   createSale(sale: Omit<Sale, "id" | "created_at">): number {
+    const publicToken = crypto.randomBytes(9).toString("base64url").substring(0, 12);
     const stmt = db.prepare(`
       INSERT INTO sales (
-        invoice_number, customer_id, cashier_name, payment_method, subtotal, discount, gst, grand_total
+        invoice_number, customer_id, cashier_name, payment_method, subtotal, discount, gst, grand_total, public_token
       ) VALUES (
-        @invoice_number, @customer_id, @cashier_name, @payment_method, @subtotal, @discount, @gst, @grand_total
+        @invoice_number, @customer_id, @cashier_name, @payment_method, @subtotal, @discount, @gst, @grand_total, @public_token
       )
     `);
 
@@ -20,6 +22,7 @@ export class CheckoutRepository {
       discount: sale.discount,
       gst: sale.gst,
       grand_total: sale.grand_total,
+      public_token: publicToken,
     });
 
     return Number(result.lastInsertRowid);

@@ -73,6 +73,20 @@ export function errorMiddleware(
     return;
   }
 
+  // Handle Multer upload errors
+  if (err && (err.name === "MulterError" || err.message?.includes("allowed") || err.message?.includes("upload"))) {
+    let message = err.message;
+    if (err.code === "LIMIT_FILE_SIZE") {
+      message = "File too large. Maximum limit is 5 MB";
+    }
+    res.status(400).json({
+      success: false,
+      message: "Upload Error",
+      error: message,
+    });
+    return;
+  }
+
   // Fallback for generic server errors
   res.status(500).json({
     success: false,

@@ -13,7 +13,20 @@ router.get("/invoice/:invoice", controller.getByInvoice);
 // GET all sales
 router.get("/", controller.getAll);
 
+// GET receipt by sale ID/invoice
+router.get("/:id/receipt", controller.getReceipt);
+
+// POST print receipt
+router.post("/:id/print", controller.printReceipt);
+
+// GET WhatsApp receipt share link
+router.get("/:id/share/whatsapp", controller.getWhatsAppShareLink);
+
+// GET PDF receipt by sale ID/invoice
+router.get("/:id/pdf", controller.getPdfReceipt);
+
 // GET sale by ID
 router.get("/:id", controller.getById);
+
 
 export default router;

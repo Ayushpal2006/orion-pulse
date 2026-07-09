@@ -12,10 +12,12 @@ export interface Customer {
   updated_at: string;
 }
 
-export type CreateCustomerDTO = Omit<
-  Customer,
-  "id" | "total_orders" | "lifetime_value" | "last_visit" | "created_at" | "updated_at"
-> & {
+export type CreateCustomerDTO = {
+  name: string;
+  phone: string;
+  email?: string | null;
+  address?: string | null;
+  notes?: string | null;
   total_orders?: number;
   lifetime_value?: number;
   last_visit?: string | null;

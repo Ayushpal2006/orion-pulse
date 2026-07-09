@@ -20,6 +20,9 @@ export interface Sale {
   discount: number;
   gst: number;
   grand_total: number;
+  public_token?: string;
+  pdf_url?: string;
+  shared_at?: string;
   created_at: string;
 }
 

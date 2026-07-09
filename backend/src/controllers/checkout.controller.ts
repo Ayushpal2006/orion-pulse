@@ -13,7 +13,7 @@ export class CheckoutController {
     try {
       // Validate the checkout request parameters
       const parsedBody = CheckoutRequestSchema.parse(req.body);
-      const result = await this.service.executeCheckout(parsedBody);
+      const result = await this.service.executeCheckout(parsedBody as any);
       res.status(201).json(result);
     } catch (error) {
       next(error);

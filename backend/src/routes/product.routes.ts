@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { ProductController } from "../controllers/product.controller";
+import { upload } from "../middleware/upload.middleware";
 
 const router = Router();
 const controller = new ProductController();
@@ -18,6 +19,9 @@ router.post("/", controller.create);
 
 // PUT update product
 router.put("/:id", controller.update);
+
+// POST upload product image
+router.post("/:id/image", upload.single("image"), controller.uploadImage);
 
 // DELETE product
 router.delete("/:id", controller.delete);

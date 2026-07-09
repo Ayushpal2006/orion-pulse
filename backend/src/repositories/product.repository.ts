@@ -28,9 +28,9 @@ export class ProductRepository {
   create(product: CreateProductDTO): Product {
     const stmt = db.prepare(`
       INSERT INTO products (
-        name, sku, barcode, category, purchase_price, selling_price, stock, minimum_stock, gst
+        name, sku, barcode, category, purchase_price, selling_price, stock, minimum_stock, gst, image_url
       ) VALUES (
-        @name, @sku, @barcode, @category, @purchase_price, @selling_price, @stock, @minimum_stock, @gst
+        @name, @sku, @barcode, @category, @purchase_price, @selling_price, @stock, @minimum_stock, @gst, @image_url
       )
     `);
 
@@ -44,6 +44,7 @@ export class ProductRepository {
       stock: product.stock ?? 0,
       minimum_stock: product.minimum_stock ?? 0,
       gst: product.gst ?? 18,
+      image_url: product.image_url ?? null,
     });
 
     const newId = Number(result.lastInsertRowid);

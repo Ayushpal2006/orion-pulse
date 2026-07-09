@@ -1,6 +1,8 @@
 import { Request, Response, NextFunction } from "express";
 import { ProductService } from "../services/product.service";
 import { CreateProductSchema, UpdateProductSchema } from "../schemas/product.schema";
+import fs from "fs";
+import path from "path";
 
 export class ProductController {
   private service: ProductService;
@@ -23,7 +25,7 @@ export class ProductController {
 
   getById = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const id = parseInt(req.params.id, 10);
+      const id = parseInt(req.params.id as string, 10);
       if (isNaN(id)) {
         res.status(400).json({
           success: false,
@@ -58,7 +60,7 @@ export class ProductController {
 
   update = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const id = parseInt(req.params.id, 10);
+      const id = parseInt(req.params.id as string, 10);
       if (isNaN(id)) {
         res.status(400).json({
           success: false,
@@ -81,7 +83,7 @@ export class ProductController {
 
   delete = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const id = parseInt(req.params.id, 10);
+      const id = parseInt(req.params.id as string, 10);
       if (isNaN(id)) {
         res.status(400).json({
           success: false,
@@ -115,6 +117,65 @@ export class ProductController {
       res.status(200).json({
         success: true,
         data: products,
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  uploadImage = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const id = parseInt(req.params.id as string, 10);
+      if (isNaN(id)) {
+        res.status(400).json({
+          success: false,
+          message: "Validation Error",
+          error: "ID must be a number",
+        });
+        return;
+      }
+
+      if (!req.file) {
+        res.status(400).json({
+          success: false,
+          message: "Validation Error",
+          error: "No image file provided",
+        });
+        return;
+      }
+
+      const product = await this.service.getById(id);
+      if (!product) {
+        // Remove uploaded file if product not found to prevent leaks
+        if (req.file.path && fs.existsSync(req.file.path)) {
+          fs.unlinkSync(req.file.path);
+        }
+        res.status(404).json({
+          success: false,
+          message: "Not Found",
+          error: `Product with ID ${id} not found`,
+        });
+        return;
+      }
+
+      // If previous image exists, delete it
+      if (product.image_url) {
+        const previousPath = path.join(__dirname, "../..", product.image_url);
+        if (fs.existsSync(previousPath)) {
+          try {
+            fs.unlinkSync(previousPath);
+          } catch (e) {
+            console.error("Failed to delete previous image:", e);
+          }
+        }
+      }
+
+      const relativeUrl = `/uploads/products/${req.file.filename}`;
+      await this.service.update(id, { image_url: relativeUrl });
+
+      res.status(200).json({
+        success: true,
+        imageUrl: relativeUrl,
       });
     } catch (error) {
       next(error);

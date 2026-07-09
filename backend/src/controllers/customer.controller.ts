@@ -23,7 +23,7 @@ export class CustomerController {
 
   getById = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const id = parseInt(req.params.id, 10);
+      const id = parseInt(req.params.id as string, 10);
       if (isNaN(id)) {
         res.status(400).json({
           success: false,
@@ -44,7 +44,7 @@ export class CustomerController {
 
   getByPhone = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const phone = req.params.phone;
+      const phone = req.params.phone as string;
       if (!/^\d{10}$/.test(phone)) {
         res.status(400).json({
           success: false,
@@ -67,7 +67,7 @@ export class CustomerController {
     try {
       // Validate incoming request schema
       const dto = CreateCustomerSchema.parse(req.body);
-      const customer = await this.service.create(dto);
+      const customer = await this.service.create(dto as any);
       res.status(201).json({
         success: true,
         data: customer,
@@ -79,7 +79,7 @@ export class CustomerController {
 
   update = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const id = parseInt(req.params.id, 10);
+      const id = parseInt(req.params.id as string, 10);
       if (isNaN(id)) {
         res.status(400).json({
           success: false,
@@ -102,7 +102,7 @@ export class CustomerController {
 
   delete = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const id = parseInt(req.params.id, 10);
+      const id = parseInt(req.params.id as string, 10);
       if (isNaN(id)) {
         res.status(400).json({
           success: false,

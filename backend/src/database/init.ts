@@ -18,6 +18,7 @@ export function initDb(): void {
         minimum_stock INTEGER DEFAULT 0,
         gst INTEGER DEFAULT 18,
         is_active INTEGER DEFAULT 1,
+        image_url TEXT,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
       );
@@ -27,6 +28,14 @@ export function initDb(): void {
     try {
       db.exec("ALTER TABLE products ADD COLUMN is_active INTEGER DEFAULT 1;");
       console.log("✈️ Added is_active column to products table.");
+    } catch (e) {
+      // Ignore if column already exists
+    }
+
+    // Alter products to add image_url column if missing (migration)
+    try {
+      db.exec("ALTER TABLE products ADD COLUMN image_url TEXT;");
+      console.log("✈️ Added image_url column to products table.");
     } catch (e) {
       // Ignore if column already exists
     }
@@ -60,9 +69,49 @@ export function initDb(): void {
         discount INTEGER DEFAULT 0,
         gst INTEGER DEFAULT 0,
         grand_total INTEGER NOT NULL,
+        public_token TEXT UNIQUE,
+        pdf_url TEXT,
+        shared_at DATETIME,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
       );
     `);
+
+    // Run schema alterations/migrations for older databases safely
+    try {
+      db.exec("ALTER TABLE sales ADD COLUMN public_token TEXT UNIQUE");
+      console.log("📝 Added public_token column to sales table.");
+    } catch (e) {}
+
+    try {
+      db.exec("ALTER TABLE sales ADD COLUMN pdf_url TEXT");
+      console.log("📝 Added pdf_url column to sales table.");
+    } catch (e) {}
+
+    try {
+      db.exec("ALTER TABLE sales ADD COLUMN shared_at DATETIME");
+      console.log("📝 Added shared_at column to sales table.");
+    } catch (e) {}
+
+    // Backfill public tokens for older sales records
+    const stmtNullTokens = db.prepare("SELECT id FROM sales WHERE public_token IS NULL");
+    const nullTokenSales = stmtNullTokens.all() as { id: number }[];
+    if (nullTokenSales.length > 0) {
+      console.log(`🔑 Generating base64url secure tokens for ${nullTokenSales.length} existing sales...`);
+      const updateToken = db.prepare("UPDATE sales SET public_token = ? WHERE id = ?");
+      const crypto = require("crypto");
+      for (const sale of nullTokenSales) {
+        const token = crypto.randomBytes(9).toString("base64url").substring(0, 12);
+        updateToken.run(token, sale.id);
+      }
+    }
+
+    // Initialize invoices storage directories
+    const fs = require("fs");
+    const path = require("path");
+    const uploadsDir = path.join(__dirname, "../../uploads/invoices");
+    if (!fs.existsSync(uploadsDir)) {
+      fs.mkdirSync(uploadsDir, { recursive: true });
+    }
 
     // Create sale_items table if it doesn't exist
     db.exec(`
@@ -78,6 +127,34 @@ export function initDb(): void {
         FOREIGN KEY (product_id) REFERENCES products(id)
       );
     `);
+
+    // Create settings table if it doesn't exist
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS settings (
+        key TEXT PRIMARY KEY,
+        value TEXT NOT NULL
+      );
+    `);
+
+    // Seed settings if empty
+    const checkSettings = db.prepare("SELECT COUNT(*) as count FROM settings");
+    const { count: settingsCount } = checkSettings.get() as { count: number };
+    if (settingsCount === 0) {
+      console.log("🌱 Seeding default shop settings...");
+      const insertSetting = db.prepare("INSERT INTO settings (key, value) VALUES (?, ?)");
+      insertSetting.run("shop_name", "Orion Store");
+      insertSetting.run("shop_gstin", "27AAAAA1111A1Z1");
+      insertSetting.run("shop_phone", "9876543210");
+      insertSetting.run("shop_address", "123, POS Center, Sector V, Salt Lake, Kolkata, 700091");
+      insertSetting.run("shop_upi_id", "orion@upi");
+      insertSetting.run("whatsapp_footer", "Thank you for shopping. Visit Again.");
+      insertSetting.run("signature", "Authorized Signatory");
+      insertSetting.run("exchange_policy", "Items can be exchanged within 7 days with original receipt and tags intact.");
+      insertSetting.run("invoice_theme", "classic");
+      insertSetting.run("business_website", "https://orionpos.in");
+      insertSetting.run("instagram_url", "https://instagram.com/orionpos");
+      insertSetting.run("maps_url", "https://maps.google.com");
+    }
 
     // Seed customers if empty
     const checkCustomers = db.prepare("SELECT COUNT(*) as count FROM customers");

@@ -39,4 +39,15 @@ export class SaleRepository {
     `);
     return stmt.all(saleId);
   }
+
+  getByCustomerPhone(phone: string): Sale[] {
+    const stmt = db.prepare(`
+      SELECT s.*
+      FROM sales s
+      JOIN customers c ON s.customer_id = c.id
+      WHERE c.phone = ?
+      ORDER BY s.id DESC
+    `);
+    return stmt.all(phone) as Sale[];
+  }
 }
