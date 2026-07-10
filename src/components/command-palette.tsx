@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import {
   CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, CommandSeparator,
@@ -7,7 +7,6 @@ import {
   Package, Users, Receipt, LayoutDashboard, ScanBarcode, Plus, Settings, BarChart3, Tag, Sun, Moon, Monitor,
 } from "lucide-react";
 import { useApp } from "@/lib/store";
-import { invoices } from "@/lib/mock-data";
 
 export function CommandPalette() {
   const open = useApp((s) => s.paletteOpen);
@@ -17,6 +16,20 @@ export function CommandPalette() {
   const customers = useApp((s) => s.customers);
   const setTheme = useApp((s) => s.setTheme);
   const navigate = useNavigate();
+  const [sales, setSales] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (open) {
+      fetch("http://localhost:8080/sales")
+        .then((res) => res.json())
+        .then((json) => {
+          if (json.success && Array.isArray(json.data)) {
+            setSales(json.data.slice(0, 5));
+          }
+        })
+        .catch(() => {});
+    }
+  }, [open]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -106,11 +119,13 @@ export function CommandPalette() {
         </CommandGroup>
 
         <CommandSeparator />
-        <CommandGroup heading="Invoices">
-          {invoices.map((inv) => (
-            <CommandItem key={inv.id} value={`invoice ${inv.id}`} onSelect={() => go("/reports")}>
-              <Receipt className="mr-2 size-4" /> {inv.id}
-              <span className="ml-auto text-xs text-muted-foreground">{inv.date}</span>
+        <CommandGroup heading="Recent Invoices">
+          {sales.map((inv) => (
+            <CommandItem key={inv.id} value={`invoice ${inv.invoice_number}`} onSelect={() => go("/reports")}>
+              <Receipt className="mr-2 size-4" /> {inv.invoice_number}
+              <span className="ml-auto text-xs text-muted-foreground">
+                {new Date(inv.created_at).toLocaleDateString("en-IN", { day: "2-digit", month: "short", timeZone: "Asia/Kolkata" })}
+              </span>
             </CommandItem>
           ))}
         </CommandGroup>

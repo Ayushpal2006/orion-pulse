@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { products as seedProducts, customers as seedCustomers, type Product, type Customer } from "./mock-data";
+import { type Product, type Customer } from "./mock-data";
 
 export type Role = "Admin" | "Manager" | "Cashier";
 export type Payment = "Cash" | "UPI" | "Card" | "Wallet";
@@ -54,6 +54,7 @@ type State = {
   storeAddress: string;
   storePhone: string;
   storeEmail: string;
+  whatsappFooter: string;
 };
 
 type Actions = {
@@ -70,6 +71,7 @@ type Actions = {
   setCustomerName: (n: string) => void;
 
   // products
+  setProducts: (products: Product[]) => void;
   addProduct: (p: Product) => void;
   updateProduct: (id: string, patch: Partial<Product>) => void;
   deleteProduct: (id: string) => void;
@@ -77,6 +79,7 @@ type Actions = {
   adjustStock: (id: string, delta: number, reason: StockAdjustReason) => void;
 
   // customers
+  setCustomers: (customers: Customer[]) => void;
   addCustomer: (c: Customer) => void;
   updateCustomer: (id: string, patch: Partial<Customer>) => void;
   deleteCustomer: (id: string) => void;
@@ -102,6 +105,7 @@ type Actions = {
   setStoreAddress: (s: string) => void;
   setStorePhone: (s: string) => void;
   setStoreEmail: (s: string) => void;
+  setWhatsappFooter: (s: string) => void;
 };
 
 export const useApp = create<State & Actions>((set, get) => ({
@@ -111,8 +115,8 @@ export const useApp = create<State & Actions>((set, get) => ({
   payment: "UPI",
   customerMobile: "",
   customerName: "",
-  products: seedProducts,
-  customers: seedCustomers,
+  products: [],
+  customers: [],
   parkedSales: [],
   shopName: "Orion Threads & Co.",
   gstin: "27ABCDE1234F1Z5",
@@ -129,6 +133,7 @@ export const useApp = create<State & Actions>((set, get) => ({
   storeAddress: "Shop 12, MG Road, Pune 411001",
   storePhone: "+91 98765 43210",
   storeEmail: "hello@orionpos.in",
+  whatsappFooter: "Thank you for shopping. Visit Again.",
 
   setRole: (role) => set({ role }),
   setPaletteOpen: (paletteOpen) => set({ paletteOpen }),
@@ -166,6 +171,7 @@ export const useApp = create<State & Actions>((set, get) => ({
   setCustomerMobile: (customerMobile) => set({ customerMobile }),
   setCustomerName: (customerName) => set({ customerName }),
 
+  setProducts: (products) => set({ products }),
   addProduct: (p) => set((s) => ({ products: [p, ...s.products] })),
   updateProduct: (id, patch) =>
     set((s) => ({
@@ -200,7 +206,16 @@ export const useApp = create<State & Actions>((set, get) => ({
       ),
     })),
 
-  addCustomer: (c) => set((s) => ({ customers: [c, ...s.customers] })),
+  setCustomers: (customers) => set({ customers }),
+  addCustomer: (c) => set((s) => {
+    const exists = s.customers.some((x) => x.mobile === c.mobile);
+    if (exists) {
+      return {
+        customers: s.customers.map((x) => x.mobile === c.mobile ? { ...x, ...c } : x)
+      };
+    }
+    return { customers: [c, ...s.customers] };
+  }),
   updateCustomer: (id, patch) =>
     set((s) => ({ customers: s.customers.map((c) => (c.id === id ? { ...c, ...patch } : c)) })),
   deleteCustomer: (id) => set((s) => ({ customers: s.customers.filter((c) => c.id !== id) })),
@@ -254,6 +269,7 @@ export const useApp = create<State & Actions>((set, get) => ({
   setStoreAddress: (storeAddress) => set({ storeAddress }),
   setStorePhone: (storePhone) => set({ storePhone }),
   setStoreEmail: (storeEmail) => set({ storeEmail }),
+  setWhatsappFooter: (whatsappFooter) => set({ whatsappFooter }),
 }));
 
 export const cartTotals = (cart: CartLine[]) => {

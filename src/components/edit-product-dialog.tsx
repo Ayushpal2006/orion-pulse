@@ -13,50 +13,98 @@ import {
 import { toast } from "sonner";
 import { useApp } from "@/lib/store";
 import type { Product } from "@/lib/mock-data";
+import { createProduct, updateProduct as updateProductApi, uploadProductImage } from "@/lib/api";
 
 export function EditProductDialog({
   open,
   onOpenChange,
   product,
   mode,
+  onSuccess,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   product: Product | null;
   mode: "add" | "edit";
+  onSuccess?: () => void;
 }) {
   const addProduct = useApp((s) => s.addProduct);
   const updateProduct = useApp((s) => s.updateProduct);
 
   const [form, setForm] = useState<Product>(() => blank());
+  const [submitting, setSubmitting] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
   useEffect(() => {
-    if (open) setForm(product ? { ...product } : blank());
+    if (open) {
+      setForm(product ? { ...product } : blank());
+      setSelectedFile(null);
+      setPreviewUrl(null);
+    }
   }, [open, product]);
+
+  // Clean up object URL to prevent memory leaks
+  useEffect(() => {
+    return () => {
+      if (previewUrl) URL.revokeObjectURL(previewUrl);
+    };
+  }, [previewUrl]);
 
   const upd = <K extends keyof Product>(k: K, v: Product[K]) =>
     setForm((f) => ({ ...f, [k]: v }));
 
-  const submit = () => {
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) {
+        toast.error("File too large. Maximum size is 5 MB.");
+        return;
+      }
+      if (!/image\/(jpeg|jpg|png|webp)/.test(file.type)) {
+        toast.error("Only PNG, JPG, JPEG, and WebP formats are allowed.");
+        return;
+      }
+      setSelectedFile(file);
+      const url = URL.createObjectURL(file);
+      setPreviewUrl(url);
+    }
+  };
+
+  const submit = async () => {
     if (!form.name || !form.price) {
       toast.error("Name and selling price are required");
       return;
     }
-    if (mode === "add") {
-      const now = new Date().toISOString();
-      addProduct({ ...form, id: `p${Math.floor(Math.random() * 1000000)}`, createdAt: now, updatedAt: now });
-      toast.success(`${form.name} added`, { description: `SKU ${form.sku}` });
-    } else if (product) {
-      updateProduct(product.id, form);
-      toast.success(`${form.name} updated`);
-    }
-    onOpenChange(false);
-  };
+    setSubmitting(true);
+    try {
+      let finalProduct: Product | null = null;
+      if (mode === "add") {
+        const newProd = await createProduct(form);
+        addProduct(newProd);
+        finalProduct = newProd;
+        toast.success(`${form.name} added`, { description: `SKU ${form.sku}` });
+      } else if (product) {
+        const updatedProd = await updateProductApi(product.id, form);
+        updateProduct(product.id, updatedProd);
+        finalProduct = updatedProd;
+        toast.success(`${form.name} updated`);
+      }
 
-  const readImage = (file: File) => {
-    const reader = new FileReader();
-    reader.onload = () => upd("image", reader.result as string);
-    reader.readAsDataURL(file);
+      // If a file was selected, upload the image
+      if (finalProduct && selectedFile) {
+        const uploadedUrl = await uploadProductImage(finalProduct.id, selectedFile);
+        const productWithImage = { ...finalProduct, image: uploadedUrl };
+        updateProduct(finalProduct.id, productWithImage);
+      }
+
+      if (onSuccess) onSuccess();
+      onOpenChange(false);
+    } catch (error: any) {
+      toast.error(error.message || "Failed to save product. Please check server availability.");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -69,9 +117,9 @@ export function EditProductDialog({
 
         <div className="space-y-3">
           <div className="flex items-center gap-3">
-            <div className="grid size-14 place-items-center overflow-hidden rounded-xl bg-muted text-2xl">
-              {form.image ? (
-                <img src={form.image} alt="" className="size-full object-cover" />
+            <div className="grid size-14 place-items-center overflow-hidden rounded-xl bg-muted text-2xl border border-border">
+              {previewUrl || form.image ? (
+                <img src={previewUrl || form.image} alt="" className="size-full object-cover" />
               ) : (
                 <span>{form.emoji || "📦"}</span>
               )}
@@ -80,26 +128,27 @@ export function EditProductDialog({
               <Label className="text-xs font-medium text-muted-foreground">Product image</Label>
               <Input
                 type="file"
-                accept="image/*"
-                className="mt-1 h-9 rounded-lg"
-                onChange={(e) => e.target.files?.[0] && readImage(e.target.files[0])}
+                accept="image/png, image/jpeg, image/jpg, image/webp"
+                className="mt-1 h-9 rounded-lg text-xs"
+                onChange={handleFileChange}
+                disabled={submitting}
               />
             </div>
           </div>
 
           <Field label="Product name">
-            <Input value={form.name} onChange={(e) => upd("name", e.target.value)} placeholder="Denim Jacket" />
+            <Input value={form.name} onChange={(e) => upd("name", e.target.value)} placeholder="Denim Jacket" disabled={submitting} />
           </Field>
           <div className="grid grid-cols-2 gap-3">
             <Field label="SKU">
-              <Input value={form.sku} onChange={(e) => upd("sku", e.target.value)} />
+              <Input value={form.sku} onChange={(e) => upd("sku", e.target.value)} disabled={submitting} />
             </Field>
             <Field label="Barcode">
-              <Input value={form.barcode} onChange={(e) => upd("barcode", e.target.value)} />
+              <Input value={form.barcode} onChange={(e) => upd("barcode", e.target.value)} disabled={submitting} />
             </Field>
           </div>
           <Field label="Category">
-            <Input value={form.category} onChange={(e) => upd("category", e.target.value)} placeholder="Shirts" />
+            <Input value={form.category} onChange={(e) => upd("category", e.target.value)} placeholder="Shirts" disabled={submitting} />
           </Field>
           <div className="grid grid-cols-2 gap-3">
             <Field label="Purchase price">
@@ -108,6 +157,7 @@ export function EditProductDialog({
                 value={form.purchase || ""}
                 onChange={(e) => upd("purchase", Number(e.target.value) || 0)}
                 placeholder="₹"
+                disabled={submitting}
               />
             </Field>
             <Field label="Selling price">
@@ -116,6 +166,7 @@ export function EditProductDialog({
                 value={form.price || ""}
                 onChange={(e) => upd("price", Number(e.target.value) || 0)}
                 placeholder="₹"
+                disabled={submitting}
               />
             </Field>
           </div>
@@ -125,6 +176,7 @@ export function EditProductDialog({
                 inputMode="numeric"
                 value={form.gst}
                 onChange={(e) => upd("gst", Number(e.target.value) || 0)}
+                disabled={submitting}
               />
             </Field>
             <Field label="Opening stock">
@@ -132,6 +184,7 @@ export function EditProductDialog({
                 inputMode="numeric"
                 value={form.stock}
                 onChange={(e) => upd("stock", Number(e.target.value) || 0)}
+                disabled={submitting}
               />
             </Field>
             <Field label="Min stock">
@@ -139,16 +192,19 @@ export function EditProductDialog({
                 inputMode="numeric"
                 value={form.reorder}
                 onChange={(e) => upd("reorder", Number(e.target.value) || 0)}
+                disabled={submitting}
               />
             </Field>
           </div>
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={submitting}>
             Cancel
           </Button>
-          <Button onClick={submit}>{mode === "add" ? "Add product" : "Save changes"}</Button>
+          <Button onClick={submit} disabled={submitting}>
+            {submitting ? "Saving..." : mode === "add" ? "Add product" : "Save changes"}
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

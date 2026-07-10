@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useEffect, type ReactNode } from "react";
 import { Link, useRouterState } from "@tanstack/react-router";
 import {
   LayoutDashboard, ShoppingCart, Package, Users, BarChart3, Search, Wifi, Settings, LogOut, UserCog,
@@ -12,6 +12,7 @@ import { useApp, type Role } from "@/lib/store";
 import { CommandPalette } from "./command-palette";
 import { ThemeToggle, useThemeInit } from "./theme-toggle";
 import { cn } from "@/lib/utils";
+import { getProducts, getCustomers } from "@/lib/api";
 
 const nav: Array<{ to: string; label: string; icon: typeof LayoutDashboard; exact?: boolean }> = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard, exact: true },
@@ -26,7 +27,35 @@ export function AppShell({ children }: { children: ReactNode }) {
   const setPaletteOpen = useApp((s) => s.setPaletteOpen);
   const role = useApp((s) => s.role);
   const setRole = useApp((s) => s.setRole);
+  const setProducts = useApp((s) => s.setProducts);
+  const setCustomers = useApp((s) => s.setCustomers);
   const pathname = useRouterState({ select: (s) => s.location.pathname });
+
+  useEffect(() => {
+    // 1. Fetch products
+    getProducts()
+      .then(setProducts)
+      .catch((err) => console.error("AppShell products fetch failed:", err));
+
+    // 2. Fetch customers
+    getCustomers()
+      .then((data) => {
+        const mapped = data.map((c: any) => ({
+          id: String(c.id),
+          name: c.name,
+          mobile: c.phone,
+          ltv: (c.lifetime_value ?? 0) / 100,
+          visits: c.total_orders ?? 0,
+          lastVisit: c.last_visit ? new Date(c.last_visit).toLocaleDateString("en-IN", { day: "numeric", month: "short" }) : "Never",
+          since: c.created_at ? new Date(c.created_at).toLocaleDateString("en-IN", { month: "short", year: "numeric" }) : "Recently",
+          email: c.email || undefined,
+          address: c.address || undefined,
+          notes: c.notes || undefined,
+        }));
+        setCustomers(mapped);
+      })
+      .catch((err) => console.error("AppShell customers fetch failed:", err));
+  }, [setProducts, setCustomers]);
 
   const isActive = (to: string, exact?: boolean) =>
     exact ? pathname === to : pathname === to || pathname.startsWith(to + "/");

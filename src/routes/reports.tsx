@@ -2,19 +2,20 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { format } from "date-fns";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { useQuery } from "@tanstack/react-query";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import {
   Popover, PopoverContent, PopoverTrigger,
 } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-import { FileText, FileSpreadsheet, CalendarIcon } from "lucide-react";
+import { FileText, FileSpreadsheet, CalendarIcon, Loader2, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
-import { salesSeries, invoices } from "@/lib/mock-data";
 import { inr } from "@/lib/format";
 import { useCan } from "@/components/role-gate";
 import { cn } from "@/lib/utils";
 import type { DateRange } from "react-day-picker";
+import { getReportsData } from "@/lib/api";
 
 export const Route = createFileRoute("/reports")({
   head: () => ({
@@ -48,59 +49,80 @@ const FILTERS: { key: Filter; label: string }[] = [
   { key: "thisYear", label: "This year" },
 ];
 
-function seriesFor(filter: Filter, range?: DateRange) {
-  switch (filter) {
-    case "today": return salesSeries.Today;
-    case "yesterday": return salesSeries.Yesterday;
-    case "last7": return salesSeries.Last7;
-    case "last30": return salesSeries.Last30;
-    case "thisMonth": return salesSeries.Month;
-    case "lastMonth": return salesSeries.LastMonth;
-    case "thisYear": return salesSeries.Year;
-    case "custom": {
-      if (!range?.from) return salesSeries.Last7;
-      const start = range.from;
-      const end = range.to ?? range.from;
-      const days = Math.max(1, Math.round((end.getTime() - start.getTime()) / 86400000) + 1);
-      return Array.from({ length: Math.min(30, days) }, (_, i) => ({
-        label: format(new Date(start.getTime() + i * 86400000), "d MMM"),
-        value: 8000 + Math.round(Math.sin(i / 2) * 5000 + i * 400),
-      }));
-    }
-  }
-}
-
 function Reports() {
   const canProfit = useCan(["Admin", "Manager"]);
   const [filter, setFilter] = useState<Filter>("last7");
   const [range, setRange] = useState<DateRange | undefined>();
 
-  const data = useMemo(() => seriesFor(filter, range), [filter, range]);
+  // Format dates for backend custom queries
+  const startDateStr = (filter === "custom" && range?.from) ? format(range.from, "yyyy-MM-dd") : undefined;
+  const endDateStr = (filter === "custom" && range?.to) ? format(range.to, "yyyy-MM-dd") : undefined;
 
-  const doExport = (fmt: "PDF" | "Excel") =>
-    toast.success(`Export queued`, { description: `${fmt} will download when device is idle.` });
+  // Fetch reports data from SQLite
+  const { data: reports, isLoading, isError, refetch } = useQuery({
+    queryKey: ["reports", filter, startDateStr, endDateStr],
+    queryFn: () => getReportsData(filter, startDateStr, endDateStr),
+  });
 
-  const gstRows = [
-    { slab: "5%", taxable: 42800, tax: 2140 },
-    { slab: "12%", taxable: 128400, tax: 15408 },
-    { slab: "18%", taxable: 96200, tax: 17316 },
-  ];
+  const handleExport = (type: "pdf" | "excel") => {
+    const q = new URLSearchParams();
+    q.append("filter", filter);
+    if (startDateStr) q.append("startDate", startDateStr);
+    if (endDateStr) q.append("endDate", endDateStr);
+    window.open(`http://localhost:8080/reports/${type}?${q.toString()}`, "_blank");
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex h-[80vh] items-center justify-center">
+        <Loader2 className="size-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <div className="flex h-[80vh] flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-border bg-muted/20 p-6 text-center">
+        <div className="text-sm font-semibold text-foreground">Reports could not be loaded</div>
+        <div className="max-w-md text-sm text-muted-foreground">The backend could not produce the selected report. Please retry or verify the SQLite data source.</div>
+        <Button variant="outline" size="sm" onClick={() => refetch()}>
+          <RefreshCw className="mr-2 size-4" /> Retry
+        </Button>
+      </div>
+    );
+  }
+
+  const data = reports?.salesSeries || [];
+  const recentInvoices = reports?.recentInvoices || [];
+  const gstRows = reports?.gstSummary || [];
+  const topProducts = reports?.topProducts || [];
+  const topCustomers = reports?.topCustomers || [];
+
+  const summary = reports || {
+    revenue: 0,
+    orders: 0,
+    profit: 0,
+    averageOrderValue: 0,
+    lowStockCount: 0
+  };
+
+  const marginPercent = summary.revenue > 0 ? (summary.profit / summary.revenue) * 100 : 0;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">Reports</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            All data computed locally · zero cloud lag
+            All reports computed in real-time from active SQLite ledger.
           </p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" className="rounded-xl" onClick={() => doExport("PDF")}>
-            <FileText className="mr-1.5 size-4" /> PDF
+          <Button variant="outline" size="sm" className="rounded-xl" onClick={() => handleExport("pdf")}>
+            <FileText className="mr-1.5 size-4" /> PDF Report
           </Button>
-          <Button variant="outline" size="sm" className="rounded-xl" onClick={() => doExport("Excel")}>
-            <FileSpreadsheet className="mr-1.5 size-4" /> Excel
+          <Button variant="outline" size="sm" className="rounded-xl" onClick={() => handleExport("excel")}>
+            <FileSpreadsheet className="mr-1.5 size-4" /> Excel Sheets
           </Button>
         </div>
       </div>
@@ -155,6 +177,30 @@ function Reports() {
         </Popover>
       </div>
 
+      {/* KPI Cards Grid */}
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+        <div className="card-soft p-4 space-y-1">
+          <span className="text-xs text-muted-foreground font-medium">Revenue</span>
+          <div className="text-2xl font-bold tracking-tight text-foreground">{inr(summary.revenue)}</div>
+        </div>
+        <div className="card-soft p-4 space-y-1">
+          <span className="text-xs text-muted-foreground font-medium">Orders Count</span>
+          <div className="text-2xl font-bold tracking-tight text-foreground">{summary.orders}</div>
+        </div>
+        {canProfit && (
+          <div className="card-soft p-4 space-y-1 border-emerald-500/20 bg-emerald-500/[0.02]">
+            <span className="text-xs text-emerald-500/80 font-medium">Gross Profit ({marginPercent.toFixed(1)}%)</span>
+            <div className="text-2xl font-bold tracking-tight text-emerald-600 dark:text-emerald-400">{inr(summary.profit)}</div>
+          </div>
+        )}
+        <div className="card-soft p-4 space-y-1">
+          <span className="text-xs text-muted-foreground font-medium">Low Stock Alerts</span>
+          <div className={`text-2xl font-bold tracking-tight ${summary.lowStockCount > 0 ? "text-amber-500" : "text-foreground"}`}>
+            {summary.lowStockCount} items
+          </div>
+        </div>
+      </div>
+
       <Tabs defaultValue="sales">
         <TabsList className="rounded-xl">
           <TabsTrigger value="sales" className="rounded-lg">Sales</TabsTrigger>
@@ -165,9 +211,75 @@ function Reports() {
         </TabsList>
 
         <TabsContent value="sales" className="mt-4 space-y-4 animate-fade-in">
-          <ChartCard title="Sales" subtitle={FILTERS.find((f) => f.key === filter)?.label ?? "Custom range"} data={data} />
+          <ChartCard title="Sales Trend" subtitle={FILTERS.find((f) => f.key === filter)?.label ?? "Custom range"} data={data} dataKey="value" color="var(--color-success)" />
+          
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="card-soft overflow-hidden">
+              <div className="border-b border-border p-4 text-sm font-semibold">Top Selling Products</div>
+              <table className="w-full text-sm">
+                <thead className="bg-muted/40 text-xs uppercase tracking-wide text-muted-foreground">
+                  <tr>
+                    <th className="px-4 py-3 text-left font-medium">Product</th>
+                    <th className="px-4 py-3 text-right font-medium">Qty</th>
+                    <th className="px-4 py-3 text-right font-medium">Revenue</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {topProducts.length === 0 ? (
+                    <tr>
+                      <td colSpan={3} className="px-4 py-8 text-center text-xs text-muted-foreground">
+                        No product sales logs found.
+                      </td>
+                    </tr>
+                  ) : (
+                    topProducts.slice(0, 5).map((p: any, idx: number) => (
+                      <tr key={idx}>
+                        <td className="px-4 py-3 font-medium text-foreground">{p.name}</td>
+                        <td className="px-4 py-3 text-right text-muted-foreground">{p.unitsSold}</td>
+                        <td className="px-4 py-3 text-right font-semibold text-foreground">{inr(p.revenue)}</td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="card-soft overflow-hidden">
+              <div className="border-b border-border p-4 text-sm font-semibold">Top Spender Customers</div>
+              <table className="w-full text-sm">
+                <thead className="bg-muted/40 text-xs uppercase tracking-wide text-muted-foreground">
+                  <tr>
+                    <th className="px-4 py-3 text-left font-medium">Customer</th>
+                    <th className="px-4 py-3 text-right font-medium">Orders</th>
+                    <th className="px-4 py-3 text-right font-medium">Total Spend</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {topCustomers.length === 0 ? (
+                    <tr>
+                      <td colSpan={3} className="px-4 py-8 text-center text-xs text-muted-foreground">
+                        No customer spends found.
+                      </td>
+                    </tr>
+                  ) : (
+                    topCustomers.map((c: any, idx: number) => (
+                      <tr key={idx}>
+                        <td className="px-4 py-3 font-medium text-foreground">
+                          <div>{c.name}</div>
+                          <div className="text-[10px] text-muted-foreground">{c.phone}</div>
+                        </td>
+                        <td className="px-4 py-3 text-right text-muted-foreground">{c.orders}</td>
+                        <td className="px-4 py-3 text-right font-semibold text-foreground">{inr(c.spend)}</td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
           <div className="card-soft overflow-hidden">
-            <div className="border-b border-border p-4 text-sm font-semibold">Recent invoices</div>
+            <div className="border-b border-border p-4 text-sm font-semibold">Recent Invoices</div>
             <table className="w-full text-sm">
               <thead className="bg-muted/40 text-xs uppercase tracking-wide text-muted-foreground">
                 <tr>
@@ -178,14 +290,22 @@ function Reports() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
-                {invoices.map((i) => (
-                  <tr key={i.id}>
-                    <td className="px-4 py-3 font-medium">{i.id}</td>
-                    <td className="px-4 py-3 text-muted-foreground">{i.date}</td>
-                    <td className="px-4 py-3 text-muted-foreground">{i.payment}</td>
-                    <td className="px-4 py-3 text-right tabular font-semibold">{inr(i.total)}</td>
+                {recentInvoices.length === 0 ? (
+                  <tr>
+                    <td colSpan={4} className="px-4 py-8 text-center text-xs text-muted-foreground">
+                      No invoices found in this period.
+                    </td>
                   </tr>
-                ))}
+                ) : (
+                  recentInvoices.map((i: any) => (
+                    <tr key={i.id}>
+                      <td className="px-4 py-3 font-medium text-foreground">{i.id}</td>
+                      <td className="px-4 py-3 text-muted-foreground">{i.date}</td>
+                      <td className="px-4 py-3 text-muted-foreground">{i.payment}</td>
+                      <td className="px-4 py-3 text-right tabular font-semibold text-foreground">{inr(i.total)}</td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
@@ -193,24 +313,7 @@ function Reports() {
 
         {canProfit && (
           <TabsContent value="profit" className="mt-4 space-y-4 animate-fade-in">
-            <div className="grid gap-4 md:grid-cols-3">
-              <div className="card-soft p-5">
-                <div className="text-xs text-muted-foreground">Gross profit</div>
-                <div className="tabular mt-2 text-3xl font-semibold text-money">{inr(184320)}</div>
-                <div className="mt-1 text-xs text-muted-foreground">Margin 31.4%</div>
-              </div>
-              <div className="card-soft p-5">
-                <div className="text-xs text-muted-foreground">Best margin category</div>
-                <div className="mt-2 text-2xl font-semibold">Accessories</div>
-                <div className="mt-1 text-xs text-success-foreground font-medium">+38.2%</div>
-              </div>
-              <div className="card-soft p-5">
-                <div className="text-xs text-muted-foreground">Loss leaders</div>
-                <div className="mt-2 text-2xl font-semibold">2 SKUs</div>
-                <div className="mt-1 text-xs text-danger">Review pricing</div>
-              </div>
-            </div>
-            <ChartCard title="Profit trend" subtitle="Selected range" data={data} />
+            <ChartCard title="Profit Trend" subtitle="Selected range" data={data} dataKey="profit" color="var(--color-primary)" />
           </TabsContent>
         )}
 
@@ -228,20 +331,28 @@ function Reports() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
-                {gstRows.map((r) => (
-                  <tr key={r.slab}>
-                    <td className="px-4 py-3 font-medium">GST {r.slab}</td>
-                    <td className="px-4 py-3 text-right tabular">{inr(r.taxable)}</td>
-                    <td className="px-4 py-3 text-right tabular font-semibold">{inr(r.tax)}</td>
+                {gstRows.length === 0 ? (
+                  <tr>
+                    <td colSpan={3} className="px-4 py-8 text-center text-xs text-muted-foreground">
+                      No GST logs found in this period.
+                    </td>
                   </tr>
-                ))}
-                <tr className="bg-muted/40 font-semibold">
+                ) : (
+                  gstRows.map((r: any) => (
+                    <tr key={r.slab}>
+                      <td className="px-4 py-3 font-medium text-foreground">GST {r.slab}%</td>
+                      <td className="px-4 py-3 text-right tabular text-muted-foreground">{inr(r.taxable)}</td>
+                      <td className="px-4 py-3 text-right tabular font-semibold text-foreground">{inr(r.tax)}</td>
+                    </tr>
+                  ))
+                )}
+                <tr className="bg-muted/40 font-semibold text-foreground">
                   <td className="px-4 py-3">Total</td>
                   <td className="px-4 py-3 text-right tabular">
-                    {inr(gstRows.reduce((s, r) => s + r.taxable, 0))}
+                    {inr(gstRows.reduce((s: number, r: any) => s + r.taxable, 0))}
                   </td>
                   <td className="px-4 py-3 text-right tabular">
-                    {inr(gstRows.reduce((s, r) => s + r.tax, 0))}
+                    {inr(gstRows.reduce((s: number, r: any) => s + r.tax, 0))}
                   </td>
                 </tr>
               </tbody>
@@ -257,34 +368,42 @@ function ChartCard({
   title,
   subtitle,
   data,
+  dataKey = "value",
+  color = "var(--color-success)",
 }: {
   title: string;
   subtitle: string;
-  data: { label: string; value: number }[];
+  data: any[];
+  dataKey?: string;
+  color?: string;
 }) {
   return (
     <div className="card-soft p-5 animate-fade-in">
       <div className="text-sm font-semibold">{title}</div>
       <div className="text-xs text-muted-foreground">{subtitle}</div>
-      <div className="mt-3 h-56">
-        <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={data} margin={{ top: 8, right: 8, bottom: 0, left: -20 }}>
-            <CartesianGrid vertical={false} stroke="var(--color-border)" />
-            <XAxis dataKey="label" fontSize={11} tickLine={false} axisLine={false} stroke="var(--color-muted-foreground)" />
-            <YAxis fontSize={11} tickLine={false} axisLine={false} width={40} stroke="var(--color-muted-foreground)" />
-            <Tooltip
-              cursor={{ fill: "var(--color-muted)" }}
-              contentStyle={{
-                background: "var(--color-elevated)",
-                border: "1px solid var(--color-border)",
-                borderRadius: 12,
-                fontSize: 12,
-              }}
-              formatter={((v: unknown) => [inr(Number(v)), "Value"]) as never}
-            />
-            <Bar dataKey="value" fill="var(--color-success)" radius={[6, 6, 0, 0]} />
-          </BarChart>
-        </ResponsiveContainer>
+      <div className="mt-3 h-56 flex items-center justify-center">
+        {data.length === 0 ? (
+          <div className="text-xs text-muted-foreground">No data coordinates to chart</div>
+        ) : (
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={data} margin={{ top: 8, right: 8, bottom: 0, left: -20 }}>
+              <CartesianGrid vertical={false} stroke="var(--color-border)" />
+              <XAxis dataKey="label" fontSize={11} tickLine={false} axisLine={false} stroke="var(--color-muted-foreground)" />
+              <YAxis fontSize={11} tickLine={false} axisLine={false} width={45} stroke="var(--color-muted-foreground)" />
+              <Tooltip
+                cursor={{ fill: "var(--color-muted)" }}
+                contentStyle={{
+                  background: "var(--color-elevated)",
+                  border: "1px solid var(--color-border)",
+                  borderRadius: 12,
+                  fontSize: 12,
+                }}
+                formatter={((v: unknown) => [inr(Number(v)), title]) as never}
+              />
+              <Bar dataKey={dataKey} fill={color} radius={[6, 6, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        )}
       </div>
     </div>
   );

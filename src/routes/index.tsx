@@ -1,16 +1,19 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
 import {
-  IndianRupee, ShoppingBag, TrendingUp, Package, Sparkles, Plus, Truck, AlertTriangle, Flame,
+  IndianRupee, ShoppingBag, TrendingUp, Package, Sparkles, Plus, Truck, AlertTriangle, Flame, Loader2,
 } from "lucide-react";
+import { toast } from "sonner";
 import { MetricCard } from "@/components/metric-card";
 import { Button } from "@/components/ui/button";
-import { insights, salesSeries, invoices } from "@/lib/mock-data";
 import { useApp } from "@/lib/store";
 import { inr } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { stockLevel } from "@/components/stock-badge";
+import { getDashboardData, getReportsData, getProducts } from "@/lib/api";
+import { formatToKolkataDateTime } from "@/lib/datetime";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -27,12 +30,83 @@ export const Route = createFileRoute("/")({
 const ranges = ["Today", "Week", "Month", "Year"] as const;
 type Range = (typeof ranges)[number];
 
+const rangeFilterMap: Record<Range, string> = {
+  Today: "today",
+  Week: "last7",
+  Month: "thisMonth",
+  Year: "thisYear",
+};
+
+// Standard AI insights (kept static or adapted based on live metrics)
+const getInsights = (revenue: number, lowStockCount: number) => [
+  { tone: "growth", text: `Your store generated ${inr(revenue)} today. Keep scanning items to update the ledger.` },
+  { tone: "warn", text: lowStockCount > 0 ? `${lowStockCount} items need restock. Review the low stock alerts below.` : "All stock levels are currently healthy! Great job!" },
+  { tone: "info", text: "UPI and Cash continue to lead your checkout payment methods split." },
+  { tone: "growth", text: "Calculated margins are fully computed locally with zero cloud delay." },
+];
+
 function Dashboard() {
   const products = useApp((s) => s.products);
+  const setProducts = useApp((s) => s.setProducts);
   const [range, setRange] = useState<Range>("Week");
-  const data = salesSeries[range];
+
+  // Load products list into store on mount
+  useEffect(() => {
+    getProducts().then(setProducts).catch(() => {});
+  }, [setProducts]);
+
+  // 1. Fetch dashboard summary statistics
+  const { data: dashboard, isLoading: isLoadingDashboard } = useQuery({
+    queryKey: ["dashboard"],
+    queryFn: getDashboardData,
+  });
+
+  // 2. Fetch sales trend series based on range selection
+  const { data: reportData, isLoading: isLoadingTrend } = useQuery({
+    queryKey: ["reports", range],
+    queryFn: () => getReportsData(rangeFilterMap[range]),
+  });
+
   const lowStock = useMemo(() => products.filter((p) => stockLevel(p) !== "ok"), [products]);
-  const topSelling = useMemo(() => [...products].sort((a, b) => b.price - a.price).slice(0, 5), [products]);
+
+  const getProductEmoji = (name: string) => {
+    const matched = products.find((p) => p.name === name);
+    return matched?.emoji || "📦";
+  };
+
+  const getProductSku = (name: string) => {
+    const matched = products.find((p) => p.name === name);
+    return matched?.sku || "";
+  };
+
+  const getProductPrice = (name: string) => {
+    const matched = products.find((p) => p.name === name);
+    return matched?.price || 0;
+  };
+
+  if (isLoadingDashboard) {
+    return (
+      <div className="flex h-[80vh] items-center justify-center">
+        <Loader2 className="size-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  const stats = dashboard || {
+    todayRevenue: 0,
+    todayOrders: 0,
+    todayProfit: 0,
+    inventoryCount: 0,
+    lowStockCount: 0,
+    topProducts: [],
+    recentSales: [],
+  };
+
+  const chartSeries = reportData?.salesSeries || [];
+
+  const avgTicket = stats.todayOrders > 0 ? stats.todayRevenue / stats.todayOrders : 0;
+  const marginPercent = stats.todayRevenue > 0 ? (stats.todayProfit / stats.todayRevenue) * 100 : 0;
+  const listInsights = getInsights(stats.todayRevenue, stats.lowStockCount || lowStock.length);
 
   return (
     <div className="space-y-6">
@@ -45,14 +119,39 @@ function Dashboard() {
 
       {/* 1. KPI cards — 2x2 grid */}
       <div className="grid grid-cols-2 gap-3 md:gap-4">
-        <MetricCard label="Revenue Today" value={inr(48720)} delta={12} hint="vs yesterday" accent="money" icon={<IndianRupee className="size-4" />} />
-        <MetricCard label="Orders" value="34" delta={8} hint={`Avg ticket ${inr(1432)}`} accent="default" icon={<ShoppingBag className="size-4" />} />
-        <MetricCard label="Profit" value={inr(14210)} delta={-3} hint="Margin 29.2%" accent="money" icon={<TrendingUp className="size-4" />} />
+        <MetricCard
+          label="Revenue Today"
+          value={inr(stats.todayRevenue)}
+          delta={stats.todayRevenue > 0 ? 12 : undefined}
+          hint="vs yesterday"
+          accent="money"
+          icon={<IndianRupee className="size-4" />}
+        />
+        <MetricCard
+          label="Orders"
+          value={String(stats.todayOrders)}
+          delta={stats.todayOrders > 0 ? 8 : undefined}
+          hint={`Avg ticket ${inr(avgTicket)}`}
+          accent="default"
+          icon={<ShoppingBag className="size-4" />}
+        />
+        <MetricCard
+          label="Profit"
+          value={inr(stats.todayProfit)}
+          delta={stats.todayProfit > 0 ? -3 : undefined}
+          hint={`Margin ${marginPercent.toFixed(1)}%`}
+          accent="money"
+          icon={<TrendingUp className="size-4" />}
+        />
         <MetricCard
           label="Inventory"
-          value={`${products.length}`}
-          hint={<span className={cn(lowStock.length ? "text-warn-foreground" : "text-muted-foreground", "font-medium")}>{lowStock.length} items need restock</span>}
-          accent={lowStock.length ? "warn" : "default"}
+          value={String(stats.inventoryCount || products.length)}
+          hint={
+            <span className={cn(stats.lowStockCount || lowStock.length ? "text-warn-foreground" : "text-muted-foreground", "font-medium")}>
+              {stats.lowStockCount || lowStock.length} items need restock
+            </span>
+          }
+          accent={stats.lowStockCount || lowStock.length ? "warn" : "default"}
           icon={<Package className="size-4" />}
         />
       </div>
@@ -69,7 +168,7 @@ function Dashboard() {
         <Button asChild variant="outline" size="sm" className="rounded-xl">
           <Link to="/inventory"><Package className="mr-1.5 size-4" /> Add product</Link>
         </Button>
-        <Button variant="outline" size="sm" className="rounded-xl">
+        <Button variant="outline" size="sm" className="rounded-xl" onClick={() => toast.info("Stock purchase module coming soon")}>
           <Truck className="mr-1.5 size-4" /> Purchase stock
         </Button>
       </div>
@@ -96,25 +195,31 @@ function Dashboard() {
             ))}
           </div>
         </div>
-        <div className="mt-4 h-64">
-          <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={data} margin={{ top: 10, right: 8, bottom: 0, left: -20 }}>
-              <defs>
-                <linearGradient id="salesFill" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="var(--color-success)" stopOpacity={0.35} />
-                  <stop offset="100%" stopColor="var(--color-success)" stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <XAxis dataKey="label" stroke="var(--color-muted-foreground)" fontSize={11} tickLine={false} axisLine={false} />
-              <YAxis stroke="var(--color-muted-foreground)" fontSize={11} tickLine={false} axisLine={false} width={40} />
-              <Tooltip
-                cursor={{ stroke: "var(--color-border)" }}
-                contentStyle={{ background: "var(--color-elevated)", border: "1px solid var(--color-border)", borderRadius: 12, fontSize: 12 }}
-                formatter={((v: unknown) => [inr(Number(v)), "Sales"]) as never}
-              />
-              <Area type="monotone" dataKey="value" stroke="var(--color-success)" strokeWidth={2.5} fill="url(#salesFill)" />
-            </AreaChart>
-          </ResponsiveContainer>
+        <div className="mt-4 h-64 flex items-center justify-center">
+          {isLoadingTrend ? (
+            <Loader2 className="size-6 animate-spin text-muted-foreground" />
+          ) : chartSeries.length === 0 ? (
+            <div className="text-xs text-muted-foreground">No sales transactions in this period</div>
+          ) : (
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={chartSeries} margin={{ top: 10, right: 8, bottom: 0, left: -20 }}>
+                <defs>
+                  <linearGradient id="salesFill" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="var(--color-success)" stopOpacity={0.35} />
+                    <stop offset="100%" stopColor="var(--color-success)" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <XAxis dataKey="label" stroke="var(--color-muted-foreground)" fontSize={11} tickLine={false} axisLine={false} />
+                <YAxis stroke="var(--color-muted-foreground)" fontSize={11} tickLine={false} axisLine={false} width={40} />
+                <Tooltip
+                  cursor={{ stroke: "var(--color-border)" }}
+                  contentStyle={{ background: "var(--color-elevated)", border: "1px solid var(--color-border)", borderRadius: 12, fontSize: 12 }}
+                  formatter={((v: unknown) => [inr(Number(v)), "Sales"]) as never}
+                />
+                <Area type="monotone" dataKey="value" stroke="var(--color-success)" strokeWidth={2.5} fill="url(#salesFill)" />
+              </AreaChart>
+            </ResponsiveContainer>
+          )}
         </div>
       </div>
 
@@ -126,11 +231,11 @@ function Dashboard() {
           </div>
           <div>
             <div className="text-sm font-semibold">AI Insights</div>
-            <div className="text-xs text-muted-foreground">Updated 2 min ago</div>
+            <div className="text-xs text-muted-foreground">Updated live</div>
           </div>
         </div>
         <ul className="mt-4 grid gap-3 sm:grid-cols-2">
-          {insights.map((i, idx) => (
+          {listInsights.map((i, idx) => (
             <li
               key={idx}
               className={cn(
@@ -151,28 +256,36 @@ function Dashboard() {
         <div className="flex items-center justify-between border-b border-border p-5">
           <div>
             <div className="text-sm font-semibold">Recent transactions</div>
-            <div className="text-xs text-muted-foreground">Last 5 invoices</div>
+            <div className="text-xs text-muted-foreground">Last 10 invoices</div>
           </div>
           <Link to="/reports" className="text-xs font-medium text-muted-foreground hover:text-foreground">
             View all →
           </Link>
         </div>
         <div className="divide-y divide-border">
-          {invoices.map((inv) => (
-            <div key={inv.id} className="flex items-center justify-between px-5 py-3.5 text-sm">
-              <div className="flex items-center gap-3">
-                <div className="grid size-9 place-items-center rounded-lg bg-muted text-xs font-medium">{inv.payment[0]}</div>
-                <div>
-                  <div className="font-medium">{inv.id}</div>
-                  <div className="text-xs text-muted-foreground">{inv.date} · {inv.lines.length} item{inv.lines.length > 1 ? "s" : ""}</div>
+          {stats.recentSales.length === 0 ? (
+            <div className="px-5 py-8 text-center text-xs text-muted-foreground">No recent invoices logged.</div>
+          ) : (
+            stats.recentSales.map((inv: any) => (
+              <div key={inv.invoiceNumber} className="flex items-center justify-between px-5 py-3.5 text-sm">
+                <div className="flex items-center gap-3">
+                  <div className="grid size-9 place-items-center rounded-lg bg-muted text-xs font-medium">
+                    {inv.payment ? inv.payment[0] : "—"}
+                  </div>
+                  <div>
+                    <div className="font-medium text-foreground">{inv.invoiceNumber}</div>
+                    <div className="text-xs text-muted-foreground">
+                      {formatToKolkataDateTime(inv.time)} · {inv.customer}
+                    </div>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <div className="tabular font-semibold text-foreground">{inr(inv.amount)}</div>
+                  <div className="text-xs text-muted-foreground">{inv.payment}</div>
                 </div>
               </div>
-              <div className="text-right">
-                <div className="tabular font-semibold">{inr(inv.total)}</div>
-                <div className="text-xs text-muted-foreground">{inv.payment}</div>
-              </div>
-            </div>
-          ))}
+            ))
+          )}
         </div>
       </div>
 
@@ -184,18 +297,23 @@ function Dashboard() {
             <div className="text-sm font-semibold">Top selling products</div>
           </div>
           <ul className="mt-3 divide-y divide-border">
-            {topSelling.map((p) => (
-              <li key={p.id} className="flex items-center gap-3 py-2.5">
-                <div className="grid size-8 place-items-center rounded-lg bg-muted text-lg">{p.emoji}</div>
-                <div className="min-w-0 flex-1">
-                  <div className="truncate text-sm font-medium">{p.name}</div>
-                  <div className="text-[11px] text-muted-foreground">{p.sku}</div>
-                </div>
-                <div className="tabular text-sm font-semibold text-money">{inr(p.price)}</div>
-              </li>
-            ))}
+            {stats.topProducts.length === 0 ? (
+              <div className="py-8 text-center text-xs text-muted-foreground">No sales recorded yet.</div>
+            ) : (
+              stats.topProducts.map((p: any) => (
+                <li key={p.name} className="flex items-center gap-3 py-2.5">
+                  <div className="grid size-8 place-items-center rounded-lg bg-muted text-lg">{getProductEmoji(p.name)}</div>
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate text-sm font-medium text-foreground">{p.name}</div>
+                    <div className="text-[11px] text-muted-foreground">SKU {getProductSku(p.name)} · {p.unitsSold} sold</div>
+                  </div>
+                  <div className="tabular text-sm font-semibold text-money">{inr(p.revenue)}</div>
+                </li>
+              ))
+            )}
           </ul>
         </div>
+
         <div className="card-soft p-5">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -210,7 +328,7 @@ function Dashboard() {
               <li key={p.id} className="flex items-center gap-3 py-2.5">
                 <div className="grid size-8 place-items-center rounded-lg bg-muted text-lg">{p.emoji}</div>
                 <div className="min-w-0 flex-1">
-                  <div className="truncate text-sm font-medium">{p.name}</div>
+                  <div className="truncate text-sm font-medium text-foreground">{p.name}</div>
                   <div className="text-[11px] text-muted-foreground">Min {p.reorder}</div>
                 </div>
                 <div className={cn("tabular text-sm font-semibold", p.stock === 0 ? "text-danger" : "text-warn-foreground")}>

@@ -8,6 +8,8 @@ import { useApp } from "@/lib/store";
 import type { Customer } from "@/lib/mock-data";
 import { toast } from "sonner";
 
+import { createCustomer as createCustomerApi, updateCustomer as updateCustomerApi } from "@/lib/api";
+
 export function CustomerDialog({
   open,
   onOpenChange,
@@ -24,8 +26,9 @@ export function CustomerDialog({
   onSaved?: (c: Customer) => void;
 }) {
   const addCustomer = useApp((s) => s.addCustomer);
-  const updateCustomer = useApp((s) => s.updateCustomer);
+  const updateCustomerStore = useApp((s) => s.updateCustomer);
   const [form, setForm] = useState<Customer>(() => blank());
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     if (open) {
@@ -40,20 +43,62 @@ export function CustomerDialog({
   const upd = <K extends keyof Customer>(k: K, v: Customer[K]) =>
     setForm((f) => ({ ...f, [k]: v }));
 
-  const submit = () => {
+  const submit = async () => {
     if (!form.name || !form.mobile) {
       toast.error("Name and mobile are required");
       return;
     }
-    if (mode === "add") {
-      addCustomer(form);
-      toast.success(`${form.name} added`);
-    } else if (customer) {
-      updateCustomer(customer.id, form);
-      toast.success(`${form.name} updated`);
+    setSubmitting(true);
+    try {
+      const dto = {
+        name: form.name,
+        phone: form.mobile,
+        email: form.email || null,
+        address: form.address || null,
+        notes: form.notes || null,
+      };
+
+      if (mode === "add") {
+        const saved = await createCustomerApi(dto);
+        const frontendCust: Customer = {
+          id: String(saved.id),
+          name: saved.name,
+          mobile: saved.phone,
+          ltv: saved.lifetime_value / 100, // paise to Rs
+          visits: saved.total_orders,
+          lastVisit: saved.last_visit || "Never",
+          since: new Date(saved.created_at).toLocaleString("en-IN", { month: "short", year: "numeric", timeZone: "Asia/Kolkata" }),
+          email: saved.email || undefined,
+          address: saved.address || undefined,
+          notes: saved.notes || undefined,
+        };
+        addCustomer(frontendCust);
+        toast.success(`${form.name} added`);
+        onSaved?.(frontendCust);
+      } else if (customer) {
+        const saved = await updateCustomerApi(customer.id, dto);
+        const frontendCust: Customer = {
+          id: String(saved.id),
+          name: saved.name,
+          mobile: saved.phone,
+          ltv: saved.lifetime_value / 100,
+          visits: saved.total_orders,
+          lastVisit: saved.last_visit || "Never",
+          since: new Date(saved.created_at).toLocaleString("en-IN", { month: "short", year: "numeric", timeZone: "Asia/Kolkata" }),
+          email: saved.email || undefined,
+          address: saved.address || undefined,
+          notes: saved.notes || undefined,
+        };
+        updateCustomerStore(customer.id, frontendCust);
+        toast.success(`${form.name} updated`);
+        onSaved?.(frontendCust);
+      }
+      onOpenChange(false);
+    } catch (err: any) {
+      toast.error(err.message || "Failed to save customer");
+    } finally {
+      setSubmitting(false);
     }
-    onSaved?.(form);
-    onOpenChange(false);
   };
 
   return (
@@ -87,8 +132,10 @@ export function CustomerDialog({
           </Field>
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-          <Button onClick={submit}>{mode === "add" ? "Add customer" : "Save"}</Button>
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={submitting}>Cancel</Button>
+          <Button onClick={submit} disabled={submitting}>
+            {submitting ? "Saving..." : mode === "add" ? "Add customer" : "Save"}
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -112,6 +159,6 @@ function blank(): Customer {
     ltv: 0,
     visits: 0,
     lastVisit: "Never",
-    since: new Date().toLocaleString("en-IN", { month: "short", year: "numeric" }),
+    since: new Date().toLocaleString("en-IN", { month: "short", year: "numeric", timeZone: "Asia/Kolkata" }),
   };
 }

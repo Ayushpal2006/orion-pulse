@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/select";
 import { useApp, type StockAdjustReason } from "@/lib/store";
 import type { Product } from "@/lib/mock-data";
+import { updateProduct as updateProductApi } from "@/lib/api";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { ArrowDown, ArrowUp } from "lucide-react";
@@ -20,15 +21,18 @@ export function StockAdjustmentDialog({
   product,
   open,
   onOpenChange,
+  onSuccess,
 }: {
   product: Product | null;
   open: boolean;
   onOpenChange: (v: boolean) => void;
+  onSuccess?: () => void;
 }) {
   const adjustStock = useApp((s) => s.adjustStock);
   const [mode, setMode] = useState<"inc" | "dec">("inc");
   const [qty, setQty] = useState(1);
   const [reason, setReason] = useState<StockAdjustReason>("Purchase");
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     if (open) {
@@ -38,15 +42,26 @@ export function StockAdjustmentDialog({
     }
   }, [open]);
 
-  const submit = () => {
+  const submit = async () => {
     if (!product) return;
     const delta = mode === "inc" ? qty : -qty;
-    adjustStock(product.id, delta, reason);
-    toast.success(
-      `${mode === "inc" ? "+" : "−"}${qty} · ${product.name}`,
-      { description: `${reason} · new stock: ${Math.max(0, product.stock + delta)}` },
-    );
-    onOpenChange(false);
+    const newStock = Math.max(0, product.stock + delta);
+
+    setSubmitting(true);
+    try {
+      await updateProductApi(product.id, { stock: newStock });
+      adjustStock(product.id, delta, reason);
+      toast.success(
+        `${mode === "inc" ? "+" : "−"}${qty} · ${product.name}`,
+        { description: `${reason} · new stock: ${newStock}` },
+      );
+      if (onSuccess) onSuccess();
+      onOpenChange(false);
+    } catch (error: any) {
+      toast.error(error.message || "Failed to adjust stock. Please try again.");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -59,18 +74,22 @@ export function StockAdjustmentDialog({
           <div className="grid grid-cols-2 gap-2">
             <button
               onClick={() => setMode("inc")}
+              disabled={submitting}
               className={cn(
-                "flex items-center justify-center gap-2 rounded-xl border p-3 text-sm font-medium",
+                "flex items-center justify-center gap-2 rounded-xl border p-3 text-sm font-medium transition-colors",
                 mode === "inc" ? "border-success bg-success/10 text-success-foreground" : "border-border",
+                submitting ? "opacity-50 cursor-not-allowed" : ""
               )}
             >
               <ArrowUp className="size-4" /> Increase
             </button>
             <button
               onClick={() => setMode("dec")}
+              disabled={submitting}
               className={cn(
-                "flex items-center justify-center gap-2 rounded-xl border p-3 text-sm font-medium",
+                "flex items-center justify-center gap-2 rounded-xl border p-3 text-sm font-medium transition-colors",
                 mode === "dec" ? "border-danger bg-danger/10 text-danger" : "border-border",
+                submitting ? "opacity-50 cursor-not-allowed" : ""
               )}
             >
               <ArrowDown className="size-4" /> Decrease
@@ -81,13 +100,14 @@ export function StockAdjustmentDialog({
             <Input
               inputMode="numeric"
               value={qty}
+              disabled={submitting}
               onChange={(e) => setQty(Math.max(1, Number(e.target.value) || 1))}
               className="mt-1 h-11 rounded-xl"
             />
           </div>
           <div>
             <Label className="text-xs font-medium text-muted-foreground">Reason</Label>
-            <Select value={reason} onValueChange={(v) => setReason(v as StockAdjustReason)}>
+            <Select value={reason} onValueChange={(v) => setReason(v as StockAdjustReason)} disabled={submitting}>
               <SelectTrigger className="mt-1 h-11 rounded-xl">
                 <SelectValue />
               </SelectTrigger>
@@ -108,8 +128,12 @@ export function StockAdjustmentDialog({
           </div>
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-          <Button onClick={submit}>Apply</Button>
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={submitting}>
+            Cancel
+          </Button>
+          <Button onClick={submit} disabled={submitting}>
+            {submitting ? "Applying..." : "Apply"}
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

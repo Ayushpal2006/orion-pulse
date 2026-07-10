@@ -38,6 +38,8 @@ import { EditProductDialog } from "@/components/edit-product-dialog";
 import { StockAdjustmentDialog } from "@/components/stock-adjustment-dialog";
 import { ProductDetailsDrawer } from "@/components/product-details-drawer";
 import { EmptyState } from "@/components/empty-state";
+import { Skeleton } from "@/components/ui/skeleton";
+import { getProducts, searchProducts, deleteProductApi, createProduct } from "@/lib/api";
 
 export const Route = createFileRoute("/inventory")({
   head: () => ({
@@ -56,13 +58,41 @@ type SortKey = "newest" | "name" | "price" | "stock";
 
 const DEFAULT_CATEGORIES = ["All", "Shirts", "Jeans", "T-Shirts", "Shoes", "Accessories"];
 
+function InventorySkeleton() {
+  return (
+    <div className="card-soft overflow-hidden animate-pulse">
+      <div className="bg-muted/40 px-4 py-3 flex gap-4">
+        <Skeleton className="h-4 w-1/4" />
+        <Skeleton className="h-4 w-1/6" />
+        <Skeleton className="h-4 w-1/6" />
+        <Skeleton className="h-4 w-1/12 ml-auto" />
+      </div>
+      <div className="divide-y divide-border px-4 py-2">
+        {Array.from({ length: 5 }).map((_, i) => (
+          <div key={i} className="py-4 flex items-center gap-4">
+            <Skeleton className="size-9 rounded-lg" />
+            <div className="space-y-1.5 flex-1">
+              <Skeleton className="h-4 w-1/3" />
+              <Skeleton className="h-3 w-1/4" />
+            </div>
+            <Skeleton className="h-4 w-20" />
+            <Skeleton className="h-4 w-16" />
+            <Skeleton className="h-6 w-12 rounded-full" />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function Inventory() {
   const products = useApp((s) => s.products);
-  const duplicateProduct = useApp((s) => s.duplicateProduct);
+  const setProducts = useApp((s) => s.setProducts);
   const deleteProduct = useApp((s) => s.deleteProduct);
   const canEdit = useCan(["Admin", "Manager"]);
 
   const [q, setQ] = useState("");
+  const [loading, setLoading] = useState(true);
   const [category, setCategory] = useState<string>("All");
   const [status, setStatus] = useState<StatusFilter>("all");
   const [sort, setSort] = useState<SortKey>("newest");
@@ -75,23 +105,55 @@ function Inventory() {
   const [drawerProduct, setDrawerProduct] = useState<Product | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Product | null>(null);
 
+  const loadProducts = async () => {
+    setLoading(true);
+    try {
+      const data = await getProducts();
+      setProducts(data);
+    } catch (err: any) {
+      toast.error(err.message || "Failed to load products from server");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const runSearch = async (query: string) => {
+    setLoading(true);
+    try {
+      const data = await searchProducts(query);
+      setProducts(data);
+    } catch (err: any) {
+      toast.error(err.message || "Search failed");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadProducts();
+  }, []);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (q.trim()) {
+        runSearch(q);
+      } else {
+        loadProducts();
+      }
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [q]);
+
   const categories = useMemo(() => {
     const found = Array.from(new Set(products.map((p) => p.category)));
     return Array.from(new Set([...DEFAULT_CATEGORIES, ...found]));
   }, [products]);
 
   const filtered = useMemo(() => {
-    const t = q.toLowerCase();
     let list = products.filter((p) => {
       if (category !== "All" && p.category !== category) return false;
       if (status !== "all" && stockLevel(p) !== status) return false;
-      if (!t) return true;
-      return (
-        p.name.toLowerCase().includes(t) ||
-        p.sku.toLowerCase().includes(t) ||
-        p.barcode.includes(t) ||
-        p.category.toLowerCase().includes(t)
-      );
+      return true;
     });
     list = [...list];
     switch (sort) {
@@ -101,7 +163,7 @@ function Inventory() {
       case "newest": list.sort((a, b) => b.createdAt.localeCompare(a.createdAt)); break;
     }
     return list;
-  }, [q, products, category, status, sort]);
+  }, [products, category, status, sort]);
 
   const openEdit = (p: Product) => {
     setEditProduct(p);
@@ -189,7 +251,9 @@ function Inventory() {
         </div>
       </div>
 
-      {filtered.length === 0 ? (
+      {loading ? (
+        <InventorySkeleton />
+      ) : filtered.length === 0 ? (
         <EmptyState
           icon={<Search className="size-5" />}
           title="No products match"
@@ -288,12 +352,13 @@ function Inventory() {
         </button>
       )}
 
-      <EditProductDialog open={addOpen} onOpenChange={setAddOpen} product={null} mode="add" />
-      <EditProductDialog open={editOpen} onOpenChange={setEditOpen} product={editProduct} mode="edit" />
+      <EditProductDialog open={addOpen} onOpenChange={setAddOpen} product={null} mode="add" onSuccess={loadProducts} />
+      <EditProductDialog open={editOpen} onOpenChange={setEditOpen} product={editProduct} mode="edit" onSuccess={loadProducts} />
       <StockAdjustmentDialog
         open={!!adjustProduct}
         onOpenChange={(v) => !v && setAdjustProduct(null)}
         product={adjustProduct}
+        onSuccess={loadProducts}
       />
       <BarcodeDialog product={barcodeProduct} onClose={() => setBarcodeProduct(null)} />
 
@@ -313,10 +378,27 @@ function Inventory() {
           setBarcodeProduct(drawerProduct);
           setDrawerProduct(null);
         }}
-        onDuplicate={() => {
+        onDuplicate={async () => {
           if (drawerProduct) {
-            duplicateProduct(drawerProduct.id);
-            toast.success(`${drawerProduct.name} duplicated`);
+            try {
+              const rid = Math.floor(Math.random() * 100000);
+              const copy: Partial<Product> = {
+                name: `${drawerProduct.name} (Copy)`,
+                sku: `${drawerProduct.sku}-COPY-${rid}`,
+                barcode: String(8900000000000 + Math.floor(Math.random() * 999999)),
+                category: drawerProduct.category,
+                purchase: drawerProduct.purchase,
+                price: drawerProduct.price,
+                gst: drawerProduct.gst,
+                stock: 0,
+                reorder: drawerProduct.reorder,
+              };
+              await createProduct(copy);
+              toast.success("Product duplicated");
+              await loadProducts();
+            } catch (err: any) {
+              toast.error(err.message || "Failed to duplicate product");
+            }
           }
           setDrawerProduct(null);
         }}
@@ -338,10 +420,16 @@ function Inventory() {
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
               className="bg-danger text-danger-foreground hover:bg-danger/90"
-              onClick={() => {
+              onClick={async () => {
                 if (deleteTarget) {
-                  deleteProduct(deleteTarget.id);
-                  toast.success(`${deleteTarget.name} deleted`);
+                  try {
+                    await deleteProductApi(deleteTarget.id);
+                    deleteProduct(deleteTarget.id);
+                    toast.success(`${deleteTarget.name} deleted`);
+                    await loadProducts();
+                  } catch (err: any) {
+                    toast.error(err.message || "Failed to delete product");
+                  }
                 }
                 setDeleteTarget(null);
               }}
