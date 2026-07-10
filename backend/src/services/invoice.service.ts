@@ -89,7 +89,7 @@ export class InvoiceService {
           </div>
           <p class="text-sm text-neutral-500 max-w-sm leading-relaxed">${receipt.shop.address}</p>
           <div class="text-xs text-neutral-400 space-y-0.5">
-            <p>Phone: ${receipt.shop.phone} | Email: ${receipt.shop.email || "billing@orionpos.in"}</p>
+            <p>Phone: ${receipt.shop.phone} | Email: ${receipt.shop.email || "Support_Technician"}</p>
             <p>GSTIN: <span class="font-mono">${receipt.shop.gstin}</span></p>
           </div>
         </div>

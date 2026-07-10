@@ -67,7 +67,7 @@ export class PdfService {
         doc.font("Outfit-Bold").fontSize(24).fillColor(primaryColor).text(receipt.shop.name, 40, 40, { width: 400 });
         doc.font("Outfit").fontSize(9).fillColor("#475569");
         doc.text(receipt.shop.address, { width: 400 });
-        doc.text(`Phone: ${receipt.shop.phone} | Email: ${receipt.shop.email || "billing@orionpos.in"} | GSTIN: ${receipt.shop.gstin}`, { width: 400 });
+        doc.text(`Phone: ${receipt.shop.phone} | Email: ${receipt.shop.email || "Support_Technician"} | GSTIN: ${receipt.shop.gstin}`, { width: 400 });
         
         doc.moveDown(2);
         
