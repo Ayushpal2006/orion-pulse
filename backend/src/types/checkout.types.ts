@@ -7,6 +7,7 @@ export interface CheckoutRequest {
   customerPhone: string;
   paymentMethod: "Cash" | "UPI" | "Card" | "Wallet";
   cashierName: string;
+  customerName?: string;
   items: CheckoutItemRequest[];
 }
 

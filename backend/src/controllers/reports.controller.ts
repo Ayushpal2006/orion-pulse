@@ -49,102 +49,195 @@ export class ReportsController {
       res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
       res.setHeader("Content-Type", "application/pdf");
 
-      const doc = new PDFDocument({ margin: 40, size: "A4" });
+      const doc = new PDFDocument({ margin: 50, size: "A4", bufferPages: true });
       doc.pipe(res);
+
+      const path = require("path");
+      const fs = require("fs");
+      const regularFontPath = path.join(__dirname, "../assets/fonts/Outfit-Regular.ttf");
+      const boldFontPath = path.join(__dirname, "../assets/fonts/Outfit-Bold.ttf");
+
+      const hasOutfit = fs.existsSync(regularFontPath) && fs.existsSync(boldFontPath);
+      if (hasOutfit) {
+        doc.registerFont("Outfit", regularFontPath);
+        doc.registerFont("Outfit-Bold", boldFontPath);
+        doc.font("Outfit");
+      } else {
+        doc.registerFont("Outfit", "Helvetica");
+        doc.registerFont("Outfit-Bold", "Helvetica-Bold");
+        doc.font("Outfit");
+      }
+
+      const currencySymbol = hasOutfit ? "₹" : "Rs.";
+      const kolkataTime = new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" });
 
       // --- PDF Drawing ---
       // Header
-      doc.fontSize(22).font("Helvetica-Bold").text("Orion POS - Business Report", { align: "center" });
-      doc.fontSize(10).font("Helvetica").text(`Generated: ${new Date().toLocaleString("en-IN")}`, { align: "center" });
-      doc.text(`Period / Filter: ${filter.toUpperCase()} ${startDate ? `(${startDate} to ${endDate || startDate})` : ""}`, { align: "center" });
-      doc.moveDown(1.5);
-
-      // KPI Summary Section
-      doc.fontSize(14).font("Helvetica-Bold").text("Executive Summary");
-      doc.rect(40, doc.y + 5, 515, 1).fill("#e5e7eb");
-      doc.moveDown(1);
-
-      const yStart = doc.y;
-      doc.fontSize(10).font("Helvetica-Bold").text("Total Revenue", 50, yStart);
-      doc.font("Helvetica").text(`INR ${data.revenue.toFixed(2)}`, 50, yStart + 15);
-
-      doc.font("Helvetica-Bold").text("Total Orders", 180, yStart);
-      doc.font("Helvetica").text(`${data.orders}`, 180, yStart + 15);
-
-      doc.font("Helvetica-Bold").text("Gross Profit", 310, yStart);
-      doc.font("Helvetica").text(`INR ${data.profit.toFixed(2)}`, 310, yStart + 15);
-
-      doc.font("Helvetica-Bold").text("Average Ticket", 440, yStart);
-      doc.font("Helvetica").text(`INR ${data.averageOrderValue.toFixed(2)}`, 440, yStart + 15);
-
-      doc.y = yStart + 40;
-      doc.moveDown(2);
-
-      // Top Products Table
-      doc.fontSize(14).font("Helvetica-Bold").text("Top 5 Selling Products", 40);
-      doc.rect(40, doc.y + 5, 515, 1).fill("#e5e7eb");
-      doc.moveDown(1);
+      doc.fontSize(22).font("Outfit-Bold").fillColor("#0f172a").text("Orion POS - Business Report", { align: "center" });
+      doc.fontSize(9).font("Outfit").fillColor("#64748b").text(`Generated: ${kolkataTime} (Asia/Kolkata)`, { align: "center" });
       
-      let pY = doc.y;
-      doc.fontSize(9).font("Helvetica-Bold").text("Product Name", 50, pY);
-      doc.text("Units Sold", 300, pY, { width: 80, align: "right" });
-      doc.text("Revenue", 420, pY, { width: 100, align: "right" });
+      const periodText = filter === "custom" && startDate 
+        ? `Period: ${startDate} to ${endDate || startDate}`
+        : `Period / Filter: ${filter.toUpperCase()}`;
+      doc.text(periodText, { align: "center" });
+      doc.moveDown(1.5);
+
+      // Double divider line
+      doc.strokeColor("#e2e8f0").lineWidth(1.5).moveTo(50, 110).lineTo(545, 110).stroke();
+
+      // KPI Cards
+      const cardY = 125;
+      const cardWidth = 108;
+      const cardHeight = 60;
+      const cardGap = 11;
+
+      const cards = [
+        { label: "TOTAL REVENUE", value: `${currencySymbol} ${data.revenue.toFixed(2)}` },
+        { label: "TOTAL ORDERS", value: `${data.orders}` },
+        { label: "GROSS PROFIT", value: `${currencySymbol} ${data.profit.toFixed(2)}` },
+        { label: "AVERAGE TICKET", value: `${currencySymbol} ${data.averageOrderValue.toFixed(2)}` }
+      ];
+
+      cards.forEach((c, idx) => {
+        const x = 50 + idx * (cardWidth + cardGap);
+        // Draw background card box
+        doc.roundedRect(x, cardY, cardWidth, cardHeight, 6).fillColor("#f8fafc").fill();
+        doc.roundedRect(x, cardY, cardWidth, cardHeight, 6).strokeColor("#e2e8f0").lineWidth(1).stroke();
+        
+        // Print Card Text
+        doc.fillColor("#64748b").font("Outfit-Bold").fontSize(7).text(c.label, x + 8, cardY + 12, { width: cardWidth - 16, align: "center" });
+        doc.fillColor("#0f172a").font("Outfit-Bold").fontSize(11).text(c.value, x + 4, cardY + 28, { width: cardWidth - 8, align: "center" });
+      });
+
+      let currentY = 205;
+
+      const checkPageBounds = (heightNeeded: number) => {
+        if (currentY + heightNeeded > 750) {
+          doc.addPage();
+          currentY = 50;
+        }
+      };
+
+      const drawSectionHeader = (title: string) => {
+        checkPageBounds(40);
+        doc.rect(50, currentY, 4, 16).fillColor("#0f172a").fill();
+        doc.fillColor("#0f172a").font("Outfit-Bold").fontSize(12).text(title, 60, currentY + 2);
+        doc.strokeColor("#e2e8f0").lineWidth(0.5).moveTo(50, currentY + 20).lineTo(545, currentY + 20).stroke();
+        currentY += 28;
+      };
+
+      // 1. Top Selling Products
+      drawSectionHeader("Top Selling Products");
       
-      doc.font("Helvetica");
-      data.topProducts.slice(0, 5).forEach((p: any) => {
-        pY += 18;
-        doc.text(p.name, 50, pY);
-        doc.text(String(p.unitsSold), 300, pY, { width: 80, align: "right" });
-        doc.text(`INR ${p.revenue.toFixed(2)}`, 420, pY, { width: 100, align: "right" });
-      });
+      // Table Header
+      doc.rect(50, currentY, 495, 18).fillColor("#f1f5f9").fill();
+      doc.fillColor("#475569").font("Outfit-Bold").fontSize(8.5);
+      doc.text("Product Name", 58, currentY + 4);
+      doc.text("Units Sold", 320, currentY + 4, { width: 80, align: "right" });
+      doc.text("Revenue", 430, currentY + 4, { width: 100, align: "right" });
+      currentY += 18;
 
-      doc.y = pY + 25;
-      doc.moveDown(1.5);
+      if (data.topProducts.length === 0) {
+        doc.fillColor("#64748b").font("Outfit").fontSize(9).text("No product sales logs found.", 58, currentY + 6);
+        currentY += 25;
+      } else {
+        data.topProducts.slice(0, 5).forEach((p: any, idx: number) => {
+          checkPageBounds(22);
+          if (idx % 2 === 1) {
+            doc.rect(50, currentY, 495, 20).fillColor("#f8fafc").fill();
+          }
+          doc.fillColor("#334155").font("Outfit").fontSize(9);
+          doc.text(p.name, 58, currentY + 5);
+          doc.text(String(p.unitsSold), 320, currentY + 5, { width: 80, align: "right" });
+          doc.text(`${currencySymbol} ${p.revenue.toFixed(2)}`, 430, currentY + 5, { width: 100, align: "right" });
+          currentY += 20;
+        });
+        currentY += 8;
+      }
 
-      // Top Customers Table
-      doc.fontSize(14).font("Helvetica-Bold").text("Top Spender Customers", 40);
-      doc.rect(40, doc.y + 5, 515, 1).fill("#e5e7eb");
-      doc.moveDown(1);
+      // 2. Top Spender Customers
+      drawSectionHeader("Top Spender Customers");
 
-      let cY = doc.y;
-      doc.fontSize(9).font("Helvetica-Bold").text("Customer Name", 50, cY);
-      doc.text("Phone", 220, cY);
-      doc.text("Orders Count", 330, cY, { width: 80, align: "right" });
-      doc.text("Total Spend", 440, cY, { width: 80, align: "right" });
+      // Table Header
+      doc.rect(50, currentY, 495, 18).fillColor("#f1f5f9").fill();
+      doc.fillColor("#475569").font("Outfit-Bold").fontSize(8.5);
+      doc.text("Customer Name", 58, currentY + 4);
+      doc.text("Phone", 220, currentY + 4);
+      doc.text("Orders Count", 320, currentY + 4, { width: 80, align: "right" });
+      doc.text("Total Spend", 430, currentY + 4, { width: 100, align: "right" });
+      currentY += 18;
 
-      doc.font("Helvetica");
-      data.topCustomers.forEach((c: any) => {
-        cY += 18;
-        doc.text(c.name, 50, cY);
-        doc.text(c.phone, 220, cY);
-        doc.text(String(c.orders), 330, cY, { width: 80, align: "right" });
-        doc.text(`INR ${c.spend.toFixed(2)}`, 440, cY, { width: 80, align: "right" });
-      });
+      if (data.topCustomers.length === 0) {
+        doc.fillColor("#64748b").font("Outfit").fontSize(9).text("No customer spends found.", 58, currentY + 6);
+        currentY += 25;
+      } else {
+        data.topCustomers.forEach((c: any, idx: number) => {
+          checkPageBounds(22);
+          if (idx % 2 === 1) {
+            doc.rect(50, currentY, 495, 20).fillColor("#f8fafc").fill();
+          }
+          doc.fillColor("#334155").font("Outfit").fontSize(9);
+          doc.text(c.name, 58, currentY + 5);
+          doc.text(c.phone, 220, currentY + 5);
+          doc.text(String(c.orders), 320, currentY + 5, { width: 80, align: "right" });
+          doc.text(`${currencySymbol} ${c.spend.toFixed(2)}`, 430, currentY + 5, { width: 100, align: "right" });
+          currentY += 20;
+        });
+        currentY += 8;
+      }
 
-      doc.y = cY + 25;
-      doc.moveDown(1.5);
+      // 3. GST Breakdown Summary
+      drawSectionHeader("GST Breakdown Summary");
 
-      // GST Breakdown Table
-      doc.fontSize(14).font("Helvetica-Bold").text("GST Breakdown Summary", 40);
-      doc.rect(40, doc.y + 5, 515, 1).fill("#e5e7eb");
-      doc.moveDown(1);
+      // Table Header
+      doc.rect(50, currentY, 495, 18).fillColor("#f1f5f9").fill();
+      doc.fillColor("#475569").font("Outfit-Bold").fontSize(8.5);
+      doc.text("GST Slab", 58, currentY + 4);
+      doc.text("Taxable Value", 220, currentY + 4, { width: 140, align: "right" });
+      doc.text("Tax Collected", 390, currentY + 4, { width: 140, align: "right" });
+      currentY += 18;
 
-      let gY = doc.y;
-      doc.fontSize(9).font("Helvetica-Bold").text("GST Slab", 50, gY);
-      doc.text("Taxable Value", 250, gY, { width: 120, align: "right" });
-      doc.text("Tax Collected", 400, gY, { width: 120, align: "right" });
+      if (data.gstSummary.length === 0) {
+        doc.fillColor("#64748b").font("Outfit").fontSize(9).text("No GST logs found in this period.", 58, currentY + 6);
+        currentY += 25;
+      } else {
+        let totalTaxable = 0;
+        let totalTax = 0;
 
-      doc.font("Helvetica");
-      data.gstSummary.forEach((g: any) => {
-        gY += 18;
-        doc.text(`GST ${g.slab}`, 50, gY);
-        doc.text(`INR ${g.taxable.toFixed(2)}`, 250, gY, { width: 120, align: "right" });
-        doc.text(`INR ${g.tax.toFixed(2)}`, 400, gY, { width: 120, align: "right" });
-      });
+        data.gstSummary.forEach((g: any, idx: number) => {
+          checkPageBounds(22);
+          totalTaxable += g.taxable;
+          totalTax += g.tax;
 
-      doc.y = gY + 30;
-      doc.moveDown(1);
-      doc.fontSize(8).font("Helvetica-Oblique").text("End of generated report. Orion POS system.", { align: "center" });
+          if (idx % 2 === 1) {
+            doc.rect(50, currentY, 495, 20).fillColor("#f8fafc").fill();
+          }
+          doc.fillColor("#334155").font("Outfit").fontSize(9);
+          doc.text(`GST ${g.slab}`, 58, currentY + 5);
+          doc.text(`${currencySymbol} ${g.taxable.toFixed(2)}`, 220, currentY + 5, { width: 140, align: "right" });
+          doc.text(`${currencySymbol} ${g.tax.toFixed(2)}`, 390, currentY + 5, { width: 140, align: "right" });
+          currentY += 20;
+        });
+
+        // Totals Row
+        checkPageBounds(22);
+        doc.rect(50, currentY, 495, 20).fillColor("#f1f5f9").fill();
+        doc.fillColor("#0f172a").font("Outfit-Bold").fontSize(9);
+        doc.text("Total", 58, currentY + 5);
+        doc.text(`${currencySymbol} ${totalTaxable.toFixed(2)}`, 220, currentY + 5, { width: 140, align: "right" });
+        doc.text(`${currencySymbol} ${totalTax.toFixed(2)}`, 390, currentY + 5, { width: 140, align: "right" });
+        currentY += 20;
+      }
+
+      // Add dynamic footer page numbers
+      const range = doc.bufferedPageRange();
+      for (let i = range.start; i < range.start + range.count; i++) {
+        doc.switchToPage(i);
+        doc.strokeColor("#cbd5e1").lineWidth(0.5).moveTo(50, 770).lineTo(545, 770).stroke();
+        doc.fontSize(7.5).font("Outfit").fillColor("#94a3b8");
+        doc.text("End of generated report. Orion POS system · Protected by Local Database Ledger.", 50, 778, { align: "left", width: 350 });
+        doc.text(`Page ${i + 1} of ${range.count}`, 450, 778, { align: "right", width: 95 });
+      }
 
       doc.end();
     } catch (error) {

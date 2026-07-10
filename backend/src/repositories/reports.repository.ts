@@ -7,30 +7,30 @@ export class ReportsRepository {
 
     switch (filter) {
       case "today":
-        clause = "date(created_at, 'localtime') = date('now', 'localtime')";
+        clause = "date(created_at, '+5 hours', '30 minutes') = date('now', '+5 hours', '30 minutes')";
         break;
       case "yesterday":
-        clause = "date(created_at, 'localtime') = date('now', '-1 day', 'localtime')";
+        clause = "date(created_at, '+5 hours', '30 minutes') = date('now', '+5 hours', '30 minutes', '-1 day')";
         break;
       case "last7":
-        clause = "date(created_at, 'localtime') >= date('now', '-6 days', 'localtime')";
+        clause = "date(created_at, '+5 hours', '30 minutes') >= date('now', '+5 hours', '30 minutes', '-6 days')";
         break;
       case "last30":
-        clause = "date(created_at, 'localtime') >= date('now', '-29 days', 'localtime')";
+        clause = "date(created_at, '+5 hours', '30 minutes') >= date('now', '+5 hours', '30 minutes', '-29 days')";
         break;
       case "thisMonth":
-        clause = "strftime('%Y-%m', created_at, 'localtime') = strftime('%Y-%m', 'now', 'localtime')";
+        clause = "strftime('%Y-%m', datetime(created_at, '+5 hours', '30 minutes')) = strftime('%Y-%m', datetime('now', '+5 hours', '30 minutes'))";
         break;
       case "lastMonth":
-        clause = "strftime('%Y-%m', created_at, 'localtime') = strftime('%Y-%m', 'now', '-1 month', 'localtime')";
+        clause = "strftime('%Y-%m', datetime(created_at, '+5 hours', '30 minutes')) = strftime('%Y-%m', datetime('now', '+5 hours', '30 minutes', '-1 month'))";
         break;
       case "thisYear":
-        clause = "strftime('%Y', created_at, 'localtime') = strftime('%Y', 'now', 'localtime')";
+        clause = "strftime('%Y', datetime(created_at, '+5 hours', '30 minutes')) = strftime('%Y', datetime('now', '+5 hours', '30 minutes'))";
         break;
       case "custom":
         if (startDate) {
           const actualEnd = endDate || startDate;
-          clause = "date(created_at, 'localtime') >= date($startDate) AND date(created_at, 'localtime') <= date($endDate)";
+          clause = "date(created_at, '+5 hours', '30 minutes') >= date($startDate) AND date(created_at, '+5 hours', '30 minutes') <= date($endDate)";
           params.$startDate = startDate;
           params.$endDate = actualEnd;
         }
@@ -139,7 +139,7 @@ export class ReportsRepository {
     // Grouping interval logic based on filters
     if (filter === "today" || filter === "yesterday") {
       const stmt = db.prepare(`
-        SELECT strftime('%H', created_at, 'localtime') as hr, SUM(grand_total) as amount
+        SELECT strftime('%H', datetime(created_at, '+5 hours', '30 minutes')) as hr, SUM(grand_total) as amount
         FROM sales
         WHERE ${clause}
         GROUP BY hr
@@ -148,7 +148,7 @@ export class ReportsRepository {
       const rows = stmt.all(params) as { hr: string; amount: number }[];
 
       const profitRows = db.prepare(`
-        SELECT strftime('%H', s.created_at, 'localtime') as hr,
+        SELECT strftime('%H', datetime(s.created_at, '+5 hours', '30 minutes')) as hr,
                SUM(si.line_total - (p.purchase_price * si.quantity)) as profit
         FROM sale_items si
         JOIN sales s ON si.sale_id = s.id
@@ -189,7 +189,7 @@ export class ReportsRepository {
 
     if (filter === "thisYear") {
       const stmt = db.prepare(`
-        SELECT strftime('%m', created_at, 'localtime') as mnth, SUM(grand_total) as amount
+        SELECT strftime('%m', datetime(created_at, '+5 hours', '30 minutes')) as mnth, SUM(grand_total) as amount
         FROM sales
         WHERE ${clause}
         GROUP BY mnth
@@ -198,7 +198,7 @@ export class ReportsRepository {
       const rows = stmt.all(params) as { mnth: string; amount: number }[];
 
       const profitRows = db.prepare(`
-        SELECT strftime('%m', s.created_at, 'localtime') as mnth,
+        SELECT strftime('%m', datetime(s.created_at, '+5 hours', '30 minutes')) as mnth,
                SUM(si.line_total - (p.purchase_price * si.quantity)) as profit
         FROM sale_items si
         JOIN sales s ON si.sale_id = s.id
@@ -230,7 +230,7 @@ export class ReportsRepository {
 
     // Default: Group by Date (Last 7 Days, Last 30 Days, This Month, Last Month, Custom)
     const stmt = db.prepare(`
-      SELECT date(created_at, 'localtime') as dy, SUM(grand_total) as amount
+      SELECT date(created_at, '+5 hours', '30 minutes') as dy, SUM(grand_total) as amount
       FROM sales
       WHERE ${clause}
       GROUP BY dy
@@ -243,7 +243,7 @@ export class ReportsRepository {
     }
 
     const profitRows = db.prepare(`
-      SELECT date(s.created_at, 'localtime') as dy,
+      SELECT date(s.created_at, '+5 hours', '30 minutes') as dy,
              SUM(si.line_total - (p.purchase_price * si.quantity)) as profit
       FROM sale_items si
       JOIN sales s ON si.sale_id = s.id

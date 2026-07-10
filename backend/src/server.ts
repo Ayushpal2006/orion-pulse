@@ -13,6 +13,8 @@ import invoiceRoutes from "./routes/invoice.routes";
 import syncRoutes from "./routes/sync.routes";
 import { initDb } from "./database/init";
 import { errorMiddleware } from "./middleware/error.middleware";
+import { downloadFonts } from "./utils/font-downloader";
+import { SyncQueueManager } from "./services/sync.service";
 
 import path from "path";
 
@@ -20,6 +22,12 @@ dotenv.config();
 
 // Connect to SQLite and initialize database tables before starting Express
 initDb();
+
+// Download required Outfit fonts asynchronously
+downloadFonts().catch((err) => console.error("⚠️ Font download failed:", err));
+
+// Boot singleton background sync manager immediately
+SyncQueueManager.getInstance();
 
 const app = express();
 

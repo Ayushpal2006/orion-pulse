@@ -6,7 +6,7 @@ export class DashboardRepository {
     const revStmt = db.prepare(`
       SELECT COALESCE(SUM(grand_total), 0) as total 
       FROM sales 
-      WHERE date(created_at, 'localtime') = date('now', 'localtime')
+      WHERE date(created_at, '+5 hours', '30 minutes') = date('now', '+5 hours', '30 minutes')
     `);
     const revenue = (revStmt.get() as { total: number }).total;
 
@@ -14,7 +14,7 @@ export class DashboardRepository {
     const orderStmt = db.prepare(`
       SELECT COUNT(*) as count 
       FROM sales 
-      WHERE date(created_at, 'localtime') = date('now', 'localtime')
+      WHERE date(created_at, '+5 hours', '30 minutes') = date('now', '+5 hours', '30 minutes')
     `);
     const orders = (orderStmt.get() as { count: number }).count;
 
@@ -24,7 +24,7 @@ export class DashboardRepository {
       FROM sale_items si
       JOIN sales s ON si.sale_id = s.id
       JOIN products p ON si.product_id = p.id
-      WHERE date(s.created_at, 'localtime') = date('now', 'localtime')
+      WHERE date(s.created_at, '+5 hours', '30 minutes') = date('now', '+5 hours', '30 minutes')
     `);
     const profit = (profitStmt.get() as { profit: number }).profit;
 

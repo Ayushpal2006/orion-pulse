@@ -23,7 +23,7 @@ export class SaleRepository {
     // Queries sales where transaction date in local time equals local date today
     const stmt = db.prepare(`
       SELECT * FROM sales 
-      WHERE date(created_at, 'localtime') = date('now', 'localtime') 
+      WHERE date(created_at, '+5 hours', '30 minutes') = date('now', '+5 hours', '30 minutes') 
       ORDER BY id DESC
     `);
     return stmt.all() as Sale[];

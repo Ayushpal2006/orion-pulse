@@ -29,10 +29,11 @@ router.post("/test", async (req: Request, res: Response): Promise<void> => {
       return;
     }
     const manager = SyncQueueManager.getInstance();
-    const connected = await manager.testConnection(sheetId);
+    const result = await manager.testConnection(sheetId);
     res.status(200).json({
       success: true,
-      connected
+      connected: result.success,
+      error: result.error
     });
   } catch (error: any) {
     res.status(200).json({

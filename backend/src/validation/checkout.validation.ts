@@ -12,5 +12,6 @@ export const CheckoutRequestSchema = z.object({
     { message: "Payment method must be one of: Cash, UPI, Card, Wallet" }
   ),
   cashierName: z.string().trim().min(1, "Cashier name is required"),
+  customerName: z.string().trim().optional(),
   items: z.array(CheckoutItemSchema).min(1, "At least one checkout item is required"),
 });

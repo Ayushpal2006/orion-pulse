@@ -51,6 +51,7 @@ export class SyncQueueManager {
       
       const sheetId = this.getDbSetting("google_sheet_id", "");
       const enabled = this.getDbSetting("google_sync_enabled", "0") === "1";
+      const serviceAccount = process.env.GOOGLE_CLIENT_EMAIL || "Not Configured";
       
       let status = "Green"; // Connected / Idle
       if (!sheetId) {
@@ -67,7 +68,8 @@ export class SyncQueueManager {
         failedJobs: totalFailed,
         lastSync: lastJob ? lastJob.updated_at : "Never",
         enabled,
-        sheetId
+        sheetId,
+        serviceAccount
       };
     } catch (err) {
       return {
@@ -147,16 +149,23 @@ export class SyncQueueManager {
     }
   }
 
-  async testConnection(sheetId: string): Promise<boolean> {
+  async testConnection(sheetId: string): Promise<{ success: boolean; error?: string }> {
     try {
       const sheets = this.getSheetsClient();
-      if (!sheets) return false;
-      
+      if (!sheets) {
+        return { success: false, error: "Google Service Account credentials are not configured in backend .env file." };
+      }
       await sheets.spreadsheets.get({ spreadsheetId: sheetId });
-      return true;
-    } catch (e) {
+      return { success: true };
+    } catch (e: any) {
       console.error("Failed to connect to spreadsheet:", e);
-      return false;
+      let errorMsg = e.message || String(e);
+      if (e.status === 403 || (e.message && e.message.includes("permission"))) {
+        errorMsg = "Permission Denied. Please share the Google Sheet with the Service Account email address as an 'Editor'.";
+      } else if (e.status === 404 || (e.message && e.message.includes("not found"))) {
+        errorMsg = "Spreadsheet not found. Please verify the Google Sheet ID is correct.";
+      }
+      return { success: false, error: errorMsg };
     }
   }
 
@@ -198,7 +207,7 @@ export class SyncQueueManager {
           tabName = "Sales";
           rowData = [
             payload.invoiceNumber,
-            payload.date,
+            `${payload.date} ${payload.time}`,
             payload.cashier,
             payload.paymentMethod,
             payload.subtotal,
@@ -270,6 +279,31 @@ export class SyncQueueManager {
           }
         });
         console.log(`Created tabs in Google Sheets: ${addSheets.join(", ")}`);
+
+        // Add headers for each created tab
+        for (const title of addSheets) {
+          let headers: string[] = [];
+          if (title === "Sales") {
+            headers = ["Invoice Number", "Date & Time", "Cashier", "Payment Method", "Subtotal", "Discount", "GST", "Grand Total", "Public Link"];
+          } else if (title === "Customers") {
+            headers = ["Phone", "Name", "Email", "Address", "Total Orders", "Lifetime Value (INR)", "Last Visit"];
+          } else if (title === "Products") {
+            headers = ["SKU", "Name", "Purchase Price (INR)", "Selling Price (INR)", "Stock", "GST (%)", "Active Status"];
+          } else if (title === "GST") {
+            headers = ["GST Slab", "Taxable Value (INR)", "Tax Collected (INR)"];
+          }
+
+          if (headers.length > 0) {
+            await sheets.spreadsheets.values.append({
+              spreadsheetId,
+              range: `${title}!A1`,
+              valueInputOption: "RAW",
+              requestBody: {
+                values: [headers]
+              }
+            });
+          }
+        }
       }
     } catch (err) {
       console.warn("Failed to automatically verify/create tabs:", err);

@@ -142,8 +142,8 @@ export class SalesService {
     };
 
     const saleDate = new Date(sale.created_at);
-    const formattedDate = saleDate.toLocaleDateString("en-IN", { day: '2-digit', month: 'short', year: 'numeric' });
-    const formattedTime = saleDate.toLocaleTimeString("en-IN", { hour: '2-digit', minute: '2-digit', hour12: true });
+    const formattedDate = saleDate.toLocaleDateString("en-IN", { day: '2-digit', month: 'short', year: 'numeric', timeZone: "Asia/Kolkata" });
+    const formattedTime = saleDate.toLocaleTimeString("en-IN", { hour: '2-digit', minute: '2-digit', hour12: true, timeZone: "Asia/Kolkata" });
 
     const itemsMapped = items.map((i) => ({
       name: i.product_name,

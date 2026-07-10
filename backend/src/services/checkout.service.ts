@@ -24,12 +24,16 @@ export class CheckoutService {
       let customer = this.customerRepo.getByPhone(req.customerPhone);
       if (!customer) {
         customer = this.customerRepo.create({
-          name: `Customer - ${req.customerPhone}`,
+          name: req.customerName || `Customer - ${req.customerPhone}`,
           phone: req.customerPhone,
           email: null,
           address: null,
           notes: "Auto-created during checkout",
         });
+      } else if (req.customerName && req.customerName !== "Walk-in Customer" && (customer.name.startsWith("Customer - ") || customer.name === "Walk-in Customer")) {
+        // If the customer already exists but has the template/generic name, update it with their real name!
+        this.customerRepo.update(customer.id, { name: req.customerName });
+        customer.name = req.customerName; // update local object reference
       }
 
       // 2. Generate next sequential invoice number (e.g. INV-2026-000001)
