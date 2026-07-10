@@ -11,11 +11,11 @@ export async function downloadFonts(): Promise<void> {
   const fonts = [
     {
       name: "Outfit-Regular.ttf",
-      url: "https://raw.githubusercontent.com/google/fonts/main/ofl/outfit/static/Outfit-Regular.ttf"
+      url: "https://cdn.jsdelivr.net/gh/Outfitio/Outfit-Fonts@main/fonts/ttf/Outfit-Regular.ttf"
     },
     {
       name: "Outfit-Bold.ttf",
-      url: "https://raw.githubusercontent.com/google/fonts/main/ofl/outfit/static/Outfit-Bold.ttf"
+      url: "https://cdn.jsdelivr.net/gh/Outfitio/Outfit-Fonts@main/fonts/ttf/Outfit-Bold.ttf"
     }
   ];
 

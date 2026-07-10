@@ -189,11 +189,17 @@ export function initDb(): void {
       insertSetting.run("maps_url", "https://maps.google.com");
       insertSetting.run("google_sheet_id", "");
       insertSetting.run("google_sync_enabled", "0");
+      insertSetting.run("pdf_retention_period", "90 Days");
+      insertSetting.run("pdf_last_cleanup", "Never");
+      insertSetting.run("logo", "");
     } else {
-      // Ensure Google Sheets keys exist on existing databases
+      // Ensure Google Sheets and PDF storage keys exist on existing databases
       try {
         db.prepare("INSERT OR IGNORE INTO settings (key, value) VALUES ('google_sheet_id', '')").run();
         db.prepare("INSERT OR IGNORE INTO settings (key, value) VALUES ('google_sync_enabled', '0')").run();
+        db.prepare("INSERT OR IGNORE INTO settings (key, value) VALUES ('pdf_retention_period', '90 Days')").run();
+        db.prepare("INSERT OR IGNORE INTO settings (key, value) VALUES ('pdf_last_cleanup', 'Never')").run();
+        db.prepare("INSERT OR IGNORE INTO settings (key, value) VALUES ('logo', '')").run();
       } catch (e) {}
     }
 
@@ -320,8 +326,19 @@ export function initDb(): void {
         }
       });
       insertMany(initialCustomers);
-      console.log("🌱 Customer seeding complete.");
     }
+
+    // Create query optimization indexes
+    console.log("⚡ Creating database search and query indexes...");
+    db.exec("CREATE INDEX IF NOT EXISTS idx_products_name ON products(name);");
+    db.exec("CREATE INDEX IF NOT EXISTS idx_products_category ON products(category);");
+    db.exec("CREATE INDEX IF NOT EXISTS idx_customers_name ON customers(name);");
+    db.exec("CREATE INDEX IF NOT EXISTS idx_customers_phone ON customers(phone);");
+    db.exec("CREATE INDEX IF NOT EXISTS idx_sales_created_at ON sales(created_at);");
+    db.exec("CREATE INDEX IF NOT EXISTS idx_sales_customer_id ON sales(customer_id);");
+    db.exec("CREATE INDEX IF NOT EXISTS idx_sale_items_sale_id ON sale_items(sale_id);");
+    db.exec("CREATE INDEX IF NOT EXISTS idx_sale_items_product_id ON sale_items(product_id);");
+    console.log("✅ Database indexes verified/created successfully.");
 
     console.log("✅ Database tables checked/created successfully.");
   } catch (error) {

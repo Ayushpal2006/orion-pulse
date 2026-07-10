@@ -84,7 +84,7 @@ export class InvoiceService {
       <div class="flex flex-col md:flex-row justify-between items-start gap-6">
         <div class="space-y-2">
           <div class="flex items-center gap-2">
-            <span class="text-2xl">🏬</span>
+            ${receipt.shop.logo ? `<img src="${receipt.shop.logo}" class="h-12 object-contain mr-1" alt="Logo">` : `<span class="text-2xl">🏬</span>`}
             <h1 class="text-3xl font-extrabold tracking-tight text-neutral-900">${receipt.shop.name}</h1>
           </div>
           <p class="text-sm text-neutral-500 max-w-sm leading-relaxed">${receipt.shop.address}</p>
@@ -157,10 +157,10 @@ export class InvoiceService {
           ${receipt.paymentMethod === "UPI" ? `
             <div class="flex items-center gap-3 bg-neutral-50 p-3 rounded-xl border border-neutral-100 max-w-xs">
               <div class="size-16 bg-white border border-neutral-200 rounded p-1 flex-shrink-0 flex items-center justify-center">
-                <span class="text-xs text-neutral-400 font-mono">[QR]</span>
+                ${receipt.upiQrCode ? `<img src="${receipt.upiQrCode}" class="size-full object-contain" alt="UPI QR">` : `<span class="text-xs text-neutral-400 font-mono">[QR]</span>`}
               </div>
               <div class="text-[10px] text-neutral-500 leading-tight">
-                UPI: ${receipt.shop.upiId}<br>
+                UPI ID: ${receipt.shop.upiId}<br>
                 Reference verified at checkout transaction logs.
               </div>
             </div>

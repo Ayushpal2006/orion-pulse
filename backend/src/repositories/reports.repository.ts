@@ -7,30 +7,30 @@ export class ReportsRepository {
 
     switch (filter) {
       case "today":
-        clause = "date(created_at, '+5 hours', '30 minutes') = date('now', '+5 hours', '30 minutes')";
+        clause = "date(created_at) = date('now')";
         break;
       case "yesterday":
-        clause = "date(created_at, '+5 hours', '30 minutes') = date('now', '+5 hours', '30 minutes', '-1 day')";
+        clause = "date(created_at) = date('now', '-1 day')";
         break;
       case "last7":
-        clause = "date(created_at, '+5 hours', '30 minutes') >= date('now', '+5 hours', '30 minutes', '-6 days')";
+        clause = "date(created_at) >= date('now', '-6 days')";
         break;
       case "last30":
-        clause = "date(created_at, '+5 hours', '30 minutes') >= date('now', '+5 hours', '30 minutes', '-29 days')";
+        clause = "date(created_at) >= date('now', '-29 days')";
         break;
       case "thisMonth":
-        clause = "strftime('%Y-%m', datetime(created_at, '+5 hours', '30 minutes')) = strftime('%Y-%m', datetime('now', '+5 hours', '30 minutes'))";
+        clause = "strftime('%Y-%m', created_at) = strftime('%Y-%m', 'now')";
         break;
       case "lastMonth":
-        clause = "strftime('%Y-%m', datetime(created_at, '+5 hours', '30 minutes')) = strftime('%Y-%m', datetime('now', '+5 hours', '30 minutes', '-1 month'))";
+        clause = "strftime('%Y-%m', created_at) = strftime('%Y-%m', 'now', '-1 month')";
         break;
       case "thisYear":
-        clause = "strftime('%Y', datetime(created_at, '+5 hours', '30 minutes')) = strftime('%Y', datetime('now', '+5 hours', '30 minutes'))";
+        clause = "strftime('%Y', created_at) = strftime('%Y', 'now')";
         break;
       case "custom":
         if (startDate) {
           const actualEnd = endDate || startDate;
-          clause = "date(created_at, '+5 hours', '30 minutes') >= date($startDate) AND date(created_at, '+5 hours', '30 minutes') <= date($endDate)";
+          clause = "date(created_at) >= date($startDate) AND date(created_at) <= date($endDate)";
           params.$startDate = startDate;
           params.$endDate = actualEnd;
         }
@@ -314,10 +314,11 @@ export class ReportsRepository {
       ORDER BY s.id DESC
       LIMIT 100
     `);
+    const { formatToKolkataDateTime } = require("../utils/datetime");
     const rows = stmt.all(params) as { id: string; date: string; payment: string; total: number }[];
     return rows.map((r) => ({
       id: r.id,
-      date: new Date(r.date).toLocaleString("en-IN", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }),
+      date: formatToKolkataDateTime(r.date),
       payment: r.payment,
       total: r.total / 100.0,
     }));

@@ -17,7 +17,7 @@ export class PdfService {
   async generateInvoicePdf(receipt: any, outputPath: string): Promise<string> {
     return new Promise((resolve, reject) => {
       try {
-        const doc = new PDFDocument({ size: "A4", margin: 40 });
+        const doc = new PDFDocument({ size: "A4", margin: 40, bufferPages: true });
         const stream = fs.createWriteStream(outputPath);
         doc.pipe(stream);
 
@@ -47,11 +47,24 @@ export class PdfService {
         if (theme === "clean") primaryColor = "#2563eb"; // blue
         if (theme === "dark") primaryColor = "#1e293b"; // charcoal
 
+        // Business Logo at top right if configured
+        if (receipt.shop.logo && receipt.shop.logo.startsWith("data:image/")) {
+          try {
+            const base64Data = receipt.shop.logo.split(",")[1];
+            if (base64Data) {
+              const logoBuffer = Buffer.from(base64Data, "base64");
+              doc.image(logoBuffer, 460, 40, { width: 95 });
+            }
+          } catch (e) {
+            console.error("Failed to render logo in PDF invoice:", e);
+          }
+        }
+
         // Title Block
-        doc.font("Outfit-Bold").fontSize(24).fillColor(primaryColor).text(receipt.shop.name, 40, 40);
+        doc.font("Outfit-Bold").fontSize(24).fillColor(primaryColor).text(receipt.shop.name, 40, 40, { width: 400 });
         doc.font("Outfit").fontSize(9).fillColor("#475569");
-        doc.text(receipt.shop.address);
-        doc.text(`Phone: ${receipt.shop.phone} | Email: ${receipt.shop.email || "billing@orionpos.in"} | GSTIN: ${receipt.shop.gstin}`);
+        doc.text(receipt.shop.address, { width: 400 });
+        doc.text(`Phone: ${receipt.shop.phone} | Email: ${receipt.shop.email || "billing@orionpos.in"} | GSTIN: ${receipt.shop.gstin}`, { width: 400 });
         
         doc.moveDown(2);
         
@@ -132,7 +145,20 @@ export class PdfService {
         doc.font("Outfit").fillColor("#000000").text(`Method: ${receipt.paymentMethod}`, 40, totalsY + 14);
         doc.text(`Status: Paid`, 40, totalsY + 26);
         if (receipt.paymentMethod === "UPI") {
-          doc.text(`UPI payload: ${receipt.upiPayload.substring(0, 30)}...`, 40, totalsY + 38);
+          doc.text(`UPI ID: ${receipt.shop.upiId}`, 40, totalsY + 38, { width: 170 });
+          
+          // Draw high resolution vector QR code next to payment details (x=220)
+          if (receipt.upiQrCode) {
+            try {
+              const base64Data = receipt.upiQrCode.split(",")[1];
+              if (base64Data) {
+                const qrBuffer = Buffer.from(base64Data, "base64");
+                doc.image(qrBuffer, 230, totalsY, { width: 75 });
+              }
+            } catch (e) {
+              console.error("Failed to render QR code in PDF:", e);
+            }
+          }
         }
 
         // Terms and Signature block
@@ -150,6 +176,14 @@ export class PdfService {
         // Footer note
         doc.font("Outfit-Bold").fontSize(9).fillColor(primaryColor).text(receipt.thankYouMessage, 40, 750, { align: "center", width: 515 });
         doc.font("Outfit").fontSize(7).fillColor("#94a3b8").text("Generated automatically via Orion POS sharing ecosystem.", 40, 762, { align: "center", width: 515 });
+
+        // Add dynamic footer page numbers for all pages
+        const range = doc.bufferedPageRange();
+        for (let i = range.start; i < range.start + range.count; i++) {
+          doc.switchToPage(i);
+          doc.fontSize(8).font("Outfit").fillColor("#94a3b8");
+          doc.text(`Page ${i + 1} of ${range.count}`, 40, 800, { align: "center", width: 515 });
+        }
 
         doc.end();
 

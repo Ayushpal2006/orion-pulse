@@ -4,6 +4,7 @@ import { ProductRepository } from "../repositories/product.repository";
 import { CustomerRepository } from "../repositories/customer.repository";
 import { CheckoutRequest, CheckoutResponse } from "../types/checkout.types";
 import { ValidationError, NotFoundError } from "./product.service";
+import { getCurrentUtcString } from "../utils/datetime";
 
 export class CheckoutService {
   private checkoutRepo: CheckoutRepository;
@@ -71,7 +72,15 @@ export class CheckoutService {
 
         // Reduce stock in the DB
         const updatedStock = product.stock - item.quantity;
-        this.productRepo.update(product.id, { stock: updatedStock });
+        const updatedProduct = this.productRepo.update(product.id, { stock: updatedStock });
+        if (updatedProduct) {
+          try {
+            const { SyncQueueManager } = require("./sync.service");
+            SyncQueueManager.getInstance().enqueue("product", updatedProduct);
+          } catch (e) {
+            console.error("Failed to enqueue product sync on checkout:", e);
+          }
+        }
 
         // Calculate pricing
         const lineTotal = item.quantity * product.selling_price;
@@ -118,16 +127,31 @@ export class CheckoutService {
       }
 
       // 6. Update Customer profile metrics
-      const updatedOrders = customer.total_orders + 1;
-      const updatedLtv = customer.lifetime_value + grandTotal;
-      // SQLite compatible YYYY-MM-DD HH:MM:SS local string
-      const lastVisitTime = new Date().toISOString().replace("T", " ").substring(0, 19);
+      const updatedOrders = (customer.total_orders ?? 0) + 1;
+      const updatedLtv = (customer.lifetime_value ?? 0) + grandTotal;
+      // Store timestamps in UTC for consistent reporting and customer timelines.
+      const lastVisitTime = getCurrentUtcString();
 
       this.customerRepo.update(customer.id, {
         total_orders: updatedOrders,
         lifetime_value: updatedLtv,
         last_visit: lastVisitTime,
       });
+
+      try {
+        const { SyncQueueManager } = require("./sync.service");
+        SyncQueueManager.getInstance().enqueue("customer", {
+          phone: customer.phone,
+          name: customer.name,
+          email: customer.email,
+          address: customer.address,
+          total_orders: updatedOrders,
+          lifetime_value: updatedLtv,
+          last_visit: lastVisitTime
+        });
+      } catch (e) {
+        console.error("Failed to enqueue customer sync on checkout:", e);
+      }
 
       return {
         success: true,

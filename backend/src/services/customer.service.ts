@@ -37,8 +37,8 @@ export class CustomerService {
   }
 
   async create(dto: CreateCustomerDTO): Promise<Customer> {
-    // 1. Validate phone number uniqueness or reactivate if soft-deleted
-    const existing = this.repository.getByPhone(dto.phone);
+    // 1. Validate phone number uniqueness or reactivate if soft-deleted.
+    const existing = this.repository.getByPhone(dto.phone, true);
     if (existing) {
       if (existing.is_active === 0) {
         const reactivated = this.repository.update(existing.id, {

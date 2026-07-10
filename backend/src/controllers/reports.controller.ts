@@ -310,6 +310,12 @@ export class ReportsController {
         Tax_Collected_INR: g.tax
       }));
 
+      // 5. Payment Summary Sheet
+      const paymentSheetRows = Object.entries(data.paymentMethodSplit || {}).map(([method, amount]) => ({
+        Payment_Method: method,
+        Total_Amount_INR: amount
+      }));
+
       // Create Excel Workbook using sheetjs (xlsx)
       const wb = XLSX.utils.book_new();
 
@@ -324,6 +330,9 @@ export class ReportsController {
 
       const wsGst = XLSX.utils.json_to_sheet(gstSheetRows);
       XLSX.utils.book_append_sheet(wb, wsGst, "GST Summary");
+
+      const wsPayment = XLSX.utils.json_to_sheet(paymentSheetRows);
+      XLSX.utils.book_append_sheet(wb, wsPayment, "Payment Summary");
 
       const buf = XLSX.write(wb, { type: "buffer", bookType: "xlsx" });
 

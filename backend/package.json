@@ -21,6 +21,7 @@
     "googleapis": "^173.0.0",
     "multer": "^2.2.0",
     "pdfkit": "^0.19.1",
+    "qrcode": "^1.5.4",
     "xlsx": "^0.18.5",
     "zod": "^4.4.3"
   },
@@ -31,6 +32,7 @@
     "@types/multer": "^2.2.0",
     "@types/node": "^26.1.1",
     "@types/pdfkit": "^0.17.6",
+    "@types/qrcode": "^1.5.6",
     "drizzle-kit": "^0.31.10",
     "nodemon": "^3.1.14",
     "tsx": "^4.23.0",

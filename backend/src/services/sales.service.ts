@@ -3,6 +3,8 @@ import { CustomerRepository } from "../repositories/customer.repository";
 import { NotFoundError } from "./product.service";
 import { Sale, SaleDetailResponse } from "../types/checkout.types";
 import db from "../database/db";
+import { formatToKolkataDate, formatToKolkataTime } from "../utils/datetime";
+import QRCode from "qrcode";
 
 export interface ReceiptResponse {
   invoiceNumber: string;
@@ -14,6 +16,7 @@ export interface ReceiptResponse {
     phone: string;
     address: string;
     upiId: string;
+    logo?: string;
   };
   customer: {
     name: string;
@@ -37,6 +40,7 @@ export interface ReceiptResponse {
   thermalFormat: any[];
   publicToken: string;
   pdfUrl: string;
+  upiQrCode?: string;
 }
 
 export class SalesService {
@@ -141,9 +145,8 @@ export class SalesService {
       upiId: getSetting("shop_upi_id", "orion@upi"),
     };
 
-    const saleDate = new Date(sale.created_at);
-    const formattedDate = saleDate.toLocaleDateString("en-IN", { day: '2-digit', month: 'short', year: 'numeric', timeZone: "Asia/Kolkata" });
-    const formattedTime = saleDate.toLocaleTimeString("en-IN", { hour: '2-digit', minute: '2-digit', hour12: true, timeZone: "Asia/Kolkata" });
+    const formattedDate = formatToKolkataDate(sale.created_at);
+    const formattedTime = formatToKolkataTime(sale.created_at);
 
     const itemsMapped = items.map((i) => ({
       name: i.product_name,
@@ -155,6 +158,16 @@ export class SalesService {
 
     const upiPayload = `upi://pay?pa=${shop.upiId}&pn=${encodeURIComponent(shop.name)}&am=${(sale.grand_total / 100.0).toFixed(2)}&cu=INR`;
     const thankYouMessage = "Thank you for shopping at Orion Store!";
+
+    // Generate UPI QR code offline
+    let upiQrCode = "";
+    if (sale.payment_method === "UPI") {
+      try {
+        upiQrCode = await QRCode.toDataURL(upiPayload);
+      } catch (e) {
+        console.error("Failed to generate UPI QR code:", e);
+      }
+    }
 
     // Create 58mm Thermal JSON Structure
     const thermalFormat = [
@@ -189,7 +202,10 @@ export class SalesService {
       invoiceNumber: sale.invoice_number,
       date: formattedDate,
       time: formattedTime,
-      shop,
+      shop: {
+        ...shop,
+        logo: getSetting("logo", "")
+      },
       customer: {
         name: customer ? customer.name : "Walk-in Customer",
         phone: customer ? customer.phone : "",
@@ -206,6 +222,7 @@ export class SalesService {
       thermalFormat,
       publicToken: sale.public_token || "",
       pdfUrl: sale.pdf_url || "",
+      upiQrCode,
     };
   }
 }

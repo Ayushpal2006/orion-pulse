@@ -13,8 +13,12 @@ export class CustomerRepository {
     return (result as Customer) || null;
   }
 
-  getByPhone(phone: string): Customer | null {
-    const stmt = db.prepare("SELECT * FROM customers WHERE phone = ?");
+  getByPhone(phone: string, includeInactive = false): Customer | null {
+    const stmt = db.prepare(
+      includeInactive
+        ? "SELECT * FROM customers WHERE phone = ?"
+        : "SELECT * FROM customers WHERE phone = ? AND is_active = 1"
+    );
     const result = stmt.get(phone);
     return (result as Customer) || null;
   }
