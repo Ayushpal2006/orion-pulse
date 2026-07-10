@@ -180,21 +180,37 @@ export class SalesController {
 
       if (!fs.existsSync(pdfPath)) {
         const pdfService = new PdfService();
-        await pdfService.generateInvoicePdf(receipt, pdfPath);
-
         try {
-          db.prepare("UPDATE sales SET pdf_url = ? WHERE invoice_number = ?").run(
-            `/uploads/invoices/${pdfFilename}`,
-            receipt.invoiceNumber
-          );
-        } catch (e) {
-          console.error("Failed to update sales pdf_url:", e);
+          await pdfService.generateInvoicePdf(receipt, pdfPath);
+
+          try {
+            db.prepare("UPDATE sales SET pdf_url = ? WHERE invoice_number = ?").run(
+              `/uploads/invoices/${pdfFilename}`,
+              receipt.invoiceNumber
+            );
+          } catch (e) {
+            console.error("Failed to update sales pdf_url:", e);
+          }
+        } catch (genError) {
+          // Clean up incomplete/partially written files to prevent sending corrupted files next time
+          if (fs.existsSync(pdfPath)) {
+            try {
+              fs.unlinkSync(pdfPath);
+            } catch (unlinkErr) {
+              console.error("Failed to clean up incomplete PDF file:", unlinkErr);
+            }
+          }
+          throw genError;
         }
       }
 
-      res.setHeader("Content-Type", "application/pdf");
-      res.setHeader("Content-Disposition", `attachment; filename="${pdfFilename}"`);
-      fs.createReadStream(pdfPath).pipe(res);
+      res.download(pdfPath, pdfFilename, (err) => {
+        if (err) {
+          if (!res.headersSent) {
+            next(err);
+          }
+        }
+      });
     } catch (error) {
       next(error);
     }

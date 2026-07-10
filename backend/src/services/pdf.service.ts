@@ -20,6 +20,9 @@ export class PdfService {
         const doc = new PDFDocument({ size: "A4", margin: 40, bufferPages: true });
         const stream = fs.createWriteStream(outputPath);
         doc.pipe(stream);
+        doc.on("error", (err) => {
+          reject(err);
+        });
 
         const regularFontPath = path.join(__dirname, "../assets/fonts/Outfit-Regular.ttf");
         const boldFontPath = path.join(__dirname, "../assets/fonts/Outfit-Bold.ttf");

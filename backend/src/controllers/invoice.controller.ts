@@ -80,20 +80,34 @@ export class InvoiceController {
 
       // Generate A4 PDF if missing
       if (!fs.existsSync(pdfPath)) {
-        await this.pdfService.generateInvoicePdf(receipt, pdfPath);
-        
-        // Save PDF path in db
         try {
-          const updateStmt = db.prepare("UPDATE sales SET pdf_url = ? WHERE invoice_number = ?");
-          updateStmt.run(`/uploads/invoices/${pdfFilename}`, receipt.invoiceNumber);
-        } catch (e) {
-          console.error("Failed to update pdf_url:", e);
+          await this.pdfService.generateInvoicePdf(receipt, pdfPath);
+          
+          // Save PDF path in db
+          try {
+            const updateStmt = db.prepare("UPDATE sales SET pdf_url = ? WHERE invoice_number = ?");
+            updateStmt.run(`/uploads/invoices/${pdfFilename}`, receipt.invoiceNumber);
+          } catch (e) {
+            console.error("Failed to update pdf_url:", e);
+          }
+        } catch (genError) {
+          // Clean up incomplete/partially written files to prevent sending corrupted files next time
+          if (fs.existsSync(pdfPath)) {
+            try {
+              fs.unlinkSync(pdfPath);
+            } catch (unlinkErr) {
+              console.error("Failed to clean up incomplete PDF file:", unlinkErr);
+            }
+          }
+          throw genError;
         }
       }
 
       res.download(pdfPath, pdfFilename, (err) => {
         if (err) {
-          next(err);
+          if (!res.headersSent) {
+            next(err);
+          }
         }
       });
     } catch (error) {

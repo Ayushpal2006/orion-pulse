@@ -154,6 +154,7 @@ export class SalesService {
       price: i.selling_price / 100.0,
       discount: (i.discount || 0) / 100.0,
       lineTotal: i.line_total / 100.0,
+      gst: i.product_gst ?? 18,
     }));
 
     const upiPayload = `upi://pay?pa=${shop.upiId}&pn=${encodeURIComponent(shop.name)}&am=${(sale.grand_total / 100.0).toFixed(2)}&cu=INR`;

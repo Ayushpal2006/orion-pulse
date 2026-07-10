@@ -31,8 +31,8 @@ export class ReportsRepository {
         if (startDate) {
           const actualEnd = endDate || startDate;
           clause = "date(created_at) >= date($startDate) AND date(created_at) <= date($endDate)";
-          params.$startDate = startDate;
-          params.$endDate = actualEnd;
+          params.startDate = startDate;
+          params.endDate = actualEnd;
         }
         break;
     }

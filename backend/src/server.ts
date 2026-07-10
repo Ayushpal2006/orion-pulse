@@ -25,14 +25,7 @@ dotenv.config();
 // Connect to SQLite and initialize database tables before starting Express
 initDb();
 
-// Download required Outfit fonts asynchronously
-downloadFonts().catch((err) => console.error("⚠️ Font download failed:", err));
-
-// Boot singleton background sync manager immediately
-SyncQueueManager.getInstance();
-
-// Start automatic daily PDF cleanup scheduler
-schedulePdfCleanup();
+// Background services will be initialized after the server starts listening
 
 const app = express();
 
@@ -95,4 +88,13 @@ const PORT = Number(process.env.PORT || 8080);
 
 app.listen(PORT, () => {
   console.log(`✅ Server running on http://localhost:${PORT}`);
+  
+  // Download required Outfit fonts asynchronously
+  downloadFonts().catch((err) => console.error("⚠️ Font download failed:", err));
+
+  // Boot singleton background sync manager immediately
+  SyncQueueManager.getInstance();
+
+  // Start automatic daily PDF cleanup scheduler
+  schedulePdfCleanup();
 });

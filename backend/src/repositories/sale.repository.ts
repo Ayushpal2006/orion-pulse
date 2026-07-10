@@ -31,7 +31,7 @@ export class SaleRepository {
 
   getSaleItems(saleId: number): any[] {
     const stmt = db.prepare(`
-      SELECT si.*, p.name as product_name, p.sku as product_sku
+      SELECT si.*, p.name as product_name, p.sku as product_sku, p.gst as product_gst
       FROM sale_items si
       JOIN products p ON si.product_id = p.id
       WHERE si.sale_id = ?
