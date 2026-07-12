@@ -173,3 +173,49 @@
   transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.3s ease;
 }
 
+/* Cross-Platform Print Styling Rules */
+@media print {
+  /* Hide all elements on the screen except our print container */
+  body > * {
+    display: none !important;
+  }
+  
+  body > #orion-print-section,
+  body > #orion-print-section * {
+    display: block !important;
+    visibility: visible !important;
+  }
+  
+  body > #orion-print-section {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    background: white !important;
+    color: black !important;
+    font-family: system-ui, -apple-system, sans-serif;
+  }
+
+  /* Specific styles for thermal printer formats (58mm / 80mm) */
+  #orion-print-section.print-58mm,
+  #orion-print-section.print-80mm {
+    font-family: monospace !important;
+  }
+  
+  #orion-print-section.print-58mm * {
+    font-family: monospace !important;
+  }
+  
+  #orion-print-section.print-80mm * {
+    font-family: monospace !important;
+  }
+
+  /* Force background colors to print if needed */
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+}
+

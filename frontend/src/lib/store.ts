@@ -4,7 +4,7 @@ import { type Product, type Customer } from "./mock-data";
 export type Role = "Admin" | "Manager" | "Cashier";
 export type Payment = "Cash" | "UPI" | "Card" | "Wallet";
 export type Theme = "light" | "dark" | "system";
-export type PaperWidth = "58mm" | "80mm";
+export type PaperWidth = "58mm" | "80mm" | "A4";
 
 export type CartLine = {
   productId: string;

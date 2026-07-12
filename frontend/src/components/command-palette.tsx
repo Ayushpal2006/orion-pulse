@@ -7,6 +7,7 @@ import {
   Package, Users, Receipt, LayoutDashboard, ScanBarcode, Plus, Settings, BarChart3, Tag, Sun, Moon, Monitor,
 } from "lucide-react";
 import { useApp } from "@/lib/store";
+import { API_BASE_URL } from "@/lib/api";
 
 export function CommandPalette() {
   const open = useApp((s) => s.paletteOpen);
@@ -20,7 +21,7 @@ export function CommandPalette() {
 
   useEffect(() => {
     if (open) {
-      fetch("http://localhost:8080/sales")
+      fetch(`${API_BASE_URL}/sales`)
         .then((res) => res.json())
         .then((json) => {
           if (json.success && Array.isArray(json.data)) {

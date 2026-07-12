@@ -12,7 +12,7 @@ import { toast } from "sonner";
 import { Printer, Upload, Download, RotateCcw, Loader2, Cloud, RefreshCw, CheckCircle2, AlertCircle, HardDrive } from "lucide-react";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { ReceiptPreview } from "@/components/receipt-preview";
-import { testPrinter } from "@/lib/api";
+import { testPrinter, API_BASE_URL } from "@/lib/api";
 import { formatToKolkataDateTime } from "@/lib/datetime";
 
 export const Route = createFileRoute("/settings")({
@@ -58,7 +58,7 @@ function Settings() {
 
   const loadStorageStats = async () => {
     try {
-      const res = await fetch("http://localhost:8080/settings/storage");
+      const res = await fetch(`${API_BASE_URL}/settings/storage`);
       const json = await res.json();
       if (json.success) {
         setStorageStats(json.data);
@@ -72,7 +72,7 @@ function Settings() {
   useEffect(() => {
     const loadSettings = async () => {
       try {
-        const res = await fetch("http://localhost:8080/settings");
+        const res = await fetch(`${API_BASE_URL}/settings`);
         const json = await res.json();
         if (json.success && json.data) {
           const d = json.data;
@@ -104,7 +104,7 @@ function Settings() {
   useEffect(() => {
     const fetchStatus = async () => {
       try {
-        const res = await fetch("http://localhost:8080/sync/status");
+        const res = await fetch(`${API_BASE_URL}/sync/status`);
         const json = await res.json();
         if (json.success) {
           setSyncStatus(json.data);
@@ -121,7 +121,7 @@ function Settings() {
     if (!loaded) return;
     const syncSettings = async () => {
       try {
-        await fetch("http://localhost:8080/settings", {
+        await fetch(`${API_BASE_URL}/settings`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -268,8 +268,8 @@ function Settings() {
             </Select>
 
             <Row label="Paper width">
-              <div className="grid grid-cols-2 gap-2">
-                {(["58mm", "80mm"] as PaperWidth[]).map((w) => (
+              <div className="grid grid-cols-3 gap-2">
+                {(["58mm", "80mm", "A4"] as PaperWidth[]).map((w) => (
                   <button
                     key={w}
                     onClick={() => s.setPaperWidth(w)}
@@ -337,7 +337,7 @@ function Settings() {
             </div>
             <div className="grid grid-cols-2 gap-2">
               <Button variant="outline" onClick={() => {
-                window.open("http://localhost:8080/settings/database/backup", "_blank");
+                window.open(`${API_BASE_URL}/settings/database/backup`, "_blank");
                 toast.success("Backup Downloaded", { description: "POS SQLite database snapshot saved." });
               }}>
                 <Download className="mr-2 size-4" /> Backup
@@ -359,7 +359,7 @@ function Settings() {
                   formData.append("database", file);
                   
                   try {
-                    const res = await fetch("http://localhost:8080/settings/database/restore", {
+                    const res = await fetch(`${API_BASE_URL}/settings/database/restore`, {
                       method: "POST",
                       body: formData
                     });
@@ -411,7 +411,7 @@ function Settings() {
                   value={storageStats?.retentionPeriod || "90 Days"}
                   onValueChange={async (val) => {
                     try {
-                      const res = await fetch("http://localhost:8080/settings", {
+                      const res = await fetch(`${API_BASE_URL}/settings`, {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
                         body: JSON.stringify({ pdf_retention_period: val }),
@@ -476,7 +476,7 @@ function Settings() {
                 onClick={async () => {
                   setCleaningStorage(true);
                   try {
-                    const res = await fetch("http://localhost:8080/settings/storage/cleanup", { method: "POST" });
+                    const res = await fetch(`${API_BASE_URL}/settings/storage/cleanup`, { method: "POST" });
                     const json = await res.json();
                     if (json.success) {
                       toast.success(json.message);
@@ -567,7 +567,7 @@ function Settings() {
                     onClick={async () => {
                       setTestingConnection(true);
                       try {
-                        const res = await fetch("http://localhost:8080/sync/test", {
+                        const res = await fetch(`${API_BASE_URL}/sync/test`, {
                           method: "POST",
                           headers: { "Content-Type": "application/json" },
                           body: JSON.stringify({ sheetId }),
@@ -656,7 +656,7 @@ function Settings() {
                   onClick={async () => {
                     setSyncingNow(true);
                     try {
-                      await fetch("http://localhost:8080/sync/trigger", { method: "POST" });
+                      await fetch(`${API_BASE_URL}/sync/trigger`, { method: "POST" });
                       toast.success("Google Sync triggered!");
                     } catch (e) {
                       toast.error("Failed to trigger sync.");
@@ -677,7 +677,7 @@ function Settings() {
                   onClick={async () => {
                     setRetryingFailed(true);
                     try {
-                      await fetch("http://localhost:8080/sync/retry", { method: "POST" });
+                      await fetch(`${API_BASE_URL}/sync/retry`, { method: "POST" });
                       toast.success("Retrying failed sync items...");
                     } catch (e) {
                       toast.error("Failed to retry.");

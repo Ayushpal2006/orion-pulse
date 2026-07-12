@@ -43,6 +43,10 @@ export function StockAdjustmentDialog({
   }, [open]);
 
   const submit = async () => {
+    if (typeof window !== "undefined" && !window.navigator.onLine) {
+      toast.error("Operation not allowed while offline.");
+      return;
+    }
     if (!product) return;
     const delta = mode === "inc" ? qty : -qty;
     const newStock = Math.max(0, product.stock + delta);

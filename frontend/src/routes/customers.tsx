@@ -23,7 +23,8 @@ import type { Customer } from "@/lib/mock-data";
 import { formatToKolkataDateTime, formatToKolkataDate, parseDbTimestamp } from "@/lib/datetime";
 import { toast } from "sonner";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { getCustomers, searchCustomers, deleteCustomerApi, getCustomerInvoices, getWhatsAppShareLink, getSalePublicLink, printSaleReceipt } from "@/lib/api";
+import { getCustomers, searchCustomers, deleteCustomerApi, getCustomerInvoices, getWhatsAppShareLink, getSalePublicLink, printSaleReceipt, getSaleReceipt, API_BASE_URL } from "@/lib/api";
+import { getPrintAdapter, isRunningOnWeb } from "@/lib/print-adapter";
 
 export const Route = createFileRoute("/customers")({
   head: () => ({
@@ -60,7 +61,7 @@ function Customers() {
   });
 
   // Query customers using debounced query filter
-  const { data: filtered = [], isLoading, refetch: refetchFiltered } = useQuery({
+  const { data: filtered = [], isLoading, isError, refetch: refetchFiltered } = useQuery({
     queryKey: ["customers", debouncedQ],
     queryFn: () => debouncedQ ? searchCustomers(debouncedQ) : getCustomers(),
   });
@@ -169,6 +170,14 @@ function Customers() {
       {isLoading ? (
         <div className="flex h-32 items-center justify-center">
           <Loader2 className="size-6 animate-spin text-muted-foreground" />
+        </div>
+      ) : isError ? (
+        <div className="flex h-32 flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-border bg-muted/20 p-6 text-center">
+          <div className="text-sm font-semibold text-foreground">Customers could not be loaded</div>
+          <div className="max-w-md text-xs text-muted-foreground">The backend database is not responding. Please retry.</div>
+          <Button variant="outline" size="sm" onClick={() => refetchFiltered()}>
+            <RefreshCw className="mr-2 size-4" /> Retry
+          </Button>
         </div>
       ) : mappedFiltered.length === 0 ? (
         <EmptyState
@@ -304,8 +313,22 @@ function CustomerDetail({
 
   const handleReprint = async (invoiceNumber: string) => {
     try {
-      await printSaleReceipt(invoiceNumber);
-      toast.success("Thermal print triggered successfully!");
+      const adapter = getPrintAdapter();
+      if (isRunningOnWeb()) {
+        const toastId = toast.loading("Fetching receipt details...");
+        try {
+          const receipt = await getSaleReceipt(invoiceNumber);
+          toast.dismiss(toastId);
+          await adapter.print(receipt);
+          toast.success("Receipt print dialog opened successfully!");
+        } catch (err: any) {
+          toast.dismiss(toastId);
+          throw err;
+        }
+      } else {
+        await adapter.print({ invoiceNumber });
+        toast.success("Thermal print triggered successfully!");
+      }
     } catch (e: any) {
       toast.error(e.message || "Failed to trigger print job");
     }
@@ -387,7 +410,7 @@ function CustomerDetail({
                   <Button
                     variant="outline"
                     className="h-7 rounded-lg text-[11px] px-2.5"
-                    onClick={() => window.open(`http://localhost:8080/sales/${sale.invoice_number}/pdf`, "_blank")}
+                    onClick={() => window.open(`${API_BASE_URL}/sales/${sale.invoice_number}/pdf`, "_blank")}
                   >
                     <FileText className="size-3 mr-1" /> PDF Slip
                   </Button>

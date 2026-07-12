@@ -11,7 +11,8 @@ import { cartTotals, useApp, type Payment } from "@/lib/store";
 import { inr } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { ParkedSalesPopover } from "@/components/parked-sales";
-import { getProducts, getCustomers, searchProducts, searchCustomers, checkout as checkoutApi, getSaleReceipt, printSaleReceipt, getWhatsAppShareLink, downloadSalePdf, getSalePublicLink } from "@/lib/api";
+import { getProducts, getCustomers, searchProducts, searchCustomers, checkout as checkoutApi, getSaleReceipt, printSaleReceipt, getWhatsAppShareLink, downloadSalePdf, getSalePublicLink, API_BASE_URL } from "@/lib/api";
+import { getPrintAdapter } from "@/lib/print-adapter";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -164,7 +165,7 @@ function Billing() {
       if (found) {
         setSelectedCustomer(found);
       } else {
-        fetch(`http://localhost:8080/customers/phone/${mobile}`)
+        fetch(`${API_BASE_URL}/customers/phone/${mobile}`)
           .then((res) => res.json())
           .then((json) => {
             if (json.success && json.data) {
@@ -227,6 +228,10 @@ function Billing() {
   };
 
   const runCheckout = async () => {
+    if (typeof window !== "undefined" && !window.navigator.onLine) {
+      toast.error("Network connection lost. Checkouts are disabled until connection is restored.");
+      return;
+    }
     if (cart.length === 0) { toast.error("Cart is empty"); return; }
     if (mobile.length < 10) { toast.error("Enter customer mobile (10 digits)"); return; }
 
@@ -663,7 +668,8 @@ function SlipDialog({
     if (!receipt) return;
     setPrinting(true);
     try {
-      await printSaleReceipt(receipt.invoiceNumber);
+      const adapter = getPrintAdapter();
+      await adapter.print(receipt);
       toast.success("Receipt printed successfully");
     } catch (err: any) {
       toast.error(err.message || "Failed to print receipt");

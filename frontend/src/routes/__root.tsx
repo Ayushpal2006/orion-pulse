@@ -13,6 +13,7 @@ import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { AppShell } from "@/components/app-shell";
 import { Toaster } from "@/components/ui/sonner";
+import { PWAInstallBanner } from "@/components/pwa-install-banner";
 
 function NotFoundComponent() {
   return (
@@ -78,10 +79,15 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
   head: () => ({
     meta: [
       { charSet: "utf-8" },
-      { name: "viewport", content: "width=device-width, initial-scale=1" },
+      { name: "viewport", content: "width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" },
       { title: "Dashboard · Orion POS" },
       { name: "description", content: "Offline-first retail command center — sales, orders, profit and inventory at a glance." },
       { name: "author", content: "Orion POS" },
+      { name: "mobile-web-app-capable", content: "yes" },
+      { name: "apple-mobile-web-app-capable", content: "yes" },
+      { name: "apple-mobile-web-app-status-bar-style", content: "black-translucent" },
+      { name: "apple-mobile-web-app-title", content: "Orion" },
+      { name: "theme-color", content: "#0f172a" },
       { property: "og:title", content: "Dashboard · Orion POS" },
       { property: "og:description", content: "Offline-first retail command center — sales, orders, profit and inventory at a glance." },
       { property: "og:type", content: "website" },
@@ -96,6 +102,8 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { rel: "preconnect", href: "https://rsms.me" },
       { rel: "stylesheet", href: "https://rsms.me/inter/inter.css" },
       { rel: "icon", href: "/favicon.ico", type: "image/x-icon" },
+      { rel: "manifest", href: "/manifest.json" },
+      { rel: "apple-touch-icon", href: "/apple-touch-icon.png" },
     ],
   }),
   shellComponent: RootShell,
@@ -121,12 +129,28 @@ function RootShell({ children }: { children: ReactNode }) {
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
 
+  useEffect(() => {
+    if (typeof window !== "undefined" && "serviceWorker" in navigator) {
+      window.addEventListener("load", () => {
+        navigator.serviceWorker
+          .register("/sw.js")
+          .then((reg) => {
+            console.log("Orion POS: Service Worker successfully loaded:", reg.scope);
+          })
+          .catch((err) => {
+            console.error("Orion POS: Service Worker registration failed:", err);
+          });
+      });
+    }
+  }, []);
+
   return (
     <QueryClientProvider client={queryClient}>
       <AppShell>
         <Outlet />
       </AppShell>
       <Toaster position="top-right" />
+      <PWAInstallBanner />
     </QueryClientProvider>
   );
 }

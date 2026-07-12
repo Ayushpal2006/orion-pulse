@@ -44,6 +44,10 @@ export function CustomerDialog({
     setForm((f) => ({ ...f, [k]: v }));
 
   const submit = async () => {
+    if (typeof window !== "undefined" && !window.navigator.onLine) {
+      toast.error("Operation not allowed while offline.");
+      return;
+    }
     if (!form.name || !form.mobile) {
       toast.error("Name and mobile are required");
       return;

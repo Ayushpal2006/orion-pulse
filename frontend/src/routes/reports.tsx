@@ -15,7 +15,7 @@ import { inr } from "@/lib/format";
 import { useCan } from "@/components/role-gate";
 import { cn } from "@/lib/utils";
 import type { DateRange } from "react-day-picker";
-import { getReportsData } from "@/lib/api";
+import { getReportsData, API_BASE_URL } from "@/lib/api";
 
 export const Route = createFileRoute("/reports")({
   head: () => ({
@@ -69,7 +69,7 @@ function Reports() {
     q.append("filter", filter);
     if (startDateStr) q.append("startDate", startDateStr);
     if (endDateStr) q.append("endDate", endDateStr);
-    window.open(`http://localhost:8080/reports/${type}?${q.toString()}`, "_blank");
+    window.open(`${API_BASE_URL}/reports/${type}?${q.toString()}`, "_blank");
   };
 
   if (isLoading) {

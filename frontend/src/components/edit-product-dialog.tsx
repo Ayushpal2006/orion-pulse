@@ -72,6 +72,10 @@ export function EditProductDialog({
   };
 
   const submit = async () => {
+    if (typeof window !== "undefined" && !window.navigator.onLine) {
+      toast.error("Operation not allowed while offline.");
+      return;
+    }
     if (!form.name || !form.price) {
       toast.error("Name and selling price are required");
       return;

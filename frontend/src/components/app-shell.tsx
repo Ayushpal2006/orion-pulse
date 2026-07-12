@@ -1,8 +1,9 @@
 import { useEffect, type ReactNode } from "react";
 import { Link, useRouterState } from "@tanstack/react-router";
 import {
-  LayoutDashboard, ShoppingCart, Package, Users, BarChart3, Search, Wifi, Settings, LogOut, UserCog,
+  LayoutDashboard, ShoppingCart, Package, Users, BarChart3, Search, Wifi, WifiOff, Settings, LogOut, UserCog,
 } from "lucide-react";
+import { usePWA } from "@/hooks/usePWA";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
@@ -176,14 +177,29 @@ export function AppShell({ children }: { children: ReactNode }) {
 }
 
 function OfflineBadge() {
+  const { isOnline } = usePWA();
+
+  if (isOnline) {
+    return (
+      <div className="inline-flex items-center gap-2 rounded-full border border-success/30 bg-success/10 px-3 py-1.5 text-xs font-medium text-success-foreground">
+        <span className="relative flex size-2">
+          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-success opacity-60" />
+          <span className="relative inline-flex size-2 rounded-full bg-success" />
+        </span>
+        <Wifi className="size-3.5" />
+        Online Mode Active
+      </div>
+    );
+  }
+
   return (
-    <div className="inline-flex items-center gap-2 rounded-full border border-success/30 bg-success/10 px-3 py-1.5 text-xs font-medium text-success-foreground">
+    <div className="inline-flex items-center gap-2 rounded-full border border-destructive/30 bg-destructive/10 px-3 py-1.5 text-xs font-medium text-destructive-foreground animate-pulse">
       <span className="relative flex size-2">
-        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-success opacity-60" />
-        <span className="relative inline-flex size-2 rounded-full bg-success" />
+        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-destructive opacity-60" />
+        <span className="relative inline-flex size-2 rounded-full bg-destructive" />
       </span>
-      <Wifi className="size-3.5" />
-      100% Offline Mode Operational
+      <WifiOff className="size-3.5" />
+      Connection Lost
     </div>
   );
 }
