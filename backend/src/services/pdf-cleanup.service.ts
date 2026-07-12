@@ -1,6 +1,7 @@
 import fs from "fs";
 import path from "path";
-import db from "../database/db";
+import { settingsRepository } from "../repositories";
+import { logger } from "../logger/logger";
 
 export class PdfCleanupService {
   private uploadsDir = path.join(__dirname, "../../uploads/invoices");
@@ -13,11 +14,10 @@ export class PdfCleanupService {
       }
 
       // Read retention period setting
-      const periodRow = db.prepare("SELECT value FROM settings WHERE key = 'pdf_retention_period'").get() as { value: string } | undefined;
-      const period = periodRow ? periodRow.value : "90 Days";
+      const period = await settingsRepository.get("pdf_retention_period", "90 Days");
 
       if (period === "Forever") {
-        console.log("ℹ️ PDF Retention is set to 'Forever'. Skipping storage cleanup.");
+        logger.info("ℹ️ PDF Retention is set to 'Forever'. Skipping storage cleanup.");
         return { deletedCount: 0, totalCount: this.getTotalPdfCount(), storageUsedMb: this.getStorageUsedMb() };
       }
 
@@ -52,17 +52,17 @@ export class PdfCleanupService {
             fs.unlinkSync(file.path);
             deletedCount++;
           } catch (e) {
-            console.error(`❌ Failed to delete invoice PDF: ${file.name}`, e);
+            logger.error(`❌ Failed to delete invoice PDF: ${file.name}`, e);
           }
         }
       }
 
       const nowIso = now.toISOString();
       // Log the cleanup action in the terminal
-      console.log(`🧹 [PDF CLEANUP] Deleted: ${deletedCount} PDFs. Current Retention Policy: ${period}. Time: ${nowIso}`);
+      logger.info(`🧹 [PDF CLEANUP] Deleted: ${deletedCount} PDFs. Current Retention Policy: ${period}. Time: ${nowIso}`);
       
       // Update last cleanup setting
-      db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('pdf_last_cleanup', ?)").run(nowIso);
+      await settingsRepository.set("pdf_last_cleanup", nowIso);
 
       // Write to cleanup.log file
       const logFilePath = path.join(this.uploadsDir, "cleanup.log");
@@ -75,7 +75,7 @@ export class PdfCleanupService {
         storageUsedMb: this.getStorageUsedMb()
       };
     } catch (error) {
-      console.error("❌ PDF Cleanup Service execution failed:", error);
+      logger.error("❌ PDF Cleanup Service execution failed", error);
       throw error;
     }
   }
@@ -134,7 +134,7 @@ export function schedulePdfCleanup() {
   const scheduleNext = () => {
     const msUntil2AM = getMsUntilKolkata2AM();
     const next2AMSystem = new Date(Date.now() + msUntil2AM);
-    console.log(`⏰ [PDF CLEANUP] Scheduled next daily run for ${next2AMSystem.toLocaleString()} (in ${Math.round(msUntil2AM / 1000 / 60)} minutes)`);
+    logger.info(`⏰ [PDF CLEANUP] Scheduled next daily run for ${next2AMSystem.toLocaleString()} (in ${Math.round(msUntil2AM / 1000 / 60)} minutes)`);
 
     setTimeout(async () => {
       try {

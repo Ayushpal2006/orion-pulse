@@ -1,20 +1,15 @@
 import PDFDocument from "pdfkit";
 import fs from "fs";
 import path from "path";
-import db from "../database/db";
+import { settingsRepository } from "../repositories";
 
 export class PdfService {
-  private getDbSetting(key: string, fallback: string): string {
-    try {
-      const stmt = db.prepare("SELECT value FROM settings WHERE key = ?");
-      const row = stmt.get(key) as { value: string } | undefined;
-      return row ? row.value : fallback;
-    } catch (e) {
-      return fallback;
-    }
-  }
-
   async generateInvoicePdf(receipt: any, outputPath: string): Promise<string> {
+    const signature = await settingsRepository.get("signature", "Authorized Signatory");
+    const exchangePolicy = await settingsRepository.get("exchange_policy", "Items can be exchanged within 7 days in original condition.");
+    const theme = await settingsRepository.get("invoice_theme", "classic");
+    const website = await settingsRepository.get("business_website", "https://orionpos.in");
+
     return new Promise((resolve, reject) => {
       try {
         const doc = new PDFDocument({ size: "A4", margin: 40, bufferPages: true });
@@ -39,11 +34,6 @@ export class PdfService {
         }
 
         const currencySymbol = hasOutfit ? "₹" : "Rs.";
-
-        const signature = this.getDbSetting("signature", "Authorized Signatory");
-        const exchangePolicy = this.getDbSetting("exchange_policy", "Items can be exchanged within 7 days in original condition.");
-        const theme = this.getDbSetting("invoice_theme", "classic");
-        const website = this.getDbSetting("business_website", "https://orionpos.in");
 
         // Primary Theme color
         let primaryColor = "#0f172a"; // classic slate

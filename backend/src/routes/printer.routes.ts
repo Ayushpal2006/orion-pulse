@@ -6,7 +6,7 @@ const printerService = new PrinterService();
 
 router.post("/test", async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const config = printerService.getPrinterConfig();
+    const config = await printerService.getPrinterConfig();
     const result = await printerService.printTestPage(config);
     res.status(200).json({
       success: true,

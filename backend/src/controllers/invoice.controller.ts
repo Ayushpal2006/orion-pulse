@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from "express";
 import path from "path";
 import fs from "fs";
-import db from "../database/db";
+import { saleRepository } from "../repositories";
 import { SalesService } from "../services/sales.service";
 import { InvoiceService } from "../services/invoice.service";
 import { PdfService } from "../services/pdf.service";
@@ -10,6 +10,7 @@ export class InvoiceController {
   private salesService: SalesService;
   private invoiceService: InvoiceService;
   private pdfService: PdfService;
+  private saleRepo = saleRepository;
 
   constructor() {
     this.salesService = new SalesService();
@@ -17,11 +18,10 @@ export class InvoiceController {
     this.pdfService = new PdfService();
   }
 
-  private getInvoiceNumberByToken(token: string): string | null {
+  private async getInvoiceNumberByToken(token: string): Promise<string | null> {
     try {
-      const stmt = db.prepare("SELECT invoice_number FROM sales WHERE public_token = ?");
-      const row = stmt.get(token) as { invoice_number: string } | undefined;
-      return row ? row.invoice_number : null;
+      const sale = await this.saleRepo.getByPublicToken(token);
+      return sale ? sale.invoice_number : null;
     } catch (e) {
       return null;
     }
@@ -42,14 +42,14 @@ export class InvoiceController {
         return;
       }
 
-      const invoiceNumber = this.getInvoiceNumberByToken(token);
+      const invoiceNumber = await this.getInvoiceNumberByToken(token);
       if (!invoiceNumber) {
         res.status(404).send("Invoice Not Found");
         return;
       }
 
       const receipt = await this.salesService.getReceipt(invoiceNumber);
-      const html = this.invoiceService.generateHtmlInvoice(receipt);
+      const html = await this.invoiceService.generateHtmlInvoice(receipt);
       
       // Save in cache
       this.invoiceService.setToCache(token, html);
@@ -68,7 +68,7 @@ export class InvoiceController {
         return;
       }
 
-      const invoiceNumber = this.getInvoiceNumberByToken(token);
+      const invoiceNumber = await this.getInvoiceNumberByToken(token);
       if (!invoiceNumber) {
         res.status(404).send("Invoice Not Found");
         return;
@@ -85,8 +85,7 @@ export class InvoiceController {
           
           // Save PDF path in db
           try {
-            const updateStmt = db.prepare("UPDATE sales SET pdf_url = ? WHERE invoice_number = ?");
-            updateStmt.run(`/uploads/invoices/${pdfFilename}`, receipt.invoiceNumber);
+            await this.saleRepo.updatePdfUrlByInvoice(receipt.invoiceNumber, `/uploads/invoices/${pdfFilename}`);
           } catch (e) {
             console.error("Failed to update pdf_url:", e);
           }

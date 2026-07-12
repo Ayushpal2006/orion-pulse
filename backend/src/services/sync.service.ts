@@ -1,5 +1,6 @@
 import { google } from "googleapis";
-import db from "../database/db";
+import { syncRepository, settingsRepository } from "../repositories";
+import { logger } from "../logger/logger";
 
 // Singleton Sync Queue Manager
 export class SyncQueueManager {
@@ -18,55 +19,33 @@ export class SyncQueueManager {
     return SyncQueueManager.instance;
   }
 
-  private getDbSetting(key: string, fallback: string): string {
-    try {
-      const stmt = db.prepare("SELECT value FROM settings WHERE key = ?");
-      const row = stmt.get(key) as { value: string } | undefined;
-      return row ? row.value : fallback;
-    } catch (e) {
-      return fallback;
-    }
-  }
-
   enqueue(jobType: string, payload: any): void {
-    try {
-      const stmt = db.prepare(`
-        INSERT INTO sync_jobs (job_type, payload, status, retry_count)
-        VALUES (?, ?, 'pending', 0)
-      `);
-      stmt.run(jobType, JSON.stringify(payload));
-      
-      // Trigger background processing asynchronously
-      this.processQueue().catch(err => console.error("Error running processQueue:", err));
-    } catch (error) {
-      console.error("❌ Failed to enqueue sync job:", error);
-    }
+    syncRepository.enqueue(jobType, payload)
+      .then(() => this.processQueue())
+      .catch((err) => console.error("❌ Failed to enqueue sync job:", err));
   }
 
   async getSyncStatus() {
     try {
-      const totalPending = (db.prepare("SELECT COUNT(*) as count FROM sync_jobs WHERE status = 'pending'").get() as any).count;
-      const totalFailed = (db.prepare("SELECT COUNT(*) as count FROM sync_jobs WHERE status = 'failed'").get() as any).count;
-      const lastJob = db.prepare("SELECT updated_at FROM sync_jobs WHERE status = 'completed' ORDER BY updated_at DESC LIMIT 1").get() as { updated_at: string } | undefined;
-      
-      const sheetId = this.getDbSetting("google_sheet_id", "");
-      const enabled = this.getDbSetting("google_sync_enabled", "0") === "1";
+      const stats = await syncRepository.getStats();
+      const sheetId = await settingsRepository.get("google_sheet_id", "");
+      const enabled = (await settingsRepository.get("google_sync_enabled", "0")) === "1";
       const serviceAccount = process.env.GOOGLE_CLIENT_EMAIL || "Not Configured";
       
       let status = "Green"; // Connected / Idle
       if (!sheetId) {
         status = "Red"; // Config missing
-      } else if (totalFailed > 0) {
+      } else if (stats.failedJobs > 0) {
         status = "Red"; // Errors exist
-      } else if (totalPending > 0) {
+      } else if (stats.pendingJobs > 0) {
         status = "Yellow"; // Pending sync jobs
       }
 
       return {
         status,
-        pendingJobs: totalPending,
-        failedJobs: totalFailed,
-        lastSync: lastJob ? lastJob.updated_at : "Never",
+        pendingJobs: stats.pendingJobs,
+        failedJobs: stats.failedJobs,
+        lastSync: stats.lastSync,
         enabled,
         sheetId,
         serviceAccount
@@ -85,9 +64,8 @@ export class SyncQueueManager {
 
   async retryFailed(): Promise<void> {
     try {
-      const stmt = db.prepare("UPDATE sync_jobs SET status = 'pending', retry_count = 0, error_message = NULL WHERE status = 'failed'");
-      stmt.run();
-      this.processQueue().catch(err => console.error("Error retrying queue:", err));
+      await syncRepository.retryFailedJobs();
+      this.processQueue().catch((err) => console.error("Error retrying queue:", err));
     } catch (err) {
       console.error("Failed to retry sync jobs:", err);
     }
@@ -96,8 +74,8 @@ export class SyncQueueManager {
   async processQueue(): Promise<void> {
     if (this.isProcessing) return;
     
-    const enabled = this.getDbSetting("google_sync_enabled", "0") === "1";
-    const sheetId = this.getDbSetting("google_sheet_id", "");
+    const enabled = (await settingsRepository.get("google_sync_enabled", "0")) === "1";
+    const sheetId = await settingsRepository.get("google_sheet_id", "");
     
     if (!enabled || !sheetId) {
       return;
@@ -107,44 +85,41 @@ export class SyncQueueManager {
 
     try {
       // Find next pending job
-      const getJob = db.prepare("SELECT * FROM sync_jobs WHERE status = 'pending' ORDER BY id ASC LIMIT 1");
-      const job = getJob.get() as { id: number; job_type: string; payload: string; retry_count: number } | undefined;
+      const job = await syncRepository.getPendingJob();
 
       if (!job) {
         this.isProcessing = false;
         return;
       }
 
-      console.log(`🔄 Processing sync job ID ${job.id} (${job.job_type})...`);
+      logger.info(`🔄 Processing sync job ID ${job.id} (${job.job_type})...`);
       
-      // Update job to processing or record attempt
-      db.prepare("UPDATE sync_jobs SET last_attempt = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP WHERE id = ?").run(job.id);
+      // Update job to record attempt
+      await syncRepository.recordJobAttempt(job.id);
 
       const payloadObj = JSON.parse(job.payload);
       const success = await this.syncToGoogleSheets(sheetId, job.job_type, payloadObj);
 
       if (success) {
-        db.prepare("UPDATE sync_jobs SET status = 'completed', updated_at = CURRENT_TIMESTAMP WHERE id = ?").run(job.id);
-        console.log(`✅ Sync job ID ${job.id} completed successfully.`);
+        await syncRepository.updateJobStatus(job.id, "completed", job.retry_count);
+        logger.info(`✅ Sync job ID ${job.id} completed successfully.`);
       } else {
         const nextRetry = job.retry_count + 1;
         const newStatus = nextRetry >= 3 ? "failed" : "pending";
-        db.prepare(`
-          UPDATE sync_jobs 
-          SET status = ?, 
-              retry_count = ?, 
-              error_message = 'Failed to upload rows to Google Sheets', 
-              updated_at = CURRENT_TIMESTAMP 
-          WHERE id = ?
-        `).run(newStatus, nextRetry, job.id);
-        console.log(`⚠️ Sync job ID ${job.id} failed. Attempt ${nextRetry}/3. Status: ${newStatus}`);
+        await syncRepository.updateJobStatus(
+          job.id,
+          newStatus,
+          nextRetry,
+          "Failed to upload rows to Google Sheets"
+        );
+        logger.warn(`⚠️ Sync job ID ${job.id} failed. Attempt ${nextRetry}/3. Status: ${newStatus}`);
       }
 
       // Recurse to process next items
       this.isProcessing = false;
       setTimeout(() => this.processQueue(), 1000);
     } catch (err: any) {
-      console.error("Queue processor encountered error:", err);
+      logger.error("Queue processor encountered error", err);
       this.isProcessing = false;
     }
   }
@@ -278,7 +253,7 @@ export class SyncQueueManager {
             }))
           }
         });
-        console.log(`Created tabs in Google Sheets: ${addSheets.join(", ")}`);
+        logger.info(`Created tabs in Google Sheets: ${addSheets.join(", ")}`);
 
         // Add headers for each created tab
         for (const title of addSheets) {

@@ -1,23 +1,17 @@
 import { Request, Response, NextFunction } from "express";
 import { ReportsService } from "../services/reports.service";
-import { ReportsRepository } from "../repositories/reports.repository";
-import { CustomerRepository } from "../repositories/customer.repository";
-import { ProductRepository } from "../repositories/product.repository";
+import { productRepository, customerRepository, saleRepository } from "../repositories";
 import PDFDocument from "pdfkit";
 import * as XLSX from "xlsx";
-import db from "../database/db";
 
 export class ReportsController {
   private service: ReportsService;
-  private reportsRepo: ReportsRepository;
-  private customerRepo: CustomerRepository;
-  private productRepo: ProductRepository;
+  private productRepo = productRepository;
+  private customerRepo = customerRepository;
+  private saleRepo = saleRepository;
 
   constructor() {
     this.service = new ReportsService();
-    this.reportsRepo = new ReportsRepository();
-    this.customerRepo = new CustomerRepository();
-    this.productRepo = new ProductRepository();
   }
 
   getReports = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
@@ -256,52 +250,13 @@ export class ReportsController {
       const filename = `Report-${todayStr}.xlsx`;
 
       // 1. Fetch Sales list in selected period
-      const { clause, params } = this.reportsRepo["getDateCondition"](filter, startDate, endDate);
-      const salesRows = db.prepare(`
-        SELECT invoice_number as Invoice, 
-               created_at as Date, 
-               cashier_name as Cashier, 
-               payment_method as Payment, 
-               subtotal/100.0 as Subtotal, 
-               discount/100.0 as Discount, 
-               gst/100.0 as GST, 
-               grand_total/100.0 as Total,
-               public_token as PublicToken
-        FROM sales
-        WHERE ${clause}
-        ORDER BY id DESC
-      `).all(params);
+      const salesRows = await this.saleRepo.getSalesExport(filter, startDate, endDate);
 
       // 2. Fetch Active Customers
-      const customersRows = db.prepare(`
-        SELECT id as ID, 
-               name as Name, 
-               phone as Phone, 
-               email as Email, 
-               address as Address, 
-               total_orders as TotalOrders, 
-               lifetime_value/100.0 as LifetimeValue_INR, 
-               last_visit as LastVisit, 
-               created_at as CreatedAt 
-        FROM customers 
-        WHERE is_active = 1
-      `).all();
+      const customersRows = await this.customerRepo.getCustomersExport();
 
       // 3. Fetch Active Products
-      const productsRows = db.prepare(`
-        SELECT id as ID, 
-               sku as SKU, 
-               barcode as Barcode, 
-               name as Name, 
-               category as Category, 
-               purchase_price/100.0 as PurchasePrice_INR, 
-               selling_price/100.0 as SellingPrice_INR, 
-               stock as Stock, 
-               minimum_stock as MinimumStock, 
-               gst as GST_Percent 
-        FROM products 
-        WHERE is_active = 1
-      `).all();
+      const productsRows = await this.productRepo.getProductsExport();
 
       // 4. GST Summary Sheet
       const gstSheetRows = data.gstSummary.map((g: any) => ({

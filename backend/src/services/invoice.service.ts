@@ -1,17 +1,7 @@
-import db from "../database/db";
+import { settingsRepository } from "../repositories";
 
 export class InvoiceService {
   private cache = new Map<string, string>();
-
-  private getDbSetting(key: string, fallback: string): string {
-    try {
-      const stmt = db.prepare("SELECT value FROM settings WHERE key = ?");
-      const row = stmt.get(key) as { value: string } | undefined;
-      return row ? row.value : fallback;
-    } catch (e) {
-      return fallback;
-    }
-  }
 
   getFromCache(token: string): string | undefined {
     return this.cache.get(token);
@@ -25,15 +15,15 @@ export class InvoiceService {
     this.cache.delete(token);
   }
 
-  generateHtmlInvoice(receipt: any): string {
-    const signature = this.getDbSetting("signature", "Authorized Signatory");
-    const exchangePolicy = this.getDbSetting("exchange_policy", "Items can be exchanged within 7 days in original condition.");
-    const theme = this.getDbSetting("invoice_theme", "classic");
+  async generateHtmlInvoice(receipt: any): Promise<string> {
+    const signature = await settingsRepository.get("signature", "Authorized Signatory");
+    const exchangePolicy = await settingsRepository.get("exchange_policy", "Items can be exchanged within 7 days in original condition.");
+    const theme = await settingsRepository.get("invoice_theme", "classic");
     
     // Website, Instagram, Maps links from settings
-    const website = this.getDbSetting("business_website", "https://orionpos.in");
-    const instagram = this.getDbSetting("instagram_url", "https://instagram.com/orionpos");
-    const maps = this.getDbSetting("maps_url", "https://maps.google.com");
+    const website = await settingsRepository.get("business_website", "https://orionpos.in");
+    const instagram = await settingsRepository.get("instagram_url", "https://instagram.com/orionpos");
+    const maps = await settingsRepository.get("maps_url", "https://maps.google.com");
 
     let primaryColor = "from-slate-900 to-slate-800 text-slate-950";
     let accentBtn = "bg-slate-900 text-white hover:bg-slate-800";

@@ -1,49 +1,82 @@
-import db from "../database/db";
-import { CheckoutRepository } from "../repositories/checkout.repository";
-import { ProductRepository } from "../repositories/product.repository";
-import { CustomerRepository } from "../repositories/customer.repository";
+import dbProxy from "../database";
+import { checkoutRepository, productRepository, customerRepository, saleRepository } from "../repositories";
 import { CheckoutRequest, CheckoutResponse } from "../types/checkout.types";
-import { ValidationError, NotFoundError } from "./product.service";
+import { ValidationError, NotFoundError } from "../utils/errors";
 import { getCurrentUtcString } from "../utils/datetime";
+import { databaseConfig } from "../config/database";
+
+const idempotencyCache = new Map<string, { timestamp: number; response: any }>();
+
+// Clean up stale cache keys periodically
+if (typeof global !== "undefined" && typeof setInterval === "function") {
+  setInterval(() => {
+    const now = Date.now();
+    for (const [key, val] of idempotencyCache.entries()) {
+      if (now - val.timestamp > 10000) {
+        idempotencyCache.delete(key);
+      }
+    }
+  }, 30000).unref?.();
+}
 
 export class CheckoutService {
-  private checkoutRepo: CheckoutRepository;
-  private productRepo: ProductRepository;
-  private customerRepo: CustomerRepository;
-
-  constructor() {
-    this.checkoutRepo = new CheckoutRepository();
-    this.productRepo = new ProductRepository();
-    this.customerRepo = new CustomerRepository();
-  }
+  private checkoutRepo = checkoutRepository;
+  private productRepo = productRepository;
+  private customerRepo = customerRepository;
+  private saleRepo = saleRepository;
 
   async executeCheckout(request: CheckoutRequest): Promise<CheckoutResponse> {
-    // We execute the checkout logic inside db.transaction wrapper.
-    // If any error is thrown, the transaction rolls back, and the error propagates to the caller.
-    const checkoutTx = db.transaction((req: CheckoutRequest): CheckoutResponse => {
+    const idempotencyKey = `${request.customerPhone}-${request.paymentMethod}-${request.items
+      .map((i) => `${i.productId}:${i.quantity}`)
+      .join(",")}`;
+
+    const now = Date.now();
+    const cached = idempotencyCache.get(idempotencyKey);
+    if (cached && now - cached.timestamp < 3000) {
+      console.warn(`[IDEMPOTENCY] Duplicate checkout request detected for key: ${idempotencyKey}. Returning cached response.`);
+      return cached.response;
+    }
+
+    const result = await dbProxy.transaction(async (tx) => {
       // 1. Find or create customer
-      let customer = this.customerRepo.getByPhone(req.customerPhone);
+      let customer = await this.customerRepo.getByPhone(request.customerPhone, false, tx);
       if (!customer) {
-        customer = this.customerRepo.create({
-          name: req.customerName || `Customer - ${req.customerPhone}`,
-          phone: req.customerPhone,
+        customer = await this.customerRepo.create({
+          name: request.customerName || `Customer - ${request.customerPhone}`,
+          phone: request.customerPhone,
           email: null,
           address: null,
           notes: "Auto-created during checkout",
-        });
-      } else if (req.customerName && req.customerName !== "Walk-in Customer" && (customer.name.startsWith("Customer - ") || customer.name === "Walk-in Customer")) {
-        // If the customer already exists but has the template/generic name, update it with their real name!
-        this.customerRepo.update(customer.id, { name: req.customerName });
-        customer.name = req.customerName; // update local object reference
+        }, tx);
+        
+        try {
+          const { SyncQueueManager } = require("./sync.service");
+          SyncQueueManager.getInstance().enqueue("customer", {
+            phone: customer.phone,
+            name: customer.name,
+            email: customer.email,
+            address: customer.address,
+            total_orders: 0,
+            lifetime_value: 0,
+            last_visit: null
+          });
+        } catch (e) {
+          console.error("Failed to enqueue initial customer sync:", e);
+        }
+      } else if (
+        request.customerName &&
+        request.customerName !== "Walk-in Customer" &&
+        (customer.name.startsWith("Customer - ") || customer.name === "Walk-in Customer")
+      ) {
+        await this.customerRepo.update(customer.id, { name: request.customerName }, tx);
+        customer.name = request.customerName;
       }
 
-      // 2. Generate next sequential invoice number (e.g. INV-2026-000001)
-      const lastSaleStmt = db.prepare("SELECT invoice_number FROM sales ORDER BY id DESC LIMIT 1");
-      const lastSale = lastSaleStmt.get() as { invoice_number: string } | undefined;
-      
+      // 2. Generate next sequential invoice number
+      const lastInvoice = await this.saleRepo.getLastInvoiceNumber(tx);
       let nextNum = 1;
-      if (lastSale) {
-        const parts = lastSale.invoice_number.split("-");
+      if (lastInvoice) {
+        const parts = lastInvoice.split("-");
         if (parts.length === 3) {
           const numPart = parseInt(parts[2], 10);
           if (!isNaN(numPart)) {
@@ -58,8 +91,12 @@ export class CheckoutService {
       let totalGst = 0;
       const processedItems: any[] = [];
 
-      for (const item of req.items) {
-        const product = this.productRepo.getById(item.productId);
+      for (const item of request.items) {
+        if (databaseConfig.type === "postgres") {
+          // Lock product row for update in Postgres
+          await tx.execute("SELECT id FROM products WHERE id = $1 FOR UPDATE", [item.productId]);
+        }
+        const product = await this.productRepo.getById(item.productId, tx);
         if (!product || product.is_active === 0) {
           throw new NotFoundError(`Product with ID ${item.productId} not found or inactive`);
         }
@@ -70,9 +107,8 @@ export class CheckoutService {
           );
         }
 
-        // Reduce stock in the DB
         const updatedStock = product.stock - item.quantity;
-        const updatedProduct = this.productRepo.update(product.id, { stock: updatedStock });
+        const updatedProduct = await this.productRepo.update(product.id, { stock: updatedStock }, tx);
         if (updatedProduct) {
           try {
             const { SyncQueueManager } = require("./sync.service");
@@ -82,7 +118,6 @@ export class CheckoutService {
           }
         }
 
-        // Calculate pricing
         const lineTotal = item.quantity * product.selling_price;
         const lineGst = Math.round((lineTotal * (product.gst ?? 18)) / 100);
 
@@ -99,44 +134,43 @@ export class CheckoutService {
         });
       }
 
-      const discount = 0; // Default discount is 0
+      const discount = 0;
       const grandTotal = subtotal + totalGst - discount;
 
       // 4. Create Sale entry
-      const saleId = this.checkoutRepo.createSale({
+      const saleId = await this.checkoutRepo.createSale({
         invoice_number: invoiceNumber,
         customer_id: customer.id,
-        cashier_name: req.cashierName,
-        payment_method: req.paymentMethod,
+        cashier_name: request.cashierName,
+        payment_method: request.paymentMethod,
         subtotal,
         discount,
         gst: totalGst,
         grand_total: grandTotal,
-      });
+      }, tx);
 
       // 5. Create Sale Item records
       for (const item of processedItems) {
-        this.checkoutRepo.createSaleItem({
+        await this.checkoutRepo.createSaleItem({
           sale_id: saleId,
           product_id: item.productId,
           quantity: item.quantity,
           selling_price: item.sellingPrice,
           discount: 0,
           line_total: item.lineTotal,
-        });
+        }, tx);
       }
 
       // 6. Update Customer profile metrics
       const updatedOrders = (customer.total_orders ?? 0) + 1;
       const updatedLtv = (customer.lifetime_value ?? 0) + grandTotal;
-      // Store timestamps in UTC for consistent reporting and customer timelines.
       const lastVisitTime = getCurrentUtcString();
 
-      this.customerRepo.update(customer.id, {
+      await this.customerRepo.update(customer.id, {
         total_orders: updatedOrders,
         lifetime_value: updatedLtv,
         last_visit: lastVisitTime,
-      });
+      }, tx);
 
       try {
         const { SyncQueueManager } = require("./sync.service");
@@ -171,10 +205,7 @@ export class CheckoutService {
       };
     });
 
-    // Run transaction block
-    const result = checkoutTx(request);
-
-    // Asynchronously enqueue Google Sync background job (do not block client checkout)
+    // Asynchronously enqueue Google Sync background job
     try {
       const { SalesService } = require("./sales.service");
       const salesService = new SalesService();
@@ -186,6 +217,7 @@ export class CheckoutService {
       console.error("Failed to enqueue sync job for sale:", e);
     }
 
+    idempotencyCache.set(idempotencyKey, { timestamp: Date.now(), response: result });
     return result;
   }
 }

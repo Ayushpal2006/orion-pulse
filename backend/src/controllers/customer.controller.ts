@@ -65,9 +65,7 @@ export class CustomerController {
 
   create = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      // Validate incoming request schema
-      const dto = CreateCustomerSchema.parse(req.body);
-      const customer = await this.service.create(dto as any);
+      const customer = await this.service.create(req.body);
       res.status(201).json({
         success: true,
         data: customer,
@@ -88,9 +86,7 @@ export class CustomerController {
         });
         return;
       }
-      // Validate incoming request schema
-      const dto = UpdateCustomerSchema.parse(req.body);
-      const customer = await this.service.update(id, dto);
+      const customer = await this.service.update(id, req.body);
       res.status(200).json({
         success: true,
         data: customer,

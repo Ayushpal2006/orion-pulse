@@ -1,8 +1,8 @@
 import { Request, Response, NextFunction } from "express";
 import { ProductService } from "../services/product.service";
-import { CreateProductSchema, UpdateProductSchema } from "../schemas/product.schema";
+import { imageService } from "../services/image.service";
+import { logger } from "../logger/logger";
 import fs from "fs";
-import path from "path";
 
 export class ProductController {
   private service: ProductService;
@@ -46,9 +46,7 @@ export class ProductController {
 
   create = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      // Validate incoming request schema
-      const dto = CreateProductSchema.parse(req.body);
-      const product = await this.service.create(dto);
+      const product = await this.service.create(req.body);
       res.status(201).json({
         success: true,
         data: product,
@@ -69,9 +67,7 @@ export class ProductController {
         });
         return;
       }
-      // Validate incoming request schema
-      const dto = UpdateProductSchema.parse(req.body);
-      const product = await this.service.update(id, dto);
+      const product = await this.service.update(id, req.body);
       res.status(200).json({
         success: true,
         data: product,
@@ -158,24 +154,22 @@ export class ProductController {
         return;
       }
 
-      // If previous image exists, delete it
+      // If previous image exists, delete it via pluggable storage provider
       if (product.image_url) {
-        const previousPath = path.join(__dirname, "../..", product.image_url);
-        if (fs.existsSync(previousPath)) {
-          try {
-            fs.unlinkSync(previousPath);
-          } catch (e) {
-            console.error("Failed to delete previous image:", e);
-          }
+        try {
+          await imageService.delete(product.image_url);
+        } catch (e) {
+          logger.error("Failed to delete previous image", e);
         }
       }
 
-      const relativeUrl = `/uploads/products/${req.file.filename}`;
-      await this.service.update(id, { image_url: relativeUrl });
+      // Route image stream/upload to active storage provider
+      const secureUrl = await imageService.upload(req.file.path);
+      await this.service.update(id, { image_url: secureUrl });
 
       res.status(200).json({
         success: true,
-        imageUrl: relativeUrl,
+        imageUrl: secureUrl,
       });
     } catch (error) {
       next(error);

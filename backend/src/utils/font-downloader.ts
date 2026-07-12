@@ -1,6 +1,7 @@
 import fs from "fs";
 import path from "path";
 import https from "https";
+import { logger } from "../logger/logger";
 
 export async function downloadFonts(): Promise<void> {
   const fontDir = path.join(__dirname, "../assets/fonts");
@@ -22,12 +23,12 @@ export async function downloadFonts(): Promise<void> {
   for (const font of fonts) {
     const dest = path.join(fontDir, font.name);
     if (!fs.existsSync(dest)) {
-      console.log(`⏳ Downloading font: ${font.name}...`);
+      logger.info(`⏳ Downloading font: ${font.name}...`);
       try {
         await downloadFile(font.url, dest);
-        console.log(`✅ Downloaded ${font.name} successfully.`);
+        logger.info(`✅ Downloaded ${font.name} successfully.`);
       } catch (err) {
-        console.error(`❌ Failed to download ${font.name}:`, err);
+        logger.error(`❌ Failed to download ${font.name}`, err);
         // Clean up partial downloads
         if (fs.existsSync(dest)) {
           fs.unlinkSync(dest);

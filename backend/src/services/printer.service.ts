@@ -1,23 +1,14 @@
-import db from "../database/db";
+import { settingsRepository } from "../repositories";
 import { PrinterConfig, PrintResult } from "../types/printer.types";
 import { EscposFormatter } from "./escpos.service";
+import { logger } from "../logger/logger";
 
 export class PrinterService {
-  getPrinterConfig(): PrinterConfig {
-    const getDbSetting = (key: string, fallback: string): string => {
-      try {
-        const stmt = db.prepare("SELECT value FROM settings WHERE key = ?");
-        const row = stmt.get(key) as { value: string } | undefined;
-        return row ? row.value : fallback;
-      } catch (e) {
-        return fallback;
-      }
-    };
-
-    const printerType = getDbSetting("printer_type", "Internal POS") as any;
-    const paperWidth = getDbSetting("paper_width", "58mm") as any;
-    const characterDensity = getDbSetting("character_density", "normal") as any;
-    const darkness = getDbSetting("printer_darkness", "medium");
+  async getPrinterConfig(): Promise<PrinterConfig> {
+    const printerType = await settingsRepository.get("printer_type", "Internal POS") as any;
+    const paperWidth = await settingsRepository.get("paper_width", "58mm") as any;
+    const characterDensity = await settingsRepository.get("character_density", "normal") as any;
+    const darkness = await settingsRepository.get("printer_darkness", "medium");
 
     return {
       type: printerType,
@@ -32,9 +23,10 @@ export class PrinterService {
       throw new Error(`Printer '${config.type}' is a placeholder. Only 'Internal POS' is supported now.`);
     }
 
-    console.log(`🖨️ [Z91 Internal POS Printer] Printing ESC/POS Payload`);
-    console.log(`- Paper Width: ${config.paperWidth}`);
-    console.log(`- Byte size: ${buffer.length} bytes`);
+    logger.info("🖨️ [Z91 Internal POS Printer] Printing ESC/POS Payload", {
+      paperWidth: config.paperWidth,
+      byteSize: buffer.length,
+    });
     
     // Simulate printer latency (300ms)
     await new Promise((resolve) => setTimeout(resolve, 300));

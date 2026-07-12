@@ -1,6 +1,8 @@
 import { Router } from "express";
 import { ProductController } from "../controllers/product.controller";
 import { upload } from "../middleware/upload.middleware";
+import { validate } from "../middleware/validation.middleware";
+import { CreateProductSchema, UpdateProductSchema } from "../schemas/product.schema";
 
 const router = Router();
 const controller = new ProductController();
@@ -15,10 +17,10 @@ router.get("/", controller.getAll);
 router.get("/:id", controller.getById);
 
 // POST create product
-router.post("/", controller.create);
+router.post("/", validate(CreateProductSchema), controller.create);
 
 // PUT update product
-router.put("/:id", controller.update);
+router.put("/:id", validate(UpdateProductSchema), controller.update);
 
 // POST upload product image
 router.post("/:id/image", upload.single("image"), controller.uploadImage);

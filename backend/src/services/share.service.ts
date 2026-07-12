@@ -1,16 +1,4 @@
-import db from "../database/db";
-
 export class ShareService {
-  private getDbSetting(key: string, fallback: string): string {
-    try {
-      const stmt = db.prepare("SELECT value FROM settings WHERE key = ?");
-      const row = stmt.get(key) as { value: string } | undefined;
-      return row ? row.value : fallback;
-    } catch (e) {
-      return fallback;
-    }
-  }
-
   generateWhatsAppMessage(receipt: any): string {
     const shopName = receipt.shop.name;
     const customerName = receipt.customer.name;
@@ -24,7 +12,7 @@ export class ShareService {
     const shopPhone = receipt.shop.phone || "8285068670";
 
     const lines: string[] = [
-      `Hi ${customerName} \uD83D\uDC4B`,
+      `Hi ${customerName} 👋`,
       "",
       `Thank you for shopping with ${shopName}.`,
       "",
@@ -32,7 +20,7 @@ export class ShareService {
       invoiceNum,
       "",
       `*Amount Paid*`,
-      `\u20B9${amount.toFixed(2)}`,
+      `₹${amount.toFixed(2)}`,
       "",
       `*View Invoice*`,
       viewUrl,
@@ -44,7 +32,7 @@ export class ShareService {
       `Call`,
       shopPhone,
       "",
-      `Thank you \u2764\uFE0F`
+      `Thank you ❤️`
     ];
 
     return lines.join("\n");

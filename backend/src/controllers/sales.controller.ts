@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from "express";
+import { saleRepository } from "../repositories";
 import { SalesService } from "../services/sales.service";
 import { PrinterService } from "../services/printer.service";
 import { EscposFormatter } from "../services/escpos.service";
@@ -6,12 +7,12 @@ import { ShareService } from "../services/share.service";
 import { PdfService } from "../services/pdf.service";
 import path from "path";
 import fs from "fs";
-import db from "../database/db";
 
 export class SalesController {
   private service: SalesService;
   private printerService: PrinterService;
   private shareService: ShareService;
+  private saleRepo = saleRepository;
 
   constructor() {
     this.service = new SalesService();
@@ -57,7 +58,7 @@ export class SalesController {
 
   getByInvoice = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const invoice = req.params.invoice;
+      const invoice = req.params.invoice as string;
       if (!invoice) {
         res.status(400).json({
           success: false,
@@ -66,7 +67,7 @@ export class SalesController {
         });
         return;
       }
-      const data = await this.service.getByInvoice(invoice as string);
+      const data = await this.service.getByInvoice(invoice);
       res.status(200).json({
         success: true,
         data,
@@ -123,7 +124,7 @@ export class SalesController {
 
       const receipt = await this.service.getReceipt(id);
 
-      const printerConfig = this.printerService.getPrinterConfig();
+      const printerConfig = await this.printerService.getPrinterConfig();
       const formatter = new EscposFormatter(printerConfig);
       const buffer = formatter.formatReceipt(receipt);
 
@@ -184,10 +185,7 @@ export class SalesController {
           await pdfService.generateInvoicePdf(receipt, pdfPath);
 
           try {
-            db.prepare("UPDATE sales SET pdf_url = ? WHERE invoice_number = ?").run(
-              `/uploads/invoices/${pdfFilename}`,
-              receipt.invoiceNumber
-            );
+            await this.saleRepo.updatePdfUrlByInvoice(receipt.invoiceNumber, `/uploads/invoices/${pdfFilename}`);
           } catch (e) {
             console.error("Failed to update sales pdf_url:", e);
           }

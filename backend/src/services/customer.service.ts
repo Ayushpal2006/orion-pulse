@@ -1,27 +1,18 @@
-import { CustomerRepository } from "../repositories/customer.repository";
+import { customerRepository } from "../repositories";
 import { CreateCustomerDTO, UpdateCustomerDTO, Customer } from "../types/customer.types";
-import { ValidationError, NotFoundError } from "./product.service";
+import { ValidationError, NotFoundError, ConflictError } from "../utils/errors";
 
-export class ConflictError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = "ConflictError";
-  }
-}
+export { ValidationError, NotFoundError, ConflictError };
 
 export class CustomerService {
-  private repository: CustomerRepository;
-
-  constructor() {
-    this.repository = new CustomerRepository();
-  }
+  private repository = customerRepository;
 
   async getAll(): Promise<Customer[]> {
     return this.repository.getAll();
   }
 
   async getById(id: number): Promise<Customer> {
-    const customer = this.repository.getById(id);
+    const customer = await this.repository.getById(id);
     if (!customer) {
       throw new NotFoundError(`Customer with ID ${id} not found`);
     }
@@ -29,7 +20,7 @@ export class CustomerService {
   }
 
   async getByPhone(phone: string): Promise<Customer> {
-    const customer = this.repository.getByPhone(phone);
+    const customer = await this.repository.getByPhone(phone);
     if (!customer) {
       throw new NotFoundError(`Customer with phone number "${phone}" not found`);
     }
@@ -37,11 +28,10 @@ export class CustomerService {
   }
 
   async create(dto: CreateCustomerDTO): Promise<Customer> {
-    // 1. Validate phone number uniqueness or reactivate if soft-deleted.
-    const existing = this.repository.getByPhone(dto.phone, true);
+    const existing = await this.repository.getByPhone(dto.phone, true);
     if (existing) {
       if (existing.is_active === 0) {
-        const reactivated = this.repository.update(existing.id, {
+        const reactivated = await this.repository.update(existing.id, {
           name: dto.name,
           email: dto.email,
           address: dto.address,
@@ -60,7 +50,7 @@ export class CustomerService {
       throw new ConflictError(`Phone number "${dto.phone}" already exists`);
     }
 
-    const created = this.repository.create(dto);
+    const created = await this.repository.create(dto);
     try {
       const { SyncQueueManager } = require("./sync.service");
       SyncQueueManager.getInstance().enqueue("customer", created);
@@ -69,20 +59,19 @@ export class CustomerService {
   }
 
   async update(id: number, dto: UpdateCustomerDTO): Promise<Customer> {
-    const existingCustomer = this.repository.getById(id);
+    const existingCustomer = await this.repository.getById(id);
     if (!existingCustomer) {
       throw new NotFoundError(`Customer with ID ${id} not found`);
     }
 
-    // 2. Validate phone number uniqueness if it is changing
     if (dto.phone !== undefined && dto.phone !== existingCustomer.phone) {
-      const existingWithPhone = this.repository.getByPhone(dto.phone);
+      const existingWithPhone = await this.repository.getByPhone(dto.phone);
       if (existingWithPhone) {
         throw new ConflictError(`Phone number "${dto.phone}" already exists`);
       }
     }
 
-    const updatedCustomer = this.repository.update(id, dto);
+    const updatedCustomer = await this.repository.update(id, dto);
     if (!updatedCustomer) {
       throw new NotFoundError(`Customer with ID ${id} not found`);
     }
@@ -94,11 +83,11 @@ export class CustomerService {
   }
 
   async delete(id: number): Promise<void> {
-    const existing = this.repository.getById(id);
+    const existing = await this.repository.getById(id);
     if (!existing) {
       throw new NotFoundError(`Customer with ID ${id} not found`);
     }
-    this.repository.delete(id);
+    await this.repository.delete(id);
     try {
       const { SyncQueueManager } = require("./sync.service");
       SyncQueueManager.getInstance().enqueue("customer", { ...existing, is_active: 0 });
@@ -110,7 +99,7 @@ export class CustomerService {
   }
 
   async getCustomerInvoices(customerId: number): Promise<any[]> {
-    const customer = this.repository.getById(customerId);
+    const customer = await this.repository.getById(customerId);
     if (!customer) {
       throw new NotFoundError(`Customer with ID ${customerId} not found`);
     }

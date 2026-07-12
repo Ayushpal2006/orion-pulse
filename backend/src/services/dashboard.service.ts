@@ -1,16 +1,12 @@
-import { DashboardRepository } from "../repositories/dashboard.repository";
+import { dashboardRepository } from "../repositories";
 
 export class DashboardService {
-  private repo: DashboardRepository;
-
-  constructor() {
-    this.repo = new DashboardRepository();
-  }
+  private repo = dashboardRepository;
 
   async getDashboardData() {
-    const summary = this.repo.getTodaySummary();
-    const topProducts = this.repo.getTopProducts();
-    const recentSales = this.repo.getRecentSales();
+    const summary = await this.repo.getTodaySummary();
+    const topProducts = await this.repo.getTopProducts();
+    const recentSales = await this.repo.getRecentSales();
 
     return {
       ...summary,

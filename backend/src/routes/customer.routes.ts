@@ -1,5 +1,7 @@
 import { Router } from "express";
 import { CustomerController } from "../controllers/customer.controller";
+import { validate } from "../middleware/validation.middleware";
+import { CreateCustomerSchema, UpdateCustomerSchema } from "../validation/customer.validation";
 
 const router = Router();
 const controller = new CustomerController();
@@ -20,10 +22,10 @@ router.get("/:id", controller.getById);
 router.get("/:id/invoices", controller.getInvoices);
 
 // POST create customer
-router.post("/", controller.create);
+router.post("/", validate(CreateCustomerSchema), controller.create);
 
 // PUT update customer
-router.put("/:id", controller.update);
+router.put("/:id", validate(UpdateCustomerSchema), controller.update);
 
 // DELETE customer
 router.delete("/:id", controller.delete);

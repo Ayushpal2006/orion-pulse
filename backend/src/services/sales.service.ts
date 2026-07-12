@@ -1,8 +1,6 @@
-import { SaleRepository } from "../repositories/sale.repository";
-import { CustomerRepository } from "../repositories/customer.repository";
-import { NotFoundError } from "./product.service";
+import { saleRepository, customerRepository, settingsRepository } from "../repositories";
+import { NotFoundError } from "../utils/errors";
 import { Sale, SaleDetailResponse } from "../types/checkout.types";
-import db from "../database/db";
 import { formatToKolkataDate, formatToKolkataTime } from "../utils/datetime";
 import QRCode from "qrcode";
 
@@ -44,13 +42,8 @@ export interface ReceiptResponse {
 }
 
 export class SalesService {
-  private saleRepo: SaleRepository;
-  private customerRepo: CustomerRepository;
-
-  constructor() {
-    this.saleRepo = new SaleRepository();
-    this.customerRepo = new CustomerRepository();
-  }
+  private saleRepo = saleRepository;
+  private customerRepo = customerRepository;
 
   async getAll(): Promise<Sale[]> {
     return this.saleRepo.getAll();
@@ -61,13 +54,13 @@ export class SalesService {
   }
 
   async getById(id: number): Promise<SaleDetailResponse> {
-    const sale = this.saleRepo.getById(id);
+    const sale = await this.saleRepo.getById(id);
     if (!sale) {
       throw new NotFoundError(`Sale with ID ${id} not found`);
     }
 
-    const customer = sale.customer_id ? this.customerRepo.getById(sale.customer_id) : null;
-    const items = this.saleRepo.getSaleItems(sale.id);
+    const customer = sale.customer_id ? await this.customerRepo.getById(sale.customer_id) : null;
+    const items = await this.saleRepo.getSaleItems(sale.id);
 
     return {
       sale,
@@ -83,13 +76,13 @@ export class SalesService {
   }
 
   async getByInvoice(invoice: string): Promise<SaleDetailResponse> {
-    const sale = this.saleRepo.getByInvoice(invoice);
+    const sale = await this.saleRepo.getByInvoice(invoice);
     if (!sale) {
       throw new NotFoundError(`Sale with invoice number "${invoice}" not found`);
     }
 
-    const customer = sale.customer_id ? this.customerRepo.getById(sale.customer_id) : null;
-    const items = this.saleRepo.getSaleItems(sale.id);
+    const customer = sale.customer_id ? await this.customerRepo.getById(sale.customer_id) : null;
+    const items = await this.saleRepo.getSaleItems(sale.id);
 
     return {
       sale,
@@ -111,38 +104,26 @@ export class SalesService {
   async getReceipt(idOrInvoice: string): Promise<ReceiptResponse> {
     let sale: Sale | null = null;
 
-    // Check if numeric lookup or invoice lookup
     const numericId = parseInt(idOrInvoice, 10);
     if (!isNaN(numericId) && String(numericId) === idOrInvoice) {
-      sale = this.saleRepo.getById(numericId);
+      sale = await this.saleRepo.getById(numericId);
     } else {
-      sale = this.saleRepo.getByInvoice(idOrInvoice);
+      sale = await this.saleRepo.getByInvoice(idOrInvoice);
     }
 
     if (!sale) {
       throw new NotFoundError(`Sale with identifier "${idOrInvoice}" not found`);
     }
 
-    const customer = sale.customer_id ? this.customerRepo.getById(sale.customer_id) : null;
-    const items = this.saleRepo.getSaleItems(sale.id);
-
-    // Query Settings Table
-    const getSetting = (key: string, fallback: string): string => {
-      try {
-        const stmt = db.prepare("SELECT value FROM settings WHERE key = ?");
-        const row = stmt.get(key) as { value: string } | undefined;
-        return row ? row.value : fallback;
-      } catch (e) {
-        return fallback;
-      }
-    };
+    const customer = sale.customer_id ? await this.customerRepo.getById(sale.customer_id) : null;
+    const items = await this.saleRepo.getSaleItems(sale.id);
 
     const shop = {
-      name: getSetting("shop_name", "Orion Store"),
-      gstin: getSetting("shop_gstin", "27AAAAA1111A1Z1"),
-      phone: getSetting("shop_phone", "8285068670"),
-      address: getSetting("shop_address", "123, POS Center, Sector V, Salt Lake, Kolkata, 700091"),
-      upiId: getSetting("shop_upi_id", "orion@upi"),
+      name: await settingsRepository.get("shop_name", "Orion Store"),
+      gstin: await settingsRepository.get("shop_gstin", "27AAAAA1111A1Z1"),
+      phone: await settingsRepository.get("shop_phone", "8285068670"),
+      address: await settingsRepository.get("shop_address", "123, POS Center, Sector V, Salt Lake, Kolkata, 700091"),
+      upiId: await settingsRepository.get("shop_upi_id", "orion@upi"),
     };
 
     const formattedDate = formatToKolkataDate(sale.created_at);
@@ -205,7 +186,7 @@ export class SalesService {
       time: formattedTime,
       shop: {
         ...shop,
-        logo: getSetting("logo", "")
+        logo: await settingsRepository.get("logo", "")
       },
       customer: {
         name: customer ? customer.name : "Walk-in Customer",
