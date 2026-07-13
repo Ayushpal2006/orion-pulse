@@ -165,12 +165,17 @@ export class ProductController {
 
       // Route image stream/upload to active storage provider
       const secureUrl = await imageService.upload(req.file.path);
-      await this.service.update(id, { image_url: secureUrl });
+      logger.info(`[Image Upload] Cloudinary secure_url: ${secureUrl}`);
+      const updatedProduct = await this.service.update(id, { image_url: secureUrl });
+      logger.info(`[Image Upload] Database image_url updated to: ${updatedProduct.image_url}`);
 
-      res.status(200).json({
+      const responsePayload = {
         success: true,
         imageUrl: secureUrl,
-      });
+      };
+      logger.info(`[Image Upload] API response payload: ${JSON.stringify(responsePayload)}`);
+
+      res.status(200).json(responsePayload);
     } catch (error) {
       next(error);
     }

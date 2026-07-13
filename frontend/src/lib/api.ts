@@ -14,9 +14,22 @@ const getApiBaseUrl = (): string => {
   return cleanUrl;
 };
 
+export function buildImageUrl(imageUrl: string | null | undefined): string | undefined {
+  if (!imageUrl) return undefined;
+  const trimmed = imageUrl.trim();
+  if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
+    return trimmed;
+  }
+  return `${API_BASE_URL}${trimmed}`;
+}
+
 export const API_BASE_URL = getApiBaseUrl();
 
 export function mapBackendProductToFrontend(p: any): Product {
+  const mappedImage = buildImageUrl(p.image_url);
+  
+  console.log(`[Frontend Map] Backend image_url (Database value): ${p.image_url} -> Mapped image source (Frontend): ${mappedImage}`);
+
   return {
     id: String(p.id),
     name: p.name,
@@ -29,7 +42,7 @@ export function mapBackendProductToFrontend(p: any): Product {
     stock: p.stock ?? 0,
     reorder: p.minimum_stock ?? 0,
     emoji: "📦",
-    image: p.image_url ? `${API_BASE_URL}${p.image_url}` : undefined,
+    image: mappedImage,
     createdAt: p.created_at,
     updatedAt: p.updated_at,
   };
@@ -48,7 +61,9 @@ export function mapFrontendProductToBackend(p: Partial<Product>): any {
   if (p.reorder !== undefined) result.minimum_stock = p.reorder;
   if (p.image !== undefined) {
     if (p.image) {
-      result.image_url = p.image.replace(API_BASE_URL, "");
+      result.image_url = p.image.startsWith(API_BASE_URL)
+        ? p.image.replace(API_BASE_URL, "")
+        : p.image;
     } else {
       result.image_url = null;
     }
@@ -388,7 +403,9 @@ export async function uploadProductImage(productId: string, file: File): Promise
 
     const payload = await res.json();
     if (payload.success && payload.imageUrl) {
-      return `${API_BASE_URL}${payload.imageUrl}`;
+      const finalUrl = buildImageUrl(payload.imageUrl) || payload.imageUrl;
+      console.log(`[Upload Image API] Response secure_url: ${payload.imageUrl} -> Resolved URL: ${finalUrl}`);
+      return finalUrl;
     }
     throw new Error("Invalid response format from server");
   } catch (error) {
