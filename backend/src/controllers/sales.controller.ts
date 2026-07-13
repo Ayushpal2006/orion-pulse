@@ -22,13 +22,36 @@ export class SalesController {
 
   getAll = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const phone = req.query.phone as string | undefined;
-      const sales = phone
-        ? await this.service.getByCustomerPhone(phone)
-        : await this.service.getAll();
+      const {
+        invoice,
+        customer,
+        phone,
+        date,
+        cashier,
+        payment,
+        startDate,
+        endDate,
+      } = req.query;
+
+      let salesData;
+      if (invoice || customer || phone || date || cashier || payment || startDate) {
+        salesData = await this.saleRepo.searchSales({
+          invoiceNumber: invoice as string,
+          customerName: customer as string,
+          phone: phone as string,
+          date: date as string,
+          cashier: cashier as string,
+          paymentMethod: payment as string,
+          startDate: startDate as string,
+          endDate: endDate as string,
+        });
+      } else {
+        salesData = await this.service.getAll();
+      }
+
       res.status(200).json({
         success: true,
-        data: sales,
+        data: salesData,
       });
     } catch (error) {
       next(error);
@@ -176,8 +199,20 @@ export class SalesController {
       }
 
       const receipt = await this.service.getReceipt(id);
+      
+      // Determine year and month folders based on current date
+      const now = new Date();
+      const year = String(now.getFullYear());
+      const month = String(now.getMonth() + 1).padStart(2, "0");
+      
+      const subFolder = path.join(process.cwd(), "storage/invoices", year, month);
+      if (!fs.existsSync(subFolder)) {
+        fs.mkdirSync(subFolder, { recursive: true });
+      }
+
       const pdfFilename = `${receipt.invoiceNumber}.pdf`;
-      const pdfPath = path.join(__dirname, "../../uploads/invoices", pdfFilename);
+      const pdfPath = path.join(subFolder, pdfFilename);
+      const pdfUrl = `/storage/invoices/${year}/${month}/${pdfFilename}`;
 
       if (!fs.existsSync(pdfPath)) {
         const pdfService = new PdfService();
@@ -185,7 +220,7 @@ export class SalesController {
           await pdfService.generateInvoicePdf(receipt, pdfPath);
 
           try {
-            await this.saleRepo.updatePdfUrlByInvoice(receipt.invoiceNumber, `/uploads/invoices/${pdfFilename}`);
+            await this.saleRepo.updatePdfUrlByInvoice(receipt.invoiceNumber, pdfUrl);
           } catch (e) {
             console.error("Failed to update sales pdf_url:", e);
           }

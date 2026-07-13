@@ -1,13 +1,18 @@
 import { ISettingsRepository } from "../interfaces/ISettingsRepository";
-import { DatabaseAdapter } from "../../database";
-import dbProxy from "../../database";
+import { db } from "../../db";
+import { settings } from "../../db/schema";
+import { eq, and } from "drizzle-orm";
+import { getStoreId } from "../../db/context";
 
 export class PostgresSettingsRepository implements ISettingsRepository {
-  constructor(private db: DatabaseAdapter = dbProxy) {}
+  async getAll(tx?: any): Promise<Record<string, string>> {
+    const client = tx || db;
+    const storeId = getStoreId() || 1;
+    const rows = await client
+      .select()
+      .from(settings)
+      .where(eq(settings.store_id, storeId));
 
-  async getAll(tx?: DatabaseAdapter): Promise<Record<string, string>> {
-    const client = tx || this.db;
-    const rows = await client.query<{ key: string; value: string }>("SELECT * FROM settings");
     const settingsObj: Record<string, string> = {};
     for (const row of rows) {
       settingsObj[row.key] = row.value;
@@ -15,31 +20,42 @@ export class PostgresSettingsRepository implements ISettingsRepository {
     return settingsObj;
   }
 
-  async get(key: string, fallback = "", tx?: DatabaseAdapter): Promise<string> {
-    const client = tx || this.db;
-    const row = await client.queryOne<{ value: string }>(
-      "SELECT value FROM settings WHERE key = ?",
-      [key]
-    );
-    return row ? row.value : fallback;
+  async get(key: string, fallback = "", tx?: any): Promise<string> {
+    const client = tx || db;
+    const storeId = getStoreId() || 1;
+    const rows = await client
+      .select({ value: settings.value })
+      .from(settings)
+      .where(and(eq(settings.store_id, storeId), eq(settings.key, key)))
+      .limit(1);
+
+    return rows[0]?.value ?? fallback;
   }
 
-  async set(key: string, value: string, tx?: DatabaseAdapter): Promise<void> {
-    const client = tx || this.db;
-    await client.execute(
-      "INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value",
-      [key, value]
-    );
+  async set(key: string, value: string, tx?: any): Promise<void> {
+    const client = tx || db;
+    const storeId = getStoreId() || 1;
+    await client
+      .insert(settings)
+      .values({ store_id: storeId, key, value })
+      .onConflictDoUpdate({
+        target: [settings.store_id, settings.key],
+        set: { value },
+      });
   }
 
-  async setMany(settings: Record<string, string>, tx?: DatabaseAdapter): Promise<void> {
-    const client = tx || this.db;
-    await client.transaction(async (txClient) => {
-      for (const [key, value] of Object.entries(settings)) {
-        await txClient.execute(
-          "INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value",
-          [key, String(value ?? "")]
-        );
+  async setMany(settingsObj: Record<string, string>, tx?: any): Promise<void> {
+    const client = tx || db;
+    const storeId = getStoreId() || 1;
+    await client.transaction(async (txClient: any) => {
+      for (const [key, value] of Object.entries(settingsObj)) {
+        await txClient
+          .insert(settings)
+          .values({ store_id: storeId, key, value: String(value ?? "") })
+          .onConflictDoUpdate({
+            target: [settings.store_id, settings.key],
+            set: { value: String(value ?? "") },
+          });
       }
     });
   }

@@ -22,21 +22,7 @@ const dbProxy = db;
 export default dbProxy;
 
 export function closeAndReopenDb(): void {
-  if (databaseConfig.type === "sqlite") {
-    try {
-      const activeAdapter = DatabaseProvider.getAdapter();
-      if (activeAdapter) {
-        activeAdapter.close();
-      }
-    } catch (e) {
-      logger.error("Error closing database during reopen:", e);
-    }
-    DatabaseProvider.clearInstance();
-    DatabaseProvider.getAdapter();
-    logger.info("🔄 SQLite database connection re-established.");
-  } else {
-    logger.warn(`closeAndReopenDb is not supported for active database type: ${databaseConfig.type}`);
-  }
+  logger.warn("closeAndReopenDb is not supported for PostgreSQL active database.");
 }
 
 export * from "./database-adapter.interface";

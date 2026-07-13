@@ -7,5 +7,6 @@ const controller = new AdminController();
 
 // POST /api/admin/reset-demo-data
 router.post("/reset-demo-data", adminAuthMiddleware, controller.resetDemoData);
+router.get("/metrics", adminAuthMiddleware, controller.getMetrics);
 
 export default router;

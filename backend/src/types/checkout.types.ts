@@ -1,14 +1,19 @@
 export interface CheckoutItemRequest {
   productId: number;
   quantity: number;
+  discount?: number;
 }
 
 export interface CheckoutRequest {
   customerPhone: string;
-  paymentMethod: "Cash" | "UPI" | "Card" | "Wallet";
+  paymentMethod: "Cash" | "UPI" | "Card" | "Wallet" | "Split" | "Bank Transfer";
   cashierName: string;
   customerName?: string;
   items: CheckoutItemRequest[];
+  discount?: number;
+  paidAmount?: number;
+  balance?: number;
+  paymentDetails?: any;
 }
 
 export interface Sale {

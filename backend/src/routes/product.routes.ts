@@ -3,6 +3,7 @@ import { ProductController } from "../controllers/product.controller";
 import { upload } from "../middleware/upload.middleware";
 import { validate } from "../middleware/validation.middleware";
 import { CreateProductSchema, UpdateProductSchema } from "../schemas/product.schema";
+import { authorize } from "../middleware/auth.middleware";
 
 const router = Router();
 const controller = new ProductController();
@@ -17,15 +18,15 @@ router.get("/", controller.getAll);
 router.get("/:id", controller.getById);
 
 // POST create product
-router.post("/", validate(CreateProductSchema), controller.create);
+router.post("/", authorize("admin", "manager"), validate(CreateProductSchema), controller.create);
 
 // PUT update product
-router.put("/:id", validate(UpdateProductSchema), controller.update);
+router.put("/:id", authorize("admin", "manager"), validate(UpdateProductSchema), controller.update);
 
 // POST upload product image
-router.post("/:id/image", upload.single("image"), controller.uploadImage);
+router.post("/:id/image", authorize("admin", "manager"), upload.single("image"), controller.uploadImage);
 
 // DELETE product
-router.delete("/:id", controller.delete);
+router.delete("/:id", authorize("admin", "manager"), controller.delete);
 
 export default router;

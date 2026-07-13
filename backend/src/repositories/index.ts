@@ -1,5 +1,3 @@
-import dbProxy from "../database";
-import { databaseConfig } from "../config/database";
 import { IProductRepository } from "./interfaces/IProductRepository";
 import { ICustomerRepository } from "./interfaces/ICustomerRepository";
 import { ISaleRepository } from "./interfaces/ISaleRepository";
@@ -8,15 +6,6 @@ import { IDashboardRepository } from "./interfaces/IDashboardRepository";
 import { IReportsRepository } from "./interfaces/IReportsRepository";
 import { ISettingsRepository } from "./interfaces/ISettingsRepository";
 import { ISyncRepository } from "./interfaces/ISyncRepository";
-
-import { SQLiteProductRepository } from "./sqlite/product.repository";
-import { SQLiteCustomerRepository } from "./sqlite/customer.repository";
-import { SQLiteSaleRepository } from "./sqlite/sale.repository";
-import { SQLiteCheckoutRepository } from "./sqlite/checkout.repository";
-import { SQLiteDashboardRepository } from "./sqlite/dashboard.repository";
-import { SQLiteReportsRepository } from "./sqlite/reports.repository";
-import { SQLiteSettingsRepository } from "./sqlite/settings.repository";
-import { SQLiteSyncRepository } from "./sqlite/sync.repository";
 
 import { PostgresProductRepository } from "./postgres/product.repository";
 import { PostgresCustomerRepository } from "./postgres/customer.repository";
@@ -37,25 +26,14 @@ export let settingsRepository: ISettingsRepository;
 export let syncRepository: ISyncRepository;
 
 export function initializeRepositories(): void {
-  if (databaseConfig.type === "postgres") {
-    productRepository = new PostgresProductRepository(dbProxy);
-    customerRepository = new PostgresCustomerRepository(dbProxy);
-    saleRepository = new PostgresSaleRepository(dbProxy);
-    checkoutRepository = new PostgresCheckoutRepository(dbProxy);
-    dashboardRepository = new PostgresDashboardRepository(dbProxy);
-    reportsRepository = new PostgresReportsRepository(dbProxy);
-    settingsRepository = new PostgresSettingsRepository(dbProxy);
-    syncRepository = new PostgresSyncRepository(dbProxy);
-  } else {
-    productRepository = new SQLiteProductRepository(dbProxy);
-    customerRepository = new SQLiteCustomerRepository(dbProxy);
-    saleRepository = new SQLiteSaleRepository(dbProxy);
-    checkoutRepository = new SQLiteCheckoutRepository(dbProxy);
-    dashboardRepository = new SQLiteDashboardRepository(dbProxy);
-    reportsRepository = new SQLiteReportsRepository(dbProxy);
-    settingsRepository = new SQLiteSettingsRepository(dbProxy);
-    syncRepository = new SQLiteSyncRepository(dbProxy);
-  }
+  productRepository = new PostgresProductRepository();
+  customerRepository = new PostgresCustomerRepository();
+  saleRepository = new PostgresSaleRepository();
+  checkoutRepository = new PostgresCheckoutRepository();
+  dashboardRepository = new PostgresDashboardRepository();
+  reportsRepository = new PostgresReportsRepository();
+  settingsRepository = new PostgresSettingsRepository();
+  syncRepository = new PostgresSyncRepository();
 }
 
 // Automatically initialize repositories on module import

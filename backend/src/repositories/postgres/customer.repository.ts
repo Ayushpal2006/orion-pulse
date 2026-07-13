@@ -1,125 +1,280 @@
 import { ICustomerRepository } from "../interfaces/ICustomerRepository";
 import { Customer, CreateCustomerDTO, UpdateCustomerDTO } from "../../types/customer.types";
-import { DatabaseAdapter } from "../../database";
-import dbProxy from "../../database";
+import { db } from "../../db";
+import { customers, sales } from "../../db/schema";
+import { eq, and, desc, like, or } from "drizzle-orm";
+import { getStoreId } from "../../db/context";
 
 export class PostgresCustomerRepository implements ICustomerRepository {
-  constructor(private db: DatabaseAdapter = dbProxy) {}
+  async getAll(tx?: any): Promise<Customer[]> {
+    const client = tx || db;
+    const storeId = getStoreId();
+    let cond = eq(customers.is_active, 1);
+    if (storeId !== undefined) {
+      cond = and(cond, eq(customers.store_id, storeId)) as any;
+    }
 
-  async getAll(tx?: DatabaseAdapter): Promise<Customer[]> {
-    const client = tx || this.db;
-    return client.query<Customer>("SELECT * FROM customers WHERE is_active = 1 ORDER BY id DESC");
+    const rows = await client
+      .select()
+      .from(customers)
+      .where(cond)
+      .orderBy(desc(customers.id));
+
+    return rows.map((r: any) => ({
+      ...r,
+      last_visit: r.last_visit ? r.last_visit.toISOString() : null,
+      created_at: r.created_at.toISOString(),
+      updated_at: r.updated_at.toISOString()
+    }));
   }
 
-  async getById(id: number, tx?: DatabaseAdapter): Promise<Customer | null> {
-    const client = tx || this.db;
-    return client.queryOne<Customer>("SELECT * FROM customers WHERE id = ?", [id]);
+  async getById(id: number, tx?: any): Promise<Customer | null> {
+    const client = tx || db;
+    const storeId = getStoreId();
+    let cond = eq(customers.id, id);
+    if (storeId !== undefined) {
+      cond = and(cond, eq(customers.store_id, storeId)) as any;
+    }
+
+    const rows = await client
+      .select()
+      .from(customers)
+      .where(cond)
+      .limit(1);
+
+    if (!rows[0]) return null;
+    const r = rows[0];
+    return {
+      ...r,
+      last_visit: r.last_visit ? r.last_visit.toISOString() : null,
+      created_at: r.created_at.toISOString(),
+      updated_at: r.updated_at.toISOString()
+    };
   }
 
-  async getByPhone(phone: string, includeInactive = false, tx?: DatabaseAdapter): Promise<Customer | null> {
-    const client = tx || this.db;
-    const query = includeInactive
-      ? "SELECT * FROM customers WHERE phone = ?"
-      : "SELECT * FROM customers WHERE phone = ? AND is_active = 1";
-    return client.queryOne<Customer>(query, [phone]);
+  async getByPhone(phone: string, includeInactive = false, tx?: any): Promise<Customer | null> {
+    const client = tx || db;
+    const storeId = getStoreId();
+    let cond = includeInactive
+      ? eq(customers.phone, phone)
+      : and(eq(customers.phone, phone), eq(customers.is_active, 1));
+    if (storeId !== undefined) {
+      cond = and(cond, eq(customers.store_id, storeId)) as any;
+    }
+
+    const rows = await client
+      .select()
+      .from(customers)
+      .where(cond)
+      .limit(1);
+
+    if (!rows[0]) return null;
+    const r = rows[0];
+    return {
+      ...r,
+      last_visit: r.last_visit ? r.last_visit.toISOString() : null,
+      created_at: r.created_at.toISOString(),
+      updated_at: r.updated_at.toISOString()
+    };
   }
 
-  async create(customer: CreateCustomerDTO, tx?: DatabaseAdapter): Promise<Customer> {
-    const client = tx || this.db;
-    const result = await client.execute(`
-      INSERT INTO customers (
-        name, phone, email, address, notes, total_orders, lifetime_value, last_visit
-      ) VALUES (
-        @name, @phone, @email, @address, @notes, @total_orders, @lifetime_value, @last_visit
-      )
-    `, {
-      name: customer.name,
-      phone: customer.phone,
-      email: customer.email ?? null,
-      address: customer.address ?? null,
-      notes: customer.notes ?? null,
-      total_orders: customer.total_orders ?? 0,
-      lifetime_value: customer.lifetime_value ?? 0,
-      last_visit: customer.last_visit ?? null,
-    });
+  async create(customer: CreateCustomerDTO, tx?: any): Promise<Customer> {
+    const client = tx || db;
+    const storeId = getStoreId() || 1;
 
-    const newId = Number(result.lastInsertId);
-    const createdCustomer = await this.getById(newId, client);
-    if (!createdCustomer) {
+    const [created] = await client
+      .insert(customers)
+      .values({
+        store_id: storeId,
+        name: customer.name,
+        phone: customer.phone,
+        email: customer.email ?? null,
+        address: customer.address ?? null,
+        notes: customer.notes ?? null,
+        total_orders: customer.total_orders ?? 0,
+        lifetime_value: customer.lifetime_value ?? 0,
+        last_visit: customer.last_visit ? new Date(customer.last_visit) : null,
+        is_active: customer.is_active ?? 1,
+      })
+      .returning();
+
+    if (!created) {
       throw new Error("Failed to retrieve created customer");
     }
-    return createdCustomer;
+    return {
+      ...created,
+      last_visit: created.last_visit ? created.last_visit.toISOString() : null,
+      created_at: created.created_at.toISOString(),
+      updated_at: created.updated_at.toISOString()
+    };
   }
 
-  async update(id: number, customer: UpdateCustomerDTO, tx?: DatabaseAdapter): Promise<Customer | null> {
-    const client = tx || this.db;
-    const fields = (Object.keys(customer) as Array<keyof UpdateCustomerDTO>).filter(
-      (key) => customer[key] !== undefined
-    );
+  async update(id: number, customer: UpdateCustomerDTO, tx?: any): Promise<Customer | null> {
+    const client = tx || db;
+    const storeId = getStoreId();
 
-    if (fields.length === 0) {
+    const updateData: any = {};
+    for (const [key, value] of Object.entries(customer)) {
+      if (value !== undefined) {
+        if (key === "last_visit" && value) {
+          updateData.last_visit = new Date(value);
+        } else {
+          updateData[key] = value;
+        }
+      }
+    }
+
+    if (Object.keys(updateData).length === 0) {
       return this.getById(id, client);
     }
 
-    const setClauses = fields.map((field) => `${field} = @${field}`);
-    setClauses.push("updated_at = CURRENT_TIMESTAMP");
+    updateData.updated_at = new Date();
 
-    const query = `UPDATE customers SET ${setClauses.join(", ")} WHERE id = @id`;
-    const params: any = { id };
-    for (const field of fields) {
-      params[field] = customer[field] ?? null;
+    let cond = eq(customers.id, id);
+    if (storeId !== undefined) {
+      cond = and(cond, eq(customers.store_id, storeId)) as any;
     }
 
-    const result = await client.execute(query, params);
-    if (result.changes === 0) {
-      return null;
+    const [updated] = await client
+      .update(customers)
+      .set(updateData)
+      .where(cond)
+      .returning();
+
+    if (!updated) return null;
+
+    return {
+      ...updated,
+      last_visit: updated.last_visit ? updated.last_visit.toISOString() : null,
+      created_at: updated.created_at.toISOString(),
+      updated_at: updated.updated_at.toISOString()
+    };
+  }
+
+  async delete(id: number, tx?: any): Promise<boolean> {
+    const client = tx || db;
+    const storeId = getStoreId();
+
+    let cond = eq(customers.id, id);
+    if (storeId !== undefined) {
+      cond = and(cond, eq(customers.store_id, storeId)) as any;
     }
 
-    return this.getById(id, client);
+    const [updated] = await client
+      .update(customers)
+      .set({
+        is_active: 0,
+        updated_at: new Date(),
+      })
+      .where(cond)
+      .returning();
+
+    return !!updated;
   }
 
-  async delete(id: number, tx?: DatabaseAdapter): Promise<boolean> {
-    const client = tx || this.db;
-    const result = await client.execute("UPDATE customers SET is_active = 0, updated_at = CURRENT_TIMESTAMP WHERE id = ?", [id]);
-    return result.changes > 0;
-  }
-
-  async search(query: string, tx?: DatabaseAdapter): Promise<Customer[]> {
-    const client = tx || this.db;
+  async search(query: string, tx?: any): Promise<Customer[]> {
+    const client = tx || db;
+    const storeId = getStoreId();
     const likeQuery = `%${query}%`;
-    return client.query<Customer>(`
-      SELECT DISTINCT c.* 
-      FROM customers c
-      LEFT JOIN sales s ON s.customer_id = c.id
-      WHERE c.is_active = 1 
-        AND (c.name LIKE ? OR c.phone LIKE ? OR s.invoice_number LIKE ?)
-      ORDER BY c.id DESC
-    `, [likeQuery, likeQuery, likeQuery]);
+
+    let cond = and(
+      eq(customers.is_active, 1),
+      or(
+        like(customers.name, likeQuery),
+        like(customers.phone, likeQuery),
+        like(sales.invoice_number, likeQuery)
+      )
+    );
+    if (storeId !== undefined) {
+      cond = and(cond, eq(customers.store_id, storeId)) as any;
+    }
+
+    const rows = await client
+      .select({
+        id: customers.id,
+        name: customers.name,
+        phone: customers.phone,
+        email: customers.email,
+        address: customers.address,
+        notes: customers.notes,
+        total_orders: customers.total_orders,
+        lifetime_value: customers.lifetime_value,
+        last_visit: customers.last_visit,
+        is_active: customers.is_active,
+        created_at: customers.created_at,
+        updated_at: customers.updated_at,
+      })
+      .from(customers)
+      .leftJoin(sales, eq(sales.customer_id, customers.id))
+      .where(cond)
+      .orderBy(desc(customers.id));
+
+    // Deduplicate in JS since leftJoin might have multiple rows per customer
+    const seen = new Set<number>();
+    const uniqueCustomers: Customer[] = [];
+    for (const r of rows) {
+      if (!seen.has(r.id)) {
+        seen.add(r.id);
+        uniqueCustomers.push({
+          id: r.id,
+          name: r.name,
+          phone: r.phone,
+          email: r.email,
+          address: r.address,
+          notes: r.notes,
+          total_orders: r.total_orders,
+          lifetime_value: r.lifetime_value,
+          last_visit: r.last_visit ? r.last_visit.toISOString() : null,
+          is_active: r.is_active,
+          created_at: r.created_at.toISOString(),
+          updated_at: r.updated_at.toISOString()
+        });
+      }
+    }
+    return uniqueCustomers;
   }
 
-  async getCustomerInvoices(customerId: number, tx?: DatabaseAdapter): Promise<any[]> {
-    const client = tx || this.db;
-    return client.query(`
-      SELECT * FROM sales
-      WHERE customer_id = ?
-      ORDER BY id DESC
-    `, [customerId]);
+  async getCustomerInvoices(customerId: number, tx?: any): Promise<any[]> {
+    const client = tx || db;
+    const storeId = getStoreId();
+
+    let cond = eq(sales.customer_id, customerId);
+    if (storeId !== undefined) {
+      cond = and(cond, eq(sales.store_id, storeId)) as any;
+    }
+
+    const rows = await client
+      .select()
+      .from(sales)
+      .where(cond)
+      .orderBy(desc(sales.id));
+    return rows;
   }
 
-  async getCustomersExport(tx?: DatabaseAdapter): Promise<any[]> {
-    const client = tx || this.db;
-    return client.query(`
-      SELECT id as ID, 
-             name as Name, 
-             phone as Phone, 
-             email as Email, 
-             address as Address, 
-             total_orders as TotalOrders, 
-             lifetime_value/100.0 as LifetimeValue_INR, 
-             last_visit as LastVisit, 
-             created_at as CreatedAt 
-      FROM customers 
-      WHERE is_active = 1
-    `);
+  async getCustomersExport(tx?: any): Promise<any[]> {
+    const client = tx || db;
+    const storeId = getStoreId();
+
+    let cond = eq(customers.is_active, 1);
+    if (storeId !== undefined) {
+      cond = and(cond, eq(customers.store_id, storeId)) as any;
+    }
+
+    const rows = await client
+      .select()
+      .from(customers)
+      .where(cond);
+
+    return rows.map((r: any) => ({
+      ID: r.id,
+      Name: r.name,
+      Phone: r.phone,
+      Email: r.email,
+      Address: r.address,
+      TotalOrders: r.total_orders,
+      LifetimeValue_INR: r.lifetime_value / 100.0,
+      LastVisit: r.last_visit ? r.last_visit.toISOString() : null,
+      CreatedAt: r.created_at ? r.created_at.toISOString() : "",
+    }));
   }
 }

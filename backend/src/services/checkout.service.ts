@@ -1,9 +1,9 @@
-import dbProxy from "../database";
-import { checkoutRepository, productRepository, customerRepository, saleRepository } from "../repositories";
+import { db } from "../db";
+import { sales, sale_items, products, customers, inventory_logs } from "../db/schema";
+import { eq, and, desc, like } from "drizzle-orm";
 import { CheckoutRequest, CheckoutResponse } from "../types/checkout.types";
 import { ValidationError, NotFoundError } from "../utils/errors";
-import { getCurrentUtcString } from "../utils/datetime";
-import { databaseConfig } from "../config/database";
+import { getStoreId } from "../db/context";
 
 const idempotencyCache = new Map<string, { timestamp: number; response: any }>();
 
@@ -20,13 +20,36 @@ if (typeof global !== "undefined" && typeof setInterval === "function") {
 }
 
 export class CheckoutService {
-  private checkoutRepo = checkoutRepository;
-  private productRepo = productRepository;
-  private customerRepo = customerRepository;
-  private saleRepo = saleRepository;
+  async generateNextInvoiceNumber(storeId: number, txClient?: any): Promise<string> {
+    const client = txClient || db;
+    const todayStr = new Date().toISOString().slice(0, 10).replace(/-/g, ""); // "20260713"
+    const prefix = `INV-${todayStr}-`;
 
-  async executeCheckout(request: CheckoutRequest): Promise<CheckoutResponse> {
-    const idempotencyKey = `${request.customerPhone}-${request.paymentMethod}-${request.items
+    const rows = await client
+      .select({ invoice_number: sales.invoice_number })
+      .from(sales)
+      .where(and(eq(sales.store_id, storeId), like(sales.invoice_number, `${prefix}%`)))
+      .orderBy(desc(sales.id))
+      .limit(1);
+
+    let nextSeq = 1;
+    if (rows[0]) {
+      const parts = rows[0].invoice_number.split("-");
+      if (parts.length === 3) {
+        const seqNum = parseInt(parts[2], 10);
+        if (!isNaN(seqNum)) {
+          nextSeq = seqNum + 1;
+        }
+      }
+    }
+
+    return `${prefix}${String(nextSeq).padStart(6, "0")}`;
+  }
+
+  async executeCheckout(request: CheckoutRequest & { paymentDetails?: any; paidAmount?: number; balance?: number }): Promise<CheckoutResponse> {
+    const storeId = getStoreId() || 1;
+
+    const idempotencyKey = `${storeId}-${request.customerPhone}-${request.paymentMethod}-${request.items
       .map((i) => `${i.productId}:${i.quantity}`)
       .join(",")}`;
 
@@ -37,54 +60,45 @@ export class CheckoutService {
       return cached.response;
     }
 
-    const result = await dbProxy.transaction(async (tx) => {
+    const result = await db.transaction(async (tx) => {
       // 1. Find or create customer
-      let customer = await this.customerRepo.getByPhone(request.customerPhone, false, tx);
+      let [customer] = await tx
+        .select()
+        .from(customers)
+        .where(and(eq(customers.phone, request.customerPhone), eq(customers.store_id, storeId)))
+        .limit(1);
+
       if (!customer) {
-        customer = await this.customerRepo.create({
-          name: request.customerName || `Customer - ${request.customerPhone}`,
-          phone: request.customerPhone,
-          email: null,
-          address: null,
-          notes: "Auto-created during checkout",
-        }, tx);
-        
-        try {
-          const { SyncQueueManager } = require("./sync.service");
-          SyncQueueManager.getInstance().enqueue("customer", {
-            phone: customer.phone,
-            name: customer.name,
-            email: customer.email,
-            address: customer.address,
+        const [newCust] = await tx
+          .insert(customers)
+          .values({
+            store_id: storeId,
+            name: request.customerName || `Customer - ${request.customerPhone}`,
+            phone: request.customerPhone,
+            email: null,
+            address: null,
+            notes: "Auto-created during checkout",
             total_orders: 0,
             lifetime_value: 0,
-            last_visit: null
-          });
-        } catch (e) {
-          console.error("Failed to enqueue initial customer sync:", e);
-        }
+            is_active: 1,
+          })
+          .returning();
+        customer = newCust;
       } else if (
         request.customerName &&
         request.customerName !== "Walk-in Customer" &&
         (customer.name.startsWith("Customer - ") || customer.name === "Walk-in Customer")
       ) {
-        await this.customerRepo.update(customer.id, { name: request.customerName }, tx);
-        customer.name = request.customerName;
+        const [updatedCust] = await tx
+          .update(customers)
+          .set({ name: request.customerName, updated_at: new Date() })
+          .where(eq(customers.id, customer.id))
+          .returning();
+        customer = updatedCust;
       }
 
       // 2. Generate next sequential invoice number
-      const lastInvoice = await this.saleRepo.getLastInvoiceNumber(tx);
-      let nextNum = 1;
-      if (lastInvoice) {
-        const parts = lastInvoice.split("-");
-        if (parts.length === 3) {
-          const numPart = parseInt(parts[2], 10);
-          if (!isNaN(numPart)) {
-            nextNum = numPart + 1;
-          }
-        }
-      }
-      const invoiceNumber = `INV-2026-${String(nextNum).padStart(6, "0")}`;
+      const invoiceNumber = await this.generateNextInvoiceNumber(storeId, tx);
 
       // 3. Process items, validate stock, and calculate totals
       let subtotal = 0;
@@ -92,11 +106,13 @@ export class CheckoutService {
       const processedItems: any[] = [];
 
       for (const item of request.items) {
-        if (databaseConfig.type === "postgres") {
-          // Lock product row for update in Postgres
-          await tx.execute("SELECT id FROM products WHERE id = $1 FOR UPDATE", [item.productId]);
-        }
-        const product = await this.productRepo.getById(item.productId, tx);
+        // Lock product row for update to prevent concurrent race conditions
+        const [product] = await tx
+          .select()
+          .from(products)
+          .where(and(eq(products.id, item.productId), eq(products.store_id, storeId)))
+          .for("update");
+
         if (!product || product.is_active === 0) {
           throw new NotFoundError(`Product with ID ${item.productId} not found or inactive`);
         }
@@ -107,21 +123,32 @@ export class CheckoutService {
           );
         }
 
-        const updatedStock = product.stock - item.quantity;
-        const updatedProduct = await this.productRepo.update(product.id, { stock: updatedStock }, tx);
-        if (updatedProduct) {
-          try {
-            const { SyncQueueManager } = require("./sync.service");
-            SyncQueueManager.getInstance().enqueue("product", updatedProduct);
-          } catch (e) {
-            console.error("Failed to enqueue product sync on checkout:", e);
-          }
-        }
+        const beforeStock = product.stock;
+        const afterStock = beforeStock - item.quantity;
 
-        const lineTotal = item.quantity * product.selling_price;
+        // Update product stock
+        await tx
+          .update(products)
+          .set({ stock: afterStock, updated_at: new Date() })
+          .where(eq(products.id, product.id));
+
+        // Log inventory movement (SALE type)
+        await tx.insert(inventory_logs).values({
+          product_id: product.id,
+          store_id: storeId,
+          type: "SALE",
+          quantity: item.quantity,
+          before_stock: beforeStock,
+          after_stock: afterStock,
+          reference: invoiceNumber,
+        });
+
+        // Calculations
+        const itemDiscount = item.discount ?? 0;
+        const lineTotal = item.quantity * product.selling_price - itemDiscount;
         const lineGst = Math.round((lineTotal * (product.gst ?? 18)) / 100);
 
-        subtotal += lineTotal;
+        subtotal += item.quantity * product.selling_price;
         totalGst += lineGst;
 
         processedItems.push({
@@ -129,68 +156,72 @@ export class CheckoutService {
           name: product.name,
           quantity: item.quantity,
           sellingPrice: product.selling_price,
-          lineTotal: lineTotal,
+          discount: itemDiscount,
+          lineTotal: lineTotal + lineGst,
           lineGst: lineGst,
         });
       }
 
-      const discount = 0;
+      const discount = request.discount ?? 0;
       const grandTotal = subtotal + totalGst - discount;
+      const paidAmount = request.paidAmount ?? grandTotal;
+      const balance = request.balance ?? Math.max(0, grandTotal - paidAmount);
+
+      const paymentDetailsJson = request.paymentDetails ? JSON.stringify(request.paymentDetails) : null;
 
       // 4. Create Sale entry
-      const saleId = await this.checkoutRepo.createSale({
-        invoice_number: invoiceNumber,
-        customer_id: customer.id,
-        cashier_name: request.cashierName,
-        payment_method: request.paymentMethod,
-        subtotal,
-        discount,
-        gst: totalGst,
-        grand_total: grandTotal,
-      }, tx);
+      const crypto = require("crypto");
+      const publicToken = crypto.randomBytes(9).toString("base64url").substring(0, 12);
+      const [sale] = await tx
+        .insert(sales)
+        .values({
+          store_id: storeId,
+          invoice_number: invoiceNumber,
+          customer_id: customer.id,
+          cashier_name: request.cashierName,
+          payment_method: request.paymentMethod,
+          payment_details: paymentDetailsJson,
+          subtotal,
+          discount,
+          gst: totalGst,
+          grand_total: grandTotal,
+          paid_amount: paidAmount,
+          balance: balance,
+          public_token: publicToken,
+          pdf_url: "",
+        })
+        .returning();
 
       // 5. Create Sale Item records
       for (const item of processedItems) {
-        await this.checkoutRepo.createSaleItem({
-          sale_id: saleId,
+        await tx.insert(sale_items).values({
+          sale_id: sale.id,
           product_id: item.productId,
           quantity: item.quantity,
           selling_price: item.sellingPrice,
-          discount: 0,
+          discount: item.discount,
           line_total: item.lineTotal,
-        }, tx);
+        });
       }
 
       // 6. Update Customer profile metrics
       const updatedOrders = (customer.total_orders ?? 0) + 1;
       const updatedLtv = (customer.lifetime_value ?? 0) + grandTotal;
-      const lastVisitTime = getCurrentUtcString();
 
-      await this.customerRepo.update(customer.id, {
-        total_orders: updatedOrders,
-        lifetime_value: updatedLtv,
-        last_visit: lastVisitTime,
-      }, tx);
-
-      try {
-        const { SyncQueueManager } = require("./sync.service");
-        SyncQueueManager.getInstance().enqueue("customer", {
-          phone: customer.phone,
-          name: customer.name,
-          email: customer.email,
-          address: customer.address,
+      await tx
+        .update(customers)
+        .set({
           total_orders: updatedOrders,
           lifetime_value: updatedLtv,
-          last_visit: lastVisitTime
-        });
-      } catch (e) {
-        console.error("Failed to enqueue customer sync on checkout:", e);
-      }
+          last_visit: new Date(),
+          updated_at: new Date(),
+        })
+        .where(eq(customers.id, customer.id));
 
       return {
         success: true,
         invoice: invoiceNumber,
-        saleId,
+        saleId: sale.id,
         subtotal,
         discount,
         gst: totalGst,
@@ -205,16 +236,12 @@ export class CheckoutService {
       };
     });
 
-    // Asynchronously enqueue Google Sync background job
+    // Enqueue background sync/notifications without blocking
     try {
-      const { SalesService } = require("./sales.service");
-      const salesService = new SalesService();
-      salesService.getReceipt(result.invoice).then((receipt: any) => {
-        const { SyncQueueManager } = require("./sync.service");
-        SyncQueueManager.getInstance().enqueue("sale", receipt);
-      }).catch((e: any) => console.error("Sync getReceipt fail:", e));
+      const { SyncQueueManager } = require("./sync.service");
+      SyncQueueManager.getInstance().enqueue("sale", result);
     } catch (e) {
-      console.error("Failed to enqueue sync job for sale:", e);
+      // safe ignore if manager is uninitialized
     }
 
     idempotencyCache.set(idempotencyKey, { timestamp: Date.now(), response: result });

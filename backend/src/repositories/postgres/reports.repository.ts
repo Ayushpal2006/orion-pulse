@@ -1,88 +1,77 @@
 import { IReportsRepository } from "../interfaces/IReportsRepository";
-import { DatabaseAdapter } from "../../database";
-import dbProxy from "../../database";
-import { formatToKolkataDateTime } from "../../utils/datetime";
+import { db } from "../../db";
+import { sales, sale_items, products, customers } from "../../db/schema";
+import { eq, and, desc, sql } from "drizzle-orm";
+import { getStoreId } from "../../db/context";
 
 export class PostgresReportsRepository implements IReportsRepository {
-  constructor(private db: DatabaseAdapter = dbProxy) {}
-
-  private getDateCondition(filter: string, startDate?: string, endDate?: string) {
-    let clause = "1=1";
-    const params: any = {};
-
+  private getDateCondition(column: any, filter: string, startDate?: string, endDate?: string) {
     switch (filter) {
       case "today":
-        clause = "timezone('Asia/Kolkata', created_at)::date = timezone('Asia/Kolkata', now())::date";
-        break;
+        return sql`timezone('Asia/Kolkata', ${column})::date = timezone('Asia/Kolkata', now())::date`;
       case "yesterday":
-        clause = "timezone('Asia/Kolkata', created_at)::date = (timezone('Asia/Kolkata', now()) - interval '1 day')::date";
-        break;
+        return sql`timezone('Asia/Kolkata', ${column})::date = (timezone('Asia/Kolkata', now()) - interval '1 day')::date`;
       case "last7":
-        clause = "timezone('Asia/Kolkata', created_at)::date >= (timezone('Asia/Kolkata', now()) - interval '6 days')::date";
-        break;
+        return sql`timezone('Asia/Kolkata', ${column})::date >= (timezone('Asia/Kolkata', now()) - interval '6 days')::date`;
       case "last30":
-        clause = "timezone('Asia/Kolkata', created_at)::date >= (timezone('Asia/Kolkata', now()) - interval '29 days')::date";
-        break;
+        return sql`timezone('Asia/Kolkata', ${column})::date >= (timezone('Asia/Kolkata', now()) - interval '29 days')::date`;
       case "thisMonth":
-        clause = "to_char(timezone('Asia/Kolkata', created_at), 'YYYY-MM') = to_char(timezone('Asia/Kolkata', now()), 'YYYY-MM')";
-        break;
+        return sql`to_char(timezone('Asia/Kolkata', ${column}), 'YYYY-MM') = to_char(timezone('Asia/Kolkata', now()), 'YYYY-MM')`;
       case "lastMonth":
-        clause = "to_char(timezone('Asia/Kolkata', created_at), 'YYYY-MM') = to_char(timezone('Asia/Kolkata', now()) - interval '1 month', 'YYYY-MM')";
-        break;
+        return sql`to_char(timezone('Asia/Kolkata', ${column}), 'YYYY-MM') = to_char(timezone('Asia/Kolkata', now()) - interval '1 month', 'YYYY-MM')`;
       case "thisYear":
-        clause = "to_char(timezone('Asia/Kolkata', created_at), 'YYYY') = to_char(timezone('Asia/Kolkata', now()), 'YYYY')";
-        break;
+        return sql`to_char(timezone('Asia/Kolkata', ${column}), 'YYYY') = to_char(timezone('Asia/Kolkata', now()), 'YYYY')`;
       case "custom":
         if (startDate) {
           const actualEnd = endDate || startDate;
-          clause = "timezone('Asia/Kolkata', created_at)::date >= $startDate::date AND timezone('Asia/Kolkata', created_at)::date <= $endDate::date";
-          params.startDate = startDate;
-          params.endDate = actualEnd;
+          return sql`timezone('Asia/Kolkata', ${column})::date >= ${startDate}::date AND timezone('Asia/Kolkata', ${column})::date <= ${actualEnd}::date`;
         }
-        break;
+        return sql`1=1`;
+      default:
+        return sql`1=1`;
     }
-    return { clause, params };
   }
 
   async getSummary(
     filter: string,
     startDate?: string,
     endDate?: string,
-    tx?: DatabaseAdapter
+    tx?: any
   ): Promise<{
     revenue: number;
     orders: number;
     profit: number;
     averageOrderValue: number;
   }> {
-    const client = tx || this.db;
-    const { clause, params } = this.getDateCondition(filter, startDate, endDate);
+    const client = tx || db;
+    const storeId = getStoreId();
+    let cond = this.getDateCondition(sales.created_at, filter, startDate, endDate);
+    if (storeId !== undefined) {
+      cond = and(cond, eq(sales.store_id, storeId)) as any;
+    }
 
     // 1. Revenue
-    const revRow = await client.queryOne<{ total: string | number }>(`
-      SELECT COALESCE(SUM(grand_total), 0) as total 
-      FROM sales 
-      WHERE ${clause}
-    `, params);
-    const revenue = Number(revRow ? revRow.total : 0);
+    const [revRow] = await client
+      .select({ total: sql<string>`COALESCE(SUM(${sales.grand_total}), 0)` })
+      .from(sales)
+      .where(cond);
+    const revenue = Number(revRow?.total || 0);
 
     // 2. Orders
-    const orderRow = await client.queryOne<{ count: string | number }>(`
-      SELECT COUNT(*) as count 
-      FROM sales 
-      WHERE ${clause}
-    `, params);
-    const orders = Number(orderRow ? orderRow.count : 0);
+    const [orderRow] = await client
+      .select({ count: sql<string>`COUNT(*)` })
+      .from(sales)
+      .where(cond);
+    const orders = Number(orderRow?.count || 0);
 
     // 3. Profit
-    const profitRow = await client.queryOne<{ profit: string | number }>(`
-      SELECT COALESCE(SUM(si.line_total - (p.purchase_price * si.quantity)), 0) as profit
-      FROM sale_items si
-      JOIN sales s ON si.sale_id = s.id
-      JOIN products p ON si.product_id = p.id
-      WHERE ${clause.replace(/created_at/g, "s.created_at")}
-    `, params);
-    const profit = Number(profitRow ? profitRow.profit : 0);
+    const [profitRow] = await client
+      .select({ profit: sql<string>`COALESCE(SUM(${sale_items.line_total} - (${products.purchase_price} * ${sale_items.quantity})), 0)` })
+      .from(sale_items)
+      .join(sales, eq(sale_items.sale_id, sales.id))
+      .join(products, eq(sale_items.product_id, products.id))
+      .where(cond);
+    const profit = Number(profitRow?.profit || 0);
 
     return {
       revenue: revenue / 100.0,
@@ -96,23 +85,30 @@ export class PostgresReportsRepository implements IReportsRepository {
     filter: string,
     startDate?: string,
     endDate?: string,
-    tx?: DatabaseAdapter
+    tx?: any
   ): Promise<any[]> {
-    const client = tx || this.db;
-    const { clause, params } = this.getDateCondition(filter, startDate, endDate);
+    const client = tx || db;
+    const storeId = getStoreId();
+    let cond = this.getDateCondition(sales.created_at, filter, startDate, endDate);
+    if (storeId !== undefined) {
+      cond = and(cond, eq(sales.store_id, storeId)) as any;
+    }
 
-    const rows = await client.query<{ name: string; "unitsSold": string | number; revenue: string | number }>(`
-      SELECT p.name, SUM(si.quantity) as "unitsSold", SUM(si.line_total) as revenue
-      FROM sale_items si
-      JOIN sales s ON si.sale_id = s.id
-      JOIN products p ON si.product_id = p.id
-      WHERE ${clause.replace(/created_at/g, "s.created_at")}
-      GROUP BY p.name, si.product_id
-      ORDER BY "unitsSold" DESC
-      LIMIT 10
-    `, params);
+    const rows = await client
+      .select({
+        name: products.name,
+        unitsSold: sql<string>`SUM(${sale_items.quantity})`,
+        revenue: sql<string>`SUM(${sale_items.line_total})`,
+      })
+      .from(sale_items)
+      .innerJoin(sales, eq(sale_items.sale_id, sales.id))
+      .innerJoin(products, eq(sale_items.product_id, products.id))
+      .where(cond)
+      .groupBy(products.name, sale_items.product_id)
+      .orderBy(desc(sql`SUM(${sale_items.quantity})`))
+      .limit(10);
 
-    return rows.map((r) => ({
+    return rows.map((r: any) => ({
       name: r.name,
       unitsSold: Number(r.unitsSold),
       revenue: Number(r.revenue) / 100.0,
@@ -123,24 +119,29 @@ export class PostgresReportsRepository implements IReportsRepository {
     filter: string,
     startDate?: string,
     endDate?: string,
-    tx?: DatabaseAdapter
+    tx?: any
   ): Promise<any[]> {
-    const client = tx || this.db;
-    const { clause, params } = this.getDateCondition(filter, startDate, endDate);
+    const client = tx || db;
+    const storeId = getStoreId();
+    let cond = this.getDateCondition(sales.created_at, filter, startDate, endDate);
+    if (storeId !== undefined) {
+      cond = and(cond, eq(sales.store_id, storeId)) as any;
+    }
 
-    const rows = await client.query<{ slab: number; taxable: string | number; tax: string | number }>(`
-      SELECT p.gst as slab,
-             SUM(si.line_total) as taxable,
-             SUM(si.line_total * p.gst / 100.0) as tax
-      FROM sale_items si
-      JOIN sales s ON si.sale_id = s.id
-      JOIN products p ON si.product_id = p.id
-      WHERE ${clause.replace(/created_at/g, "s.created_at")}
-      GROUP BY p.gst
-      ORDER BY p.gst ASC
-    `, params);
+    const rows = await client
+      .select({
+        slab: products.gst,
+        taxable: sql<string>`SUM(${sale_items.line_total})`,
+        tax: sql<string>`SUM(${sale_items.line_total} * ${products.gst} / 100.0)`,
+      })
+      .from(sale_items)
+      .innerJoin(sales, eq(sale_items.sale_id, sales.id))
+      .innerJoin(products, eq(sale_items.product_id, products.id))
+      .where(cond)
+      .groupBy(products.gst)
+      .orderBy(products.gst);
 
-    return rows.map((r) => ({
+    return rows.map((r: any) => ({
       slab: `${r.slab}%`,
       taxable: Number(r.taxable) / 100.0,
       tax: Math.round(Number(r.tax)) / 100.0,
@@ -151,19 +152,25 @@ export class PostgresReportsRepository implements IReportsRepository {
     filter: string,
     startDate?: string,
     endDate?: string,
-    tx?: DatabaseAdapter
+    tx?: any
   ): Promise<Record<string, number>> {
-    const client = tx || this.db;
-    const { clause, params } = this.getDateCondition(filter, startDate, endDate);
+    const client = tx || db;
+    const storeId = getStoreId();
+    let cond = this.getDateCondition(sales.created_at, filter, startDate, endDate);
+    if (storeId !== undefined) {
+      cond = and(cond, eq(sales.store_id, storeId)) as any;
+    }
 
-    const rows = await client.query<{ paymentMethod: string; amount: string | number }>(`
-      SELECT payment_method as "paymentMethod", SUM(grand_total) as amount
-      FROM sales
-      WHERE ${clause}
-      GROUP BY payment_method
-    `, params);
+    const rows = await client
+      .select({
+        paymentMethod: sales.payment_method,
+        amount: sql<string>`SUM(${sales.grand_total})`,
+      })
+      .from(sales)
+      .where(cond)
+      .groupBy(sales.payment_method);
 
-    const result: Record<string, number> = { Cash: 0, UPI: 0, Card: 0, Wallet: 0 };
+    const result: Record<string, number> = { Cash: 0, UPI: 0, Card: 0, Wallet: 0, "Bank Transfer": 0, Split: 0 };
     for (const r of rows) {
       result[r.paymentMethod] = Number(r.amount) / 100.0;
     }
@@ -174,29 +181,36 @@ export class PostgresReportsRepository implements IReportsRepository {
     filter: string,
     startDate?: string,
     endDate?: string,
-    tx?: DatabaseAdapter
+    tx?: any
   ): Promise<any[]> {
-    const client = tx || this.db;
-    const { clause, params } = this.getDateCondition(filter, startDate, endDate);
+    const client = tx || db;
+    const storeId = getStoreId();
+    let cond = this.getDateCondition(sales.created_at, filter, startDate, endDate);
+    if (storeId !== undefined) {
+      cond = and(cond, eq(sales.store_id, storeId)) as any;
+    }
 
     if (filter === "today" || filter === "yesterday") {
-      const rows = await client.query<{ hr: string; amount: string | number }>(`
-        SELECT to_char(timezone('Asia/Kolkata', created_at), 'HH24') as hr, SUM(grand_total) as amount
-        FROM sales
-        WHERE ${clause}
-        GROUP BY hr
-        ORDER BY hr ASC
-      `, params);
+      const rows = await client
+        .select({
+          hr: sql<string>`to_char(timezone('Asia/Kolkata', ${sales.created_at}), 'HH24')`,
+          amount: sql<string>`SUM(${sales.grand_total})`,
+        })
+        .from(sales)
+        .where(cond)
+        .groupBy(sql`hr`)
+        .orderBy(sql`hr`);
 
-      const profitRows = await client.query<{ hr: string; profit: string | number }>(`
-        SELECT to_char(timezone('Asia/Kolkata', s.created_at), 'HH24') as hr,
-               SUM(si.line_total - (p.purchase_price * si.quantity)) as profit
-        FROM sale_items si
-        JOIN sales s ON si.sale_id = s.id
-        JOIN products p ON si.product_id = p.id
-        WHERE ${clause.replace(/created_at/g, "s.created_at")}
-        GROUP BY hr
-      `, params);
+      const profitRows = await client
+        .select({
+          hr: sql<string>`to_char(timezone('Asia/Kolkata', ${sales.created_at}), 'HH24')`,
+          profit: sql<string>`SUM(${sale_items.line_total} - (${products.purchase_price} * ${sale_items.quantity}))`,
+        })
+        .from(sale_items)
+        .join(sales, eq(sale_items.sale_id, sales.id))
+        .join(products, eq(sale_items.product_id, products.id))
+        .where(cond)
+        .groupBy(sql`hr`);
 
       const profitMap = new Map<number, number>();
       for (const pr of profitRows) {
@@ -228,23 +242,26 @@ export class PostgresReportsRepository implements IReportsRepository {
     }
 
     if (filter === "thisYear") {
-      const rows = await client.query<{ mnth: string; amount: string | number }>(`
-        SELECT to_char(timezone('Asia/Kolkata', created_at), 'MM') as mnth, SUM(grand_total) as amount
-        FROM sales
-        WHERE ${clause}
-        GROUP BY mnth
-        ORDER BY mnth ASC
-      `, params);
+      const rows = await client
+        .select({
+          mnth: sql<string>`to_char(timezone('Asia/Kolkata', ${sales.created_at}), 'MM')`,
+          amount: sql<string>`SUM(${sales.grand_total})`,
+        })
+        .from(sales)
+        .where(cond)
+        .groupBy(sql`mnth`)
+        .orderBy(sql`mnth`);
 
-      const profitRows = await client.query<{ mnth: string; profit: string | number }>(`
-        SELECT to_char(timezone('Asia/Kolkata', s.created_at), 'MM') as mnth,
-               SUM(si.line_total - (p.purchase_price * si.quantity)) as profit
-        FROM sale_items si
-        JOIN sales s ON si.sale_id = s.id
-        JOIN products p ON si.product_id = p.id
-        WHERE ${clause.replace(/created_at/g, "s.created_at")}
-        GROUP BY mnth
-      `, params);
+      const profitRows = await client
+        .select({
+          mnth: sql<string>`to_char(timezone('Asia/Kolkata', ${sales.created_at}), 'MM')`,
+          profit: sql<string>`SUM(${sale_items.line_total} - (${products.purchase_price} * ${sale_items.quantity}))`,
+        })
+        .from(sale_items)
+        .join(sales, eq(sale_items.sale_id, sales.id))
+        .join(products, eq(sale_items.product_id, products.id))
+        .where(cond)
+        .groupBy(sql`mnth`);
 
       const profitMap = new Map<number, number>();
       for (const pr of profitRows) {
@@ -268,13 +285,15 @@ export class PostgresReportsRepository implements IReportsRepository {
     }
 
     // Default: Group by Date
-    const rows = await client.query<{ dy: any; amount: string | number }>(`
-      SELECT timezone('Asia/Kolkata', created_at)::date as dy, SUM(grand_total) as amount
-      FROM sales
-      WHERE ${clause}
-      GROUP BY dy
-      ORDER BY dy ASC
-    `, params);
+    const rows = await client
+      .select({
+        dy: sql<any>`timezone('Asia/Kolkata', ${sales.created_at})::date`,
+        amount: sql<string>`SUM(${sales.grand_total})`,
+      })
+      .from(sales)
+      .where(cond)
+      .groupBy(sql`dy`)
+      .orderBy(sql`dy`);
 
     const salesMap = new Map<string, number>();
     for (const r of rows) {
@@ -282,15 +301,16 @@ export class PostgresReportsRepository implements IReportsRepository {
       salesMap.set(dyStr, Number(r.amount) / 100.0);
     }
 
-    const profitRows = await client.query<{ dy: any; profit: string | number }>(`
-      SELECT timezone('Asia/Kolkata', s.created_at)::date as dy,
-             SUM(si.line_total - (p.purchase_price * si.quantity)) as profit
-      FROM sale_items si
-      JOIN sales s ON si.sale_id = s.id
-      JOIN products p ON si.product_id = p.id
-      WHERE ${clause.replace(/created_at/g, "s.created_at")}
-      GROUP BY dy
-    `, params);
+    const profitRows = await client
+      .select({
+        dy: sql<any>`timezone('Asia/Kolkata', ${sales.created_at})::date`,
+        profit: sql<string>`SUM(${sale_items.line_total} - (${products.purchase_price} * ${sale_items.quantity}))`,
+      })
+      .from(sale_items)
+      .join(sales, eq(sale_items.sale_id, sales.id))
+      .join(products, eq(sale_items.product_id, products.id))
+      .where(cond)
+      .groupBy(sql`dy`);
 
     const profitMap = new Map<string, number>();
     for (const pr of profitRows) {
@@ -344,27 +364,34 @@ export class PostgresReportsRepository implements IReportsRepository {
     filter: string,
     startDate?: string,
     endDate?: string,
-    tx?: DatabaseAdapter
+    tx?: any
   ): Promise<any[]> {
-    const client = tx || this.db;
-    const { clause, params } = this.getDateCondition(filter, startDate, endDate);
+    const client = tx || db;
+    const storeId = getStoreId();
+    let cond = this.getDateCondition(sales.created_at, filter, startDate, endDate);
+    if (storeId !== undefined) {
+      cond = and(cond, eq(sales.store_id, storeId)) as any;
+    }
 
-    const rows = await client.query<{ id: string; date: any; payment: string; total: string | number }>(`
-      SELECT s.invoice_number as id, 
-             s.created_at as date,
-             s.payment_method as payment,
-             s.grand_total as total
-      FROM sales s
-      WHERE ${clause}
-      ORDER BY s.id DESC
-      LIMIT 100
-    `, params);
+    const rows = await client
+      .select({
+        id: sales.id,
+        invoiceNumber: sales.invoice_number,
+        date: sales.created_at,
+        customerName: customers.name,
+        paymentMethod: sales.payment_method,
+        grandTotal: sales.grand_total,
+        pdfUrl: sales.pdf_url,
+      })
+      .from(sales)
+      .leftJoin(customers, eq(sales.customer_id, customers.id))
+      .where(cond)
+      .orderBy(desc(sales.id));
 
-    return rows.map((r) => ({
-      id: r.id,
-      date: formatToKolkataDateTime(r.date),
-      payment: r.payment,
-      total: Number(r.total) / 100.0,
+    return rows.map((r: any) => ({
+      ...r,
+      date: r.date.toISOString(),
+      grandTotal: r.grandTotal / 100.0
     }));
   }
 
@@ -372,34 +399,53 @@ export class PostgresReportsRepository implements IReportsRepository {
     filter: string,
     startDate?: string,
     endDate?: string,
-    tx?: DatabaseAdapter
+    tx?: any
   ): Promise<any[]> {
-    const client = tx || this.db;
-    const { clause, params } = this.getDateCondition(filter, startDate, endDate);
+    const client = tx || db;
+    const storeId = getStoreId();
+    let cond = this.getDateCondition(sales.created_at, filter, startDate, endDate);
+    if (storeId !== undefined) {
+      cond = and(cond, eq(sales.store_id, storeId)) as any;
+    }
 
-    const rows = await client.query<{ name: string; phone: string; "ordersCount": string | number; "totalSpend": string | number }>(`
-      SELECT c.name, c.phone, COUNT(s.id) as "ordersCount", SUM(s.grand_total) as "totalSpend"
-      FROM sales s
-      JOIN customers c ON s.customer_id = c.id
-      WHERE ${clause.replace(/created_at/g, "s.created_at")}
-      GROUP BY c.name, c.phone, s.customer_id
-      ORDER BY "totalSpend" DESC
-      LIMIT 5
-    `, params);
+    const rows = await client
+      .select({
+        name: customers.name,
+        phone: customers.phone,
+        orders: sql<string>`COUNT(${sales.id})`,
+        ltv: sql<string>`SUM(${sales.grand_total})`,
+      })
+      .from(sales)
+      .innerJoin(customers, eq(sales.customer_id, customers.id))
+      .where(cond)
+      .groupBy(customers.name, customers.phone, sales.customer_id)
+      .orderBy(desc(sql`SUM(${sales.grand_total})`))
+      .limit(10);
 
-    return rows.map((r) => ({
+    return rows.map((r: any) => ({
       name: r.name,
       phone: r.phone,
-      orders: Number(r.ordersCount),
-      spend: Number(r.totalSpend) / 100.0,
+      orders: Number(r.orders),
+      ltv: Number(r.ltv) / 100.0,
     }));
   }
 
-  async getLowStockCount(tx?: DatabaseAdapter): Promise<number> {
-    const client = tx || this.db;
-    const row = await client.queryOne<{ count: string | number }>(
-      "SELECT COUNT(*) as count FROM products WHERE stock < minimum_stock AND is_active = 1"
+  async getLowStockCount(tx?: any): Promise<number> {
+    const client = tx || db;
+    const storeId = getStoreId();
+    let cond = and(
+      eq(products.is_active, 1),
+      sql`${products.stock} <= ${products.minimum_stock}`
     );
-    return Number(row ? row.count : 0);
+    if (storeId !== undefined) {
+      cond = and(cond, eq(products.store_id, storeId)) as any;
+    }
+
+    const [row] = await client
+      .select({ count: sql<string>`COUNT(*)` })
+      .from(products)
+      .where(cond);
+
+    return Number(row?.count || 0);
   }
 }

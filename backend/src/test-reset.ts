@@ -42,6 +42,9 @@ async function main() {
   
   // Clear any existing transactional records to avoid conflicts
   await dbProxy.execute("DELETE FROM sale_items;");
+  await dbProxy.execute("DELETE FROM return_items;");
+  await dbProxy.execute("DELETE FROM returns;");
+  await dbProxy.execute("DELETE FROM inventory_logs;");
   await dbProxy.execute("DELETE FROM sales;");
   await dbProxy.execute("DELETE FROM products;");
   await dbProxy.execute("DELETE FROM customers;");
@@ -67,19 +70,19 @@ async function main() {
 
   // Insert seed data
   await dbProxy.execute(
-    "INSERT INTO products (id, name, sku, purchase_price, selling_price, stock, minimum_stock, image_url) VALUES (1, 'Test Product', 'TEST-PROD-01', 1000, 1500, 10, 2, '/uploads/products/test-prod-img.png')"
+    "INSERT INTO products (id, store_id, name, sku, purchase_price, selling_price, stock, minimum_stock, image_url) VALUES (1, 1, 'Test Product', 'TEST-PROD-01', 1000, 1500, 10, 2, '/uploads/products/test-prod-img.png')"
   );
   await dbProxy.execute(
-    "INSERT INTO customers (id, name, phone) VALUES (1, 'Test Customer', '9999999999')"
+    "INSERT INTO customers (id, store_id, name, phone) VALUES (1, 1, 'Test Customer', '9999999999')"
   );
   await dbProxy.execute(
-    "INSERT INTO sales (id, invoice_number, customer_id, payment_method, subtotal, discount, gst, grand_total, created_at) VALUES (1, 'INV-TEST-01', 1, 'Cash', 1500, 0, 0, 1500, datetime('now'))"
+    "INSERT INTO sales (id, store_id, invoice_number, customer_id, payment_method, subtotal, discount, gst, grand_total, created_at) VALUES (1, 1, 'INV-TEST-01', 1, 'Cash', 1500, 0, 0, 1500, NOW())"
   );
   await dbProxy.execute(
     "INSERT INTO sale_items (id, sale_id, product_id, quantity, selling_price, discount, line_total) VALUES (1, 1, 1, 1, 1500, 0, 1500)"
   );
   await dbProxy.execute(
-    "INSERT INTO sync_jobs (id, job_type, payload, status) VALUES (1, 'sheets_sync', 'some_payload', 'pending')"
+    "INSERT INTO sync_jobs (id, store_id, job_type, payload, status) VALUES (1, 1, 'sheets_sync', 'some_payload', 'pending')"
   );
   console.log("✅ Seed data successfully inserted.");
 
@@ -227,7 +230,7 @@ async function main() {
   // 11. Verify AUTOINCREMENT sequence reset (insert should start at ID 1)
   console.log("🔢 Verifying AUTOINCREMENT sequences restart at 1...");
   await dbProxy.execute(
-    "INSERT INTO products (name, sku, purchase_price, selling_price, stock, minimum_stock) VALUES ('New Product', 'NEW-PROD', 500, 800, 20, 5)"
+    "INSERT INTO products (store_id, name, sku, purchase_price, selling_price, stock, minimum_stock) VALUES (1, 'New Product', 'NEW-PROD', 500, 800, 20, 5)"
   );
   const newProduct = await dbProxy.queryOne<{ id: number }>("SELECT id FROM products LIMIT 1");
   console.log("New product ID inserted after reset:", newProduct?.id);

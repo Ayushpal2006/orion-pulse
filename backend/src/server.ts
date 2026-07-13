@@ -16,6 +16,22 @@ import syncRoutes from "./routes/sync.routes";
 import healthRoutes from "./routes/health.routes";
 import adminRoutes from "./routes/admin.routes";
 
+// New Phase 3-7 modules
+import authRoutes from "./routes/auth.routes";
+import supplierRoutes from "./routes/supplier.routes";
+import purchaseRoutes from "./routes/purchase.routes";
+import inventoryRoutes from "./routes/inventory.routes";
+import expenseRoutes from "./routes/expense.routes";
+import analyticsRoutes from "./routes/analytics.routes";
+import exportRoutes from "./routes/export.routes";
+import backupRoutes from "./routes/backup.routes";
+import deviceRoutes from "./routes/device.routes";
+import auditRoutes from "./routes/audit.routes";
+import orgRoutes from "./routes/organization.routes";
+import subscriptionRoutes from "./routes/subscription.routes";
+import copilotRoutes from "./routes/copilot.routes";
+import { authenticate, authorize } from "./middleware/auth.middleware";
+
 import { env } from "./config/env";
 import { initDb } from "./database/init";
 import dbProxy from "./database";
@@ -103,22 +119,40 @@ app.get("/uploads/invoices/:pdfName", async (req, res, next) => {
 });
 
 app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
+app.use("/storage", express.static(path.join(__dirname, "../storage")));
 
 // Mount Health Check endpoint (Railway deployment integration)
 app.use("/health", healthRoutes);
 
-// App routes configuration
-app.use("/products", productRoutes);
-app.use("/customers", customerRoutes);
-app.use("/checkout", checkoutRoutes);
-app.use("/sales", salesRoutes);
-app.use("/dashboard", dashboardRoutes);
-app.use("/reports", reportsRoutes);
-app.use("/printer", printerRoutes);
-app.use("/settings", settingsRoutes);
-app.use("/invoice", invoiceRoutes);
-app.use("/sync", syncRoutes);
-app.use("/api/admin", adminRoutes);
+// Auth endpoints (Public login/logout)
+app.use("/api/auth", authRoutes);
+
+// App routes configuration (All authenticated)
+app.use("/products", authenticate(), productRoutes);
+app.use("/customers", authenticate(), customerRoutes);
+app.use("/checkout", authenticate(), checkoutRoutes);
+app.use("/sales", authenticate(), salesRoutes);
+app.use("/dashboard", authenticate(), dashboardRoutes);
+app.use("/reports", authenticate(), authorize("admin", "manager"), reportsRoutes);
+app.use("/printer", authenticate(), printerRoutes);
+app.use("/settings", authenticate(), settingsRoutes);
+app.use("/invoice", invoiceRoutes); // Public HTML invoice access
+app.use("/sync", authenticate(), syncRoutes);
+app.use("/api/admin", authenticate(), authorize("admin"), adminRoutes);
+
+// New Modules
+app.use("/api/suppliers", authenticate(), supplierRoutes);
+app.use("/api/purchases", authenticate(), purchaseRoutes);
+app.use("/api/inventory", authenticate(), inventoryRoutes);
+app.use("/api/expenses", authenticate(), expenseRoutes);
+app.use("/api/analytics", authenticate(), authorize("admin", "manager"), analyticsRoutes);
+app.use("/api/export", authenticate(), exportRoutes);
+app.use("/api/backup", authenticate(), backupRoutes);
+app.use("/api/device", authenticate(), deviceRoutes);
+app.use("/api/audit", authenticate(), auditRoutes);
+app.use("/api/organizations", orgRoutes);
+app.use("/api/subscriptions", subscriptionRoutes);
+app.use("/api/ai/copilot", copilotRoutes);
 
 // Root Check Endpoint
 app.get("/", (req, res) => {

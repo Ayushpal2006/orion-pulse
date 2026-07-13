@@ -7,11 +7,17 @@ dotenv.config();
 const envSchema = z.object({
   PORT: z.coerce.number().default(8080),
   NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
-  DB_TYPE: z.enum(["sqlite", "postgres"]).default("sqlite"),
-  DATABASE_PROVIDER: z.enum(["sqlite", "postgres"]).default((process.env.DATABASE_PROVIDER || process.env.DB_TYPE || "sqlite") as any),
-  DATABASE_URL: z.string().default("./database/orion.db"),
+  DB_TYPE: z.enum(["postgres"]).default("postgres"),
+  DATABASE_PROVIDER: z.enum(["postgres"]).default("postgres"),
+  DATABASE_URL: z.string().refine(
+    (val) => val.startsWith("postgres://") || val.startsWith("postgresql://"),
+    { message: "DATABASE_URL must be a valid PostgreSQL connection string starting with postgres:// or postgresql://" }
+  ),
   BASE_URL: z.string().optional(),
   JWT_SECRET: z.string().default("orion-pos-secret-key-change-in-prod"),
+  JWT_EXPIRES_IN: z.string().default("24h"),
+  ADMIN_EMAIL: z.string().email().default("admin@orion.com"),
+  ADMIN_PASSWORD: z.string().default("admin123"),
   ALLOWED_ORIGINS: z.string().default("http://localhost:3000,http://localhost:8081"),
   TRUST_PROXY: z.string().default("1"),
 

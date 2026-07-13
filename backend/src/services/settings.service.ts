@@ -1,6 +1,5 @@
 import { settingsRepository } from "../repositories";
 import { PdfCleanupService, getMsUntilKolkata2AM } from "./pdf-cleanup.service";
-import { SQLiteBackupProvider } from "../storage/sqlite-backup.provider";
 import { PostgresBackupProvider } from "../storage/postgres-backup.provider";
 import { databaseConfig } from "../config/database";
 
@@ -45,13 +44,7 @@ export class SettingsService {
   }
 
   private getBackupProvider() {
-    if (databaseConfig.type === "sqlite") {
-      return new SQLiteBackupProvider();
-    }
-    if (databaseConfig.type === "postgres") {
-      return new PostgresBackupProvider();
-    }
-    throw new Error(`Backup provider for database type ${databaseConfig.type} is not implemented`);
+    return new PostgresBackupProvider();
   }
 
   async backupDatabase(backupPath: string): Promise<void> {

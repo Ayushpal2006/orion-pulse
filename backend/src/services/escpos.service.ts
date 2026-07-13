@@ -93,6 +93,39 @@ export class EscposFormatter {
     return this;
   }
 
+  barcode(data: string) {
+    // GS w 3 (width)
+    this.buffer.push(0x1d, 0x77, 3);
+    // GS h 60 (height)
+    this.buffer.push(0x1d, 0x68, 60);
+    // GS H 2 (print HRI characters below barcode)
+    this.buffer.push(0x1d, 0x48, 2);
+    // GS k 73 (Code128) len data
+    this.buffer.push(0x1d, 0x6b, 73, data.length);
+    for (let i = 0; i < data.length; i++) {
+      this.buffer.push(data.charCodeAt(i));
+    }
+    this.lineFeed();
+    return this;
+  }
+
+  qrCode(data: string) {
+    const len = data.length + 3;
+    const pL = len & 0xff;
+    const pH = (len >> 8) & 0xff;
+    
+    // GS ( k pL pH 49 80 48 data (store QR code data)
+    this.buffer.push(0x1d, 0x28, 0x6b, pL, pH, 49, 80, 48);
+    for (let i = 0; i < data.length; i++) {
+      this.buffer.push(data.charCodeAt(i));
+    }
+    
+    // GS ( k 3 0 49 81 48 (print QR code)
+    this.buffer.push(0x1d, 0x28, 0x6b, 3, 0, 49, 81, 48);
+    this.lineFeed();
+    return this;
+  }
+
   formatReceipt(receipt: any): Buffer {
     this.init();
 
@@ -161,13 +194,18 @@ export class EscposFormatter {
 
     if (receipt.paymentMethod === "UPI") {
       this.lineFeed();
-      this.text("[UPI QR Code Placeholder]");
+      this.text("Scan UPI to Pay:");
       this.lineFeed();
-      this.text("Scan payload:");
-      this.lineFeed();
-      this.text(receipt.upiPayload.substring(0, 30) + "...");
+      this.qrCode(receipt.upiPayload);
       this.lineFeed();
     }
+
+    // Invoice barcode
+    this.lineFeed();
+    this.text("Invoice Barcode:");
+    this.lineFeed();
+    this.barcode(receipt.invoiceNumber);
+    this.lineFeed();
 
     this.divider();
 

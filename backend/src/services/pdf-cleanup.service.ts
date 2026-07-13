@@ -3,13 +3,34 @@ import path from "path";
 import { settingsRepository } from "../repositories";
 import { logger } from "../logger/logger";
 
+function getPdfFilesRecursively(dir: string): { name: string; path: string; mtime: Date; size: number }[] {
+  let results: any[] = [];
+  if (!fs.existsSync(dir)) return results;
+  const list = fs.readdirSync(dir);
+  for (const file of list) {
+    const filePath = path.join(dir, file);
+    const stat = fs.statSync(filePath);
+    if (stat.isDirectory()) {
+      results = results.concat(getPdfFilesRecursively(filePath));
+    } else if (file.endsWith(".pdf")) {
+      results.push({
+        name: file,
+        path: filePath,
+        mtime: stat.mtime,
+        size: stat.size,
+      });
+    }
+  }
+  return results;
+}
+
 export class PdfCleanupService {
-  private uploadsDir = path.join(__dirname, "../../uploads/invoices");
+  private storageDir = path.join(process.cwd(), "storage/invoices");
 
   async runCleanup(): Promise<{ deletedCount: number; totalCount: number; storageUsedMb: number }> {
     try {
-      if (!fs.existsSync(this.uploadsDir)) {
-        fs.mkdirSync(this.uploadsDir, { recursive: true });
+      if (!fs.existsSync(this.storageDir)) {
+        fs.mkdirSync(this.storageDir, { recursive: true });
         return { deletedCount: 0, totalCount: 0, storageUsedMb: 0 };
       }
 
@@ -21,23 +42,13 @@ export class PdfCleanupService {
         return { deletedCount: 0, totalCount: this.getTotalPdfCount(), storageUsedMb: this.getStorageUsedMb() };
       }
 
-      const days = parseInt(period.split(" ")[0]) || 90;
+      const days = parseInt(period.split(" ")[0], 10) || 90;
       const now = new Date();
       const cutoffDate = new Date();
       cutoffDate.setDate(now.getDate() - days);
 
-      // Read all files in uploads/invoices
-      const files = fs.readdirSync(this.uploadsDir)
-        .filter(file => file.endsWith(".pdf"))
-        .map(file => {
-          const filePath = path.join(this.uploadsDir, file);
-          const stat = fs.statSync(filePath);
-          return {
-            name: file,
-            path: filePath,
-            mtime: stat.mtime
-          };
-        });
+      // Read all files in storage/invoices recursively
+      const files = getPdfFilesRecursively(this.storageDir);
 
       // Sort files by modification time descending (newest first)
       files.sort((a, b) => b.mtime.getTime() - a.mtime.getTime());
@@ -58,21 +69,20 @@ export class PdfCleanupService {
       }
 
       const nowIso = now.toISOString();
-      // Log the cleanup action in the terminal
       logger.info(`🧹 [PDF CLEANUP] Deleted: ${deletedCount} PDFs. Current Retention Policy: ${period}. Time: ${nowIso}`);
-      
+
       // Update last cleanup setting
       await settingsRepository.set("pdf_last_cleanup", nowIso);
 
       // Write to cleanup.log file
-      const logFilePath = path.join(this.uploadsDir, "cleanup.log");
+      const logFilePath = path.join(this.storageDir, "cleanup.log");
       const logMessage = `[${nowIso}] Policy: ${period} | Deleted: ${deletedCount} PDFs | Remaining: ${files.length - deletedCount} | Space Used: ${this.getStorageUsedMb()} MB\n`;
       fs.appendFileSync(logFilePath, logMessage);
 
       return {
         deletedCount,
         totalCount: files.length - deletedCount,
-        storageUsedMb: this.getStorageUsedMb()
+        storageUsedMb: this.getStorageUsedMb(),
       };
     } catch (error) {
       logger.error("❌ PDF Cleanup Service execution failed", error);
@@ -81,25 +91,22 @@ export class PdfCleanupService {
   }
 
   getStorageUsedMb(): number {
-    if (!fs.existsSync(this.uploadsDir)) return 0;
-    const files = fs.readdirSync(this.uploadsDir).filter(file => file.endsWith(".pdf"));
+    if (!fs.existsSync(this.storageDir)) return 0;
+    const files = getPdfFilesRecursively(this.storageDir);
     let totalBytes = 0;
     for (const file of files) {
-      try {
-        const stat = fs.statSync(path.join(this.uploadsDir, file));
-        totalBytes += stat.size;
-      } catch (e) {}
+      totalBytes += file.size;
     }
     return parseFloat((totalBytes / (1024 * 1024)).toFixed(2));
   }
 
   getTotalPdfCount(): number {
-    if (!fs.existsSync(this.uploadsDir)) return 0;
-    return fs.readdirSync(this.uploadsDir).filter(file => file.endsWith(".pdf")).length;
+    if (!fs.existsSync(this.storageDir)) return 0;
+    return getPdfFilesRecursively(this.storageDir).length;
   }
 
   getCleanupLogs(): string[] {
-    const logFilePath = path.join(this.uploadsDir, "cleanup.log");
+    const logFilePath = path.join(this.storageDir, "cleanup.log");
     if (!fs.existsSync(logFilePath)) return [];
     try {
       const content = fs.readFileSync(logFilePath, "utf8");
@@ -112,18 +119,18 @@ export class PdfCleanupService {
 
 export function getMsUntilKolkata2AM(): number {
   const now = new Date();
-  
+
   // Get current time in Kolkata format
   const kolkataDateStr = now.toLocaleString("en-US", { timeZone: "Asia/Kolkata" });
   const kolkataTime = new Date(kolkataDateStr);
-  
+
   const targetTime = new Date(kolkataDateStr);
   targetTime.setHours(2, 0, 0, 0);
-  
+
   if (kolkataTime.getTime() >= targetTime.getTime()) {
     targetTime.setDate(targetTime.getDate() + 1);
   }
-  
+
   // Return millisecond difference
   return targetTime.getTime() - kolkataTime.getTime();
 }
