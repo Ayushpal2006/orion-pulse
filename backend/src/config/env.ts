@@ -1,6 +1,9 @@
 import { z } from "zod";
 import dotenv from "dotenv";
 
+console.log("Starting Orion Backend...");
+console.log("Loading environment...");
+
 // Load environment variables
 dotenv.config();
 

@@ -24,18 +24,31 @@ export class DatabaseProvider {
 
   static async verifyConnection(): Promise<void> {
     const adapter = this.getAdapter();
+    const maxRetries = 10;
+    const retryDelayMs = 3000;
 
-    try {
-      // Execute a simple verification query
-      await adapter.query("SELECT 1");
-      logger.info("PostgreSQL connected");
-    } catch (err: any) {
-      if (process.env.MOCK_POSTGRES === "true" || connStrIsPlaceholder(databaseConfig.postgres.connectionString)) {
+    for (let i = 1; i <= maxRetries; i++) {
+      try {
+        logger.info(`[Attempt ${i}/${maxRetries}] Connecting PostgreSQL...`);
+        await adapter.query("SELECT 1");
         logger.info("PostgreSQL connected");
         return;
+      } catch (err: any) {
+        if (process.env.MOCK_POSTGRES === "true" || connStrIsPlaceholder(databaseConfig.postgres.connectionString)) {
+          logger.info("PostgreSQL connected (Mock / Placeholder mode)");
+          return;
+        }
+        
+        logger.warn(`⚠️ PostgreSQL connection attempt ${i} failed: ${err.message}`);
+        
+        if (i === maxRetries) {
+          logger.error(`❌ Connection verification failed for PostgreSQL after ${maxRetries} attempts: ${err.message}`);
+          throw err;
+        }
+        
+        // Wait before retrying
+        await new Promise((resolve) => setTimeout(resolve, retryDelayMs));
       }
-      logger.error(`❌ Connection verification failed for PostgreSQL: ${err.message}`);
-      throw err;
     }
   }
 

@@ -168,10 +168,22 @@ app.use(errorMiddleware);
 
 async function startServer(): Promise<void> {
   try {
+    // Database initialization prints Loading database... and Connecting PostgreSQL...
     await initDb();
+
+    console.log("Initializing repositories...");
+    // Repositories initialization is static in memory
+
+    console.log("Registering routes...");
+    // Express routes are mounted statically
+
+    console.log("Starting Express...");
+    const PORT = Number(env.PORT) || 5000;
     
-    const server = app.listen(env.PORT, () => {
-      logger.info(`✅ Server running on port ${env.PORT} (env: ${env.NODE_ENV})`);
+    const server = app.listen(PORT, "0.0.0.0", () => {
+      console.log(`Listening on PORT ${PORT}...`);
+      console.log("Startup completed.");
+      logger.info(`✅ Server running on port ${PORT} (env: ${env.NODE_ENV})`);
       
       // Download required Outfit fonts asynchronously
       downloadFonts().catch((err) => logger.error("⚠️ Font download failed", err));
@@ -209,8 +221,10 @@ async function startServer(): Promise<void> {
     process.on("SIGTERM", () => shutdown("SIGTERM"));
     process.on("SIGINT", () => shutdown("SIGINT"));
 
-  } catch (error) {
-    logger.error("💥 Critical startup failure encountered", error);
+  } catch (error: any) {
+    console.error("ERROR:");
+    console.error(`Stack: ${error instanceof Error ? error.stack : error}`);
+    console.error(`Cause: ${error instanceof Error ? error.message : String(error)}`);
     process.exit(1);
   }
 }

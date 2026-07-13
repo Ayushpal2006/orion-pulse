@@ -11,6 +11,8 @@ import { DatabaseProvider } from "./provider";
 
 export async function initDb(): Promise<void> {
   try {
+    console.log("Loading database...");
+    console.log("Connecting PostgreSQL...");
     // 1. Verify connection first
     await DatabaseProvider.verifyConnection();
     logger.info("⏳ Running database migrations...");
