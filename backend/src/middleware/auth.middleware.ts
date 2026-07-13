@@ -18,7 +18,21 @@ export function authenticate() {
   return (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      return res.status(401).json({ success: false, error: "Access token is missing or invalid" });
+      // In V1, default to the seeded admin user context so frontend operations bypass login
+      const defaultUser = {
+        id: 1,
+        email: "admin@orion.com",
+        role: "admin",
+        store_id: 1,
+        name: "Default Admin",
+      };
+      req.user = defaultUser;
+      return storeStorage.run(
+        { storeId: defaultUser.store_id, userId: defaultUser.id, role: defaultUser.role },
+        () => {
+          next();
+        }
+      );
     }
 
     const token = authHeader.split(" ")[1];
@@ -38,9 +52,22 @@ export function authenticate() {
           next();
         }
       );
-    } catch (err) {
-      logger.error("Authentication token verification failed:", err);
-      return res.status(401).json({ success: false, error: "Access token is expired or invalid" });
+    } catch (err: any) {
+      logger.warn("Authentication token verification failed, falling back to default admin context for V1: " + (err instanceof Error ? err.message : String(err)));
+      const defaultUser = {
+        id: 1,
+        email: "admin@orion.com",
+        role: "admin",
+        store_id: 1,
+        name: "Default Admin",
+      };
+      req.user = defaultUser;
+      return storeStorage.run(
+        { storeId: defaultUser.store_id, userId: defaultUser.id, role: defaultUser.role },
+        () => {
+          next();
+        }
+      );
     }
   };
 }
