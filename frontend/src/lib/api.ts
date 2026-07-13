@@ -1,6 +1,20 @@
 import type { Product } from "./mock-data";
 
-export const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8080";
+const getApiBaseUrl = (): string => {
+  const rawUrl = import.meta.env.VITE_API_URL || "http://localhost:8080";
+  let cleanUrl = rawUrl.trim().replace(/['"]/g, "");
+  
+  if (cleanUrl && !/^https?:\/\//i.test(cleanUrl)) {
+    if (cleanUrl.startsWith("localhost") || cleanUrl.startsWith("127.0.0.1")) {
+      cleanUrl = `http://${cleanUrl}`;
+    } else {
+      cleanUrl = `https://${cleanUrl}`;
+    }
+  }
+  return cleanUrl;
+};
+
+export const API_BASE_URL = getApiBaseUrl();
 
 export function mapBackendProductToFrontend(p: any): Product {
   return {
