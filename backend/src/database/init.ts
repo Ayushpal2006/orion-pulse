@@ -1,4 +1,5 @@
 import dbProxy from "./index";
+import { DatabaseProvider } from "./provider";
 import { logger } from "../logger/logger";
 import { databaseConfig } from "../config/database";
 
@@ -10,6 +11,7 @@ const console = {
 
 export async function initDb(): Promise<void> {
   try {
+    await DatabaseProvider.verifyConnection();
     console.log("⏳ Initializing database...");
 
     if (databaseConfig.type === "postgres") {

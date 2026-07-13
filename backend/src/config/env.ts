@@ -8,6 +8,7 @@ const envSchema = z.object({
   PORT: z.coerce.number().default(8080),
   NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
   DB_TYPE: z.enum(["sqlite", "postgres"]).default("sqlite"),
+  DATABASE_PROVIDER: z.enum(["sqlite", "postgres"]).default((process.env.DATABASE_PROVIDER || process.env.DB_TYPE || "sqlite") as any),
   DATABASE_URL: z.string().default("./database/orion.db"),
   BASE_URL: z.string().optional(),
   JWT_SECRET: z.string().default("orion-pos-secret-key-change-in-prod"),

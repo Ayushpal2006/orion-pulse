@@ -1,7 +1,7 @@
 import { env } from "./env";
 
 export const databaseConfig = {
-  type: env.DB_TYPE,
+  type: env.DATABASE_PROVIDER,
   sqlite: {
     filename: env.DATABASE_URL,
   },
