@@ -35,13 +35,6 @@ export class InvoiceController {
         return;
       }
 
-      // Check cache first
-      const cachedHtml = this.invoiceService.getFromCache(token);
-      if (cachedHtml) {
-        res.status(200).send(cachedHtml);
-        return;
-      }
-
       const invoiceNumber = await this.getInvoiceNumberByToken(token);
       if (!invoiceNumber) {
         res.status(404).send("Invoice Not Found");
@@ -49,12 +42,33 @@ export class InvoiceController {
       }
 
       const receipt = await this.salesService.getReceipt(invoiceNumber);
-      const html = await this.invoiceService.generateHtmlInvoice(receipt);
-      
-      // Save in cache
-      this.invoiceService.setToCache(token, html);
+      const pdfFilename = `${receipt.invoiceNumber}.pdf`;
+      const pdfPath = path.join(__dirname, "../../uploads/invoices", pdfFilename);
 
-      res.status(200).send(html);
+      // Generate A4 PDF if missing
+      if (!fs.existsSync(pdfPath)) {
+        try {
+          await this.pdfService.generateInvoicePdf(receipt, pdfPath);
+          try {
+            await this.saleRepo.updatePdfUrlByInvoice(receipt.invoiceNumber, `/uploads/invoices/${pdfFilename}`);
+          } catch (e) {
+            console.error("Failed to update pdf_url:", e);
+          }
+        } catch (genError) {
+          if (fs.existsSync(pdfPath)) {
+            try {
+              fs.unlinkSync(pdfPath);
+            } catch (unlinkErr) {
+              console.error("Failed to clean up incomplete PDF file:", unlinkErr);
+            }
+          }
+          throw genError;
+        }
+      }
+
+      res.setHeader("Content-Type", "application/pdf");
+      res.setHeader("Content-Disposition", "inline");
+      res.sendFile(pdfPath);
     } catch (error) {
       next(error);
     }

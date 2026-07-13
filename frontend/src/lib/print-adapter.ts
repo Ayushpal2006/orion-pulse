@@ -51,6 +51,27 @@ export class BrowserPrintAdapter implements PrintAdapter {
     }
     document.head.appendChild(styleEl);
 
+    // Wait for all images inside printSection to be loaded/decoded
+    const images = Array.from(printSection.querySelectorAll("img"));
+    const imagePromises = images.map((img) => {
+      if (img.complete) {
+        return Promise.resolve();
+      }
+      return new Promise<void>((resolve) => {
+        img.addEventListener("load", () => resolve(), { once: true });
+        img.addEventListener("error", () => resolve(), { once: true });
+      });
+    });
+    await Promise.all(imagePromises);
+
+    // Wait for all fonts to load
+    if (document.fonts && document.fonts.ready) {
+      await document.fonts.ready;
+    }
+
+    // Wait one animation frame to ensure browser finishes rendering / layout paint
+    await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+
     // Call window.print()
     window.print();
 
