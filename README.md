@@ -215,91 +215,33 @@ All shop configuration is stored in SQLite `settings` table:
 
 ## Project Structure
 
+This project is organized as an **npm Workspaces Monorepo** for clean, independent dependency management between the backend Express API and the frontend TanStack React app.
+
 ```
 orion-pulse-main/
-├── backend/                        # Express API server
+├── package.json                    # Workspace root package.json
+├── package-lock.json               # Root lockfile (unified dependencies)
+├── shared/                         # Shared utilities folder
+│   ├── datetime.js
+│   └── datetime.ts
+├── backend/                        # Express API server (Workspace package)
+│   ├── package.json
+│   ├── tsconfig.json
 │   ├── src/
-│   │   ├── server.ts               # Entry point — Express app, middleware, route registration
-│   │   ├── database/
-│   │   │   ├── db.ts               # better-sqlite3 singleton connection
-│   │   │   └── init.ts             # Table creation, migrations, settings seeding
-│   │   ├── controllers/
-│   │   │   ├── checkout.controller.ts
-│   │   │   ├── customer.controller.ts
-│   │   │   ├── dashboard.controller.ts
-│   │   │   ├── invoice.controller.ts   # Public HTML + PDF download
-│   │   │   ├── product.controller.ts
-│   │   │   ├── reports.controller.ts
-│   │   │   └── sales.controller.ts     # Receipt, PDF, print, WhatsApp
-│   │   ├── services/
-│   │   │   ├── checkout.service.ts     # Atomic transaction checkout
-│   │   │   ├── customer.service.ts
-│   │   │   ├── dashboard.service.ts
-│   │   │   ├── escpos.service.ts       # ESC/POS binary formatter
-│   │   │   ├── invoice.service.ts      # HTML invoice builder + memory cache
-│   │   │   ├── pdf.service.ts          # A4 PDF generator (pdfkit)
-│   │   │   ├── printer.service.ts      # Printer dispatch + test page
-│   │   │   ├── product.service.ts
-│   │   │   ├── reports.service.ts
-│   │   │   ├── sales.service.ts        # Receipt Engine (single source of truth)
-│   │   │   └── share.service.ts        # WhatsApp message + link generator
-│   │   ├── repositories/
-│   │   │   ├── checkout.repository.ts  # Sale insert + public token generation
-│   │   │   ├── customer.repository.ts
-│   │   │   ├── dashboard.repository.ts
-│   │   │   ├── product.repository.ts
-│   │   │   └── sale.repository.ts      # CRUD + customer phone filter
+│   │   ├── server.ts               # Entry point
+│   │   └── ...
+│   └── uploads/
+├── frontend/                       # React frontend (Workspace package)
+│   ├── package.json
+│   ├── tsconfig.json
+│   ├── vite.config.ts
+│   ├── src/
 │   │   ├── routes/
-│   │   │   ├── checkout.routes.ts
-│   │   │   ├── customer.routes.ts
-│   │   │   ├── dashboard.routes.ts
-│   │   │   ├── invoice.routes.ts       # /invoice/v/:token (public)
-│   │   │   ├── printer.routes.ts
-│   │   │   ├── product.routes.ts
-│   │   │   ├── reports.routes.ts
-│   │   │   ├── sales.routes.ts
-│   │   │   └── settings.routes.ts
-│   │   ├── middleware/
-│   │   │   └── error.middleware.ts     # Global error handler
-│   │   ├── types/
-│   │   │   ├── checkout.types.ts
-│   │   │   ├── customer.types.ts
-│   │   │   └── printer.types.ts
-│   │   └── schemas/                    # SQL schema reference files
-│   ├── uploads/
-│   │   ├── products/                   # Product images (auto-created on startup)
-│   │   └── invoices/                   # Generated PDF files (auto-created on startup)
-│   └── package.json
-│
-├── src/                            # React frontend (Vite + TanStack)
-│   ├── routes/
-│   │   ├── __root.tsx              # Root layout
-│   │   ├── index.tsx               # Dashboard
-│   │   ├── billing.tsx             # Checkout page + SlipDialog
-│   │   ├── customers.tsx           # Customer CRM + invoice history
-│   │   ├── inventory.tsx           # Stock management
-│   │   ├── reports.tsx             # Sales analytics
-│   │   └── settings.tsx            # Shop configuration
-│   ├── components/
-│   │   ├── app-shell.tsx           # Sidebar + nav + theme toggle
-│   │   ├── command-palette.tsx     # Global Cmd+K search
-│   │   ├── customer-dialog.tsx     # Add/edit customer modal
-│   │   ├── edit-product-dialog.tsx # Product CRUD dialog
-│   │   ├── parked-sales.tsx        # Draft cart manager
-│   │   ├── receipt-preview.tsx     # 58mm thermal preview
-│   │   ├── stock-adjustment-dialog.tsx
-│   │   └── ui/                     # shadcn/ui component library
-│   ├── lib/
-│   │   ├── api.ts                  # All fetch calls to the backend
-│   │   ├── store.ts                # Zustand global state (cart, products, customers)
-│   │   ├── format.ts               # INR formatter, date helpers
-│   │   ├── mock-data.ts            # Type definitions + seed data
-│   │   └── utils.ts                # cn(), class merging
-│   └── styles.css                  # Tailwind + custom CSS variables
-│
-├── package.json                    # Frontend dependencies
-├── vite.config.ts
-└── tsconfig.json
+│   │   └── ...
+│   └── public/
+└── src/                            # Legacy root folder (kept for import compatibility)
+    └── routes/
+        └── index.tsx
 ```
 
 ---
@@ -717,7 +659,7 @@ Runs entirely inside `db.transaction()`. If anything throws, SQLite rolls back e
 ### Prerequisites
 
 - Node.js 20+
-- npm or bun
+- npm (native workspaces support)
 
 ### 1. Clone the repository
 
@@ -726,36 +668,34 @@ git clone <repo-url>
 cd orion-pulse-main
 ```
 
-### 2. Install frontend dependencies
+### 2. Install workspace dependencies
+
+Run `npm install` from the repository root. This will automatically install dependencies for the root, backend, and frontend workspaces using npm workspaces hoisting, and symlink local packages.
 
 ```bash
 npm install
 ```
 
-### 3. Install backend dependencies
-
-```bash
-cd backend
-npm install
-cd ..
-```
-
-### 4. Configure environment (optional)
+### 3. Configure environment (optional)
 
 ```bash
 cp backend/.env.example backend/.env
 # Edit backend/.env with your shop settings
 ```
 
-### 5. Start the backend
+### 4. Running Development Servers
+
+You can run development servers for both packages directly from the repository root:
 
 ```bash
-cd backend
-npm run dev
-# Server starts at http://localhost:8080
+# Run backend development server (with tsx watch hot-reloading)
+npm run dev:backend
+
+# Run frontend development server (Vite hot-reloading)
+npm run dev:frontend
 ```
 
-On first start, `initDb()` automatically:
+On first start of the backend, `initDb()` automatically:
 - Creates all SQLite tables with the correct schema
 - Runs safe idempotent column migrations (`ALTER TABLE IF NOT EXISTS` pattern)
 - Seeds default shop settings
@@ -763,16 +703,7 @@ On first start, `initDb()` automatically:
 - Backfills `public_token` for any legacy sales records
 - Creates `uploads/products/` and `uploads/invoices/` directories
 
-### 6. Start the frontend
-
-Open a new terminal:
-
-```bash
-npm run dev
-# Frontend starts at http://localhost:8081
-```
-
-### 7. Open the app
+### 5. Open the app
 
 Navigate to [http://localhost:8081](http://localhost:8081)
 
@@ -801,40 +732,35 @@ PUBLIC_URL=http://localhost:8080
 
 ## Development Workflow
 
-### Backend hot-reload
+All workflow scripts can be run directly from the workspace root or from the subdirectories.
 
+### Run development servers
 ```bash
-cd backend && npm run dev
+# Backend
+npm run dev:backend
+
+# Frontend
+npm run dev:frontend
 ```
-
-### Frontend hot-reload
-
-```bash
-npm run dev   # from project root
-```
-
-Vite HMR provides near-instant updates.
 
 ### TypeScript type-checking (no emit)
 
 ```bash
-# Backend
+# Backend (using local config)
 cd backend && npx tsc --noEmit
 
-# Frontend (from project root)
-npx tsc --noEmit
+# Frontend (using local config)
+cd frontend && npx tsc --noEmit
 ```
 
-### Lint
+### Lint and Format (Frontend)
 
 ```bash
-npm run lint
-```
+# Run ESLint inside frontend
+npm run lint --workspace=tanstack_start_ts
 
-### Format
-
-```bash
-npm run format
+# Run Prettier format inside frontend
+npm run format --workspace=tanstack_start_ts
 ```
 
 ---
@@ -859,17 +785,43 @@ backend/uploads/
 
 Include these directories in your backup strategy alongside the SQLite file.
 
-### Production build
+### Production Build
 
+#### Monorepo root build
+To build both backend and frontend packages:
 ```bash
-# Build frontend
 npm run build
-
-# Compile and run backend
-cd backend
-npx tsc
-node dist/server.js
 ```
+
+#### Workspace-specific builds
+To build only backend or only frontend:
+```bash
+# Build backend only
+npm run build:backend
+
+# Build frontend only
+npm run build:frontend
+```
+
+#### Starting the application
+To run the production-built backend server:
+```bash
+npm run start
+```
+
+### Railway (Backend deployment)
+To deploy the backend to Railway:
+- Railway will automatically detect the root `package.json`.
+- The build command is `npm run build:backend`.
+- The start command is `npm run start`.
+- Set environment variables as required in Railway settings.
+
+### Cloudflare Pages (Frontend deployment)
+To build and deploy the frontend independently on Cloudflare Pages:
+- Set **Root Directory** to `frontend`.
+- Cloudflare Pages will run `npm install` inside the `frontend` directory, installing all dependencies listed in `frontend/package.json` using the local lockfile/dependencies.
+- Build command: `npm run build` (or `vite build`).
+- Output directory: `frontend/.output/public`.
 
 ### Running on Android (Z91 POS Terminal)
 
