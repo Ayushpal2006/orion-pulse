@@ -1,21 +1,22 @@
-# Deployment Guide — Orion POS
+# Deployment Report — Orion POS v1.0 Stable
 
-This document details Railway and Cloudflare Pages configuration.
+This report documents the deployment settings for stable Version 1.0.
 
-## 1. Railway Production Backend Configuration
-- **Database URL**: Configure `DATABASE_URL` as a PostgreSQL connection string pool.
-- **Port Binding**: Railway dynamically binds the server to the `$PORT` environment variable.
-- **Environment variables list**:
-  - `PORT`: (Auto-bound by Railway)
-  - `DATABASE_URL`: (Connection String)
-  - `JWT_SECRET`: (Secure random hash string)
-  - `ADMIN_EMAIL`: `admin@orion.com`
-  - `ADMIN_PASSWORD`: (Secure password)
-- **Start command**: `npm run start` (Preceded by `npm run build` to compile code to the `dist` folder).
-- **Health Check Path**: `/health` (Monitored by Railway for auto-restarts).
+---
 
-## 2. Cloudflare Pages Frontend Configuration
-- **Build tool**: vite build.
-- **Output Directory**: `dist/public`.
-- **Environment Variables**:
-  - `API_URL`: Backend service domain (e.g. `https://orion-backend.up.railway.app`).
+## 1. Railway Backend Deployment
+- **Database Connection**: Target PostgreSQL database loaded dynamically from the `DATABASE_URL` environment variable.
+- **Port Handling**: Server automatically binds to the `$PORT` environment variable assigned by Railway.
+- **Environment variables**:
+  - `PORT`: Auto-assigned by Railway.
+  - `DATABASE_URL`: Production PostgreSQL pool url.
+  - `JWT_SECRET`: Standard secret key.
+  - `ADMIN_EMAIL`: Admin email seed.
+  - `ADMIN_PASSWORD`: Admin password seed.
+- **Startup script**: Runs programmatic migrations (`npx drizzle-kit generate` / `src/database/init.ts`) on boot.
+
+## 2. Cloudflare Pages Frontend Deployment
+- **Vite config**: Compiles React 19 source code cleanly.
+- **Output files**: Saved to `dist/public`.
+- **Environment bindings**:
+  - `API_URL`: Targets the Railway API domain (e.g. `https://orion-pos.up.railway.app`).
