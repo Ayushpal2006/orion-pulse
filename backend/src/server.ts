@@ -14,6 +14,7 @@ import settingsRoutes from "./routes/settings.routes";
 import invoiceRoutes from "./routes/invoice.routes";
 import syncRoutes from "./routes/sync.routes";
 import healthRoutes from "./routes/health.routes";
+import adminRoutes from "./routes/admin.routes";
 
 import { env } from "./config/env";
 import { initDb } from "./database/init";
@@ -117,6 +118,7 @@ app.use("/printer", printerRoutes);
 app.use("/settings", settingsRoutes);
 app.use("/invoice", invoiceRoutes);
 app.use("/sync", syncRoutes);
+app.use("/api/admin", adminRoutes);
 
 // Root Check Endpoint
 app.get("/", (req, res) => {
