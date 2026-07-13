@@ -6,7 +6,7 @@ export class ShareService {
     const amount = receipt.grandTotal;
     const token = receipt.publicToken || "";
 
-    const host = "http://localhost:8080";
+    const host = process.env.BASE_URL || "http://localhost:8080";
     const viewUrl = `${host}/invoice/v/${token}`;
     const downloadUrl = `${host}/invoice/v/${token}/download`;
     const shopPhone = receipt.shop.phone || "8285068670";

@@ -25,6 +25,20 @@ export class InvoiceService {
     const instagram = await settingsRepository.get("instagram_url", "https://instagram.com/orionpos");
     const maps = await settingsRepository.get("maps_url", "https://maps.google.com");
 
+    const host = process.env.BASE_URL || "http://localhost:8080";
+    const getAbsoluteUrl = (url: string | null | undefined): string => {
+      if (!url) return "";
+      const trimmed = url.trim();
+      if (/^https?:\/\//i.test(trimmed) || trimmed.startsWith("data:")) {
+        return trimmed;
+      }
+      const separator = trimmed.startsWith("/") ? "" : "/";
+      return `${host}${separator}${trimmed}`;
+    };
+
+    const logoUrl = getAbsoluteUrl(receipt.shop.logo);
+    const qrCodeUrl = getAbsoluteUrl(receipt.upiQrCode);
+
     let primaryColor = "from-slate-900 to-slate-800 text-slate-950";
     let accentBtn = "bg-slate-900 text-white hover:bg-slate-800";
     if (theme === "clean") {
@@ -61,9 +75,9 @@ export class InvoiceService {
       <div class="flex justify-between items-center pb-4 border-b border-neutral-100">
         <span class="text-xs text-neutral-400 font-medium">PUBLIC SECURED INVOICE VIEW</span>
         <div class="flex gap-2">
-          <a href="/invoice/v/${receipt.publicToken}/download" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold ${accentBtn} transition-colors shadow-sm">
+          <a href="${host}/invoice/v/${receipt.publicToken}/download" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold ${accentBtn} transition-colors shadow-sm">
             <svg class="size-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+               <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
             </svg>
             Download A4 PDF
           </a>
@@ -74,7 +88,7 @@ export class InvoiceService {
       <div class="flex flex-col md:flex-row justify-between items-start gap-6">
         <div class="space-y-2">
           <div class="flex items-center gap-2">
-            ${receipt.shop.logo ? `<img src="${receipt.shop.logo}" class="h-12 object-contain mr-1" alt="Logo">` : `<span class="text-2xl">🏬</span>`}
+            ${logoUrl ? `<img src="${logoUrl}" class="h-12 object-contain mr-1" alt="Logo">` : `<span class="text-2xl">🏬</span>`}
             <h1 class="text-3xl font-extrabold tracking-tight text-neutral-900">${receipt.shop.name}</h1>
           </div>
           <p class="text-sm text-neutral-500 max-w-sm leading-relaxed">${receipt.shop.address}</p>
@@ -147,7 +161,7 @@ export class InvoiceService {
           ${receipt.paymentMethod === "UPI" ? `
             <div class="flex items-center gap-3 bg-neutral-50 p-3 rounded-xl border border-neutral-100 max-w-xs">
               <div class="size-16 bg-white border border-neutral-200 rounded p-1 flex-shrink-0 flex items-center justify-center">
-                ${receipt.upiQrCode ? `<img src="${receipt.upiQrCode}" class="size-full object-contain" alt="UPI QR">` : `<span class="text-xs text-neutral-400 font-mono">[QR]</span>`}
+                ${qrCodeUrl ? `<img src="${qrCodeUrl}" class="size-full object-contain" alt="UPI QR">` : `<span class="text-xs text-neutral-400 font-mono">[QR]</span>`}
               </div>
               <div class="text-[10px] text-neutral-500 leading-tight">
                 UPI ID: ${receipt.shop.upiId}<br>
