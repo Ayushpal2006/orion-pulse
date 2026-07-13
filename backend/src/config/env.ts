@@ -9,7 +9,7 @@ const envSchema = z.object({
   NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
   DB_TYPE: z.enum(["sqlite", "postgres"]).default("sqlite"),
   DATABASE_URL: z.string().default("./database/orion.db"),
-  BASE_URL: z.string().default("http://localhost:8080"),
+  BASE_URL: z.string().optional(),
   JWT_SECRET: z.string().default("orion-pos-secret-key-change-in-prod"),
   ALLOWED_ORIGINS: z.string().default("http://localhost:3000,http://localhost:8081"),
   TRUST_PROXY: z.string().default("1"),
@@ -53,6 +53,13 @@ const envSchema = z.object({
 
   // Enforcement in production
   if (data.NODE_ENV === "production") {
+    if (!data.BASE_URL) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["BASE_URL"],
+        message: "BASE_URL environment variable is required in production mode",
+      });
+    }
     if (data.JWT_SECRET === "orion-pos-secret-key-change-in-prod") {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
@@ -70,5 +77,8 @@ if (!result.success) {
   process.exit(1);
 }
 
-export const env = result.data;
-export type EnvType = z.infer<typeof envSchema>;
+export const env = {
+  ...result.data,
+  BASE_URL: result.data.BASE_URL || "http://localhost:8080"
+};
+export type EnvType = typeof env;

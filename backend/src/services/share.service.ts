@@ -6,7 +6,13 @@ export class ShareService {
     const amount = receipt.grandTotal;
     const token = receipt.publicToken || "";
 
-    const host = process.env.BASE_URL || "http://localhost:8080";
+    let host = process.env.BASE_URL;
+    if (!host) {
+      if (process.env.NODE_ENV === "production") {
+        console.error("❌ [ShareService] ERROR: BASE_URL environment variable is missing in production!");
+      }
+      host = "http://localhost:8080";
+    }
     const viewUrl = `${host}/invoice/v/${token}`;
     const downloadUrl = `${host}/invoice/v/${token}/download`;
     const shopPhone = receipt.shop.phone || "8285068670";

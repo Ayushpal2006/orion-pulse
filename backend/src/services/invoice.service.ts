@@ -25,7 +25,14 @@ export class InvoiceService {
     const instagram = await settingsRepository.get("instagram_url", "https://instagram.com/orionpos");
     const maps = await settingsRepository.get("maps_url", "https://maps.google.com");
 
-    const host = process.env.BASE_URL || "http://localhost:8080";
+    let host = process.env.BASE_URL;
+    if (!host) {
+      if (process.env.NODE_ENV === "production") {
+        console.error("❌ [InvoiceService] ERROR: BASE_URL environment variable is missing in production!");
+      }
+      host = "http://localhost:8080";
+    }
+
     const getAbsoluteUrl = (url: string | null | undefined): string => {
       if (!url) return "";
       const trimmed = url.trim();
@@ -62,6 +69,11 @@ export class InvoiceService {
     @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap');
     body { font-family: 'Outfit', sans-serif; }
   </style>
+  <style media="print">
+    body { background-color: #ffffff !important; padding: 0 !important; margin: 0 !important; }
+    .max-w-3xl { max-width: 100% !important; border: none !important; box-shadow: none !important; margin: 0 !important; }
+    #action-header { display: none !important; }
+  </style>
 </head>
 <body class="bg-neutral-50 text-neutral-800 p-2 sm:p-6 md:p-8">
   <div class="max-w-3xl mx-auto bg-white rounded-3xl border border-neutral-100 shadow-xl overflow-hidden">
@@ -72,7 +84,7 @@ export class InvoiceService {
     <div class="p-6 sm:p-10 space-y-8">
       
       <!-- Top Action Buttons -->
-      <div class="flex justify-between items-center pb-4 border-b border-neutral-100">
+      <div id="action-header" class="flex justify-between items-center pb-4 border-b border-neutral-100">
         <span class="text-xs text-neutral-400 font-medium">PUBLIC SECURED INVOICE VIEW</span>
         <div class="flex gap-2">
           <a href="${host}/invoice/v/${receipt.publicToken}/download" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold ${accentBtn} transition-colors shadow-sm">
@@ -132,16 +144,18 @@ export class InvoiceService {
                 <th class="p-4">Item details</th>
                 <th class="p-4 text-right">Qty</th>
                 <th class="p-4 text-right">Price</th>
+                <th class="p-4 text-right">Discount</th>
                 <th class="p-4 text-right">GST</th>
                 <th class="p-4 text-right">Total</th>
               </tr>
             </thead>
             <tbody class="divide-y divide-neutral-50">
-              ${receipt.items.map((item: { name: string; qty: number; price: number; gst?: number; lineTotal: number }) => `
+              ${receipt.items.map((item: { name: string; qty: number; price: number; discount: number; gst?: number; lineTotal: number }) => `
                 <tr class="text-neutral-700 hover:bg-neutral-50/40 transition-colors">
                   <td class="p-4 font-semibold text-neutral-900">${item.name}</td>
                   <td class="p-4 text-right tabular-nums">${item.qty}</td>
                   <td class="p-4 text-right tabular-nums">₹${item.price.toFixed(2)}</td>
+                  <td class="p-4 text-right text-neutral-500 tabular-nums">${item.discount > 0 ? `${item.discount * 100}%` : "-"}</td>
                   <td class="p-4 text-right text-neutral-400 text-xs">${item.gst}%</td>
                   <td class="p-4 text-right font-bold text-neutral-900 tabular-nums">₹${item.lineTotal.toFixed(2)}</td>
                 </tr>
