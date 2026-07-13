@@ -13,5 +13,8 @@
     "dev:backend": "npm run dev --workspace=backend",
     "dev:frontend": "npm run dev --workspace=tanstack_start_ts",
     "start": "npm run start --workspace=backend"
+  },
+  "dependencies": {
+    "typescript": "^7.0.2"
   }
 }
