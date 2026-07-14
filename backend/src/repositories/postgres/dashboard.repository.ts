@@ -99,8 +99,8 @@ export class PostgresDashboardRepository implements IDashboardRepository {
     return rows.map((r: any, i: number) => ({
       rank: i + 1,
       name: r.name,
-      unitsSold: Number(r.unitsSold),
-      revenue: Number(r.revenue) / 100.0,
+      unitsSold: Number(r.unitsSold ?? 0),
+      revenue: Number(r.revenue ?? 0) / 100.0,
     }));
   }
 
@@ -130,7 +130,7 @@ export class PostgresDashboardRepository implements IDashboardRepository {
     return rows.map((r: any) => ({
       invoiceNumber: r.invoiceNumber,
       customer: r.customer,
-      amount: Number(r.amount) / 100.0,
+      amount: Number(r.amount ?? 0) / 100.0,
       payment: r.payment,
       time: r.time.toISOString(),
     }));

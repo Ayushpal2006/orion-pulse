@@ -226,6 +226,7 @@ export class CheckoutService {
         discount,
         gst: totalGst,
         grandTotal,
+        publicToken,
         items: processedItems.map((item) => ({
           productId: item.productId,
           name: item.name,
@@ -239,7 +240,19 @@ export class CheckoutService {
     // Enqueue background sync/notifications without blocking
     try {
       const { SyncQueueManager } = require("./sync.service");
-      SyncQueueManager.getInstance().enqueue("sale", result);
+      const syncPayload = {
+        invoiceNumber: result.invoice,
+        date: new Date().toISOString().substring(0, 10),
+        time: new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true }),
+        cashier: request.cashierName || "System",
+        paymentMethod: request.paymentMethod,
+        subtotal: result.subtotal / 100.0,
+        discount: result.discount / 100.0,
+        gst: result.gst / 100.0,
+        grandTotal: result.grandTotal / 100.0,
+        publicToken: result.publicToken
+      };
+      SyncQueueManager.getInstance().enqueue("sale", syncPayload);
     } catch (e) {
       // safe ignore if manager is uninitialized
     }

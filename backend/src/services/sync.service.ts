@@ -181,39 +181,39 @@ export class SyncQueueManager {
         case "sale":
           tabName = "Sales";
           rowData = [
-            payload.invoiceNumber,
-            `${payload.date} ${payload.time}`,
-            payload.cashier,
-            payload.paymentMethod,
-            payload.subtotal,
-            payload.discount,
-            payload.gst,
-            payload.grandTotal,
-            payload.publicToken
+            payload.invoiceNumber ?? "",
+            `${payload.date ?? ""} ${payload.time ?? ""}`.trim(),
+            payload.cashier ?? "System",
+            payload.paymentMethod ?? "",
+            Number(payload.subtotal ?? 0),
+            Number(payload.discount ?? 0),
+            Number(payload.gst ?? 0),
+            Number(payload.grandTotal ?? 0),
+            payload.publicToken ?? ""
           ];
           break;
         case "customer":
           tabName = "Customers";
           rowData = [
-            payload.phone,
-            payload.name,
-            payload.email || "",
-            payload.address || "",
-            payload.total_orders || 0,
-            payload.lifetime_value || 0,
-            payload.last_visit || ""
+            payload.phone ?? "",
+            payload.name ?? "",
+            payload.email ?? "",
+            payload.address ?? "",
+            Number(payload.total_orders ?? 0),
+            Number(payload.lifetime_value ?? 0) / 100.0,
+            payload.last_visit ? String(payload.last_visit) : ""
           ];
           break;
         case "product":
           tabName = "Products";
           rowData = [
-            payload.sku,
-            payload.name,
-            payload.purchase_price || 0,
-            payload.selling_price || 0,
-            payload.stock || 0,
-            payload.gst || 18,
-            payload.is_active !== undefined ? payload.is_active : 1
+            payload.sku ?? "",
+            payload.name ?? "",
+            Number(payload.purchase_price ?? 0) / 100.0,
+            Number(payload.selling_price ?? 0) / 100.0,
+            Number(payload.stock ?? 0),
+            Number(payload.gst ?? 18),
+            payload.is_active !== undefined && payload.is_active !== null ? payload.is_active : 1
           ];
           break;
         default:

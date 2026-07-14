@@ -110,8 +110,8 @@ export class PostgresReportsRepository implements IReportsRepository {
 
     return rows.map((r: any) => ({
       name: r.name,
-      unitsSold: Number(r.unitsSold),
-      revenue: Number(r.revenue) / 100.0,
+      unitsSold: Number(r.unitsSold ?? 0),
+      revenue: Number(r.revenue ?? 0) / 100.0,
     }));
   }
 
@@ -143,8 +143,8 @@ export class PostgresReportsRepository implements IReportsRepository {
 
     return rows.map((r: any) => ({
       slab: `${r.slab}%`,
-      taxable: Number(r.taxable) / 100.0,
-      tax: Math.round(Number(r.tax)) / 100.0,
+      taxable: Number(r.taxable ?? 0) / 100.0,
+      tax: Math.round(Number(r.tax ?? 0)) / 100.0,
     }));
   }
 
@@ -391,7 +391,9 @@ export class PostgresReportsRepository implements IReportsRepository {
     return rows.map((r: any) => ({
       ...r,
       date: r.date.toISOString(),
-      grandTotal: r.grandTotal / 100.0
+      grandTotal: Number(r.grandTotal ?? 0) / 100.0,
+      total: Number(r.grandTotal ?? 0) / 100.0,
+      payment: r.paymentMethod,
     }));
   }
 
@@ -425,8 +427,9 @@ export class PostgresReportsRepository implements IReportsRepository {
     return rows.map((r: any) => ({
       name: r.name,
       phone: r.phone,
-      orders: Number(r.orders),
-      ltv: Number(r.ltv) / 100.0,
+      orders: Number(r.orders ?? 0),
+      spend: Number(r.ltv ?? 0) / 100.0,
+      ltv: Number(r.ltv ?? 0) / 100.0,
     }));
   }
 

@@ -46,13 +46,25 @@ export function formatToKolkataTime(ts: string | Date | number | null | undefine
 
 export function formatToKolkataDateTime(ts: string | Date | number | null | undefined): string {
   const date = coerceDateValue(ts);
-  return new Intl.DateTimeFormat("en-IN", {
-    day: "numeric",
+  const formatter = new Intl.DateTimeFormat("en-US", {
+    timeZone: KOLKATA_TIME_ZONE,
+    day: "2-digit",
     month: "short",
     year: "numeric",
     hour: "2-digit",
     minute: "2-digit",
-    hour12: true,
-    timeZone: KOLKATA_TIME_ZONE,
-  }).format(date);
+    hour12: true
+  });
+  
+  const parts = formatter.formatToParts(date);
+  const partMap = new Map(parts.map(p => [p.type, p.value]));
+  
+  const day = partMap.get("day") || "01";
+  const month = partMap.get("month") || "Jan";
+  const year = partMap.get("year") || "2026";
+  const hour = partMap.get("hour") || "12";
+  const minute = partMap.get("minute") || "00";
+  const dayPeriod = (partMap.get("dayPeriod") || "AM").toUpperCase();
+  
+  return `${day} ${month} ${year} ${hour}:${minute} ${dayPeriod}`;
 }
