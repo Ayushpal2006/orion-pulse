@@ -261,8 +261,8 @@ export class AnalyticsService {
       })
       .from(sales)
       .where(eq(sales.store_id, storeId))
-      .groupBy(sql`monthStr`)
-      .orderBy(desc(sql`monthStr`))
+      .groupBy(sql`to_char(timezone('Asia/Kolkata', ${sales.created_at}), 'YYYY-MM')`)
+      .orderBy(desc(sql`to_char(timezone('Asia/Kolkata', ${sales.created_at}), 'YYYY-MM')`))
       .limit(3);
 
     let sumRev = 0;
@@ -281,8 +281,8 @@ export class AnalyticsService {
       })
       .from(expenses)
       .where(eq(expenses.store_id, storeId))
-      .groupBy(sql`monthStr`)
-      .orderBy(desc(sql`monthStr`))
+      .groupBy(sql`to_char(timezone('Asia/Kolkata', ${expenses.date}), 'YYYY-MM')`)
+      .orderBy(desc(sql`to_char(timezone('Asia/Kolkata', ${expenses.date}), 'YYYY-MM')`))
       .limit(3);
 
     let sumExp = 0;

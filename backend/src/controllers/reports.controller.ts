@@ -25,7 +25,8 @@ export class ReportsController {
         success: true,
         data,
       });
-    } catch (error) {
+    } catch (error: any) {
+      console.error("❌ Reports Generation Failed. Original SQL Error Details:", error);
       next(error);
     }
   };

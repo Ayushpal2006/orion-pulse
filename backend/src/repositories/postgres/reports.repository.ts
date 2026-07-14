@@ -198,8 +198,8 @@ export class PostgresReportsRepository implements IReportsRepository {
         })
         .from(sales)
         .where(cond)
-        .groupBy(sql`hr`)
-        .orderBy(sql`hr`);
+        .groupBy(sql`to_char(timezone('Asia/Kolkata', ${sales.created_at}), 'HH24')`)
+        .orderBy(sql`to_char(timezone('Asia/Kolkata', ${sales.created_at}), 'HH24')`);
 
       const profitRows = await client
         .select({
@@ -210,7 +210,7 @@ export class PostgresReportsRepository implements IReportsRepository {
         .join(sales, eq(sale_items.sale_id, sales.id))
         .join(products, eq(sale_items.product_id, products.id))
         .where(cond)
-        .groupBy(sql`hr`);
+        .groupBy(sql`to_char(timezone('Asia/Kolkata', ${sales.created_at}), 'HH24')`);
 
       const profitMap = new Map<number, number>();
       for (const pr of profitRows) {
@@ -249,8 +249,8 @@ export class PostgresReportsRepository implements IReportsRepository {
         })
         .from(sales)
         .where(cond)
-        .groupBy(sql`mnth`)
-        .orderBy(sql`mnth`);
+        .groupBy(sql`to_char(timezone('Asia/Kolkata', ${sales.created_at}), 'MM')`)
+        .orderBy(sql`to_char(timezone('Asia/Kolkata', ${sales.created_at}), 'MM')`);
 
       const profitRows = await client
         .select({
@@ -261,7 +261,7 @@ export class PostgresReportsRepository implements IReportsRepository {
         .join(sales, eq(sale_items.sale_id, sales.id))
         .join(products, eq(sale_items.product_id, products.id))
         .where(cond)
-        .groupBy(sql`mnth`);
+        .groupBy(sql`to_char(timezone('Asia/Kolkata', ${sales.created_at}), 'MM')`);
 
       const profitMap = new Map<number, number>();
       for (const pr of profitRows) {
@@ -292,8 +292,8 @@ export class PostgresReportsRepository implements IReportsRepository {
       })
       .from(sales)
       .where(cond)
-      .groupBy(sql`dy`)
-      .orderBy(sql`dy`);
+      .groupBy(sql`timezone('Asia/Kolkata', ${sales.created_at})::date`)
+      .orderBy(sql`timezone('Asia/Kolkata', ${sales.created_at})::date`);
 
     const salesMap = new Map<string, number>();
     for (const r of rows) {
@@ -310,7 +310,7 @@ export class PostgresReportsRepository implements IReportsRepository {
       .join(sales, eq(sale_items.sale_id, sales.id))
       .join(products, eq(sale_items.product_id, products.id))
       .where(cond)
-      .groupBy(sql`dy`);
+      .groupBy(sql`timezone('Asia/Kolkata', ${sales.created_at})::date`);
 
     const profitMap = new Map<string, number>();
     for (const pr of profitRows) {
