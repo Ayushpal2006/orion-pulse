@@ -1,8 +1,9 @@
 import { Request, Response, NextFunction } from "express";
 import { db } from "../db";
 import { expenses, expense_categories } from "../db/schema";
-import { eq, and, desc, sql } from "drizzle-orm";
+import { eq, and, desc, sql, gte, lte } from "drizzle-orm";
 import { getStoreId } from "../db/context";
+import { getUtcBoundariesForFilter } from "../utils/datetime";
 import { ValidationError, NotFoundError } from "../utils/errors";
 
 export class ExpenseController {
@@ -124,10 +125,8 @@ export class ExpenseController {
       }
       if (startDate) {
         const actualEnd = endDate || startDate;
-        cond = and(
-          cond,
-          sql`timezone('Asia/Kolkata', ${expenses.date})::date >= ${startDate}::date AND timezone('Asia/Kolkata', ${expenses.date})::date <= ${actualEnd}::date`
-        ) as any;
+        const { start, end } = getUtcBoundariesForFilter("custom", String(startDate), String(actualEnd));
+        cond = and(cond, gte(expenses.date, start), lte(expenses.date, end)) as any;
       }
 
       const rows = await db
@@ -165,18 +164,13 @@ export class ExpenseController {
       let cond = eq(expenses.store_id, storeId);
 
       // Date range filtering helper
-      if (filter === "today") {
-        cond = and(cond, sql`timezone('Asia/Kolkata', ${expenses.date})::date = timezone('Asia/Kolkata', now())::date`) as any;
-      } else if (filter === "last7") {
-        cond = and(cond, sql`timezone('Asia/Kolkata', ${expenses.date})::date >= (timezone('Asia/Kolkata', now()) - interval '6 days')::date`) as any;
-      } else if (filter === "last30") {
-        cond = and(cond, sql`timezone('Asia/Kolkata', ${expenses.date})::date >= (timezone('Asia/Kolkata', now()) - interval '29 days')::date`) as any;
-      } else if (startDate) {
-        const actualEnd = endDate || startDate;
-        cond = and(
-          cond,
-          sql`timezone('Asia/Kolkata', ${expenses.date})::date >= ${startDate}::date AND timezone('Asia/Kolkata', ${expenses.date})::date <= ${actualEnd}::date`
-        ) as any;
+      if (filter || startDate) {
+        const { start, end } = getUtcBoundariesForFilter(
+          String(filter || "custom"),
+          startDate ? String(startDate) : undefined,
+          endDate ? String(endDate) : undefined
+        );
+        cond = and(cond, gte(expenses.date, start), lte(expenses.date, end)) as any;
       }
 
       // 1. Total expense sum

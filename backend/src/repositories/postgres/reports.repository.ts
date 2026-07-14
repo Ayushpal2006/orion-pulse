@@ -1,35 +1,14 @@
 import { IReportsRepository } from "../interfaces/IReportsRepository";
 import { db } from "../../db";
 import { sales, sale_items, products, customers } from "../../db/schema";
-import { eq, and, desc, sql } from "drizzle-orm";
+import { eq, and, desc, sql, gte, lte } from "drizzle-orm";
 import { getStoreId } from "../../db/context";
+import { getUtcBoundariesForFilter } from "../../utils/datetime";
 
 export class PostgresReportsRepository implements IReportsRepository {
   private getDateCondition(column: any, filter: string, startDate?: string, endDate?: string) {
-    switch (filter) {
-      case "today":
-        return sql`timezone('Asia/Kolkata', ${column})::date = timezone('Asia/Kolkata', now())::date`;
-      case "yesterday":
-        return sql`timezone('Asia/Kolkata', ${column})::date = (timezone('Asia/Kolkata', now()) - interval '1 day')::date`;
-      case "last7":
-        return sql`timezone('Asia/Kolkata', ${column})::date >= (timezone('Asia/Kolkata', now()) - interval '6 days')::date`;
-      case "last30":
-        return sql`timezone('Asia/Kolkata', ${column})::date >= (timezone('Asia/Kolkata', now()) - interval '29 days')::date`;
-      case "thisMonth":
-        return sql`to_char(timezone('Asia/Kolkata', ${column}), 'YYYY-MM') = to_char(timezone('Asia/Kolkata', now()), 'YYYY-MM')`;
-      case "lastMonth":
-        return sql`to_char(timezone('Asia/Kolkata', ${column}), 'YYYY-MM') = to_char(timezone('Asia/Kolkata', now()) - interval '1 month', 'YYYY-MM')`;
-      case "thisYear":
-        return sql`to_char(timezone('Asia/Kolkata', ${column}), 'YYYY') = to_char(timezone('Asia/Kolkata', now()), 'YYYY')`;
-      case "custom":
-        if (startDate) {
-          const actualEnd = endDate || startDate;
-          return sql`timezone('Asia/Kolkata', ${column})::date >= ${startDate}::date AND timezone('Asia/Kolkata', ${column})::date <= ${actualEnd}::date`;
-        }
-        return sql`1=1`;
-      default:
-        return sql`1=1`;
-    }
+    const { start, end } = getUtcBoundariesForFilter(filter, startDate, endDate);
+    return and(gte(column, start), lte(column, end));
   }
 
   async getSummary(
@@ -193,24 +172,24 @@ export class PostgresReportsRepository implements IReportsRepository {
     if (filter === "today" || filter === "yesterday") {
       const rows = await client
         .select({
-          hr: sql<string>`to_char(timezone('Asia/Kolkata', ${sales.created_at}), 'HH24')`,
+          hr: sql<string>`to_char(timezone('Asia/Kolkata', timezone('UTC', ${sales.created_at})), 'HH24')`,
           amount: sql<string>`SUM(${sales.grand_total})`,
         })
         .from(sales)
         .where(cond)
-        .groupBy(sql`to_char(timezone('Asia/Kolkata', ${sales.created_at}), 'HH24')`)
-        .orderBy(sql`to_char(timezone('Asia/Kolkata', ${sales.created_at}), 'HH24')`);
+        .groupBy(sql`to_char(timezone('Asia/Kolkata', timezone('UTC', ${sales.created_at})), 'HH24')`)
+        .orderBy(sql`to_char(timezone('Asia/Kolkata', timezone('UTC', ${sales.created_at})), 'HH24')`);
 
       const profitRows = await client
         .select({
-          hr: sql<string>`to_char(timezone('Asia/Kolkata', ${sales.created_at}), 'HH24')`,
+          hr: sql<string>`to_char(timezone('Asia/Kolkata', timezone('UTC', ${sales.created_at})), 'HH24')`,
           profit: sql<string>`SUM(${sale_items.line_total} - (${products.purchase_price} * ${sale_items.quantity}))`,
         })
         .from(sale_items)
         .innerJoin(sales, eq(sale_items.sale_id, sales.id))
         .innerJoin(products, eq(sale_items.product_id, products.id))
         .where(cond)
-        .groupBy(sql`to_char(timezone('Asia/Kolkata', ${sales.created_at}), 'HH24')`);
+        .groupBy(sql`to_char(timezone('Asia/Kolkata', timezone('UTC', ${sales.created_at})), 'HH24')`);
 
       const profitMap = new Map<number, number>();
       for (const pr of profitRows) {
@@ -244,24 +223,24 @@ export class PostgresReportsRepository implements IReportsRepository {
     if (filter === "thisYear") {
       const rows = await client
         .select({
-          mnth: sql<string>`to_char(timezone('Asia/Kolkata', ${sales.created_at}), 'MM')`,
+          mnth: sql<string>`to_char(timezone('Asia/Kolkata', timezone('UTC', ${sales.created_at})), 'MM')`,
           amount: sql<string>`SUM(${sales.grand_total})`,
         })
         .from(sales)
         .where(cond)
-        .groupBy(sql`to_char(timezone('Asia/Kolkata', ${sales.created_at}), 'MM')`)
-        .orderBy(sql`to_char(timezone('Asia/Kolkata', ${sales.created_at}), 'MM')`);
+        .groupBy(sql`to_char(timezone('Asia/Kolkata', timezone('UTC', ${sales.created_at})), 'MM')`)
+        .orderBy(sql`to_char(timezone('Asia/Kolkata', timezone('UTC', ${sales.created_at})), 'MM')`);
 
       const profitRows = await client
         .select({
-          mnth: sql<string>`to_char(timezone('Asia/Kolkata', ${sales.created_at}), 'MM')`,
+          mnth: sql<string>`to_char(timezone('Asia/Kolkata', timezone('UTC', ${sales.created_at})), 'MM')`,
           profit: sql<string>`SUM(${sale_items.line_total} - (${products.purchase_price} * ${sale_items.quantity}))`,
         })
         .from(sale_items)
         .innerJoin(sales, eq(sale_items.sale_id, sales.id))
         .innerJoin(products, eq(sale_items.product_id, products.id))
         .where(cond)
-        .groupBy(sql`to_char(timezone('Asia/Kolkata', ${sales.created_at}), 'MM')`);
+        .groupBy(sql`to_char(timezone('Asia/Kolkata', timezone('UTC', ${sales.created_at})), 'MM')`);
 
       const profitMap = new Map<number, number>();
       for (const pr of profitRows) {
@@ -287,13 +266,13 @@ export class PostgresReportsRepository implements IReportsRepository {
     // Default: Group by Date
     const rows = await client
       .select({
-        dy: sql<any>`timezone('Asia/Kolkata', ${sales.created_at})::date`,
+        dy: sql<any>`timezone('Asia/Kolkata', timezone('UTC', ${sales.created_at}))::date`,
         amount: sql<string>`SUM(${sales.grand_total})`,
       })
       .from(sales)
       .where(cond)
-      .groupBy(sql`timezone('Asia/Kolkata', ${sales.created_at})::date`)
-      .orderBy(sql`timezone('Asia/Kolkata', ${sales.created_at})::date`);
+      .groupBy(sql`timezone('Asia/Kolkata', timezone('UTC', ${sales.created_at}))::date`)
+      .orderBy(sql`timezone('Asia/Kolkata', timezone('UTC', ${sales.created_at}))::date`);
 
     const salesMap = new Map<string, number>();
     for (const r of rows) {
@@ -303,14 +282,14 @@ export class PostgresReportsRepository implements IReportsRepository {
 
     const profitRows = await client
       .select({
-        dy: sql<any>`timezone('Asia/Kolkata', ${sales.created_at})::date`,
+        dy: sql<any>`timezone('Asia/Kolkata', timezone('UTC', ${sales.created_at}))::date`,
         profit: sql<string>`SUM(${sale_items.line_total} - (${products.purchase_price} * ${sale_items.quantity}))`,
       })
       .from(sale_items)
       .innerJoin(sales, eq(sale_items.sale_id, sales.id))
       .innerJoin(products, eq(sale_items.product_id, products.id))
       .where(cond)
-      .groupBy(sql`timezone('Asia/Kolkata', ${sales.created_at})::date`);
+      .groupBy(sql`timezone('Asia/Kolkata', timezone('UTC', ${sales.created_at}))::date`);
 
     const profitMap = new Map<string, number>();
     for (const pr of profitRows) {
@@ -319,31 +298,16 @@ export class PostgresReportsRepository implements IReportsRepository {
     }
 
     const dates: string[] = [];
-    const now = new Date();
-    let startLocalDate = new Date();
-    let endLocalDate = new Date();
+    const { formatInTimeZone } = require("date-fns-tz");
+    const { start: startUTC, end: endUTC } = getUtcBoundariesForFilter(filter, startDate, endDate);
 
-    if (filter === "last7") {
-      startLocalDate.setDate(now.getDate() - 6);
-    } else if (filter === "last30") {
-      startLocalDate.setDate(now.getDate() - 29);
-    } else if (filter === "thisMonth") {
-      startLocalDate = new Date(now.getFullYear(), now.getMonth(), 1);
-    } else if (filter === "lastMonth") {
-      startLocalDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-      endLocalDate = new Date(now.getFullYear(), now.getMonth(), 0);
-    } else if (filter === "custom" && startDate) {
-      startLocalDate = new Date(startDate);
-      endLocalDate = new Date(endDate || startDate);
-    } else {
-      startLocalDate.setDate(now.getDate() - 6);
-    }
-
-    const current = new Date(startLocalDate);
-    while (current <= endLocalDate) {
-      const dateStr = current.toISOString().substring(0, 10);
-      dates.push(dateStr);
-      current.setDate(current.getDate() + 1);
+    const current = new Date(startUTC);
+    while (current <= endUTC) {
+      const dateStr = formatInTimeZone(current, "Asia/Kolkata", "yyyy-MM-dd");
+      if (!dates.includes(dateStr)) {
+        dates.push(dateStr);
+      }
+      current.setTime(current.getTime() + 3600000); // 1 hour steps
     }
 
     return dates.map((d) => {

@@ -4,6 +4,8 @@ import { eq, and, desc, like } from "drizzle-orm";
 import { CheckoutRequest, CheckoutResponse } from "../types/checkout.types";
 import { ValidationError, NotFoundError } from "../utils/errors";
 import { getStoreId } from "../db/context";
+import { getKolkataDateString } from "../utils/datetime";
+import { formatInTimeZone } from "date-fns-tz";
 
 const idempotencyCache = new Map<string, { timestamp: number; response: any }>();
 
@@ -22,7 +24,7 @@ if (typeof global !== "undefined" && typeof setInterval === "function") {
 export class CheckoutService {
   async generateNextInvoiceNumber(storeId: number, txClient?: any): Promise<string> {
     const client = txClient || db;
-    const todayStr = new Date().toISOString().slice(0, 10).replace(/-/g, ""); // "20260713"
+    const todayStr = getKolkataDateString();
     const prefix = `INV-${todayStr}-`;
 
     const rows = await client
@@ -242,8 +244,8 @@ export class CheckoutService {
       const { SyncQueueManager } = require("./sync.service");
       const syncPayload = {
         invoiceNumber: result.invoice,
-        date: new Date().toISOString().substring(0, 10),
-        time: new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true }),
+        date: formatInTimeZone(new Date(), "Asia/Kolkata", "yyyy-MM-dd"),
+        time: formatInTimeZone(new Date(), "Asia/Kolkata", "hh:mm a"),
         cashier: request.cashierName || "System",
         paymentMethod: request.paymentMethod,
         subtotal: result.subtotal / 100.0,

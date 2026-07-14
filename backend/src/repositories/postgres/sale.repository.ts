@@ -2,8 +2,9 @@ import { ISaleRepository } from "../interfaces/ISaleRepository";
 import { Sale } from "../../types/checkout.types";
 import { db } from "../../db";
 import { sales, sale_items, products, customers } from "../../db/schema";
-import { eq, and, desc, sql, like } from "drizzle-orm";
+import { eq, and, desc, sql, like, gte, lte } from "drizzle-orm";
 import { getStoreId } from "../../db/context";
+import { getUtcBoundariesForFilter } from "../../utils/datetime";
 
 export class PostgresSaleRepository implements ISaleRepository {
   async getAll(tx?: any): Promise<Sale[]> {
@@ -82,7 +83,8 @@ export class PostgresSaleRepository implements ISaleRepository {
   async getTodaySales(tx?: any): Promise<Sale[]> {
     const client = tx || db;
     const storeId = getStoreId();
-    let cond = sql`timezone('Asia/Kolkata', ${sales.created_at})::date = timezone('Asia/Kolkata', now())::date`;
+    const { start, end } = getUtcBoundariesForFilter("today");
+    let cond = and(gte(sales.created_at, start), lte(sales.created_at, end)) as any;
     if (storeId !== undefined) {
       cond = and(cond, eq(sales.store_id, storeId)) as any;
     }
@@ -249,14 +251,13 @@ export class PostgresSaleRepository implements ISaleRepository {
       cond = and(cond, eq(sales.payment_method, params.paymentMethod)) as any;
     }
     if (params.date) {
-      cond = and(cond, sql`timezone('Asia/Kolkata', ${sales.created_at})::date = ${params.date}::date`) as any;
+      const { start, end } = getUtcBoundariesForFilter("custom", params.date, params.date);
+      cond = and(cond, gte(sales.created_at, start), lte(sales.created_at, end)) as any;
     }
     if (params.startDate) {
-      const end = params.endDate || params.startDate;
-      cond = and(
-        cond,
-        sql`timezone('Asia/Kolkata', ${sales.created_at})::date >= ${params.startDate}::date AND timezone('Asia/Kolkata', ${sales.created_at})::date <= ${end}::date`
-      ) as any;
+      const endLimit = params.endDate || params.startDate;
+      const { start, end } = getUtcBoundariesForFilter("custom", params.startDate, endLimit);
+      cond = and(cond, gte(sales.created_at, start), lte(sales.created_at, end)) as any;
     }
 
     let queryBuilder = client
@@ -306,38 +307,8 @@ export class PostgresSaleRepository implements ISaleRepository {
       cond = and(cond, eq(sales.store_id, storeId)) as any;
     }
 
-    switch (filter) {
-      case "today":
-        cond = and(cond, sql`timezone('Asia/Kolkata', ${sales.created_at})::date = timezone('Asia/Kolkata', now())::date`) as any;
-        break;
-      case "yesterday":
-        cond = and(cond, sql`timezone('Asia/Kolkata', ${sales.created_at})::date = (timezone('Asia/Kolkata', now()) - interval '1 day')::date`) as any;
-        break;
-      case "last7":
-        cond = and(cond, sql`timezone('Asia/Kolkata', ${sales.created_at})::date >= (timezone('Asia/Kolkata', now()) - interval '6 days')::date`) as any;
-        break;
-      case "last30":
-        cond = and(cond, sql`timezone('Asia/Kolkata', ${sales.created_at})::date >= (timezone('Asia/Kolkata', now()) - interval '29 days')::date`) as any;
-        break;
-      case "thisMonth":
-        cond = and(cond, sql`to_char(timezone('Asia/Kolkata', ${sales.created_at}), 'YYYY-MM') = to_char(timezone('Asia/Kolkata', now()), 'YYYY-MM')`) as any;
-        break;
-      case "lastMonth":
-        cond = and(cond, sql`to_char(timezone('Asia/Kolkata', ${sales.created_at}), 'YYYY-MM') = to_char(timezone('Asia/Kolkata', now()) - interval '1 month', 'YYYY-MM')`) as any;
-        break;
-      case "thisYear":
-        cond = and(cond, sql`to_char(timezone('Asia/Kolkata', ${sales.created_at}), 'YYYY') = to_char(timezone('Asia/Kolkata', now()), 'YYYY')`) as any;
-        break;
-      case "custom":
-        if (startDate) {
-          const actualEnd = endDate || startDate;
-          cond = and(
-            cond,
-            sql`timezone('Asia/Kolkata', ${sales.created_at})::date >= ${startDate}::date AND timezone('Asia/Kolkata', ${sales.created_at})::date <= ${actualEnd}::date`
-          ) as any;
-        }
-        break;
-    }
+    const { start, end } = getUtcBoundariesForFilter(filter, startDate, endDate);
+    cond = and(cond, gte(sales.created_at, start), lte(sales.created_at, end)) as any;
 
     const rows = await client
       .select()

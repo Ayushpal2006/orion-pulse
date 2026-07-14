@@ -3,11 +3,12 @@ import { purchase_orders, purchase_items, products, inventory_logs, suppliers, s
 import { eq, and, desc, sql, like } from "drizzle-orm";
 import { getStoreId } from "../db/context";
 import { NotFoundError, ValidationError } from "../utils/errors";
+import { getKolkataDateString } from "../utils/datetime";
 
 export class PurchaseService {
   async generateNextPONumber(storeId: number, txClient?: any): Promise<string> {
     const client = txClient || db;
-    const todayStr = new Date().toISOString().slice(0, 10).replace(/-/g, ""); // "20260713"
+    const todayStr = getKolkataDateString();
     const prefix = `PO-${todayStr}-`;
 
     const rows = await client

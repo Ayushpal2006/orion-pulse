@@ -1,35 +1,14 @@
 import { db } from "../db";
 import { sales, sale_items, products, customers, purchase_orders, expenses, return_items } from "../db/schema";
-import { eq, and, sql, desc, sum, count } from "drizzle-orm";
+import { eq, and, sql, desc, sum, count, gte, lte } from "drizzle-orm";
 import { getStoreId } from "../db/context";
 import { ValidationError } from "../utils/errors";
+import { getUtcBoundariesForFilter } from "../utils/datetime";
 
 export class AnalyticsService {
   private getDateCondition(column: any, filter: string, startDate?: string, endDate?: string) {
-    switch (filter) {
-      case "today":
-        return sql`timezone('Asia/Kolkata', ${column})::date = timezone('Asia/Kolkata', now())::date`;
-      case "yesterday":
-        return sql`timezone('Asia/Kolkata', ${column})::date = (timezone('Asia/Kolkata', now()) - interval '1 day')::date`;
-      case "last7":
-        return sql`timezone('Asia/Kolkata', ${column})::date >= (timezone('Asia/Kolkata', now()) - interval '6 days')::date`;
-      case "last30":
-        return sql`timezone('Asia/Kolkata', ${column})::date >= (timezone('Asia/Kolkata', now()) - interval '29 days')::date`;
-      case "thisMonth":
-        return sql`to_char(timezone('Asia/Kolkata', ${column}), 'YYYY-MM') = to_char(timezone('Asia/Kolkata', now()), 'YYYY-MM')`;
-      case "lastMonth":
-        return sql`to_char(timezone('Asia/Kolkata', ${column}), 'YYYY-MM') = to_char(timezone('Asia/Kolkata', now()) - interval '1 month', 'YYYY-MM')`;
-      case "thisYear":
-        return sql`to_char(timezone('Asia/Kolkata', ${column}), 'YYYY') = to_char(timezone('Asia/Kolkata', now()), 'YYYY')`;
-      case "custom":
-        if (startDate) {
-          const actualEnd = endDate || startDate;
-          return sql`timezone('Asia/Kolkata', ${column})::date >= ${startDate}::date AND timezone('Asia/Kolkata', ${column})::date <= ${actualEnd}::date`;
-        }
-        return sql`1=1`;
-      default:
-        return sql`1=1`;
-    }
+    const { start, end } = getUtcBoundariesForFilter(filter, startDate, endDate);
+    return and(gte(column, start), lte(column, end));
   }
 
   async getSalesAnalytics(filter: string, startDate?: string, endDate?: string): Promise<any> {
@@ -215,7 +194,8 @@ export class AnalyticsService {
     }
 
     // Cashflow of current month
-    const thisMonthCond = sql`to_char(timezone('Asia/Kolkata', ${sales.created_at}), 'YYYY-MM') = to_char(timezone('Asia/Kolkata', now()), 'YYYY-MM')`;
+    const { start: startThisMonth, end: endThisMonth } = getUtcBoundariesForFilter("thisMonth");
+    const thisMonthCond = and(gte(sales.created_at, startThisMonth), lte(sales.created_at, endThisMonth));
     const thisMonthSales = await db
       .select({
         method: sales.payment_method,
@@ -232,7 +212,7 @@ export class AnalyticsService {
       salesTotal += Number(r.total);
     }
 
-    const thisMonthExpCond = sql`to_char(timezone('Asia/Kolkata', ${expenses.date}), 'YYYY-MM') = to_char(timezone('Asia/Kolkata', now()), 'YYYY-MM')`;
+    const thisMonthExpCond = and(gte(expenses.date, startThisMonth), lte(expenses.date, endThisMonth));
     const [expRow] = await db
       .select({ total: sql<string>`SUM(${expenses.amount})` })
       .from(expenses)
@@ -256,13 +236,13 @@ export class AnalyticsService {
     // 1. Fetch last 3 months sales totals for moving average
     const salesHistory = await db
       .select({
-        monthStr: sql<string>`to_char(timezone('Asia/Kolkata', ${sales.created_at}), 'YYYY-MM')`,
+        monthStr: sql<string>`to_char(timezone('Asia/Kolkata', timezone('UTC', ${sales.created_at})), 'YYYY-MM')`,
         total: sql<string>`SUM(${sales.grand_total})`,
       })
       .from(sales)
       .where(eq(sales.store_id, storeId))
-      .groupBy(sql`to_char(timezone('Asia/Kolkata', ${sales.created_at}), 'YYYY-MM')`)
-      .orderBy(desc(sql`to_char(timezone('Asia/Kolkata', ${sales.created_at}), 'YYYY-MM')`))
+      .groupBy(sql`to_char(timezone('Asia/Kolkata', timezone('UTC', ${sales.created_at})), 'YYYY-MM')`)
+      .orderBy(desc(sql`to_char(timezone('Asia/Kolkata', timezone('UTC', ${sales.created_at})), 'YYYY-MM')`))
       .limit(3);
 
     let sumRev = 0;
@@ -276,13 +256,13 @@ export class AnalyticsService {
     // 2. Fetch last 3 months expenses totals for moving average
     const expensesHistory = await db
       .select({
-        monthStr: sql<string>`to_char(timezone('Asia/Kolkata', ${expenses.date}), 'YYYY-MM')`,
+        monthStr: sql<string>`to_char(timezone('Asia/Kolkata', timezone('UTC', ${expenses.date})), 'YYYY-MM')`,
         total: sql<string>`SUM(${expenses.amount})`,
       })
       .from(expenses)
       .where(eq(expenses.store_id, storeId))
-      .groupBy(sql`to_char(timezone('Asia/Kolkata', ${expenses.date}), 'YYYY-MM')`)
-      .orderBy(desc(sql`to_char(timezone('Asia/Kolkata', ${expenses.date}), 'YYYY-MM')`))
+      .groupBy(sql`to_char(timezone('Asia/Kolkata', timezone('UTC', ${expenses.date})), 'YYYY-MM')`)
+      .orderBy(desc(sql`to_char(timezone('Asia/Kolkata', timezone('UTC', ${expenses.date})), 'YYYY-MM')`))
       .limit(3);
 
     let sumExp = 0;

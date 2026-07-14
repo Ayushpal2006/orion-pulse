@@ -1,8 +1,9 @@
 import { IDashboardRepository } from "../interfaces/IDashboardRepository";
 import { db } from "../../db";
 import { sales, sale_items, products, customers } from "../../db/schema";
-import { eq, and, desc, sql } from "drizzle-orm";
+import { eq, and, desc, sql, gte, lte } from "drizzle-orm";
 import { getStoreId } from "../../db/context";
+import { getUtcBoundariesForFilter } from "../../utils/datetime";
 
 export class PostgresDashboardRepository implements IDashboardRepository {
   async getTodaySummary(tx?: any): Promise<{
@@ -15,7 +16,8 @@ export class PostgresDashboardRepository implements IDashboardRepository {
     const client = tx || db;
     const storeId = getStoreId();
 
-    let salesCond = sql`timezone('Asia/Kolkata', ${sales.created_at})::date = timezone('Asia/Kolkata', now())::date`;
+    const { start, end } = getUtcBoundariesForFilter("today");
+    let salesCond = and(gte(sales.created_at, start), lte(sales.created_at, end)) as any;
     let productsCond = eq(products.is_active, 1);
 
     if (storeId !== undefined) {
@@ -38,7 +40,7 @@ export class PostgresDashboardRepository implements IDashboardRepository {
     const orders = Number(orderRow?.count || 0);
 
     // 3. Profit Today
-    let profitCond = sql`timezone('Asia/Kolkata', ${sales.created_at})::date = timezone('Asia/Kolkata', now())::date`;
+    let profitCond = and(gte(sales.created_at, start), lte(sales.created_at, end)) as any;
     if (storeId !== undefined) {
       profitCond = and(profitCond, eq(sales.store_id, storeId)) as any;
     }
