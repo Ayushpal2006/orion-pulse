@@ -23,9 +23,16 @@ async function main() {
   const timeB = fromZonedTime(`${dateStr} 11:30:00`, TZ);
   const timeC = fromZonedTime(`${dateStr} 23:55:00`, TZ);
 
-  console.log(`Sale A (00:10 IST) -> UTC: ${timeA.toISOString()}`);
-  console.log(`Sale B (11:30 IST) -> UTC: ${timeB.toISOString()}`);
-  console.log(`Sale C (23:55 IST) -> UTC: ${timeC.toISOString()}`);
+  // Helper to format Date as UTC string for inserting directly into timestamp without time zone column
+  const toUtcStr = (d: Date) => d.toISOString().replace("T", " ").replace("Z", "");
+
+  const timeAStr = toUtcStr(timeA);
+  const timeBStr = toUtcStr(timeB);
+  const timeCStr = toUtcStr(timeC);
+
+  console.log(`Sale A (00:10 IST) -> UTC String: ${timeAStr}`);
+  console.log(`Sale B (11:30 IST) -> UTC String: ${timeBStr}`);
+  console.log(`Sale C (23:55 IST) -> UTC String: ${timeCStr}`);
 
   // 3. Clean up existing sales
   console.log("🧹 Clearing transactional tables...");
@@ -47,15 +54,15 @@ async function main() {
   console.log("💾 Ingesting test sales...");
   await dbProxy.execute(
     "INSERT INTO sales (id, store_id, invoice_number, customer_id, payment_method, subtotal, discount, gst, grand_total, created_at) VALUES (1, 1, 'INV-TZ-A', 1, 'Cash', 1500, 0, 0, 1500, ?)",
-    [timeA]
+    [timeAStr]
   );
   await dbProxy.execute(
     "INSERT INTO sales (id, store_id, invoice_number, customer_id, payment_method, subtotal, discount, gst, grand_total, created_at) VALUES (2, 1, 'INV-TZ-B', 1, 'UPI', 1500, 0, 0, 1500, ?)",
-    [timeB]
+    [timeBStr]
   );
   await dbProxy.execute(
     "INSERT INTO sales (id, store_id, invoice_number, customer_id, payment_method, subtotal, discount, gst, grand_total, created_at) VALUES (3, 1, 'INV-TZ-C', 1, 'Card', 1500, 0, 0, 1500, ?)",
-    [timeC]
+    [timeCStr]
   );
 
   // Insert corresponding sale items

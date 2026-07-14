@@ -91,7 +91,7 @@ async function main() {
   const seededCustCount = await dbProxy.queryOne<{ count: number }>("SELECT COUNT(*) as count FROM customers");
   const seededSaleCount = await dbProxy.queryOne<{ count: number }>("SELECT COUNT(*) as count FROM sales");
   
-  if (seededProdCount?.count !== 1 || seededCustCount?.count !== 1 || seededSaleCount?.count !== 1) {
+  if (Number(seededProdCount?.count) !== 1 || Number(seededCustCount?.count) !== 1 || Number(seededSaleCount?.count) !== 1) {
     console.error("❌ Error: Seed data verification failed.");
     process.exit(1);
   }
@@ -178,11 +178,11 @@ async function main() {
   const postSyncJob = await dbProxy.queryOne<{ count: number }>("SELECT COUNT(*) as count FROM sync_jobs");
 
   if (
-    postProd?.count !== 0 ||
-    postCust?.count !== 0 ||
-    postSale?.count !== 0 ||
-    postSaleItem?.count !== 0 ||
-    postSyncJob?.count !== 0
+    Number(postProd?.count) !== 0 ||
+    Number(postCust?.count) !== 0 ||
+    Number(postSale?.count) !== 0 ||
+    Number(postSaleItem?.count) !== 0 ||
+    Number(postSyncJob?.count) !== 0
   ) {
     console.error("❌ Error: Database tables are not completely empty!");
     process.exit(1);
