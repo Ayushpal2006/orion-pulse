@@ -68,8 +68,8 @@ export class PostgresReportsRepository implements IReportsRepository {
     const [profitRow] = await client
       .select({ profit: sql<string>`COALESCE(SUM(${sale_items.line_total} - (${products.purchase_price} * ${sale_items.quantity})), 0)` })
       .from(sale_items)
-      .join(sales, eq(sale_items.sale_id, sales.id))
-      .join(products, eq(sale_items.product_id, products.id))
+      .innerJoin(sales, eq(sale_items.sale_id, sales.id))
+      .innerJoin(products, eq(sale_items.product_id, products.id))
       .where(cond);
     const profit = Number(profitRow?.profit || 0);
 
@@ -207,8 +207,8 @@ export class PostgresReportsRepository implements IReportsRepository {
           profit: sql<string>`SUM(${sale_items.line_total} - (${products.purchase_price} * ${sale_items.quantity}))`,
         })
         .from(sale_items)
-        .join(sales, eq(sale_items.sale_id, sales.id))
-        .join(products, eq(sale_items.product_id, products.id))
+        .innerJoin(sales, eq(sale_items.sale_id, sales.id))
+        .innerJoin(products, eq(sale_items.product_id, products.id))
         .where(cond)
         .groupBy(sql`to_char(timezone('Asia/Kolkata', ${sales.created_at}), 'HH24')`);
 
@@ -258,8 +258,8 @@ export class PostgresReportsRepository implements IReportsRepository {
           profit: sql<string>`SUM(${sale_items.line_total} - (${products.purchase_price} * ${sale_items.quantity}))`,
         })
         .from(sale_items)
-        .join(sales, eq(sale_items.sale_id, sales.id))
-        .join(products, eq(sale_items.product_id, products.id))
+        .innerJoin(sales, eq(sale_items.sale_id, sales.id))
+        .innerJoin(products, eq(sale_items.product_id, products.id))
         .where(cond)
         .groupBy(sql`to_char(timezone('Asia/Kolkata', ${sales.created_at}), 'MM')`);
 
@@ -307,8 +307,8 @@ export class PostgresReportsRepository implements IReportsRepository {
         profit: sql<string>`SUM(${sale_items.line_total} - (${products.purchase_price} * ${sale_items.quantity}))`,
       })
       .from(sale_items)
-      .join(sales, eq(sale_items.sale_id, sales.id))
-      .join(products, eq(sale_items.product_id, products.id))
+      .innerJoin(sales, eq(sale_items.sale_id, sales.id))
+      .innerJoin(products, eq(sale_items.product_id, products.id))
       .where(cond)
       .groupBy(sql`timezone('Asia/Kolkata', ${sales.created_at})::date`);
 

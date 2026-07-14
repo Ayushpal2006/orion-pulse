@@ -7,20 +7,20 @@ import { SettingsController } from "../controllers/settings.controller";
 const router = Router();
 const controller = new SettingsController();
 
-// Configure multer for database uploads
+// Configure multer for database uploads (matching field name "database")
 const tempDir = path.join(__dirname, "../../uploads/temp");
 if (!fs.existsSync(tempDir)) {
   fs.mkdirSync(tempDir, { recursive: true });
 }
 const upload = multer({ dest: tempDir });
 
-router.get("/", controller.getAll);
-router.post("/", controller.update);
-router.get("/storage", controller.getStorageStatus);
-router.post("/storage/cleanup", controller.triggerCleanup);
+// GET    /settings/database/backup -> Streams SQL backup file download
 router.get("/backup", controller.backup);
-router.get("/database/backup", controller.backup);
-router.post("/restore", upload.single("backup"), controller.restore);
-router.post("/database/restore", upload.single("backup"), controller.restore);
+
+// POST   /settings/database/backup -> Generates SQL backup and returns download JSON metadata
+router.post("/backup", controller.backup);
+
+// POST   /settings/database/restore -> Restores database from uploaded SQL file
+router.post("/restore", upload.single("database"), controller.restore);
 
 export default router;

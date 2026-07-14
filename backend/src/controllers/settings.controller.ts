@@ -65,23 +65,38 @@ export class SettingsController {
       if (!fs.existsSync(backupDir)) {
         fs.mkdirSync(backupDir, { recursive: true });
       }
-      const filename = `backup-${Date.now()}.db`;
+      const filename = `backup-${Date.now()}.sql`;
       const backupPath = path.join(backupDir, filename);
 
       await this.service.backupDatabase(backupPath);
+
+      if (req.method === "POST") {
+        res.status(200).json({
+          success: true,
+          message: "Database backup generated successfully",
+          downloadUrl: `${req.baseUrl}/backup`
+        });
+        return;
+      }
 
       res.download(backupPath, filename, (err) => {
         if (err) {
           console.error("Backup download error:", err);
         }
-        // Cleanup backup file on server after transmission to prevent disk bloat
         try {
           fs.unlinkSync(backupPath);
         } catch (unlinkErr) {
           console.error("Failed to delete temp backup file:", unlinkErr);
         }
       });
-    } catch (error) {
+    } catch (error: any) {
+      if (req.method === "POST") {
+        res.status(500).json({
+          success: false,
+          error: error.message || String(error)
+        });
+        return;
+      }
       next(error);
     }
   };
@@ -91,23 +106,27 @@ export class SettingsController {
       if (!req.file) {
         res.status(400).json({
           success: false,
-          message: "Validation Error",
           error: "No backup file uploaded",
         });
         return;
       }
 
       const tempPath = req.file.path;
-      const targetPath = path.join(__dirname, "../../../database/orion.db");
+      await this.service.restoreDatabase(tempPath, "");
 
-      await this.service.restoreDatabase(tempPath, targetPath);
+      try {
+        fs.unlinkSync(tempPath);
+      } catch (unlinkErr) {}
 
       res.status(200).json({
         success: true,
         message: "Database restored successfully",
       });
-    } catch (error) {
-      next(error);
+    } catch (error: any) {
+      res.status(500).json({
+        success: false,
+        error: error.message || String(error)
+      });
     }
   };
 }

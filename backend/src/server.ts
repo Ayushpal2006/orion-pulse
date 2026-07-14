@@ -30,6 +30,7 @@ import auditRoutes from "./routes/audit.routes";
 import orgRoutes from "./routes/organization.routes";
 import subscriptionRoutes from "./routes/subscription.routes";
 import copilotRoutes from "./routes/copilot.routes";
+import databaseRoutes from "./routes/database.routes";
 import { authenticate, authorize } from "./middleware/auth.middleware";
 
 import { env } from "./config/env";
@@ -136,6 +137,7 @@ app.use("/dashboard", authenticate(), dashboardRoutes);
 app.use("/reports", authenticate(), authorize("admin", "manager"), reportsRoutes);
 app.use("/printer", authenticate(), printerRoutes);
 app.use("/settings", authenticate(), settingsRoutes);
+app.use("/settings/database", authenticate(), databaseRoutes);
 app.use("/invoice", invoiceRoutes); // Public HTML invoice access
 app.use("/sync", authenticate(), syncRoutes);
 app.use("/api/admin", authenticate(), authorize("admin"), adminRoutes);

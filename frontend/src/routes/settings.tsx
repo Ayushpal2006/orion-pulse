@@ -338,14 +338,14 @@ function Settings() {
             <div className="grid grid-cols-2 gap-2">
               <Button variant="outline" onClick={() => {
                 window.open(`${API_BASE_URL}/settings/database/backup`, "_blank");
-                toast.success("Backup Downloaded", { description: "POS SQLite database snapshot saved." });
+                toast.success("Backup Downloaded", { description: "POS PostgreSQL database backup saved." });
               }}>
                 <Download className="mr-2 size-4" /> Backup
               </Button>
               <Button variant="outline" onClick={() => {
                 const input = document.createElement("input");
                 input.type = "file";
-                input.accept = ".db";
+                input.accept = ".sql";
                 input.onchange = async (e: any) => {
                   const file = e.target.files?.[0];
                   if (!file) return;

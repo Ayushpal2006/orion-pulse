@@ -1,36 +1,36 @@
-# Project Audit — Orion POS v1.0 Stabilization
+# Orion POS v1.0 — Complete PostgreSQL Repository & API Audit
 
-This report evaluates startup and deployment bugs, logging enhancements, database transitions, and Reports module fixes.
-
----
-
-## 🛠️ Issues Found & Resolved
-
-### Issue 1: Database Startup Race Condition
-- **Severity**: High
-- **Reason**: On Railway container boots, the Express container starts in parallel with the PostgreSQL container. If PostgreSQL is not yet accepting TCP connection handshakes when Express executes `initDb()`, the process crashes and exits immediately (`process.exit(1)`).
-- **File**: [provider.ts](file:///Users/ayush/Documents/Code/orion-pulse-main/backend/src/database/provider.ts)
-- **Fix**: Wrapped connection handshakes in a retry block (10 attempts, 3-second delays), giving the database ample time to boot.
-
-### Issue 2: Reports API Alias Grouping (HTTP 500)
-- **Severity**: High
-- **Reason**: Unlike SQLite, PostgreSQL does not allow referencing custom SELECT clause aliases (such as `dy`, `hr`, `mnth`, `monthStr`) inside `GROUP BY` and `ORDER BY` clauses. This caused any charts or sales trend API requests to fail with database translation syntax errors.
-- **Files**: 
-  - [reports.repository.ts](file:///Users/ayush/Documents/Code/orion-pulse-main/backend/src/repositories/postgres/reports.repository.ts)
-  - [analytics.service.ts](file:///Users/ayush/Documents/Code/orion-pulse-main/backend/src/services/analytics.service.ts)
-- **Fix**: Updated all daily, hourly, and monthly aggregates to group by the exact date-formatting PostgreSQL expressions (e.g. `to_char(timezone('Asia/Kolkata', ...), 'MM')`).
-
-### Issue 3: Quiet Exception Trapping
-- **Severity**: Medium
-- **Reason**: Express reports controller didn't log original SQL syntax exceptions to stdout, masking query issues under a generic 500 error message.
-- **File**: [reports.controller.ts](file:///Users/ayush/Documents/Code/orion-pulse-main/backend/src/controllers/reports.controller.ts)
-- **Fix**: Wrapped the request in a verbose console.error catcher logging the original SQL trace parameters.
+This report certifies that the database access layer and all associated REST endpoints have been fully verified and transitioned to PostgreSQL.
 
 ---
 
-## 🚦 V1.0 API Verification Status (All PASS)
-- `GET /reports?filter=last7`: **PASS** (resolves daily aggregates correctly)
-- `GET /reports?filter=today`: **PASS** (resolves hourly aggregates correctly)
-- `GET /reports?filter=yesterday`: **PASS** (resolves hourly aggregates correctly)
-- `GET /reports?filter=thisMonth`: **PASS** (resolves daily aggregates correctly)
-- `GET /reports?filter=custom`: **PASS** (resolves date bounds correctly)
+## 🛠️ Fixed Files
+
+- [reports.repository.ts](file:///Users/ayush/Documents/Code/orion-pulse-main/backend/src/repositories/postgres/reports.repository.ts)
+  - Upgraded Drizzle `.join(...)` operators to explicit `.innerJoin(...)` structures.
+  - Eliminated SQLite alias-grouping clauses (`GROUP BY dy`, `GROUP BY hr`, `GROUP BY mnth`), replacing them with full PostgreSQL timezone-cast groupings.
+- [analytics.service.ts](file:///Users/ayush/Documents/Code/orion-pulse-main/backend/src/services/analytics.service.ts)
+  - Replaced group-by aliases with absolute SQL text transformations.
+- [postgres-backup.provider.ts](file:///Users/ayush/Documents/Code/orion-pulse-main/backend/src/storage/postgres-backup.provider.ts)
+  - Migrated backup structure to raw plain SQL `.sql` format via `pg_dump -F p`.
+  - Migrated restore pipeline to stream `.sql` file executing through the PostgreSQL CLI tool `psql`.
+
+---
+
+## 🚦 Verification & API Test Results
+
+| API Endpoint | Method | Expected Output | Status | Notes |
+| :--- | :--- | :--- | :--- | :--- |
+| `/reports` | `GET` | Reports Summary JSON | **PASS** | Evaluates date filters cleanly. |
+| `/dashboard` | `GET` | Dashboard Statistics JSON | **PASS** | Correctly parses Today's Sales. |
+| `/settings/database/backup` | `GET` | SQL Attachment stream | **PASS** | Backs up using plain SQL. |
+| `/settings/database/backup` | `POST` | `{"success": true, "downloadUrl": "..."}` | **PASS** | Generates backup JSON details. |
+| `/settings/database/restore` | `POST` | `{"success": true, "message": "..."}` | **PASS** | Restores cleanly via `psql`. |
+| `/sales` | `GET` | Transactions List JSON | **PASS** | Validated. |
+| `/api/inventory` | `GET` | Products Inventory JSON | **PASS** | Validated. |
+| `/settings` | `GET` | Application Settings JSON | **PASS** | Validated. |
+
+---
+
+## 🔒 Remaining PostgreSQL Incompatibilities
+- **None**: Every PostgreSQL repository method compiles successfully using Drizzle ORM PostgreSQL drivers, and SQLite file-copy dependencies have been fully removed.
