@@ -13,6 +13,8 @@ export class ReportsService {
     const topCustomers = await this.repo.getTopCustomers(filter, startDate, endDate);
     const lowStockCount = await this.repo.getLowStockCount();
 
+    const productsSummary = await this.repo.getProductsSummary(filter, startDate, endDate);
+
     return {
       ...summary,
       topProducts,
@@ -22,6 +24,7 @@ export class ReportsService {
       recentInvoices,
       topCustomers,
       lowStockCount,
+      productsSummary,
     };
   }
 }

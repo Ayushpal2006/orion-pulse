@@ -88,7 +88,7 @@ function Customers() {
       email: c.email || undefined,
       address: c.address || undefined,
       notes: c.notes || undefined,
-    })).sort((a, b) => a.mobile.localeCompare(b.mobile));
+    }));
   }, [filtered]);
 
   // Compute live statistics cards from all database customer records
@@ -213,15 +213,15 @@ function Customers() {
                   </div>
                   <div className="hidden text-right sm:block">
                     <div className="tabular text-sm font-semibold text-money">{inr(c.ltv)}</div>
-                    <div className="text-[11px] text-muted-foreground">LTV</div>
+                    <div className="text-[11px] text-muted-foreground">Lifetime Spend</div>
                   </div>
                   <div className="hidden text-right sm:block">
                     <div className="tabular text-sm font-semibold">{c.visits}</div>
-                    <div className="text-[11px] text-muted-foreground">Orders</div>
+                    <div className="text-[11px] text-muted-foreground">Total Purchases</div>
                   </div>
                   <div className="hidden text-right md:block">
                     <div className="text-sm font-medium">{c.lastVisit}</div>
-                    <div className="text-[11px] text-muted-foreground">Last order</div>
+                    <div className="text-[11px] text-muted-foreground">Last Purchase</div>
                   </div>
                   <ChevronDown
                     className={cn("size-4 text-muted-foreground transition-transform", open && "rotate-180")}
@@ -315,9 +315,9 @@ function CustomerDetail({
   return (
     <div className="border-t border-border bg-muted/20 p-4 animate-fade-in">
       <div className="mb-3 grid grid-cols-3 gap-3 sm:hidden">
-        <MiniStat label="LTV" value={inr(customer.ltv)} />
-        <MiniStat label="Orders" value={customer.visits} />
-        <MiniStat label="Last Visit" value={customer.lastVisit} />
+        <MiniStat label="Lifetime Spend" value={inr(customer.ltv)} />
+        <MiniStat label="Total Purchases" value={customer.visits} />
+        <MiniStat label="Last Purchase" value={customer.lastVisit} />
       </div>
       {(customer.email || customer.address || customer.notes) && (
         <div className="mb-3 grid gap-2 text-xs text-muted-foreground sm:grid-cols-3 border-b border-border/40 pb-3">

@@ -49,4 +49,14 @@ export interface IReportsRepository {
     tx?: DatabaseAdapter
   ): Promise<any[]>;
   getLowStockCount(tx?: DatabaseAdapter): Promise<number>;
+  getProductsSummary(
+    filter: string,
+    startDate?: string,
+    endDate?: string,
+    tx?: DatabaseAdapter
+  ): Promise<{
+    totalUnitsSold: number;
+    totalRevenue: number;
+    uniqueProductsSold: number;
+  }>;
 }

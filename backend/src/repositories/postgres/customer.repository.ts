@@ -2,7 +2,7 @@ import { ICustomerRepository } from "../interfaces/ICustomerRepository";
 import { Customer, CreateCustomerDTO, UpdateCustomerDTO } from "../../types/customer.types";
 import { db } from "../../db";
 import { customers, sales } from "../../db/schema";
-import { eq, and, desc, like, or } from "drizzle-orm";
+import { eq, and, desc, like, or, sql } from "drizzle-orm";
 import { getStoreId } from "../../db/context";
 
 export class PostgresCustomerRepository implements ICustomerRepository {
@@ -18,7 +18,7 @@ export class PostgresCustomerRepository implements ICustomerRepository {
       .select()
       .from(customers)
       .where(cond)
-      .orderBy(desc(customers.id));
+      .orderBy(sql`${customers.last_visit} DESC NULLS LAST, ${customers.id} DESC`);
 
     return rows.map((r: any) => ({
       ...r,
@@ -207,7 +207,7 @@ export class PostgresCustomerRepository implements ICustomerRepository {
       .from(customers)
       .leftJoin(sales, eq(sales.customer_id, customers.id))
       .where(cond)
-      .orderBy(desc(customers.id));
+      .orderBy(sql`${customers.last_visit} DESC NULLS LAST, ${customers.id} DESC`);
 
     // Deduplicate in JS since leftJoin might have multiple rows per customer
     const seen = new Set<number>();

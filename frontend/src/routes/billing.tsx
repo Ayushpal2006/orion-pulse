@@ -348,27 +348,39 @@ function Billing() {
           <ProductGridSkeleton />
         ) : (
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
-            {products.map((p) => (
-              <button
-                key={p.id}
-                onClick={() => addToCart(p)}
-                disabled={p.stock === 0}
-                className={cn(
-                  "card-soft flex flex-col p-4 text-left transition-transform active:scale-[0.98] disabled:opacity-40",
-                  "hover:border-foreground/20 hover:shadow-md",
-                )}
-              >
-                <div className="grid size-12 place-items-center overflow-hidden rounded-xl bg-muted text-2xl">
-                  {p.image ? <img src={p.image} alt="" className="size-full object-cover" /> : p.emoji}
-                </div>
-                <div className="mt-3 line-clamp-1 text-sm font-medium">{p.name}</div>
-                <div className="text-[11px] text-muted-foreground">{p.sku}</div>
-                <div className="mt-3 flex items-center justify-between">
-                  <span className="tabular text-sm font-semibold text-money">{inr(p.price)}</span>
-                  <span className="text-[11px] text-muted-foreground tabular">{p.stock} in stock</span>
-                </div>
-              </button>
-            ))}
+            {products.map((p) => {
+              const cartItem = cart.find((item) => item.productId === p.id);
+              const inCart = !!cartItem;
+              const cartQty = cartItem ? cartItem.qty : 0;
+
+              return (
+                <button
+                  key={p.id}
+                  onClick={() => addToCart(p)}
+                  disabled={p.stock === 0}
+                  className={cn(
+                    "card-soft flex flex-col p-4 text-left transition-transform active:scale-[0.98] disabled:opacity-40 relative",
+                    "hover:border-foreground/20 hover:shadow-md",
+                    inCart && "bg-emerald-50/70 border-emerald-500/30 dark:bg-emerald-950/20 dark:border-emerald-500/30"
+                  )}
+                >
+                  {inCart && (
+                    <span className="absolute right-2 top-2 rounded-full bg-emerald-500 px-2 py-0.5 text-[10px] font-bold text-white shadow-sm animate-scale-in">
+                      Qty: {cartQty}
+                    </span>
+                  )}
+                  <div className="grid size-12 place-items-center overflow-hidden rounded-xl bg-muted text-2xl">
+                    {p.image ? <img src={p.image} alt="" className="size-full object-cover" /> : p.emoji}
+                  </div>
+                  <div className="mt-3 line-clamp-1 text-sm font-medium">{p.name}</div>
+                  <div className="text-[11px] text-muted-foreground">{p.sku}</div>
+                  <div className="mt-3 flex items-center justify-between">
+                    <span className="tabular text-sm font-semibold text-money">{inr(p.price)}</span>
+                    <span className="text-[11px] text-muted-foreground tabular">{p.stock} in stock</span>
+                  </div>
+                </button>
+              );
+            })}
           </div>
         )}
       </div>
@@ -649,7 +661,7 @@ function CheckoutDialog({ open, step }: { open: boolean; step: number }) {
   );
 }
 
-function SlipDialog({
+export function SlipDialog({
   open, onClose, result,
 }: {
   open: boolean; onClose: () => void; result: any;
@@ -862,6 +874,9 @@ function SlipDialog({
           )}
           <Button variant="outline" onClick={handleCopyLink} className="rounded-xl text-xs h-9">
             🔗 Copy Link
+          </Button>
+          <Button variant="outline" onClick={() => window.open(`/print/invoice/${receipt.invoiceNumber}`, "_blank")} className="rounded-xl text-xs h-9">
+            👁️ View Receipt
           </Button>
         </div>
         <Button onClick={onClose} className="h-10 w-full rounded-xl mt-1">

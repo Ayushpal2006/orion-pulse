@@ -87,11 +87,16 @@ export class PostgresReportsRepository implements IReportsRepository {
       .orderBy(desc(sql`SUM(${sale_items.quantity})`))
       .limit(10);
 
-    return rows.map((r: any) => ({
-      name: r.name,
-      unitsSold: Number(r.unitsSold ?? 0),
-      revenue: Number(r.revenue ?? 0) / 100.0,
-    }));
+    return rows.map((r: any) => {
+      const unitsSold = Number(r.unitsSold ?? 0);
+      const revenue = Number(r.revenue ?? 0) / 100.0;
+      return {
+        name: r.name,
+        unitsSold,
+        revenue,
+        avgPrice: unitsSold > 0 ? revenue / unitsSold : 0
+      };
+    });
   }
 
   async getGstSummary(
@@ -414,5 +419,39 @@ export class PostgresReportsRepository implements IReportsRepository {
       .where(cond);
 
     return Number(row?.count || 0);
+  }
+
+  async getProductsSummary(
+    filter: string,
+    startDate?: string,
+    endDate?: string,
+    tx?: any
+  ): Promise<{
+    totalUnitsSold: number;
+    totalRevenue: number;
+    uniqueProductsSold: number;
+  }> {
+    const client = tx || db;
+    const storeId = getStoreId();
+    let cond = this.getDateCondition(sales.created_at, filter, startDate, endDate);
+    if (storeId !== undefined) {
+      cond = and(cond, eq(sales.store_id, storeId)) as any;
+    }
+
+    const [row] = await client
+      .select({
+        totalUnits: sql<string>`COALESCE(SUM(${sale_items.quantity}), 0)`,
+        totalRev: sql<string>`COALESCE(SUM(${sale_items.line_total}), 0)`,
+        uniqueCount: sql<string>`COUNT(DISTINCT ${sale_items.product_id})`,
+      })
+      .from(sale_items)
+      .innerJoin(sales, eq(sale_items.sale_id, sales.id))
+      .where(cond);
+
+    return {
+      totalUnitsSold: Number(row?.totalUnits || 0),
+      totalRevenue: Number(row?.totalRev || 0) / 100.0,
+      uniqueProductsSold: Number(row?.uniqueCount || 0),
+    };
   }
 }

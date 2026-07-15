@@ -13,7 +13,8 @@ import { inr } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { stockLevel } from "@/components/stock-badge";
 import { getDashboardData, getReportsData, getProducts } from "@/lib/api";
-import { formatToKolkataDateTime } from "@/lib/datetime";
+import { formatToKolkataDateTime, formatToKolkataDate, parseDbTimestamp } from "@/lib/datetime";
+import { SlipDialog } from "./billing";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -49,6 +50,7 @@ function Dashboard() {
   const products = useApp((s) => s.products);
   const setProducts = useApp((s) => s.setProducts);
   const [range, setRange] = useState<Range>("Week");
+  const [selectedInvoice, setSelectedInvoice] = useState<any>(null);
 
   // Load products list into store on mount
   useEffect(() => {
@@ -279,7 +281,11 @@ function Dashboard() {
             <div className="px-5 py-8 text-center text-xs text-muted-foreground">No recent invoices logged.</div>
           ) : (
             stats.recentSales.map((inv: any) => (
-              <div key={inv.invoiceNumber} className="flex items-center justify-between px-5 py-3.5 text-sm">
+              <button
+                key={inv.invoiceNumber}
+                onClick={() => setSelectedInvoice({ invoice: inv.invoiceNumber })}
+                className="flex w-full items-center justify-between px-5 py-3.5 text-sm text-left hover:bg-muted/40 transition-colors cursor-pointer"
+              >
                 <div className="flex items-center gap-3">
                   <div className="grid size-9 place-items-center rounded-lg bg-muted text-xs font-medium">
                     {inv.payment ? inv.payment[0] : "—"}
@@ -295,7 +301,7 @@ function Dashboard() {
                   <div className="tabular font-semibold text-foreground">{inr(inv.amount)}</div>
                   <div className="text-xs text-muted-foreground">{inv.payment}</div>
                 </div>
-              </div>
+              </button>
             ))
           )}
         </div>
@@ -351,6 +357,13 @@ function Dashboard() {
           </ul>
         </div>
       </div>
+      {selectedInvoice && (
+        <SlipDialog
+          open={!!selectedInvoice}
+          onClose={() => setSelectedInvoice(null)}
+          result={selectedInvoice}
+        />
+      )}
     </div>
   );
 }

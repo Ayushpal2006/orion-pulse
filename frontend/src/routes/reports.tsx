@@ -97,6 +97,11 @@ function Reports() {
   const gstRows = reports?.gstSummary || [];
   const topProducts = reports?.topProducts || [];
   const topCustomers = reports?.topCustomers || [];
+  const productsSummary = reports?.productsSummary || {
+    totalUnitsSold: 0,
+    totalRevenue: 0,
+    uniqueProductsSold: 0,
+  };
 
   const summary = reports || {
     revenue: 0,
@@ -214,34 +219,56 @@ function Reports() {
           <ChartCard title="Sales Trend" subtitle={FILTERS.find((f) => f.key === filter)?.label ?? "Custom range"} data={data} dataKey="value" color="var(--color-success)" />
           
           <div className="grid gap-4 md:grid-cols-2">
-            <div className="card-soft overflow-hidden">
-              <div className="border-b border-border p-4 text-sm font-semibold">Top Selling Products</div>
-              <table className="w-full text-sm">
-                <thead className="bg-muted/40 text-xs uppercase tracking-wide text-muted-foreground">
-                  <tr>
-                    <th className="px-4 py-3 text-left font-medium">Product</th>
-                    <th className="px-4 py-3 text-right font-medium">Qty</th>
-                    <th className="px-4 py-3 text-right font-medium">Revenue</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border">
-                  {topProducts.length === 0 ? (
+            <div className="card-soft overflow-hidden flex flex-col justify-between">
+              <div>
+                <div className="border-b border-border p-4 text-sm font-semibold">Top Selling Products</div>
+                <table className="w-full text-sm">
+                  <thead className="bg-muted/40 text-xs uppercase tracking-wide text-muted-foreground">
                     <tr>
-                      <td colSpan={3} className="px-4 py-8 text-center text-xs text-muted-foreground">
-                        No product sales logs found.
-                      </td>
+                      <th className="px-4 py-3 text-left font-medium">Product</th>
+                      <th className="px-4 py-3 text-right font-medium">Qty Sold</th>
+                      <th className="px-4 py-3 text-right font-medium">Revenue</th>
+                      <th className="px-4 py-3 text-right font-medium">Avg Price</th>
                     </tr>
-                  ) : (
-                    topProducts.slice(0, 5).map((p: any, idx: number) => (
-                      <tr key={idx}>
-                        <td className="px-4 py-3 font-medium text-foreground">{p.name}</td>
-                        <td className="px-4 py-3 text-right text-muted-foreground">{p.unitsSold}</td>
-                        <td className="px-4 py-3 text-right font-semibold text-foreground">{inr(p.revenue)}</td>
+                  </thead>
+                  <tbody className="divide-y divide-border">
+                    {topProducts.length === 0 ? (
+                      <tr>
+                        <td colSpan={4} className="px-4 py-8 text-center text-xs text-muted-foreground">
+                          No product sales logs found.
+                        </td>
                       </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
+                    ) : (
+                      topProducts.slice(0, 5).map((p: any, idx: number) => (
+                        <tr key={idx}>
+                          <td className="px-4 py-3 font-medium text-foreground">{p.name}</td>
+                          <td className="px-4 py-3 text-right text-muted-foreground">{p.unitsSold}</td>
+                          <td className="px-4 py-3 text-right font-semibold text-foreground">{inr(p.revenue)}</td>
+                          <td className="px-4 py-3 text-right text-muted-foreground">{inr(p.avgPrice || (p.unitsSold > 0 ? p.revenue / p.unitsSold : 0))}</td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Summary Cards */}
+              <div className="border-t border-border bg-muted/20 p-4 mt-auto">
+                <div className="grid grid-cols-3 gap-2.5">
+                  <div className="rounded-xl border border-border bg-background p-3 text-center shadow-sm">
+                    <div className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider leading-tight">Total Sold</div>
+                    <div className="mt-1.5 text-sm font-bold text-foreground truncate">{productsSummary.totalUnitsSold} Units</div>
+                  </div>
+                  <div className="rounded-xl border border-border bg-background p-3 text-center shadow-sm">
+                    <div className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider leading-tight">Product Revenue</div>
+                    <div className="mt-1.5 text-sm font-bold text-money truncate">{inr(productsSummary.totalRevenue)}</div>
+                  </div>
+                  <div className="rounded-xl border border-border bg-background p-3 text-center shadow-sm">
+                    <div className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider leading-tight">Unique Sold</div>
+                    <div className="mt-1.5 text-sm font-bold text-foreground truncate">{productsSummary.uniqueProductsSold}</div>
+                  </div>
+                </div>
+              </div>
             </div>
 
             <div className="card-soft overflow-hidden">
