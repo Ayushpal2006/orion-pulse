@@ -207,12 +207,15 @@ body.print-page #orion-print-section {
   html,
   body {
     width: 58mm !important;
-    margin: 0 !important;
+    margin: 0 auto !important;
     padding: 0 !important;
     background: white !important;
     color: black !important;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
+    display: flex !important;
+    justify-content: center !important;
+    align-items: flex-start !important;
   }
 
   /* Hide screen elements when printing from standard app pages (legacy flow) */
@@ -224,7 +227,7 @@ body.print-page #orion-print-section {
     display: block !important;
     visibility: visible !important;
     width: 58mm !important;
-    margin: 0 !important;
+    margin: 0 auto !important;
     padding: 0 !important;
     min-height: auto !important;
     height: auto !important;
@@ -244,9 +247,11 @@ body.print-page #orion-print-section {
     transition: none !important;
   }
 
-  #orion-print-section,
-  #orion-print-section * {
+  #orion-print-section {
     display: block !important;
+  }
+
+  #orion-print-section * {
     visibility: visible !important;
     background: white !important;
     color: black !important;
@@ -260,7 +265,7 @@ body.print-page #orion-print-section {
   #orion-print-section {
     position: relative !important;
     width: 58mm !important;
-    margin: 0 !important;
+    margin: 0 auto !important;
     padding: 2mm !important;
     box-sizing: border-box !important;
     font-family: monospace !important;

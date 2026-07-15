@@ -26,7 +26,7 @@ interface ThermalReceiptProps {
 }
 
 function ThermalReceipt({ receipt }: ThermalReceiptProps) {
-  const formatInr = (val: number) => `Rs ${val.toFixed(2)}`;
+  const formatInr = (val: number) => `₹${val.toFixed(2)}`;
 
   useEffect(() => {
     console.log("PRINT STEP 4: Receipt component mounted");
@@ -43,55 +43,64 @@ function ThermalReceipt({ receipt }: ThermalReceiptProps) {
       className="thermal-receipt" 
       style={{
         width: "58mm",
-        padding: "2mm",
+        padding: "2mm 2mm 8mm 2mm",
         boxSizing: "border-box",
         background: "#ffffff",
         color: "#000000",
         fontFamily: "monospace",
-        fontSize: "12px",
-        lineHeight: "1.15",
+        fontSize: "11px",
+        lineHeight: "1.2",
+        margin: "0 auto",
       }}
     >
       {/* Shop Info Header */}
-      <div style={{ textAlign: "center", marginBottom: "4px" }}>
-        <div style={{ fontSize: "18px", fontWeight: "bold", textTransform: "uppercase", marginBottom: "1px" }}>
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", marginBottom: "6px" }}>
+        {receipt.shop.logo && (
+          <img 
+            src={receipt.shop.logo} 
+            alt="Store Logo" 
+            style={{ maxHeight: "36px", objectContain: "contain", marginBottom: "6px" }} 
+          />
+        )}
+        <div style={{ fontSize: "16px", fontWeight: "bold", textTransform: "uppercase", marginBottom: "2px", lineHeight: "1.1" }}>
           {receipt.shop.name}
         </div>
-        <div style={{ fontSize: "11px", marginBottom: "1px" }}>{receipt.shop.address}</div>
-        <div style={{ fontSize: "11px" }}>PH: {receipt.shop.phone}</div>
-        <div style={{ fontSize: "11px" }}>GSTIN: {receipt.shop.gstin}</div>
+        <div style={{ fontSize: "10px", color: "#333333", marginBottom: "1px" }}>{receipt.shop.address}</div>
+        <div style={{ fontSize: "10px", color: "#333333", marginBottom: "1px" }}>PH: {receipt.shop.phone}</div>
+        <div style={{ fontSize: "10px", color: "#333333" }}>GSTIN: {receipt.shop.gstin}</div>
       </div>
 
       {/* Dashed Separator */}
-      <div style={{ borderTop: "1px dashed #000000", margin: "4px 0" }}></div>
+      <div style={{ borderTop: "1px dashed #000000", margin: "6px 0", width: "100%" }}></div>
 
       {/* Invoice Info */}
-      <div style={{ fontSize: "11px", lineHeight: "1.2" }}>
-        <div><strong>INV:</strong> {receipt.invoiceNumber}</div>
-        <div><strong>DATE:</strong> {receipt.date} {receipt.time}</div>
-        <div><strong>CASHIER:</strong> {receipt.cashier}</div>
-        <div><strong>CUSTOMER:</strong> {receipt.customer.name}</div>
+      <div style={{ fontSize: "10px", lineHeight: "1.35", textAlign: "left", margin: "4px 0" }}>
+        <div><strong>INV  :</strong> {receipt.invoiceNumber}</div>
+        <div><strong>DATE :</strong> {receipt.date}</div>
+        <div><strong>TIME :</strong> {receipt.time}</div>
+        <div><strong>CASH :</strong> {receipt.cashier}</div>
+        <div><strong>CUST :</strong> {receipt.customer.name}</div>
         {receipt.customer.phone && <div><strong>PHONE:</strong> +91 {receipt.customer.phone}</div>}
       </div>
 
       {/* Dashed Separator */}
-      <div style={{ borderTop: "1px dashed #000000", margin: "4px 0" }}></div>
+      <div style={{ borderTop: "1px dashed #000000", margin: "6px 0", width: "100%" }}></div>
 
       {/* Items List Table */}
-      <table style={{ width: "100%", fontSize: "11px", borderCollapse: "collapse", margin: "2px 0" }}>
+      <table style={{ width: "100%", fontSize: "10px", borderCollapse: "collapse", margin: "4px 0" }}>
         <thead>
           <tr style={{ borderBottom: "1px dashed #000000" }}>
-            <th align="left" style={{ paddingBottom: "2px", fontWeight: "bold" }}>Item</th>
-            <th align="right" style={{ paddingBottom: "2px", fontWeight: "bold" }}>Total</th>
+            <th align="left" style={{ paddingBottom: "3px", fontWeight: "bold" }}>Item</th>
+            <th align="right" style={{ paddingBottom: "3px", fontWeight: "bold" }}>Total</th>
           </tr>
         </thead>
         <tbody>
           {receipt.items.map((item: any, idx: number) => (
-            <tr key={idx}>
-              <td style={{ padding: "2px 0", maxWidth: "130px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            <tr key={idx} style={{ verticalAlign: "top" }}>
+              <td style={{ padding: "3px 0", textAlign: "left", paddingRight: "4px" }}>
                 {item.qty}x {item.name}
               </td>
-              <td align="right" style={{ padding: "2px 0", verticalAlign: "top" }}>
+              <td align="right" style={{ padding: "3px 0", textAlign: "right", whiteSpace: "nowrap" }}>
                 {formatInr(item.lineTotal)}
               </td>
             </tr>
@@ -100,47 +109,51 @@ function ThermalReceipt({ receipt }: ThermalReceiptProps) {
       </table>
 
       {/* Dashed Separator */}
-      <div style={{ borderTop: "1px dashed #000000", margin: "4px 0" }}></div>
+      <div style={{ borderTop: "1px dashed #000000", margin: "6px 0", width: "100%" }}></div>
 
       {/* Totals Summary */}
-      <table style={{ width: "100%", fontSize: "11px", lineHeight: "1.2" }}>
+      <table style={{ width: "100%", fontSize: "10px", lineHeight: "1.35", margin: "4px 0" }}>
         <tbody>
           <tr>
-            <td>Subtotal</td>
-            <td align="right">{formatInr(receipt.subtotal)}</td>
+            <td style={{ textAlign: "left", padding: "2px 0" }}>Subtotal</td>
+            <td style={{ textAlign: "right", padding: "2px 0" }}>{formatInr(receipt.subtotal)}</td>
           </tr>
+          {receipt.discount > 0 && (
+            <tr>
+              <td style={{ textAlign: "left", padding: "2px 0" }}>Discount</td>
+              <td style={{ textAlign: "right", padding: "2px 0" }}>-{formatInr(receipt.discount)}</td>
+            </tr>
+          )}
           <tr>
-            <td>Discount</td>
-            <td align="right">-{formatInr(receipt.discount)}</td>
+            <td style={{ textAlign: "left", padding: "2px 0" }}>GST Tax</td>
+            <td style={{ textAlign: "right", padding: "2px 0" }}>{formatInr(receipt.gst)}</td>
           </tr>
-          <tr>
-            <td>GST Tax</td>
-            <td align="right">{formatInr(receipt.gst)}</td>
-          </tr>
-          <tr style={{ fontWeight: "bold", fontSize: "14px" }}>
-            <td style={{ paddingTop: "2px" }}>GRAND TOTAL</td>
-            <td align="right" style={{ paddingTop: "2px" }}>{formatInr(receipt.grandTotal)}</td>
+          <tr style={{ fontWeight: "bold", fontSize: "13px" }}>
+            <td style={{ textAlign: "left", paddingTop: "4px" }}>GRAND TOTAL</td>
+            <td style={{ textAlign: "right", paddingTop: "4px" }}>{formatInr(receipt.grandTotal)}</td>
           </tr>
         </tbody>
       </table>
 
       {/* Dashed Separator */}
-      <div style={{ borderTop: "1px dashed #000000", margin: "4px 0" }}></div>
+      <div style={{ borderTop: "1px dashed #000000", margin: "6px 0", width: "100%" }}></div>
 
       {/* Footer payment details & UPI QR */}
-      <div style={{ textAlign: "center", fontSize: "11px" }}>
-        <div>Paid via {receipt.paymentMethod}</div>
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", fontSize: "10px", margin: "4px 0" }}>
+        <div style={{ fontWeight: "bold", marginBottom: "4px" }}>Paid via {receipt.paymentMethod}</div>
         {receipt.paymentMethod === "UPI" && receipt.upiQrCode && (
-          <div style={{ marginTop: "4px", display: "block" }}>
-            <img 
-              src={receipt.upiQrCode} 
-              style={{ width: "70px", height: "70px", display: "block", margin: "0 auto" }} 
-              alt="UPI QR Code"
-            />
-            <span style={{ fontSize: "9px", color: "#666666" }}>Scan to pay via UPI</span>
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", margin: "6px 0" }}>
+            <div style={{ background: "#ffffff", padding: "6px", border: "1px solid #dddddd", display: "inline-block", marginBottom: "2px" }}>
+              <img 
+                src={receipt.upiQrCode} 
+                style={{ width: "130px", height: "130px", display: "block" }} 
+                alt="UPI QR Code"
+              />
+            </div>
+            <span style={{ fontSize: "8px", color: "#555555", fontWeight: "bold" }}>Scan to Pay via UPI</span>
           </div>
         )}
-        <div style={{ marginTop: "6px", fontWeight: "bold", fontSize: "11px" }}>
+        <div style={{ marginTop: "6px", fontWeight: "bold", fontSize: "10px", whiteSpace: "pre-line", lineHeight: "1.3" }}>
           {receipt.thankYouMessage}
         </div>
       </div>

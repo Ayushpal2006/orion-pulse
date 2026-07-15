@@ -139,7 +139,7 @@ export class SalesService {
     }));
 
     const upiPayload = `upi://pay?pa=${shop.upiId}&pn=${encodeURIComponent(shop.name)}&am=${(sale.grand_total / 100.0).toFixed(2)}&cu=INR`;
-    const thankYouMessage = "Thank you for shopping at Orion Store!";
+    const thankYouMessage = await settingsRepository.get("receipt_footer", "Thank you for shopping with us\n*** Thank you — visit again ***");
 
     // Generate UPI QR code offline
     let upiQrCode = "";
