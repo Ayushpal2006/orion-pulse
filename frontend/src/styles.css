@@ -226,6 +226,22 @@ body.print-page #orion-print-section {
     width: 58mm !important;
     margin: 0 !important;
     padding: 0 !important;
+    min-height: auto !important;
+    height: auto !important;
+  }
+
+  /* Reset all nested layout constraints that might lock the viewport height or introduce filters */
+  body.print-page #root *,
+  body.print-page [class*="min-h-screen"] {
+    min-height: auto !important;
+    height: auto !important;
+    max-height: none !important;
+    position: static !important;
+    transform: none !important;
+    filter: none !important;
+    backdrop-filter: none !important;
+    animation: none !important;
+    transition: none !important;
   }
 
   #orion-print-section,
@@ -248,6 +264,25 @@ body.print-page #orion-print-section {
     padding: 2mm !important;
     box-sizing: border-box !important;
     font-family: monospace !important;
+  }
+
+  /* Retain table layout specificity for thermal receipt tables */
+  #orion-print-section table {
+    display: table !important;
+    width: 100% !important;
+  }
+  #orion-print-section thead {
+    display: table-header-group !important;
+  }
+  #orion-print-section tbody {
+    display: table-row-group !important;
+  }
+  #orion-print-section tr {
+    display: table-row !important;
+  }
+  #orion-print-section td,
+  #orion-print-section th {
+    display: table-cell !important;
   }
 
   /* Ensure monospace typography for receipts */

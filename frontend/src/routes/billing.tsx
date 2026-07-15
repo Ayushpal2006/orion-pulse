@@ -666,6 +666,7 @@ function SlipDialog({
 
   const handlePrint = async () => {
     if (!receipt) return;
+    console.log("PRINT STEP 1: Print button clicked");
     setPrinting(true);
     try {
       const adapter = getPrintAdapter();

@@ -28,6 +28,16 @@ interface ThermalReceiptProps {
 function ThermalReceipt({ receipt }: ThermalReceiptProps) {
   const formatInr = (val: number) => `Rs ${val.toFixed(2)}`;
 
+  useEffect(() => {
+    console.log("PRINT STEP 4: Receipt component mounted");
+  }, []);
+
+  console.log("PRINT STEP 5: Receipt rendered");
+  if (receipt.paymentMethod === "UPI" && receipt.upiQrCode) {
+    console.log("PRINT STEP 7: QR rendered");
+  }
+  console.log("PRINT STEP 8: Barcode rendered (No barcode required for this receipt layout)");
+
   return (
     <div 
       className="thermal-receipt" 
@@ -143,6 +153,15 @@ function PrintInvoicePage() {
   const { autoprint } = Route.useSearch();
   const [isReady, setIsReady] = useState(false);
 
+  // Mount log
+  useEffect(() => {
+    console.log("PRINT STEP 2: Navigated to print page");
+    document.body.classList.add("print-page");
+    return () => {
+      document.body.classList.remove("print-page");
+    };
+  }, []);
+
   const { data: receipt, isLoading, isError, error, refetch } = useQuery({
     queryKey: ["receipt", id],
     queryFn: () => getSaleReceipt(id),
@@ -150,13 +169,12 @@ function PrintInvoicePage() {
     retry: 1,
   });
 
-  // Inject print-page class helper to body
+  // Fetch complete log
   useEffect(() => {
-    document.body.classList.add("print-page");
-    return () => {
-      document.body.classList.remove("print-page");
-    };
-  }, []);
+    if (receipt) {
+      console.log("PRINT STEP 3: Invoice fetched", receipt.invoiceNumber);
+    }
+  }, [receipt]);
 
   // Wait for images and fonts to finish layout rendering
   useEffect(() => {
@@ -164,16 +182,33 @@ function PrintInvoicePage() {
 
     let active = true;
     const loadAndPrep = async () => {
-      // Delay slightly to let React complete its render pass on the DOM
+      // 1. Wait for DOM nodes to be fully created
       await new Promise<void>((resolve) => setTimeout(resolve, 100));
+
+      // 2. If UPI payment, wait for QR code image to exist in DOM
+      if (receipt.paymentMethod === "UPI" && receipt.upiQrCode) {
+        console.log("Waiting for UPI QR image to mount in DOM...");
+        let attempts = 0;
+        while (active && attempts < 20) {
+          const qrImg = document.querySelector("#orion-print-section img");
+          if (qrImg) break;
+          await new Promise<void>((resolve) => setTimeout(resolve, 50));
+          attempts++;
+        }
+      }
 
       const el = document.getElementById("orion-print-section");
       if (el && active) {
         try {
           await waitForReceiptResources(el);
+          console.log("PRINT STEP 6: Images and resources loaded");
         } catch (e) {
           console.error("Resource wait failed:", e);
         }
+        
+        // Final additional safety delay for Android WebViews to parse fonts and layout
+        await new Promise<void>((resolve) => setTimeout(resolve, 300));
+        
         if (active) {
           setIsReady(true);
         }
@@ -189,6 +224,8 @@ function PrintInvoicePage() {
   // Handle printing and window auto-closing
   useEffect(() => {
     if (isReady && autoprint !== "false") {
+      console.log("PRINT STEP 9: window.print() called");
+
       // Ensure print inject styles exist
       let styleEl = document.getElementById("orion-print-style-inject") as HTMLStyleElement;
       if (!styleEl) {
@@ -198,8 +235,15 @@ function PrintInvoicePage() {
       }
       styleEl.innerHTML = `@media print { @page { size: 58mm auto; margin: 0; } }`;
 
+      const isMobile = /Android|iPhone|iPad|iPod|Opera Mini|IEMobile|WPDesktop/i.test(navigator.userAgent);
+
       const handleAfterPrint = () => {
-        window.close();
+        console.log("PRINT STEP 10: afterprint event fired");
+        if (!isMobile) {
+          window.close();
+        } else {
+          console.log("Running on mobile client: preventing auto window.close() to preserve spooler rendering context.");
+        }
       };
 
       // Add listener to close the window once the spooler takes the copy or completes
@@ -207,14 +251,21 @@ function PrintInvoicePage() {
 
       window.print();
 
-      // Safe fallback timer to close the window if the spooler doesn't fire afterprint
-      const fallbackTimer = setTimeout(() => {
-        window.close();
-      }, 2000);
+      // Safe fallback timer to close the window (Desktop only)
+      if (!isMobile) {
+        const fallbackTimer = setTimeout(() => {
+          console.log("Fallback window.close() fired (Desktop only)");
+          window.close();
+        }, 3000);
+
+        return () => {
+          window.removeEventListener("afterprint", handleAfterPrint);
+          clearTimeout(fallbackTimer);
+        };
+      }
 
       return () => {
         window.removeEventListener("afterprint", handleAfterPrint);
-        clearTimeout(fallbackTimer);
       };
     }
   }, [isReady, autoprint]);
