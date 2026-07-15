@@ -176,7 +176,7 @@ export class PurchaseService {
       throw new ValidationError("Store context is required");
     }
 
-    return db.transaction(async (tx) => {
+    const result = await db.transaction(async (tx) => {
       // 1. Fetch PO details
       const [po] = await tx
         .select()

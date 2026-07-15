@@ -15,7 +15,7 @@ export class InventoryService {
       throw new ValidationError("Quantity must be greater than zero");
     }
 
-    return db.transaction(async (tx) => {
+    const result = await db.transaction(async (tx) => {
       const [product] = await tx
         .select()
         .from(products)

@@ -1,6 +1,7 @@
 import { google } from "googleapis";
 import { syncRepository, settingsRepository } from "../repositories";
 import { logger } from "../logger/logger";
+import { formatInTimeZone } from "date-fns-tz";
 
 // Singleton Sync Queue Manager
 export class SyncQueueManager {
@@ -98,9 +99,9 @@ export class SyncQueueManager {
       await syncRepository.recordJobAttempt(job.id);
 
       const payloadObj = JSON.parse(job.payload);
-      const success = await this.syncToGoogleSheets(sheetId, job.job_type, payloadObj);
+      const result = await this.syncToGoogleSheets(sheetId, job.job_type, payloadObj);
 
-      if (success) {
+      if (result.success) {
         await syncRepository.updateJobStatus(job.id, "completed", job.retry_count);
         logger.info(`✅ Sync job ID ${job.id} completed successfully.`);
       } else {
@@ -110,9 +111,9 @@ export class SyncQueueManager {
           job.id,
           newStatus,
           nextRetry,
-          "Failed to upload rows to Google Sheets"
+          result.error || "Failed to upload rows to Google Sheets"
         );
-        logger.warn(`⚠️ Sync job ID ${job.id} failed. Attempt ${nextRetry}/3. Status: ${newStatus}`);
+        logger.warn(`⚠️ Sync job ID ${job.id} failed. Attempt ${nextRetry}/3. Status: ${newStatus}. Error: ${result.error}`);
       }
 
       // Recurse to process next items
@@ -166,9 +167,20 @@ export class SyncQueueManager {
     }
   }
 
-  private async syncToGoogleSheets(spreadsheetId: string, jobType: string, payload: any): Promise<boolean> {
+  private async syncToGoogleSheets(spreadsheetId: string, jobType: string, payload: any): Promise<{ success: boolean; error?: string }> {
     const sheets = this.getSheetsClient();
-    if (!sheets) return false;
+    if (!sheets) return { success: false, error: "Google credentials missing or invalid." };
+
+    const formatKolkataDateTime = (dateVal: any): string => {
+      if (!dateVal) return "";
+      try {
+        const d = new Date(dateVal);
+        if (isNaN(d.getTime())) return String(dateVal);
+        return formatInTimeZone(d, "Asia/Kolkata", "yyyy-MM-dd hh:mm a");
+      } catch (e) {
+        return String(dateVal);
+      }
+    };
 
     try {
       // 1. Ensure required tabs exist
@@ -203,7 +215,8 @@ export class SyncQueueManager {
             payload.address ?? "",
             Number(payload.total_orders ?? 0),
             Number(payload.lifetime_value ?? 0) / 100.0,
-            payload.last_visit ? String(payload.last_visit) : ""
+            formatKolkataDateTime(payload.last_visit),
+            payload.is_active !== undefined && payload.is_active !== null ? payload.is_active : 1
           ];
           uniqueKey = payload.phone ?? "";
           break;
@@ -221,21 +234,22 @@ export class SyncQueueManager {
           uniqueKey = payload.sku ?? "";
           break;
         default:
-          return true;
+          return { success: true };
       }
 
-      if (uniqueKey) {
+      if (uniqueKey && String(uniqueKey).trim() !== "") {
         // Query the sheets tab to see if record already exists
         const res = await sheets.spreadsheets.values.get({
           spreadsheetId,
-          range: `${tabName}!A:G`,
+          range: `'${tabName}'!A:H`,
         });
         
         const rows = res.data.values || [];
         let existingRowIndex = -1;
         
+        const targetKey = String(uniqueKey).trim();
         for (let i = 0; i < rows.length; i++) {
-          if (rows[i] && rows[i][keyColIndex] === uniqueKey) {
+          if (rows[i] && rows[i][keyColIndex] !== undefined && String(rows[i][keyColIndex]).trim() === targetKey) {
             existingRowIndex = i + 1; // Sheets are 1-indexed
             break;
           }
@@ -245,31 +259,31 @@ export class SyncQueueManager {
           // Update the matching row in-place
           await sheets.spreadsheets.values.update({
             spreadsheetId,
-            range: `${tabName}!A${existingRowIndex}`,
+            range: `'${tabName}'!A${existingRowIndex}`,
             valueInputOption: "RAW",
             requestBody: {
               values: [rowData]
             }
           });
           logger.info(`📝 Google Sheets: Updated row ${existingRowIndex} in tab "${tabName}" for key: ${uniqueKey}`);
-          return true;
+          return { success: true };
         }
       }
 
       // If it doesn't exist or is a transaction (like sale), append a new row
       await sheets.spreadsheets.values.append({
         spreadsheetId,
-        range: `${tabName}!A:I`,
+        range: `'${tabName}'!A:I`,
         valueInputOption: "RAW",
         requestBody: {
           values: [rowData]
         }
       });
       logger.info(`➕ Google Sheets: Appended new row in tab "${tabName}"`);
-      return true;
-    } catch (err) {
+      return { success: true };
+    } catch (err: any) {
       console.error(`Google Sheets upload failure on job ${jobType}:`, err);
-      return false;
+      return { success: false, error: err.message || String(err) };
     }
   }
 
@@ -298,7 +312,7 @@ export class SyncQueueManager {
           if (title === "Sales") {
             headers = ["Invoice Number", "Date & Time", "Cashier", "Payment Method", "Subtotal", "Discount", "GST", "Grand Total", "Public Link"];
           } else if (title === "Customers") {
-            headers = ["Phone", "Name", "Email", "Address", "Total Orders", "Lifetime Value (INR)", "Last Visit"];
+            headers = ["Phone", "Name", "Email", "Address", "Total Orders", "Lifetime Value (INR)", "Last Visit", "Active Status"];
           } else if (title === "Products") {
             headers = ["SKU", "Name", "Purchase Price (INR)", "Selling Price (INR)", "Stock", "GST (%)", "Active Status"];
           } else if (title === "GST") {

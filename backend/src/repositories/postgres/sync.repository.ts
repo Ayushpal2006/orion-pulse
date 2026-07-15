@@ -25,22 +25,36 @@ export class PostgresSyncRepository implements ISyncRepository {
       cond = and(cond, eq(sync_jobs.store_id, storeId)) as any;
     }
 
+    // Retrieve up to 50 pending jobs to find the first one ready
     const rows = await client
       .select()
       .from(sync_jobs)
       .where(cond)
       .orderBy(sync_jobs.id)
-      .limit(1);
+      .limit(50);
 
-    if (!rows[0]) return null;
-    const r = rows[0];
-    return {
-      ...r,
-      status: r.status as "pending" | "completed" | "failed",
-      last_attempt: r.last_attempt ? r.last_attempt.toISOString() : undefined,
-      created_at: r.created_at.toISOString(),
-      updated_at: r.updated_at.toISOString(),
-    };
+    const now = Date.now();
+    for (const r of rows) {
+      // If the job has failed attempts, enforce an exponential backoff retry delay
+      if (r.last_attempt && r.retry_count > 0) {
+        // 1st retry: 5s, 2nd retry: 25s, 3rd retry: 125s
+        const backoffMs = Math.pow(5, r.retry_count) * 1000;
+        const elapsed = now - r.last_attempt.getTime();
+        if (elapsed < backoffMs) {
+          continue; // Skip this job for now (still in backoff window)
+        }
+      }
+
+      return {
+        ...r,
+        status: r.status as "pending" | "completed" | "failed",
+        last_attempt: r.last_attempt ? r.last_attempt.toISOString() : undefined,
+        created_at: r.created_at.toISOString(),
+        updated_at: r.updated_at.toISOString(),
+      };
+    }
+
+    return null;
   }
 
   async updateJobStatus(

@@ -42,7 +42,7 @@ export class ReturnService {
       throw new ValidationError("Items to return are required");
     }
 
-    return db.transaction(async (tx) => {
+    const result = await db.transaction(async (tx) => {
       // 1. Verify original sale exists
       const [sale] = await tx
         .select()
