@@ -95,6 +95,9 @@ function Billing() {
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [searchingCustomer, setSearchingCustomer] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState<any | null>(null);
+  const requireCustomerBeforeCheckout = useApp((s) => s.requireCustomerBeforeCheckout);
+  const [isChangingCustomer, setIsChangingCustomer] = useState(false);
+  const [showCustomerRequiredAlert, setShowCustomerRequiredAlert] = useState(false);
 
   const loadProducts = async () => {
     setLoadingProducts(true);
@@ -215,6 +218,7 @@ function Billing() {
   }, [mobile, customers, selectedCustomer]);
 
   const totals = cartTotals(cart);
+  const hasSelectedCustomer = mobile.length >= 10 && (name || knownCustomer);
 
   const scan = () => {
     const inStock = products.filter((p) => p.stock > 0);
@@ -233,21 +237,26 @@ function Billing() {
       return;
     }
     if (cart.length === 0) { toast.error("Cart is empty"); return; }
-    if (mobile.length < 10) { toast.error("Enter customer mobile (10 digits)"); return; }
+
+    const isCustomerMissing = mobile.length < 10;
+    if (requireCustomerBeforeCheckout && isCustomerMissing) {
+      setShowCustomerRequiredAlert(true);
+      return;
+    }
 
     try {
       setStep(0);
       await new Promise((r) => setTimeout(r, 200));
 
       const dto = {
-        customerPhone: mobile,
+        customerPhone: isCustomerMissing ? "0000000000" : mobile,
         paymentMethod: payment,
         cashierName: "Admin",
         items: cart.map((l) => ({
           productId: Number(l.productId),
           quantity: l.qty,
         })),
-        customerName: name || "Walk-in Customer",
+        customerName: isCustomerMissing ? "Walk-in Customer" : (name || "Walk-in Customer"),
       };
 
       setStep(1);
@@ -467,108 +476,153 @@ function Billing() {
           <div className="space-y-3 border-t border-border p-4">
             <div className="rounded-xl border border-border bg-muted/40 p-3">
               <div className="mb-2 flex items-center justify-between">
-                <label className="text-xs font-medium text-muted-foreground">Customer Lookup</label>
-                {knownCustomer ? (
+                <label className="text-xs font-medium text-muted-foreground">Customer</label>
+                {hasSelectedCustomer && knownCustomer && (
                   <Badge variant="secondary" className="rounded-full bg-success/15 text-success-foreground">Returning Customer</Badge>
-                ) : mobile.length >= 10 ? (
+                )}
+                {hasSelectedCustomer && !knownCustomer && mobile.length >= 10 && (
                   <Badge variant="secondary" className="rounded-full bg-warn/25 text-warn-foreground">New Customer</Badge>
-                ) : null}
-              </div>
-              <div className="relative">
-                <div className="flex items-center gap-2">
-                  <div className="grid size-9 place-items-center rounded-lg bg-elevated">
-                    <User className="size-4 text-muted-foreground" />
-                  </div>
-                  <Input
-                    placeholder="Search Name or Mobile..."
-                    value={customerQuery}
-                    onChange={(e) => handleCustomerQueryChange(e.target.value)}
-                    onFocus={() => setShowSuggestions(true)}
-                    className="h-10 rounded-lg text-xs sm:text-sm"
-                  />
-                  {searchingCustomer && <Loader2 className="absolute right-3 top-1/2 size-4 -translate-y-1/2 animate-spin text-muted-foreground" />}
-                </div>
-
-                {showSuggestions && customerQuery && (
-                  <div className="absolute left-0 right-0 z-50 mt-1 max-h-60 overflow-y-auto rounded-xl border border-border bg-elevated shadow-lg animate-in fade-in slide-in-from-top-1 duration-200">
-                    {customerSuggestions.length === 0 ? (
-                      <div className="p-3 text-center text-xs text-muted-foreground">
-                        No customer found.
-                      </div>
-                    ) : (
-                      <div className="divide-y divide-border">
-                        {customerSuggestions.map((c) => (
-                          <button
-                            key={c.id}
-                            type="button"
-                            onClick={() => {
-                              setMobile(c.phone);
-                              setName(c.name);
-                              setSelectedCustomer({
-                                id: c.id,
-                                name: c.name,
-                                mobile: c.phone,
-                                lifetime_value: c.lifetime_value,
-                                total_orders: c.total_orders,
-                                last_visit: c.last_visit,
-                              });
-                              setCustomerQuery(c.name);
-                              setShowSuggestions(false);
-                            }}
-                            className="w-full text-left px-3 py-2.5 hover:bg-muted text-xs flex justify-between items-center transition-colors"
-                          >
-                            <div>
-                              <div className="font-semibold text-foreground">{c.name}</div>
-                              <div className="text-[10px] text-muted-foreground">{c.phone}</div>
-                            </div>
-                            <div className="text-right text-[10px] text-muted-foreground">
-                              <div>{c.total_orders} visits</div>
-                              <div>LTV {inr(c.lifetime_value / 100)}</div>
-                            </div>
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
                 )}
               </div>
 
-              {knownCustomer ? (
-                <div className="mt-2 space-y-0.5 text-xs text-muted-foreground border-t border-border/30 pt-2 flex justify-between items-center">
-                  <div>
-                    <div><span className="font-medium text-foreground">{knownCustomer.name}</span></div>
-                    <div>LTV {inr((knownCustomer.lifetime_value || knownCustomer.ltv * 100 || 0) / 100)} · {knownCustomer.total_orders ?? knownCustomer.visits ?? 0} visits · Last: {knownCustomer.last_visit ?? knownCustomer.lastVisit ?? "Never"}</div>
+              {!isChangingCustomer ? (
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2">
+                    <div className="grid size-9 place-items-center rounded-lg bg-elevated">
+                      <User className="size-4 text-muted-foreground" />
+                    </div>
+                    <div>
+                      <div className="text-sm font-semibold text-foreground">
+                        {hasSelectedCustomer ? (knownCustomer?.name || name) : "Walk-in Customer"}
+                      </div>
+                      <div className="text-xs text-muted-foreground flex items-center gap-1.5">
+                        {hasSelectedCustomer ? (knownCustomer?.phone || mobile) : "Default Customer"}
+                      </div>
+                      {hasSelectedCustomer && knownCustomer && (
+                        <div className="text-[10px] text-muted-foreground mt-0.5">
+                          LTV {inr((knownCustomer.lifetime_value || knownCustomer.ltv * 100 || 0) / 100)} · {knownCustomer.total_orders ?? knownCustomer.visits ?? 0} visits
+                        </div>
+                      )}
+                    </div>
                   </div>
-                  <button
+                  <Button
                     type="button"
-                    onClick={() => {
-                      setMobile("");
-                      setName("");
-                      setCustomerQuery("");
-                      setSelectedCustomer(null);
-                    }}
-                    className="text-[10px] text-muted-foreground hover:text-foreground hover:underline"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setIsChangingCustomer(true)}
+                    className="h-8 rounded-lg text-xs"
                   >
-                    Clear
-                  </button>
+                    Change
+                  </Button>
                 </div>
               ) : (
-                <div className="mt-2 space-y-2 border-t border-border/30 pt-2">
-                  <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">New Customer Details</div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <Input
-                      placeholder="Mobile"
-                      value={mobile}
-                      maxLength={10}
-                      onChange={(e) => setMobile(e.target.value.replace(/\D/g, ""))}
-                      className="h-9 rounded-lg text-xs"
-                    />
-                    <Input
-                      placeholder="Name"
-                      value={name}
-                      onChange={(e) => setName(e.target.value)}
-                      className="h-9 rounded-lg text-xs"
-                    />
+                <div className="space-y-3">
+                  <div className="relative">
+                    <div className="flex items-center gap-2">
+                      <div className="grid size-9 place-items-center rounded-lg bg-elevated">
+                        <User className="size-4 text-muted-foreground" />
+                      </div>
+                      <Input
+                        placeholder="Search Name or Mobile..."
+                        value={customerQuery}
+                        onChange={(e) => handleCustomerQueryChange(e.target.value)}
+                        onFocus={() => setShowSuggestions(true)}
+                        className="h-10 rounded-lg text-xs sm:text-sm"
+                      />
+                      {searchingCustomer && <Loader2 className="absolute right-3 top-1/2 size-4 -translate-y-1/2 animate-spin text-muted-foreground" />}
+                    </div>
+
+                    {showSuggestions && customerQuery && (
+                      <div className="absolute left-0 right-0 z-50 mt-1 max-h-60 overflow-y-auto rounded-xl border border-border bg-elevated shadow-lg animate-in fade-in slide-in-from-top-1 duration-200">
+                        {customerSuggestions.length === 0 ? (
+                          <div className="p-3 text-center text-xs text-muted-foreground">
+                            No customer found.
+                          </div>
+                        ) : (
+                          <div className="divide-y divide-border">
+                            {customerSuggestions.map((c) => (
+                              <button
+                                key={c.id}
+                                type="button"
+                                onClick={() => {
+                                  setMobile(c.phone);
+                                  setName(c.name);
+                                  setSelectedCustomer({
+                                    id: c.id,
+                                    name: c.name,
+                                    mobile: c.phone,
+                                    lifetime_value: c.lifetime_value,
+                                    total_orders: c.total_orders,
+                                    last_visit: c.last_visit,
+                                  });
+                                  setCustomerQuery(c.name);
+                                  setShowSuggestions(false);
+                                  setIsChangingCustomer(false);
+                                }}
+                                className="w-full text-left px-3 py-2.5 hover:bg-muted text-xs flex justify-between items-center transition-colors"
+                              >
+                                <div>
+                                  <div className="font-semibold text-foreground">{c.name}</div>
+                                  <div className="text-[10px] text-muted-foreground">{c.phone}</div>
+                                </div>
+                                <div className="text-right text-[10px] text-muted-foreground">
+                                  <div>{c.total_orders} visits</div>
+                                  <div>LTV {inr(c.lifetime_value / 100)}</div>
+                                </div>
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="space-y-2 border-t border-border/30 pt-2">
+                    <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Or Enter New Customer Details</div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <Input
+                        placeholder="Mobile"
+                        value={mobile}
+                        maxLength={10}
+                        onChange={(e) => setMobile(e.target.value.replace(/\D/g, ""))}
+                        className="h-9 rounded-lg text-xs"
+                      />
+                      <Input
+                        placeholder="Name"
+                        value={name}
+                        onChange={(e) => setName(e.target.value)}
+                        className="h-9 rounded-lg text-xs"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex justify-end gap-2 border-t border-border/30 pt-2">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setMobile("");
+                        setName("");
+                        setCustomerQuery("");
+                        setSelectedCustomer(null);
+                        if (!requireCustomerBeforeCheckout) {
+                          setIsChangingCustomer(false);
+                        }
+                      }}
+                      className="h-8 rounded-lg text-xs text-rose-500 hover:text-rose-600 hover:bg-rose-500/5"
+                    >
+                      Clear / Reset
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setIsChangingCustomer(false)}
+                      className="h-8 rounded-lg text-xs"
+                    >
+                      Done
+                    </Button>
                   </div>
                 </div>
               )}
@@ -614,6 +668,35 @@ function Billing() {
         onClose={finalizeSale}
         result={checkoutResult}
       />
+      <Dialog open={showCustomerRequiredAlert} onOpenChange={setShowCustomerRequiredAlert}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-rose-500">
+              Customer Required
+            </DialogTitle>
+          </DialogHeader>
+          <div className="py-2 text-sm text-muted-foreground">
+            Please select a customer before completing this sale.
+          </div>
+          <div className="mt-4 flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setShowCustomerRequiredAlert(false)}>
+              Cancel
+            </Button>
+            <Button onClick={() => {
+              setShowCustomerRequiredAlert(false);
+              setIsChangingCustomer(true);
+              setTimeout(() => {
+                const searchInput = document.querySelector("input[placeholder='Search Name or Mobile...']");
+                if (searchInput) {
+                  (searchInput as HTMLInputElement).focus();
+                }
+              }, 100);
+            }}>
+              Select Customer
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

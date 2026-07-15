@@ -89,6 +89,7 @@ function Settings() {
           if (d.google_sheet_id) setSheetId(d.google_sheet_id);
           if (d.google_sync_enabled) setSyncEnabled(d.google_sync_enabled === "1");
           if (d.logo) s.setLogo(d.logo);
+          if (d.require_customer_before_checkout) s.setRequireCustomerBeforeCheckout(d.require_customer_before_checkout === "1");
         }
       } catch (err) {
         console.error("Failed to load settings from SQLite backend:", err);
@@ -138,6 +139,7 @@ function Settings() {
             google_sheet_id: sheetId,
             google_sync_enabled: syncEnabled ? "1" : "0",
             logo: s.logo || "",
+            require_customer_before_checkout: s.requireCustomerBeforeCheckout ? "1" : "0",
           }),
         });
       } catch (err) {
@@ -159,6 +161,7 @@ function Settings() {
     sheetId,
     syncEnabled,
     s.logo,
+    s.requireCustomerBeforeCheckout,
     loaded,
   ]);
 
@@ -247,6 +250,35 @@ function Settings() {
             <Row label="Store email">
               <Input value={s.storeEmail} onChange={(e) => s.setStoreEmail(e.target.value)} className="h-11 rounded-xl" />
             </Row>
+          </div>
+        </div>
+
+        {/* Billing */}
+        <div className="card-soft space-y-4 p-5">
+          <div>
+            <div className="text-sm font-semibold">Billing</div>
+            <div className="text-xs text-muted-foreground">Checkout and customer configurations</div>
+          </div>
+          <div className="space-y-4">
+            <div className="border-t border-border/40 pt-3">
+              <div className="text-xs font-semibold uppercase text-muted-foreground tracking-wider mb-2">Customer Settings</div>
+              <div className="flex items-start justify-between py-1">
+                <div className="space-y-0.5 max-w-[80%]">
+                  <Label className="text-xs font-semibold">Require Customer Before Checkout</Label>
+                  <div className="text-[10px] text-muted-foreground leading-normal">
+                    When enabled, a customer must be selected before completing a sale.
+                    When disabled, checkout can continue using a default Walk-in Customer.
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => s.setRequireCustomerBeforeCheckout(!s.requireCustomerBeforeCheckout)}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${s.requireCustomerBeforeCheckout ? "bg-foreground" : "bg-muted"}`}
+                >
+                  <span className={`inline-block size-4 transform rounded-full bg-background transition-transform ${s.requireCustomerBeforeCheckout ? "translate-x-6" : "translate-x-1"}`} />
+                </button>
+              </div>
+            </div>
           </div>
         </div>
 

@@ -13,7 +13,7 @@ import { useApp, type Role } from "@/lib/store";
 import { CommandPalette } from "./command-palette";
 import { ThemeToggle, useThemeInit } from "./theme-toggle";
 import { cn } from "@/lib/utils";
-import { getProducts, getCustomers } from "@/lib/api";
+import { getProducts, getCustomers, API_BASE_URL } from "@/lib/api";
 
 const nav: Array<{ to: string; label: string; icon: typeof LayoutDashboard; exact?: boolean }> = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard, exact: true },
@@ -56,6 +56,29 @@ export function AppShell({ children }: { children: ReactNode }) {
         setCustomers(mapped);
       })
       .catch((err) => console.error("AppShell customers fetch failed:", err));
+
+    // 3. Fetch settings
+    fetch(`${API_BASE_URL}/settings`)
+      .then((res) => res.json())
+      .then((json) => {
+        if (json.success && json.data) {
+          const d = json.data;
+          const store = useApp.getState();
+          if (d.shop_name) store.setShopName(d.shop_name);
+          if (d.shop_gstin) store.setGstin(d.shop_gstin);
+          if (d.shop_phone) store.setStorePhone(d.shop_phone);
+          if (d.shop_address) store.setStoreAddress(d.shop_address);
+          if (d.shop_upi_id) store.setUpiId(d.shop_upi_id);
+          if (d.printer_type) store.setPrinter(d.printer_type as any);
+          if (d.paper_width) store.setPaperWidth(d.paper_width as any);
+          if (d.whatsapp_footer) store.setWhatsappFooter(d.whatsapp_footer);
+          if (d.logo) store.setLogo(d.logo);
+          if (d.require_customer_before_checkout !== undefined) {
+            store.setRequireCustomerBeforeCheckout(d.require_customer_before_checkout === "1");
+          }
+        }
+      })
+      .catch((err) => console.error("AppShell settings fetch failed:", err));
   }, [setProducts, setCustomers]);
 
   const isActive = (to: string, exact?: boolean) =>

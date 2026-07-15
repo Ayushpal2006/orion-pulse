@@ -55,6 +55,7 @@ type State = {
   storePhone: string;
   storeEmail: string;
   whatsappFooter: string;
+  requireCustomerBeforeCheckout: boolean;
 };
 
 type Actions = {
@@ -106,6 +107,7 @@ type Actions = {
   setStorePhone: (s: string) => void;
   setStoreEmail: (s: string) => void;
   setWhatsappFooter: (s: string) => void;
+  setRequireCustomerBeforeCheckout: (v: boolean) => void;
 };
 
 export const useApp = create<State & Actions>((set, get) => ({
@@ -134,6 +136,7 @@ export const useApp = create<State & Actions>((set, get) => ({
   storePhone: "+91 98765 43210",
   storeEmail: "hello@orionpos.in",
   whatsappFooter: "Thank you for shopping. Visit Again.",
+  requireCustomerBeforeCheckout: false,
 
   setRole: (role) => set({ role }),
   setPaletteOpen: (paletteOpen) => set({ paletteOpen }),
@@ -270,6 +273,7 @@ export const useApp = create<State & Actions>((set, get) => ({
   setStorePhone: (storePhone) => set({ storePhone }),
   setStoreEmail: (storeEmail) => set({ storeEmail }),
   setWhatsappFooter: (whatsappFooter) => set({ whatsappFooter }),
+  setRequireCustomerBeforeCheckout: (requireCustomerBeforeCheckout) => set({ requireCustomerBeforeCheckout }),
 }));
 
 export const cartTotals = (cart: CartLine[]) => {

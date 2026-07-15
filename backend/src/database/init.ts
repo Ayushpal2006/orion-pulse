@@ -82,7 +82,8 @@ export async function initDb(): Promise<void> {
         ["google_sync_enabled", "0"],
         ["pdf_retention_period", "90 Days"],
         ["pdf_last_cleanup", "Never"],
-        ["logo", ""]
+        ["logo", ""],
+        ["require_customer_before_checkout", "0"]
       ];
 
       for (const [key, val] of seedSettings) {

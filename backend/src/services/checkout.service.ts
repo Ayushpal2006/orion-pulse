@@ -6,6 +6,7 @@ import { ValidationError, NotFoundError } from "../utils/errors";
 import { getStoreId } from "../db/context";
 import { getKolkataDateString } from "../utils/datetime";
 import { formatInTimeZone } from "date-fns-tz";
+import { settingsRepository } from "../repositories";
 
 const idempotencyCache = new Map<string, { timestamp: number; response: any }>();
 
@@ -51,7 +52,24 @@ export class CheckoutService {
   async executeCheckout(request: CheckoutRequest & { paymentDetails?: any; paidAmount?: number; balance?: number }): Promise<CheckoutResponse> {
     const storeId = getStoreId() || 1;
 
-    const idempotencyKey = `${storeId}-${request.customerPhone}-${request.paymentMethod}-${request.items
+    const requireCustomerSetting = await settingsRepository.get("require_customer_before_checkout", "0");
+    const requireCustomer = requireCustomerSetting === "1";
+
+    let phone = request.customerPhone;
+    let name = request.customerName;
+
+    if (requireCustomer) {
+      if (!phone || phone.trim() === "" || phone === "0000000000" || name === "Walk-in Customer") {
+        throw new ValidationError("Please select a customer before completing this sale.");
+      }
+    } else {
+      if (!phone || phone.trim() === "" || phone === "0000000000") {
+        phone = "0000000000";
+        name = "Walk-in Customer";
+      }
+    }
+
+    const idempotencyKey = `${storeId}-${phone}-${request.paymentMethod}-${request.items
       .map((i) => `${i.productId}:${i.quantity}`)
       .join(",")}`;
 
@@ -67,7 +85,7 @@ export class CheckoutService {
       let [customer] = await tx
         .select()
         .from(customers)
-        .where(and(eq(customers.phone, request.customerPhone), eq(customers.store_id, storeId)))
+        .where(and(eq(customers.phone, phone), eq(customers.store_id, storeId)))
         .limit(1);
 
       if (!customer) {
@@ -75,11 +93,11 @@ export class CheckoutService {
           .insert(customers)
           .values({
             store_id: storeId,
-            name: request.customerName || `Customer - ${request.customerPhone}`,
-            phone: request.customerPhone,
+            name: name || `Customer - ${phone}`,
+            phone: phone,
             email: null,
             address: null,
-            notes: "Auto-created during checkout",
+            notes: phone === "0000000000" ? "System Walk-in Customer" : "Auto-created during checkout",
             total_orders: 0,
             lifetime_value: 0,
             is_active: 1,
@@ -87,13 +105,13 @@ export class CheckoutService {
           .returning();
         customer = newCust;
       } else if (
-        request.customerName &&
-        request.customerName !== "Walk-in Customer" &&
+        name &&
+        name !== "Walk-in Customer" &&
         (customer.name.startsWith("Customer - ") || customer.name === "Walk-in Customer")
       ) {
         const [updatedCust] = await tx
           .update(customers)
-          .set({ name: request.customerName, updated_at: new Date() })
+          .set({ name: name, updated_at: new Date() })
           .where(eq(customers.id, customer.id))
           .returning();
         customer = updatedCust;
