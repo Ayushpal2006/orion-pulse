@@ -78,6 +78,7 @@ export class ReturnService {
 
       const returnInvoiceNumber = await this.generateNextReturnNumber(storeId, tx);
 
+      const syncProductsList: any[] = [];
       let returnSubtotal = 0;
       let returnGst = 0;
       let returnGrandTotal = 0;
@@ -133,10 +134,19 @@ export class ReturnService {
           const beforeStock = product.stock;
           const afterStock = beforeStock + retItem.quantity;
 
-          await tx
+          const [updatedProduct] = await tx
             .update(products)
             .set({ stock: afterStock, updated_at: new Date() })
-            .where(eq(products.id, retItem.productId));
+            .where(eq(products.id, retItem.productId))
+            .returning();
+
+          if (updatedProduct) {
+            syncProductsList.push({
+              ...updatedProduct,
+              created_at: updatedProduct.created_at.toISOString(),
+              updated_at: updatedProduct.updated_at.toISOString()
+            });
+          }
 
           // Log inventory movement (RETURN type)
           await tx.insert(inventory_logs).values({
@@ -180,8 +190,24 @@ export class ReturnService {
         returnInvoiceNumber,
         returnHeader,
         items: returnDetails,
+        syncProductsList,
       };
     });
+
+    if (result.syncProductsList && Array.isArray(result.syncProductsList)) {
+      try {
+        const { SyncQueueManager } = require("./sync.service");
+        for (const prod of result.syncProductsList) {
+          SyncQueueManager.getInstance().enqueue("product", prod);
+        }
+      } catch (e) {}
+    }
+
+    return {
+      returnInvoiceNumber: result.returnInvoiceNumber,
+      returnHeader: result.returnHeader,
+      items: result.items,
+    };
   }
 
   async getReturnsBySaleId(saleId: number): Promise<any[]> {

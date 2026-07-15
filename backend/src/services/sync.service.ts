@@ -176,6 +176,8 @@ export class SyncQueueManager {
 
       let tabName = "";
       let rowData: any[] = [];
+      let uniqueKey: string | null = null;
+      const keyColIndex = 0; // Column A is always index 0 (SKU/Phone)
 
       switch (jobType) {
         case "sale":
@@ -203,6 +205,7 @@ export class SyncQueueManager {
             Number(payload.lifetime_value ?? 0) / 100.0,
             payload.last_visit ? String(payload.last_visit) : ""
           ];
+          uniqueKey = payload.phone ?? "";
           break;
         case "product":
           tabName = "Products";
@@ -215,11 +218,45 @@ export class SyncQueueManager {
             Number(payload.gst ?? 18),
             payload.is_active !== undefined && payload.is_active !== null ? payload.is_active : 1
           ];
+          uniqueKey = payload.sku ?? "";
           break;
         default:
           return true;
       }
 
+      if (uniqueKey) {
+        // Query the sheets tab to see if record already exists
+        const res = await sheets.spreadsheets.values.get({
+          spreadsheetId,
+          range: `${tabName}!A:G`,
+        });
+        
+        const rows = res.data.values || [];
+        let existingRowIndex = -1;
+        
+        for (let i = 0; i < rows.length; i++) {
+          if (rows[i] && rows[i][keyColIndex] === uniqueKey) {
+            existingRowIndex = i + 1; // Sheets are 1-indexed
+            break;
+          }
+        }
+
+        if (existingRowIndex !== -1) {
+          // Update the matching row in-place
+          await sheets.spreadsheets.values.update({
+            spreadsheetId,
+            range: `${tabName}!A${existingRowIndex}`,
+            valueInputOption: "RAW",
+            requestBody: {
+              values: [rowData]
+            }
+          });
+          logger.info(`📝 Google Sheets: Updated row ${existingRowIndex} in tab "${tabName}" for key: ${uniqueKey}`);
+          return true;
+        }
+      }
+
+      // If it doesn't exist or is a transaction (like sale), append a new row
       await sheets.spreadsheets.values.append({
         spreadsheetId,
         range: `${tabName}!A:I`,
@@ -228,7 +265,7 @@ export class SyncQueueManager {
           values: [rowData]
         }
       });
-
+      logger.info(`➕ Google Sheets: Appended new row in tab "${tabName}"`);
       return true;
     } catch (err) {
       console.error(`Google Sheets upload failure on job ${jobType}:`, err);

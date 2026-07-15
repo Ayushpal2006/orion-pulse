@@ -173,66 +173,86 @@
   transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.3s ease;
 }
 
-/* Hide the print container under screen media */
-#orion-print-section {
+/* Hide the print container under normal screen media, unless we are on a print-page */
+body:not(.print-page) #orion-print-section {
   display: none;
+}
+
+/* Screen styling for the dedicated print preview page */
+body.print-page {
+  background-color: #f5f5f5;
+  color: #000000;
+  margin: 0;
+  padding: 0;
+  display: block;
+}
+
+body.print-page #orion-print-section {
+  display: block;
+  background: white;
+  width: 58mm;
+  margin: 20px auto;
+  padding: 3mm;
+  box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06);
+  box-sizing: border-box;
 }
 
 /* Cross-Platform Print Styling Rules */
 @media print {
-  /* Hide all elements on the screen except our print container, but only on normal pages */
+  @page {
+    size: 58mm auto;
+    margin: 0;
+  }
+
+  html,
+  body {
+    width: 58mm !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: white !important;
+    color: black !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Hide screen elements when printing from standard app pages (legacy flow) */
   body:not(.print-page) > :not(#orion-print-section) {
     display: none !important;
   }
-  
+
+  body.print-page #root {
+    display: block !important;
+    visibility: visible !important;
+    width: 58mm !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
   #orion-print-section,
   #orion-print-section * {
     display: block !important;
     visibility: visible !important;
+    background: white !important;
+    color: black !important;
+    box-shadow: none !important;
+    animation: none !important;
+    transform: none !important;
+    transition: none !important;
+    opacity: 1 !important;
   }
-  
+
   #orion-print-section {
-    position: relative;
-    width: 100%;
-    margin: 0;
-    padding: 0;
-    background: white !important;
-    color: black !important;
-    font-family: system-ui, -apple-system, sans-serif;
-  }
-
-  /* Support for dedicated print route page layout */
-  body.print-page {
-    background: white !important;
-    color: black !important;
-  }
-  
-  body.print-page #root {
-    display: block !important;
-    visibility: visible !important;
-    width: 100%;
-    margin: 0;
-    padding: 0;
-  }
-
-  /* Specific styles for thermal printer formats (58mm / 80mm) */
-  #orion-print-section.print-58mm,
-  #orion-print-section.print-80mm {
-    font-family: monospace !important;
-  }
-  
-  #orion-print-section.print-58mm * {
-    font-family: monospace !important;
-  }
-  
-  #orion-print-section.print-80mm * {
+    position: relative !important;
+    width: 58mm !important;
+    margin: 0 !important;
+    padding: 2mm !important;
+    box-sizing: border-box !important;
     font-family: monospace !important;
   }
 
-  /* Force background colors to print if needed */
-  * {
-    -webkit-print-color-adjust: exact !important;
-    print-color-adjust: exact !important;
+  /* Ensure monospace typography for receipts */
+  #orion-print-section * {
+    font-family: monospace !important;
   }
 }
 

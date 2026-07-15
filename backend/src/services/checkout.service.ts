@@ -106,6 +106,7 @@ export class CheckoutService {
       let subtotal = 0;
       let totalGst = 0;
       const processedItems: any[] = [];
+      const syncProductsList: any[] = [];
 
       for (const item of request.items) {
         // Lock product row for update to prevent concurrent race conditions
@@ -129,10 +130,17 @@ export class CheckoutService {
         const afterStock = beforeStock - item.quantity;
 
         // Update product stock
-        await tx
+        const [updatedProduct] = await tx
           .update(products)
           .set({ stock: afterStock, updated_at: new Date() })
-          .where(eq(products.id, product.id));
+          .where(eq(products.id, product.id))
+          .returning();
+
+        syncProductsList.push({
+          ...updatedProduct,
+          created_at: updatedProduct.created_at.toISOString(),
+          updated_at: updatedProduct.updated_at.toISOString()
+        });
 
         // Log inventory movement (SALE type)
         await tx.insert(inventory_logs).values({
@@ -210,7 +218,7 @@ export class CheckoutService {
       const updatedOrders = (customer.total_orders ?? 0) + 1;
       const updatedLtv = (customer.lifetime_value ?? 0) + grandTotal;
 
-      await tx
+      const [updatedCustomer] = await tx
         .update(customers)
         .set({
           total_orders: updatedOrders,
@@ -218,7 +226,8 @@ export class CheckoutService {
           last_visit: new Date(),
           updated_at: new Date(),
         })
-        .where(eq(customers.id, customer.id));
+        .where(eq(customers.id, customer.id))
+        .returning();
 
       return {
         success: true,
@@ -236,12 +245,21 @@ export class CheckoutService {
           sellingPrice: item.sellingPrice,
           lineTotal: item.lineTotal,
         })),
+        syncCustomer: {
+          ...updatedCustomer,
+          created_at: updatedCustomer.created_at.toISOString(),
+          updated_at: updatedCustomer.updated_at.toISOString(),
+          last_visit: updatedCustomer.last_visit ? updatedCustomer.last_visit.toISOString() : null
+        },
+        syncProducts: syncProductsList,
       };
     });
 
     // Enqueue background sync/notifications without blocking
     try {
       const { SyncQueueManager } = require("./sync.service");
+      
+      // A. Sale Sync
       const syncPayload = {
         invoiceNumber: result.invoice,
         date: formatInTimeZone(new Date(), "Asia/Kolkata", "yyyy-MM-dd"),
@@ -255,6 +273,18 @@ export class CheckoutService {
         publicToken: result.publicToken
       };
       SyncQueueManager.getInstance().enqueue("sale", syncPayload);
+
+      // B. Customer Sync
+      if (result.syncCustomer) {
+        SyncQueueManager.getInstance().enqueue("customer", result.syncCustomer);
+      }
+
+      // C. Products Sync
+      if (result.syncProducts && Array.isArray(result.syncProducts)) {
+        for (const prod of result.syncProducts) {
+          SyncQueueManager.getInstance().enqueue("product", prod);
+        }
+      }
     } catch (e) {
       // safe ignore if manager is uninitialized
     }

@@ -41,10 +41,11 @@ export class InventoryService {
       }
 
       // 1. Update product stock
-      await tx
+      const [updatedProduct] = await tx
         .update(products)
         .set({ stock: afterStock, updated_at: new Date() })
-        .where(eq(products.id, productId));
+        .where(eq(products.id, productId))
+        .returning();
 
       // 2. Insert into adjustments
       const [adjustment] = await tx
@@ -71,8 +72,21 @@ export class InventoryService {
         reference: `Manual Adjustment: ${reason}`,
       });
 
-      return adjustment;
+      return { adjustment, updatedProduct };
     });
+
+    if (result.updatedProduct) {
+      try {
+        const { SyncQueueManager } = require("./sync.service");
+        SyncQueueManager.getInstance().enqueue("product", {
+          ...result.updatedProduct,
+          created_at: result.updatedProduct.created_at.toISOString(),
+          updated_at: result.updatedProduct.updated_at.toISOString()
+        });
+      } catch (e) {}
+    }
+
+    return result.adjustment;
   }
 
   async getReorderSuggestions(): Promise<any[]> {

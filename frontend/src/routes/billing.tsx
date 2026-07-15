@@ -678,10 +678,6 @@ function SlipDialog({
     }
   };
 
-  const handlePrintPosPage = () => {
-    if (!receipt) return;
-    window.open(`/print/invoice/${receipt.invoiceNumber}?autoprint=true`, "_blank");
-  };
 
   const handlePrintPdf = async () => {
     if (!receipt) return;
@@ -836,9 +832,7 @@ function SlipDialog({
           <Button variant="outline" onClick={handlePrint} disabled={printing || isLoading} className="rounded-xl text-xs h-9">
             {printing ? "Printing…" : "🖨️ Print"}
           </Button>
-          <Button variant="outline" onClick={handlePrintPosPage} disabled={isLoading} className="rounded-xl text-xs h-9">
-            🖨️ Print Page
-          </Button>
+
           <Button variant="outline" onClick={handlePrintPdf} disabled={isLoading} className="rounded-xl text-xs h-9">
             📄 Print PDF
           </Button>

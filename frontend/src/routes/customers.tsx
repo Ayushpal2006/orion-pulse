@@ -23,8 +23,7 @@ import type { Customer } from "@/lib/mock-data";
 import { formatToKolkataDateTime, formatToKolkataDate, parseDbTimestamp } from "@/lib/datetime";
 import { toast } from "sonner";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { getCustomers, searchCustomers, deleteCustomerApi, getCustomerInvoices, getWhatsAppShareLink, getSalePublicLink, printSaleReceipt, getSaleReceipt, API_BASE_URL } from "@/lib/api";
-import { getPrintAdapter, isRunningOnWeb } from "@/lib/print-adapter";
+import { getCustomers, searchCustomers, deleteCustomerApi, getCustomerInvoices, getWhatsAppShareLink, getSalePublicLink, API_BASE_URL } from "@/lib/api";
 
 export const Route = createFileRoute("/customers")({
   head: () => ({
@@ -311,28 +310,7 @@ function CustomerDetail({
     }
   };
 
-  const handleReprint = async (invoiceNumber: string) => {
-    try {
-      const adapter = getPrintAdapter();
-      if (isRunningOnWeb()) {
-        const toastId = toast.loading("Fetching receipt details...");
-        try {
-          const receipt = await getSaleReceipt(invoiceNumber);
-          toast.dismiss(toastId);
-          await adapter.print(receipt);
-          toast.success("Receipt print dialog opened successfully!");
-        } catch (err: any) {
-          toast.dismiss(toastId);
-          throw err;
-        }
-      } else {
-        await adapter.print({ invoiceNumber });
-        toast.success("Thermal print triggered successfully!");
-      }
-    } catch (e: any) {
-      toast.error(e.message || "Failed to trigger print job");
-    }
-  };
+
 
   return (
     <div className="border-t border-border bg-muted/20 p-4 animate-fade-in">
@@ -418,13 +396,6 @@ function CustomerDetail({
                     variant="outline"
                     className="h-7 rounded-lg text-[11px] px-2.5"
                     onClick={() => window.open(`/print/invoice/${sale.invoice_number}?autoprint=true`, "_blank")}
-                  >
-                    <Printer className="size-3 mr-1" /> Print Page
-                  </Button>
-                  <Button
-                    variant="outline"
-                    className="h-7 rounded-lg text-[11px] px-2.5"
-                    onClick={() => handleReprint(sale.invoice_number)}
                   >
                     <Printer className="size-3 mr-1" /> Print Slip
                   </Button>

@@ -198,6 +198,7 @@ export class PurchaseService {
         .from(purchase_items)
         .where(eq(purchase_items.purchase_order_id, po.id));
 
+      const syncProductsList: any[] = [];
       let totalReceivedCost = 0;
       let hasPendingItems = false;
 
@@ -258,7 +259,7 @@ export class PurchaseService {
           const markup = item.purchase_price > 0 ? Math.round(((product.selling_price - item.purchase_price) / item.purchase_price) * 100) : 0;
 
           // Update product stock and costing
-          await tx
+          const [updatedProduct] = await tx
             .update(products)
             .set({
               stock: afterStock,
@@ -268,7 +269,16 @@ export class PurchaseService {
               markup_percent: markup,
               updated_at: new Date(),
             })
-            .where(eq(products.id, item.product_id));
+            .where(eq(products.id, item.product_id))
+            .returning();
+
+          if (updatedProduct) {
+            syncProductsList.push({
+              ...updatedProduct,
+              created_at: updatedProduct.created_at.toISOString(),
+              updated_at: updatedProduct.updated_at.toISOString()
+            });
+          }
 
           // Log inventory transaction (PURCHASE type)
           await tx.insert(inventory_logs).values({
@@ -331,8 +341,19 @@ export class PurchaseService {
         }
       }
 
-      return updatedPo;
+      return { updatedPo, syncProductsList };
     });
+
+    if (result.syncProductsList && Array.isArray(result.syncProductsList)) {
+      try {
+        const { SyncQueueManager } = require("./sync.service");
+        for (const prod of result.syncProductsList) {
+          SyncQueueManager.getInstance().enqueue("product", prod);
+        }
+      } catch (e) {}
+    }
+
+    return result.updatedPo;
   }
 
   async getAll(): Promise<any[]> {

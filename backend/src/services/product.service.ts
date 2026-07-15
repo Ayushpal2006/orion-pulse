@@ -113,7 +113,7 @@ export class ProductService {
     await this.repository.delete(id);
     try {
       const { SyncQueueManager } = require("./sync.service");
-      SyncQueueManager.getInstance().enqueue("product", { id, is_active: 0 });
+      SyncQueueManager.getInstance().enqueue("product", { ...existing, is_active: 0 });
     } catch (e) {}
   }
 
