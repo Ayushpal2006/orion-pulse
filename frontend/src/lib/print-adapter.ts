@@ -1,9 +1,50 @@
 import { inr } from "./format";
 import { useApp } from "./store";
-import { printSaleReceipt } from "./api";
+import { printSaleReceipt, downloadSalePdf } from "./api";
+import { toast } from "sonner";
 
 export interface PrintAdapter {
   print(receipt: any): Promise<void>;
+}
+
+export async function waitForReceiptResources(container: HTMLElement): Promise<void> {
+  // Wait for all images inside printSection to be loaded/decoded
+  const images = Array.from(container.querySelectorAll("img"));
+  const imagePromises = images.map((img) => {
+    if (img.complete) {
+      return Promise.resolve();
+    }
+    return new Promise<void>((resolve) => {
+      img.addEventListener("load", () => resolve(), { once: true });
+      img.addEventListener("error", () => resolve(), { once: true });
+    });
+  });
+  await Promise.all(imagePromises);
+
+  // Wait for all fonts to load
+  if (document.fonts && document.fonts.ready) {
+    await document.fonts.ready;
+  }
+
+  // Wait two animation frames to ensure browser finishes rendering / layout paint
+  await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+  await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+}
+
+export async function printPdfFallback(invoiceNumber: string): Promise<void> {
+  const toastId = toast.loading("Generating PDF receipt...");
+  try {
+    const blob = await downloadSalePdf(invoiceNumber);
+    const url = URL.createObjectURL(blob);
+    
+    // Open the PDF blob in a new window/tab so the user can invoke the print spooler
+    window.open(url, "_blank");
+    toast.dismiss(toastId);
+    toast.success("PDF generated successfully! Open options in browser to print.");
+  } catch (err: any) {
+    toast.dismiss(toastId);
+    toast.error("Failed to generate PDF fallback: " + (err.message || err));
+  }
 }
 
 export class BrowserPrintAdapter implements PrintAdapter {
@@ -11,7 +52,7 @@ export class BrowserPrintAdapter implements PrintAdapter {
     const state = useApp.getState();
     const paperWidth = state.paperWidth;
 
-    // Create the printing section container
+    // Create or reuse the printing section container
     let printSection = document.getElementById("orion-print-section");
     if (!printSection) {
       printSection = document.createElement("div");
@@ -39,47 +80,31 @@ export class BrowserPrintAdapter implements PrintAdapter {
 
     printSection.innerHTML = html;
 
-    // Inject temporary styles for page dimensions
-    const styleEl = document.createElement("style");
-    styleEl.id = "orion-print-style-inject";
+    // Inject/update styles for page dimensions
+    let styleEl = document.getElementById("orion-print-style-inject") as HTMLStyleElement;
+    if (!styleEl) {
+      styleEl = document.createElement("style");
+      styleEl.id = "orion-print-style-inject";
+      document.head.appendChild(styleEl);
+    }
+    
     if (paperWidth === "58mm") {
-      styleEl.innerHTML = `@page { size: 58mm auto; margin: 0; }`;
+      styleEl.innerHTML = `@media print { @page { size: 58mm auto; margin: 0; } }`;
     } else if (paperWidth === "80mm") {
-      styleEl.innerHTML = `@page { size: 80mm auto; margin: 0; }`;
+      styleEl.innerHTML = `@media print { @page { size: 80mm auto; margin: 0; } }`;
     } else {
-      styleEl.innerHTML = `@page { size: A4; margin: 15mm; }`;
-    }
-    document.head.appendChild(styleEl);
-
-    // Wait for all images inside printSection to be loaded/decoded
-    const images = Array.from(printSection.querySelectorAll("img"));
-    const imagePromises = images.map((img) => {
-      if (img.complete) {
-        return Promise.resolve();
-      }
-      return new Promise<void>((resolve) => {
-        img.addEventListener("load", () => resolve(), { once: true });
-        img.addEventListener("error", () => resolve(), { once: true });
-      });
-    });
-    await Promise.all(imagePromises);
-
-    // Wait for all fonts to load
-    if (document.fonts && document.fonts.ready) {
-      await document.fonts.ready;
+      styleEl.innerHTML = `@media print { @page { size: A4; margin: 15mm; } }`;
     }
 
-    // Wait one animation frame to ensure browser finishes rendering / layout paint
-    await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+    // Wait for all assets and paint cycles
+    await waitForReceiptResources(printSection);
 
     // Call window.print()
     window.print();
 
-    // Clean up temporary styles and container after printing
-    setTimeout(() => {
-      styleEl.remove();
-      if (printSection) printSection.remove();
-    }, 1000);
+    // DO NOT clean up or remove container/style elements immediately inside a timeout.
+    // Keeping them in the DOM avoids blank print previews on slow Android POS devices
+    // where window.print() returns before rendering is complete.
   }
 }
 
@@ -110,10 +135,10 @@ export function getPrintAdapter(): PrintAdapter {
   return new PosPrintAdapter();
 }
 
-function renderThermalHtml(receipt: any, width: string): string {
+export function renderThermalHtml(receipt: any, width: string): string {
   const is58 = width === "58mm";
   return `
-    <div class="thermal-receipt ${is58 ? 'w-58' : 'w-80'}" style="font-family: monospace; font-size: ${is58 ? '10px' : '12px'}; line-height: 1.3; color: black; padding: 2mm; background: white;">
+    <div class="thermal-receipt" style="width: ${width}; font-family: monospace; font-size: ${is58 ? '10px' : '12px'}; line-height: 1.3; color: black; padding: 2mm; background: white; box-sizing: border-box;">
       <div style="text-align: center; margin-bottom: 8px;">
         <div style="font-size: 1.2rem; font-weight: bold; text-transform: uppercase;">${receipt.shop.name}</div>
         <div style="font-size: 0.8em; margin-top: 2px;">${receipt.shop.address}</div>
@@ -195,7 +220,7 @@ function renderThermalHtml(receipt: any, width: string): string {
   `;
 }
 
-function renderA4Html(receipt: any): string {
+export function renderA4Html(receipt: any): string {
   return `
     <div class="a4-invoice" style="font-family: system-ui, -apple-system, sans-serif; color: #1e293b; padding: 20px; background: white; max-width: 800px; margin: 0 auto;">
       <!-- Invoice Header -->

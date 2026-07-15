@@ -12,7 +12,7 @@ import { inr } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { ParkedSalesPopover } from "@/components/parked-sales";
 import { getProducts, getCustomers, searchProducts, searchCustomers, checkout as checkoutApi, getSaleReceipt, printSaleReceipt, getWhatsAppShareLink, downloadSalePdf, getSalePublicLink, API_BASE_URL } from "@/lib/api";
-import { getPrintAdapter } from "@/lib/print-adapter";
+import { getPrintAdapter, printPdfFallback } from "@/lib/print-adapter";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -678,6 +678,20 @@ function SlipDialog({
     }
   };
 
+  const handlePrintPosPage = () => {
+    if (!receipt) return;
+    window.open(`/print/invoice/${receipt.invoiceNumber}?autoprint=true`, "_blank");
+  };
+
+  const handlePrintPdf = async () => {
+    if (!receipt) return;
+    try {
+      await printPdfFallback(receipt.invoiceNumber);
+    } catch (err: any) {
+      toast.error(err.message || "Failed to trigger PDF printing");
+    }
+  };
+
   const handleWhatsApp = async () => {
     if (!receipt || !receipt.customer.phone) return;
     try {
@@ -821,6 +835,12 @@ function SlipDialog({
         <div className="mt-2 grid grid-cols-2 gap-2">
           <Button variant="outline" onClick={handlePrint} disabled={printing || isLoading} className="rounded-xl text-xs h-9">
             {printing ? "Printing…" : "🖨️ Print"}
+          </Button>
+          <Button variant="outline" onClick={handlePrintPosPage} disabled={isLoading} className="rounded-xl text-xs h-9">
+            🖨️ Print Page
+          </Button>
+          <Button variant="outline" onClick={handlePrintPdf} disabled={isLoading} className="rounded-xl text-xs h-9">
+            📄 Print PDF
           </Button>
           <Button variant="outline" onClick={handleDownloadPdf} disabled={downloadingPdf || isLoading} className="rounded-xl text-xs h-9">
             {downloadingPdf ? "Generating…" : "📄 Download PDF"}

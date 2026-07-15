@@ -417,6 +417,13 @@ function CustomerDetail({
                   <Button
                     variant="outline"
                     className="h-7 rounded-lg text-[11px] px-2.5"
+                    onClick={() => window.open(`/print/invoice/${sale.invoice_number}?autoprint=true`, "_blank")}
+                  >
+                    <Printer className="size-3 mr-1" /> Print Page
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="h-7 rounded-lg text-[11px] px-2.5"
                     onClick={() => handleReprint(sale.invoice_number)}
                   >
                     <Printer className="size-3 mr-1" /> Print Slip

@@ -173,29 +173,46 @@
   transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.3s ease;
 }
 
+/* Hide the print container under screen media */
+#orion-print-section {
+  display: none;
+}
+
 /* Cross-Platform Print Styling Rules */
 @media print {
-  /* Hide all elements on the screen except our print container */
-  body > * {
+  /* Hide all elements on the screen except our print container, but only on normal pages */
+  body:not(.print-page) > :not(#orion-print-section) {
     display: none !important;
   }
   
-  body > #orion-print-section,
-  body > #orion-print-section * {
+  #orion-print-section,
+  #orion-print-section * {
     display: block !important;
     visibility: visible !important;
   }
   
-  body > #orion-print-section {
-    position: absolute;
-    left: 0;
-    top: 0;
+  #orion-print-section {
+    position: relative;
     width: 100%;
     margin: 0;
     padding: 0;
     background: white !important;
     color: black !important;
     font-family: system-ui, -apple-system, sans-serif;
+  }
+
+  /* Support for dedicated print route page layout */
+  body.print-page {
+    background: white !important;
+    color: black !important;
+  }
+  
+  body.print-page #root {
+    display: block !important;
+    visibility: visible !important;
+    width: 100%;
+    margin: 0;
+    padding: 0;
   }
 
   /* Specific styles for thermal printer formats (58mm / 80mm) */
