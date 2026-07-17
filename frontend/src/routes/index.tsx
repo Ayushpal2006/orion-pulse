@@ -291,7 +291,14 @@ function Dashboard() {
                     {inv.payment ? inv.payment[0] : "—"}
                   </div>
                   <div>
-                    <div className="font-medium text-foreground">{inv.invoiceNumber}</div>
+                    <div className="font-medium text-foreground flex items-center gap-2">
+                      {inv.invoiceNumber}
+                      {inv.status === "VOID" && (
+                        <span className="rounded-full bg-rose-500/10 px-2 py-0.5 text-[9px] font-bold text-rose-500 uppercase">
+                          VOID
+                        </span>
+                      )}
+                    </div>
                     <div className="text-xs text-muted-foreground">
                       {formatToKolkataDateTime(inv.time)} · {inv.customer}
                     </div>

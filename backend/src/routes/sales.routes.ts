@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { SalesController } from "../controllers/sales.controller";
 import { ReturnController } from "../controllers/return.controller";
+import { authorize } from "../middleware/auth.middleware";
 
 const router = Router();
 const controller = new SalesController();
@@ -29,6 +30,9 @@ router.get("/:id/pdf", controller.getPdfReceipt);
 
 // POST process sale return
 router.post("/:id/return", returnController.processReturn);
+
+// POST void sale
+router.post("/:id/void", authorize("admin", "manager"), controller.voidInvoice);
 
 // GET sale returns list
 router.get("/:id/returns", returnController.getReturnsBySale);

@@ -16,6 +16,7 @@ import { useCan } from "@/components/role-gate";
 import { cn } from "@/lib/utils";
 import type { DateRange } from "react-day-picker";
 import { getReportsData, API_BASE_URL } from "@/lib/api";
+import { SlipDialog } from "./billing";
 
 export const Route = createFileRoute("/reports")({
   head: () => ({
@@ -53,6 +54,8 @@ function Reports() {
   const canProfit = useCan(["Admin", "Manager"]);
   const [filter, setFilter] = useState<Filter>("last7");
   const [range, setRange] = useState<DateRange | undefined>();
+  const [showVoidInvoices, setShowVoidInvoices] = useState(false);
+  const [selectedInvoice, setSelectedInvoice] = useState<any>(null);
 
   // Format dates for backend custom queries
   const startDateStr = (filter === "custom" && range?.from) ? format(range.from, "yyyy-MM-dd") : undefined;
@@ -60,8 +63,8 @@ function Reports() {
 
   // Fetch reports data from SQLite
   const { data: reports, isLoading, isError, refetch } = useQuery({
-    queryKey: ["reports", filter, startDateStr, endDateStr],
-    queryFn: () => getReportsData(filter, startDateStr, endDateStr),
+    queryKey: ["reports", filter, startDateStr, endDateStr, showVoidInvoices],
+    queryFn: () => getReportsData(filter, startDateStr, endDateStr, showVoidInvoices),
   });
 
   const handleExport = (type: "pdf" | "excel") => {
@@ -69,6 +72,7 @@ function Reports() {
     q.append("filter", filter);
     if (startDateStr) q.append("startDate", startDateStr);
     if (endDateStr) q.append("endDate", endDateStr);
+    if (showVoidInvoices) q.append("showVoidInvoices", "true");
     window.open(`${API_BASE_URL}/reports/${type}?${q.toString()}`, "_blank");
   };
 
@@ -148,6 +152,19 @@ function Reports() {
             {f.label}
           </button>
         ))}
+
+        <div className="ml-auto flex items-center gap-2 px-3 py-1">
+          <input
+            type="checkbox"
+            id="show-void-invoices"
+            checked={showVoidInvoices}
+            onChange={(e) => setShowVoidInvoices(e.target.checked)}
+            className="rounded border-border bg-surface text-primary focus:ring-primary size-4"
+          />
+          <label htmlFor="show-void-invoices" className="text-xs font-semibold text-muted-foreground select-none cursor-pointer">
+            Show Void Invoices
+          </label>
+        </div>
         <Popover>
           <PopoverTrigger asChild>
             <button
@@ -325,9 +342,22 @@ function Reports() {
                   </tr>
                 ) : (
                   recentInvoices.map((i: any) => (
-                    <tr key={i.id}>
-                      <td className="px-4 py-3 font-medium text-foreground">{i.id}</td>
-                      <td className="px-4 py-3 text-muted-foreground">{i.date}</td>
+                    <tr 
+                      key={i.id}
+                      onClick={() => setSelectedInvoice({ invoice: i.invoiceNumber })}
+                      className="cursor-pointer hover:bg-muted/40 transition-colors"
+                    >
+                      <td className="px-4 py-3 font-medium text-foreground flex items-center gap-2">
+                        {i.invoiceNumber}
+                        {i.status === "VOID" && (
+                          <span className="rounded-full bg-rose-500/10 px-2 py-0.5 text-[9px] font-bold text-rose-500 uppercase">
+                            VOID
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-muted-foreground">
+                        {format(new Date(i.date), "dd MMM yyyy hh:mm a")}
+                      </td>
                       <td className="px-4 py-3 text-muted-foreground">{i.payment}</td>
                       <td className="px-4 py-3 text-right tabular font-semibold text-foreground">{inr(i.total)}</td>
                     </tr>
@@ -387,6 +417,13 @@ function Reports() {
           </div>
         </TabsContent>
       </Tabs>
+      {selectedInvoice && (
+        <SlipDialog
+          open={!!selectedInvoice}
+          onClose={() => setSelectedInvoice(null)}
+          result={selectedInvoice}
+        />
+      )}
     </div>
   );
 }

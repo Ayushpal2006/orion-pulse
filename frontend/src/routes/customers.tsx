@@ -24,6 +24,7 @@ import { formatToKolkataDateTime, formatToKolkataDate, parseDbTimestamp } from "
 import { toast } from "sonner";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { getCustomers, searchCustomers, deleteCustomerApi, getCustomerInvoices, getWhatsAppShareLink, getSalePublicLink, API_BASE_URL } from "@/lib/api";
+import { SlipDialog } from "./billing";
 
 export const Route = createFileRoute("/customers")({
   head: () => ({
@@ -296,6 +297,7 @@ function CustomerDetail({
   onDelete: () => void;
   onSaved: () => void;
 }) {
+  const [selectedInvoice, setSelectedInvoice] = useState<any>(null);
   const { data: sales = [], isLoading } = useQuery({
     queryKey: ["customer-invoices", customer.id],
     queryFn: () => getCustomerInvoices(customer.id),
@@ -361,7 +363,14 @@ function CustomerDetail({
               </div>
               <div className="flex-1 rounded-xl border border-border bg-elevated p-3 space-y-2 shadow-sm">
                 <div className="flex items-center justify-between">
-                  <div className="text-sm font-semibold text-foreground">{sale.invoice_number}</div>
+                  <div className="text-sm font-semibold text-foreground flex items-center gap-2">
+                    {sale.invoice_number}
+                    {sale.status === "VOID" && (
+                      <span className="rounded-full bg-rose-500/10 px-2 py-0.5 text-[9px] font-bold text-rose-500 uppercase">
+                        VOID
+                      </span>
+                    )}
+                  </div>
                   <div className="tabular text-sm font-bold text-foreground">{inr((sale.grand_total ?? 0) / 100)}</div>
                 </div>
                 <div className="text-xs text-muted-foreground">
@@ -380,30 +389,23 @@ function CustomerDetail({
                   )}
                   <Button
                     variant="outline"
-                    className="h-7 rounded-lg text-[11px] px-2.5"
-                    onClick={() => handleWhatsApp(sale.invoice_number)}
+                    className="h-7 rounded-lg text-[11px] px-2.5 font-bold"
+                    onClick={() => setSelectedInvoice({ invoice: sale.invoice_number })}
                   >
-                    💬 WhatsApp
-                  </Button>
-                  <Button
-                    variant="outline"
-                    className="h-7 rounded-lg text-[11px] px-2.5"
-                    onClick={() => window.open(`${API_BASE_URL}/sales/${sale.invoice_number}/pdf`, "_blank")}
-                  >
-                    <FileText className="size-3 mr-1" /> PDF Slip
-                  </Button>
-                  <Button
-                    variant="outline"
-                    className="h-7 rounded-lg text-[11px] px-2.5"
-                    onClick={() => window.open(`/print/invoice/${sale.invoice_number}?autoprint=true`, "_blank")}
-                  >
-                    <Printer className="size-3 mr-1" /> Print Slip
+                    ⚙️ Actions
                   </Button>
                 </div>
               </div>
             </li>
           ))}
         </ol>
+      )}
+      {selectedInvoice && (
+        <SlipDialog
+          open={!!selectedInvoice}
+          onClose={() => setSelectedInvoice(null)}
+          result={selectedInvoice}
+        />
       )}
     </div>
   );

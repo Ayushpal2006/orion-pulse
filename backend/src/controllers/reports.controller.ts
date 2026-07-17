@@ -19,8 +19,9 @@ export class ReportsController {
       const filter = String(req.query.filter || "last7");
       const startDate = req.query.startDate ? String(req.query.startDate) : undefined;
       const endDate = req.query.endDate ? String(req.query.endDate) : undefined;
+      const showVoid = req.query.showVoidInvoices === "true";
 
-      const data = await this.service.getReportsData(filter, startDate, endDate);
+      const data = await this.service.getReportsData(filter, startDate, endDate, showVoid);
       res.status(200).json({
         success: true,
         data,
@@ -36,8 +37,9 @@ export class ReportsController {
       const filter = String(req.query.filter || "last7");
       const startDate = req.query.startDate ? String(req.query.startDate) : undefined;
       const endDate = req.query.endDate ? String(req.query.endDate) : undefined;
+      const showVoid = req.query.showVoidInvoices === "true";
 
-      const data = await this.service.getReportsData(filter, startDate, endDate);
+      const data = await this.service.getReportsData(filter, startDate, endDate, showVoid);
       const todayStr = new Date().toISOString().substring(0, 10);
       const filename = `Report-${todayStr}.pdf`;
 
@@ -245,13 +247,14 @@ export class ReportsController {
       const filter = String(req.query.filter || "last7");
       const startDate = req.query.startDate ? String(req.query.startDate) : undefined;
       const endDate = req.query.endDate ? String(req.query.endDate) : undefined;
+      const showVoid = req.query.showVoidInvoices === "true";
 
-      const data = await this.service.getReportsData(filter, startDate, endDate);
+      const data = await this.service.getReportsData(filter, startDate, endDate, showVoid);
       const todayStr = new Date().toISOString().substring(0, 10);
       const filename = `Report-${todayStr}.xlsx`;
 
       // 1. Fetch Sales list in selected period
-      const salesRows = await this.saleRepo.getSalesExport(filter, startDate, endDate);
+      const salesRows = await this.saleRepo.getSalesExport(filter, startDate, endDate, showVoid);
 
       // 2. Fetch Active Customers
       const customersRows = await this.customerRepo.getCustomersExport();

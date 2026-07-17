@@ -30,6 +30,10 @@ export interface Sale {
   pdf_url?: string;
   shared_at?: string;
   created_at: string;
+  status: string;
+  void_reason?: string | null;
+  voided_by?: string | null;
+  voided_at?: string | null;
 }
 
 export interface SaleItem {

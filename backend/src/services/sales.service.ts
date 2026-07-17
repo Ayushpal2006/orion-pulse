@@ -3,6 +3,10 @@ import { NotFoundError } from "../utils/errors";
 import { Sale, SaleDetailResponse } from "../types/checkout.types";
 import { formatToKolkataDate, formatToKolkataTime } from "../utils/datetime";
 import QRCode from "qrcode";
+import { db } from "../db";
+import { sales, sale_items, products, customers, audit_logs, inventory_logs } from "../db/schema";
+import { eq, and } from "drizzle-orm";
+import { SyncQueueManager } from "./sync.service";
 
 export interface ReceiptResponse {
   invoiceNumber: string;
@@ -39,6 +43,10 @@ export interface ReceiptResponse {
   publicToken: string;
   pdfUrl: string;
   upiQrCode?: string;
+  status?: string;
+  voidReason?: string;
+  voidedBy?: string;
+  voidedAt?: string;
 }
 
 export class SalesService {
@@ -205,6 +213,159 @@ export class SalesService {
       publicToken: sale.public_token || "",
       pdfUrl: sale.pdf_url || "",
       upiQrCode,
+      status: sale.status,
+      voidReason: sale.void_reason ?? undefined,
+      voidedBy: sale.voided_by ?? undefined,
+      voidedAt: sale.voided_at ? sale.voided_at.toISOString() : undefined,
     };
   }
+
+  async voidInvoice(saleId: number, reason: string, voidedBy: string, userId: number): Promise<any> {
+    const result = await db.transaction(async (tx) => {
+      // 1. Fetch sale with lock for update
+      const [sale] = await tx
+        .select()
+        .from(sales)
+        .where(eq(sales.id, saleId))
+        .for("update");
+
+      if (!sale) {
+        throw new Error("Invoice not found");
+      }
+
+      if (sale.status === "VOID") {
+        throw new Error("Invoice is already voided");
+      }
+
+      const storeId = sale.store_id;
+
+      // 2. Fetch sale items
+      const items = await tx
+        .select()
+        .from(sale_items)
+        .where(eq(sale_items.sale_id, saleId));
+
+      // 3. Restore inventory stock & log inventory movement
+      const syncProductsList: any[] = [];
+      for (const item of items) {
+        const [product] = await tx
+          .select()
+          .from(products)
+          .where(and(eq(products.id, item.product_id), eq(products.store_id, storeId)))
+          .for("update");
+
+        if (product) {
+          const beforeStock = product.stock;
+          const afterStock = beforeStock + item.quantity;
+
+          // Update stock
+          const [updatedProduct] = await tx
+            .update(products)
+            .set({ stock: afterStock, updated_at: new Date() })
+            .where(eq(products.id, product.id))
+            .returning();
+
+          syncProductsList.push(updatedProduct);
+
+          // Log inventory movement (VOID type)
+          await tx.insert(inventory_logs).values({
+            product_id: product.id,
+            store_id: storeId,
+            type: "VOID",
+            quantity: item.quantity,
+            before_stock: beforeStock,
+            after_stock: afterStock,
+            reference: sale.invoice_number,
+          });
+        }
+      }
+
+      // 4. Reverse customer orders & lifetime spend
+      let updatedCustomer = null;
+      if (sale.customer_id) {
+        const [customer] = await tx
+          .select()
+          .from(customers)
+          .where(and(eq(customers.id, sale.customer_id), eq(customers.store_id, storeId)))
+          .for("update");
+
+        if (customer && customer.phone !== "0000000000") {
+          const [cust] = await tx
+            .update(customers)
+            .set({
+              total_orders: Math.max(0, customer.total_orders - 1),
+              lifetime_value: Math.max(0, customer.lifetime_value - sale.grand_total),
+              updated_at: new Date(),
+            })
+            .where(eq(customers.id, customer.id))
+            .returning();
+          updatedCustomer = cust;
+        }
+      }
+
+      // 5. Update status in sales table
+      const [updatedSale] = await tx
+        .update(sales)
+        .set({
+          status: "VOID",
+          void_reason: reason,
+          voided_by: voidedBy,
+          voided_at: new Date(),
+        })
+        .where(eq(sales.id, saleId))
+        .returning();
+
+      // 6. Add to audit_logs
+      await tx.insert(audit_logs).values({
+        store_id: storeId,
+        user_id: userId,
+        action: "INVOICE_VOID",
+        details: `${voidedBy} voided Invoice ${sale.invoice_number}. Reason: ${reason}`,
+      });
+
+      return {
+        sale: updatedSale,
+        customer: updatedCustomer,
+        products: syncProductsList,
+      };
+    });
+
+    // 7. Enqueue Google Sheets Sync jobs
+    try {
+      const syncEnabled = (await settingsRepository.get("google_sync_enabled", "0")) === "1";
+      if (syncEnabled) {
+        const formattedDate = formatToKolkataDate(result.sale.created_at);
+        const formattedTime = formatToKolkataTime(result.sale.created_at);
+        
+        SyncQueueManager.getInstance().enqueue("sale", {
+          invoiceNumber: result.sale.invoice_number,
+          date: formattedDate,
+          time: formattedTime,
+          cashier: result.sale.cashier_name,
+          paymentMethod: result.sale.payment_method,
+          subtotal: result.sale.subtotal / 100.0,
+          discount: result.sale.discount / 100.0,
+          gst: result.sale.gst / 100.0,
+          grandTotal: result.sale.grand_total / 100.0,
+          publicToken: result.sale.public_token,
+          status: "VOID",
+          voidReason: reason,
+          voidDate: formatToKolkataDate(result.sale.voided_at!),
+          voidTime: formatToKolkataTime(result.sale.voided_at!),
+          voidBy: voidedBy,
+        });
+
+        if (result.customer) {
+          SyncQueueManager.getInstance().enqueue("customer", result.customer);
+        }
+
+        for (const prod of result.products) {
+          SyncQueueManager.getInstance().enqueue("product", prod);
+        }
+      }
+    } catch (e) {
+      console.error("❌ Failed to enqueue Google Sheets sync jobs on invoice void:", e);
+    }
+
+    return result;
 }

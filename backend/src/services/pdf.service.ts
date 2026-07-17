@@ -77,8 +77,17 @@ export class PdfService {
         doc.font("Outfit").fillColor("#000000").text(`Invoice Number: ${receipt.invoiceNumber}`, 350, metaY + 14);
         doc.text(`Date & Time: ${receipt.date} ${receipt.time}`, 350, metaY + 26);
         doc.text(`Cashier: ${receipt.cashier}`, 350, metaY + 38);
+        if (receipt.status === "VOID") {
+          doc.font("Outfit-Bold").fillColor("#ef4444").text("STATUS: VOID", 350, metaY + 50);
+          doc.font("Outfit").fillColor("#ef4444").text(`Reason: ${receipt.voidReason || "N/A"}`, 350, metaY + 62);
+          doc.text(`Voided By: ${receipt.voidedBy || "N/A"}`, 350, metaY + 74);
+          doc.text(`Voided At: ${receipt.voidedAt ? new Date(receipt.voidedAt).toLocaleDateString("en-IN") + " " + new Date(receipt.voidedAt).toLocaleTimeString("en-IN") : "N/A"}`, 350, metaY + 86);
+          doc.fillColor("#000000"); // Reset color
+        }
 
-        doc.moveDown(4.5);
+        const detailsBottomY = receipt.status === "VOID" ? metaY + 105 : doc.y;
+        doc.y = Math.max(doc.y, detailsBottomY);
+        doc.moveDown(0.5);
 
         // Table Header
         const tableY = doc.y;
@@ -133,10 +142,9 @@ export class PdfService {
         doc.font("Outfit-Bold").fontSize(11).fillColor(primaryColor).text("Grand Total:", 350, totalsY + 48);
         doc.text(`${currencySymbol} ${receipt.grandTotal.toFixed(2)}`, 475, totalsY + 48, { align: "right", width: 75 });
 
-        // Left side payment summary
         doc.font("Outfit-Bold").fontSize(9).fillColor(primaryColor).text("PAYMENT DETAILS", 40, totalsY);
         doc.font("Outfit").fillColor("#000000").text(`Method: ${receipt.paymentMethod}`, 40, totalsY + 14);
-        doc.text(`Status: Paid`, 40, totalsY + 26);
+        doc.text(`Status: ${receipt.status === "VOID" ? "VOID (Cancelled)" : "Paid"}`, 40, totalsY + 26);
         if (receipt.paymentMethod === "UPI") {
           doc.text(`UPI ID: ${receipt.shop.upiId}`, 40, totalsY + 38, { width: 170 });
           
@@ -174,6 +182,16 @@ export class PdfService {
         const range = doc.bufferedPageRange();
         for (let i = range.start; i < range.start + range.count; i++) {
           doc.switchToPage(i);
+          
+          // Draw VOID watermark diagonally behind text
+          if (receipt.status === "VOID") {
+            doc.save();
+            doc.fontSize(100).font("Outfit-Bold").fillColor("#ef4444").opacity(0.08);
+            doc.rotate(-30, { origin: [300, 420] });
+            doc.text("VOID", 150, 400, { width: 300, align: "center" });
+            doc.restore();
+          }
+
           doc.fontSize(8).font("Outfit").fillColor("#94a3b8");
           doc.text(`Page ${i + 1} of ${range.count}`, 40, 800, { align: "center", width: 515 });
         }

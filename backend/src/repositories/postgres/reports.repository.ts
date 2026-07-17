@@ -1,14 +1,21 @@
 import { IReportsRepository } from "../interfaces/IReportsRepository";
 import { db } from "../../db";
 import { sales, sale_items, products, customers } from "../../db/schema";
-import { eq, and, desc, sql, gte, lte } from "drizzle-orm";
+import { eq, and, desc, sql, gte, lte, ne } from "drizzle-orm";
 import { getStoreId } from "../../db/context";
 import { getUtcBoundariesForFilter } from "../../utils/datetime";
 
 export class PostgresReportsRepository implements IReportsRepository {
   private getDateCondition(column: any, filter: string, startDate?: string, endDate?: string) {
+    return this.getReportCondition(column, filter, startDate, endDate, false);
+  }
+
+  private getReportCondition(column: any, filter: string, startDate?: string, endDate?: string, showVoid: boolean = false) {
     const { start, end } = getUtcBoundariesForFilter(filter, startDate, endDate);
-    return and(gte(column, start), lte(column, end));
+    if (showVoid) {
+      return and(gte(column, start), lte(column, end));
+    }
+    return and(gte(column, start), lte(column, end), ne(sales.status, "VOID"));
   }
 
   async getSummary(
@@ -333,11 +340,12 @@ export class PostgresReportsRepository implements IReportsRepository {
     filter: string,
     startDate?: string,
     endDate?: string,
+    showVoid: boolean = false,
     tx?: any
   ): Promise<any[]> {
     const client = tx || db;
     const storeId = getStoreId();
-    let cond = this.getDateCondition(sales.created_at, filter, startDate, endDate);
+    let cond = this.getReportCondition(sales.created_at, filter, startDate, endDate, showVoid);
     if (storeId !== undefined) {
       cond = and(cond, eq(sales.store_id, storeId)) as any;
     }
@@ -351,6 +359,7 @@ export class PostgresReportsRepository implements IReportsRepository {
         paymentMethod: sales.payment_method,
         grandTotal: sales.grand_total,
         pdfUrl: sales.pdf_url,
+        status: sales.status,
       })
       .from(sales)
       .leftJoin(customers, eq(sales.customer_id, customers.id))

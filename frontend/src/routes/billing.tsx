@@ -752,6 +752,13 @@ export function SlipDialog({
   const invoiceId = result?.invoice;
   const [printing, setPrinting] = useState(false);
   const [downloadingPdf, setDownloadingPdf] = useState(false);
+  const [voidDialogOpen, setVoidDialogOpen] = useState(false);
+  const [voidReason, setVoidReason] = useState("");
+  const [voiding, setVoiding] = useState(false);
+
+  const queryClient = useQueryClient();
+  const role = useApp((s) => s.role);
+  const canVoid = role === "Admin" || role === "Manager";
 
   const { data: receipt, isLoading } = useQuery({
     queryKey: ["receipt", invoiceId],
@@ -828,6 +835,39 @@ export function SlipDialog({
     });
   };
 
+  const handleVoidInvoice = async () => {
+    if (!voidReason) {
+      toast.error("Please select a reason to void the invoice");
+      return;
+    }
+    setVoiding(true);
+    try {
+      const res = await fetch(`${API_BASE_URL}/invoices/${receipt.invoiceNumber}/void`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${localStorage.getItem("token") || ""}`,
+        },
+        body: JSON.stringify({ reason: voidReason }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || "Failed to void invoice");
+      }
+      toast.success("Invoice voided successfully");
+      setVoidDialogOpen(false);
+      
+      queryClient.invalidateQueries({ queryKey: ["receipt", invoiceId] });
+      queryClient.invalidateQueries({ queryKey: ["reports"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      queryClient.invalidateQueries({ queryKey: ["customer-invoices"] });
+    } catch (err: any) {
+      toast.error(err.message || "Failed to void invoice");
+    } finally {
+      setVoiding(false);
+    }
+  };
+
   if (!result) return null;
 
   if (isLoading || !receipt) {
@@ -843,129 +883,203 @@ export function SlipDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle className="text-center font-mono">Orion POS Receipt</DialogTitle>
-        </DialogHeader>
+    <>
+      <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-center font-mono">Orion POS Receipt</DialogTitle>
+          </DialogHeader>
 
-        {/* 58mm Thermal Receipt Preview Layout */}
-        <div className="mx-auto w-[280px] border border-neutral-300 bg-white p-4 font-mono text-[11px] leading-relaxed text-black shadow-inner">
-          <div className="text-center">
-            <div className="text-sm font-bold uppercase tracking-wider">{receipt.shop.name}</div>
-            <div className="text-[9px] text-neutral-500">{receipt.shop.address}</div>
-            <div className="text-[9px] text-neutral-500">PH: {receipt.shop.phone}</div>
-            <div className="text-[9px] text-neutral-500">GSTIN: {receipt.shop.gstin}</div>
-          </div>
-
-          <div className="my-2 border-t border-dashed border-neutral-300" />
-
-          <div>
-            <div>INV: {receipt.invoiceNumber}</div>
-            <div>DATE: {receipt.date} {receipt.time}</div>
-            <div>CASHIER: {receipt.cashier}</div>
-            <div>CUSTOMER: {receipt.customer.name}</div>
-            {receipt.customer.phone && <div>PHONE: +91 {receipt.customer.phone}</div>}
-          </div>
-
-          <div className="my-2 border-t border-dashed border-neutral-300" />
-
-          {/* Items Grid */}
-          <div className="space-y-1">
-            {receipt.items.map((item: any, idx: number) => (
-              <div key={idx} className="flex justify-between">
-                <span className="truncate pr-2">
-                  {item.qty}x {item.name}
-                </span>
-                <span className="tabular">{inr(item.lineTotal)}</span>
+          {/* 58mm Thermal Receipt Preview Layout */}
+          <div className="mx-auto w-[280px] border border-neutral-300 bg-white p-4 font-mono text-[11px] leading-relaxed text-black shadow-inner relative overflow-hidden">
+            
+            {/* Watermark for VOID invoices */}
+            {receipt.status === "VOID" && (
+              <div 
+                className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 -rotate-[30deg] font-black pointer-events-none select-none z-50 text-center uppercase tracking-widest text-red-500/15 border-4 border-red-500/15 rounded-xl px-4 py-1"
+                style={{ fontSize: "36px" }}
+              >
+                VOID
               </div>
-            ))}
-          </div>
+            )}
 
-          <div className="my-2 border-t border-dashed border-neutral-300" />
-
-          {/* Summary Breakdown */}
-          <div className="flex justify-between tabular">
-            <span>Subtotal</span>
-            <span>{inr(receipt.subtotal)}</span>
-          </div>
-          <div className="flex justify-between tabular text-neutral-500">
-            <span>Discount</span>
-            <span>− {inr(receipt.discount)}</span>
-          </div>
-          <div className="flex justify-between tabular text-neutral-500">
-            <span>GST</span>
-            <span>{inr(receipt.gst)}</span>
-          </div>
-
-          <div className="my-1 border-t border-dashed border-neutral-300" />
-
-          <div className="flex justify-between text-sm font-bold tabular">
-            <span>TOTAL</span>
-            <span>{inr(receipt.grandTotal)}</span>
-          </div>
-
-          <div className="my-2 border-t border-dashed border-neutral-300" />
-
-          <div className="text-center">Paid via {receipt.paymentMethod}</div>
-
-          {receipt.paymentMethod === "UPI" && (
-            <div className="mt-3 flex flex-col items-center gap-1">
-              <div className="rounded border border-neutral-200 bg-white p-2">
-                <QRCodeSVG value={receipt.upiPayload} size={80} />
-              </div>
-              <div className="text-[9px] text-neutral-500">Scan to pay via UPI</div>
+            <div className="text-center">
+              <div className="text-sm font-bold uppercase tracking-wider">{receipt.shop.name}</div>
+              <div className="text-[9px] text-neutral-500">{receipt.shop.address}</div>
+              <div className="text-[9px] text-neutral-500">PH: {receipt.shop.phone}</div>
+              <div className="text-[9px] text-neutral-500">GSTIN: {receipt.shop.gstin}</div>
             </div>
-          )}
 
-          <div className="mt-3 text-center text-[10px] text-neutral-500 font-bold">
-            {receipt.thankYouMessage}
+            <div className="my-2 border-t border-dashed border-neutral-300" />
+
+            <div>
+              <div>INV: {receipt.invoiceNumber}</div>
+              <div>DATE: {receipt.date} {receipt.time}</div>
+              <div>CASHIER: {receipt.cashier}</div>
+              <div>CUSTOMER: {receipt.customer.name}</div>
+              {receipt.customer.phone && <div>PHONE: +91 {receipt.customer.phone}</div>}
+              {receipt.status === "VOID" && (
+                <div className="text-red-600 font-bold mt-1 text-[10px] space-y-0.5 border border-red-500/30 bg-red-50 p-1.5 rounded-lg">
+                  <div>STATUS: VOID</div>
+                  <div>REASON: {receipt.voidReason}</div>
+                  <div>VOIDED BY: {receipt.voidedBy}</div>
+                  {receipt.voidedAt && <div>VOIDED AT: {new Date(receipt.voidedAt).toLocaleString("en-IN")}</div>}
+                </div>
+              )}
+            </div>
+
+            <div className="my-2 border-t border-dashed border-neutral-300" />
+
+            {/* Items Grid */}
+            <div className="space-y-1">
+              {receipt.items.map((item: any, idx: number) => (
+                <div key={idx} className="flex justify-between">
+                  <span className="truncate pr-2">
+                    {item.qty}x {item.name}
+                  </span>
+                  <span className="tabular">{inr(item.lineTotal)}</span>
+                </div>
+              ))}
+            </div>
+
+            <div className="my-2 border-t border-dashed border-neutral-300" />
+
+            {/* Summary Breakdown */}
+            <div className="flex justify-between tabular">
+              <span>Subtotal</span>
+              <span>{inr(receipt.subtotal)}</span>
+            </div>
+            <div className="flex justify-between tabular text-neutral-500">
+              <span>Discount</span>
+              <span>− {inr(receipt.discount)}</span>
+            </div>
+            <div className="flex justify-between tabular text-neutral-500">
+              <span>GST</span>
+              <span>{inr(receipt.gst)}</span>
+            </div>
+
+            <div className="my-1 border-t border-dashed border-neutral-300" />
+
+            <div className="flex justify-between text-sm font-bold tabular">
+              <span>TOTAL</span>
+              <span>{inr(receipt.grandTotal)}</span>
+            </div>
+
+            <div className="my-2 border-t border-dashed border-neutral-300" />
+
+            <div className="text-center">Paid via {receipt.paymentMethod}</div>
+
+            {receipt.paymentMethod === "UPI" && receipt.status !== "VOID" && (
+              <div className="mt-3 flex flex-col items-center gap-1">
+                <div className="rounded border border-neutral-200 bg-white p-2">
+                  <QRCodeSVG value={receipt.upiPayload} size={80} />
+                </div>
+                <div className="text-[9px] text-neutral-500">Scan to pay via UPI</div>
+              </div>
+            )}
+
+            <div className="mt-3 text-center text-[10px] text-neutral-500 font-bold">
+              {receipt.thankYouMessage}
+            </div>
           </div>
-        </div>
 
-        {/* Action buttons — Print / PDF / WhatsApp / Copy Link */}
-        <div className="mt-2 grid grid-cols-2 gap-2">
-          <Button variant="outline" onClick={handlePrint} disabled={printing || isLoading} className="rounded-xl text-xs h-9">
-            {printing ? "Printing…" : "🖨️ Print"}
-          </Button>
-
-          <Button variant="outline" onClick={handlePrintPdf} disabled={isLoading} className="rounded-xl text-xs h-9">
-            📄 Print PDF
-          </Button>
-          <Button variant="outline" onClick={handleDownloadPdf} disabled={downloadingPdf || isLoading} className="rounded-xl text-xs h-9">
-            {downloadingPdf ? "Generating…" : "📄 Download PDF"}
-          </Button>
-          {receipt && receipt.customer.phone ? (
-            <Button variant="outline" onClick={handleWhatsApp} className="rounded-xl text-xs h-9">
-              💬 WhatsApp
+          {/* Action buttons — View / Print / PDF / WhatsApp / Duplicate / Copy / Void */}
+          <div className="mt-2 grid grid-cols-2 gap-2">
+            <Button variant="outline" onClick={() => window.open(`/print/invoice/${receipt.invoiceNumber}`, "_blank")} className="rounded-xl text-xs h-9">
+              👁️ View Receipt
             </Button>
-          ) : (
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div className="w-full">
-                    <Button variant="outline" disabled className="rounded-xl text-xs h-9 w-full">
-                      💬 WhatsApp
-                    </Button>
-                  </div>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Customer phone number required.</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          )}
-          <Button variant="outline" onClick={handleCopyLink} className="rounded-xl text-xs h-9">
-            🔗 Copy Link
+            <Button variant="outline" onClick={handlePrint} disabled={printing || isLoading} className="rounded-xl text-xs h-9">
+              {printing ? "Printing…" : "🖨️ Print"}
+            </Button>
+            <Button variant="outline" onClick={handleDownloadPdf} disabled={downloadingPdf || isLoading} className="rounded-xl text-xs h-9">
+              {downloadingPdf ? "Generating…" : "📄 Download PDF"}
+            </Button>
+            {receipt && receipt.customer.phone ? (
+              <Button variant="outline" onClick={handleWhatsApp} className="rounded-xl text-xs h-9">
+                💬 WhatsApp
+              </Button>
+            ) : (
+              <Button variant="outline" disabled className="rounded-xl text-xs h-9 opacity-50" title="Customer phone required">
+                💬 WhatsApp
+              </Button>
+            )}
+            <Button variant="outline" onClick={() => toast.info("Duplicate Invoice feature coming soon (places items back to checkout cart)")} className="rounded-xl text-xs h-9">
+              📋 Duplicate Invoice
+            </Button>
+            <Button variant="outline" onClick={handleCopyLink} className="rounded-xl text-xs h-9">
+              🔗 Copy Link
+            </Button>
+            {receipt.status !== "VOID" && (
+              <Button
+                onClick={() => {
+                  if (!canVoid) {
+                    toast.error("Only Admin or Manager accounts can void invoices");
+                    return;
+                  }
+                  setVoidDialogOpen(true);
+                }}
+                className="rounded-xl text-xs h-9 col-span-2 bg-red-600 hover:bg-red-700 text-white font-bold transition-colors"
+              >
+                🟥 Void Invoice
+              </Button>
+            )}
+          </div>
+          <Button onClick={onClose} className="h-10 w-full rounded-xl mt-1">
+            {receipt.status === "VOID" ? "Close Dialog" : "✅ New Sale"}
           </Button>
-          <Button variant="outline" onClick={() => window.open(`/print/invoice/${receipt.invoiceNumber}`, "_blank")} className="rounded-xl text-xs h-9">
-            👁️ View Receipt
-          </Button>
-        </div>
-        <Button onClick={onClose} className="h-10 w-full rounded-xl mt-1">
-          ✅ New Sale
-        </Button>
-      </DialogContent>
-    </Dialog>
+        </DialogContent>
+      </Dialog>
+
+      {/* Void Confirmation Dialog */}
+      <Dialog open={voidDialogOpen} onOpenChange={(v) => !v && setVoidDialogOpen(false)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-red-600 font-bold">Void Invoice</DialogTitle>
+            <div className="text-xs text-muted-foreground mt-1 leading-relaxed">
+              This invoice will be cancelled. Inventory will be restored. Revenue and reports will be updated. This action cannot be undone.
+            </div>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <label htmlFor="void-reason" className="text-xs font-semibold text-foreground">
+                Reason (Required)
+              </label>
+              <select
+                id="void-reason"
+                value={voidReason}
+                onChange={(e) => setVoidReason(e.target.value)}
+                className="w-full rounded-xl border border-border bg-surface px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+              >
+                <option value="">Select a reason...</option>
+                <option value="Wrong Item">Wrong Item</option>
+                <option value="Wrong Quantity">Wrong Quantity</option>
+                <option value="Customer Cancelled">Customer Cancelled</option>
+                <option value="Duplicate Invoice">Duplicate Invoice</option>
+                <option value="Billing Mistake">Billing Mistake</option>
+                <option value="Other">Other</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="flex gap-2 justify-end mt-4">
+            <Button
+              variant="outline"
+              onClick={() => setVoidDialogOpen(false)}
+              className="rounded-xl"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleVoidInvoice}
+              disabled={voiding || !voidReason}
+              className="bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl"
+            >
+              {voiding ? "Voiding..." : "Void Invoice"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }

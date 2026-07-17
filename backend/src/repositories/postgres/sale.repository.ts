@@ -26,7 +26,8 @@ export class PostgresSaleRepository implements ISaleRepository {
       public_token: r.public_token ?? undefined,
       pdf_url: r.pdf_url ?? undefined,
       shared_at: r.shared_at ? r.shared_at.toISOString() : undefined,
-      created_at: r.created_at.toISOString()
+      created_at: r.created_at.toISOString(),
+      voided_at: r.voided_at ? r.voided_at.toISOString() : undefined
     }));
   }
 
@@ -51,7 +52,8 @@ export class PostgresSaleRepository implements ISaleRepository {
       public_token: r.public_token ?? undefined,
       pdf_url: r.pdf_url ?? undefined,
       shared_at: r.shared_at ? r.shared_at.toISOString() : undefined,
-      created_at: r.created_at.toISOString()
+      created_at: r.created_at.toISOString(),
+      voided_at: r.voided_at ? r.voided_at.toISOString() : undefined
     };
   }
 
@@ -76,7 +78,8 @@ export class PostgresSaleRepository implements ISaleRepository {
       public_token: r.public_token ?? undefined,
       pdf_url: r.pdf_url ?? undefined,
       shared_at: r.shared_at ? r.shared_at.toISOString() : undefined,
-      created_at: r.created_at.toISOString()
+      created_at: r.created_at.toISOString(),
+      voided_at: r.voided_at ? r.voided_at.toISOString() : undefined
     };
   }
 
@@ -100,7 +103,8 @@ export class PostgresSaleRepository implements ISaleRepository {
       public_token: r.public_token ?? undefined,
       pdf_url: r.pdf_url ?? undefined,
       shared_at: r.shared_at ? r.shared_at.toISOString() : undefined,
-      created_at: r.created_at.toISOString()
+      created_at: r.created_at.toISOString(),
+      voided_at: r.voided_at ? r.voided_at.toISOString() : undefined
     }));
   }
 
@@ -151,6 +155,10 @@ export class PostgresSaleRepository implements ISaleRepository {
         pdf_url: sales.pdf_url,
         shared_at: sales.shared_at,
         created_at: sales.created_at,
+        status: sales.status,
+        void_reason: sales.void_reason,
+        voided_by: sales.voided_by,
+        voided_at: sales.voided_at,
       })
       .from(sales)
       .innerJoin(customers, eq(sales.customer_id, customers.id))
@@ -162,7 +170,8 @@ export class PostgresSaleRepository implements ISaleRepository {
       public_token: r.public_token ?? undefined,
       pdf_url: r.pdf_url ?? undefined,
       shared_at: r.shared_at ? r.shared_at.toISOString() : undefined,
-      created_at: r.created_at.toISOString()
+      created_at: r.created_at.toISOString(),
+      voided_at: r.voided_at ? r.voided_at.toISOString() : undefined,
     }));
   }
 
@@ -216,7 +225,8 @@ export class PostgresSaleRepository implements ISaleRepository {
       public_token: r.public_token ?? undefined,
       pdf_url: r.pdf_url ?? undefined,
       shared_at: r.shared_at ? r.shared_at.toISOString() : undefined,
-      created_at: r.created_at.toISOString()
+      created_at: r.created_at.toISOString(),
+      voided_at: r.voided_at ? r.voided_at.toISOString() : undefined
     };
   }
 
@@ -279,6 +289,10 @@ export class PostgresSaleRepository implements ISaleRepository {
         created_at: sales.created_at,
         customer_name: customers.name,
         customer_phone: customers.phone,
+        status: sales.status,
+        void_reason: sales.void_reason,
+        voided_by: sales.voided_by,
+        voided_at: sales.voided_at,
       })
       .from(sales)
       .leftJoin(customers, eq(sales.customer_id, customers.id));
@@ -298,6 +312,7 @@ export class PostgresSaleRepository implements ISaleRepository {
     filter: string,
     startDate?: string,
     endDate?: string,
+    showVoid: boolean = false,
     tx?: any
   ): Promise<any[]> {
     const client = tx || db;
@@ -309,6 +324,10 @@ export class PostgresSaleRepository implements ISaleRepository {
 
     const { start, end } = getUtcBoundariesForFilter(filter, startDate, endDate);
     cond = and(cond, gte(sales.created_at, start), lte(sales.created_at, end)) as any;
+
+    if (!showVoid) {
+      cond = and(cond, ne(sales.status, "VOID")) as any;
+    }
 
     const rows = await client
       .select()
@@ -326,6 +345,10 @@ export class PostgresSaleRepository implements ISaleRepository {
       GST: r.gst / 100.0,
       Total: r.grand_total / 100.0,
       PublicToken: r.public_token,
+      Status: r.status,
+      VoidReason: r.void_reason ?? "",
+      VoidedBy: r.voided_by ?? "",
+      VoidedAt: r.voided_at ? r.voided_at.toISOString() : "",
     }));
   }
 }

@@ -358,7 +358,8 @@ export async function getDashboardData(): Promise<any> {
 export async function getReportsData(
   filter: string,
   startDate?: string,
-  endDate?: string
+  endDate?: string,
+  showVoidInvoices: boolean = false
 ): Promise<any> {
   try {
     let url = `${API_BASE_URL}/reports?filter=${encodeURIComponent(filter)}`;
@@ -367,6 +368,9 @@ export async function getReportsData(
     }
     if (endDate) {
       url += `&endDate=${encodeURIComponent(endDate)}`;
+    }
+    if (showVoidInvoices) {
+      url += `&showVoidInvoices=true`;
     }
     const res = await fetch(url);
     if (!res.ok) {

@@ -17,7 +17,7 @@ export class PostgresDashboardRepository implements IDashboardRepository {
     const storeId = getStoreId();
 
     const { start, end } = getUtcBoundariesForFilter("today");
-    let salesCond = and(gte(sales.created_at, start), lte(sales.created_at, end)) as any;
+    let salesCond = and(gte(sales.created_at, start), lte(sales.created_at, end), ne(sales.status, "VOID")) as any;
     let productsCond = eq(products.is_active, 1);
 
     if (storeId !== undefined) {
@@ -40,7 +40,7 @@ export class PostgresDashboardRepository implements IDashboardRepository {
     const orders = Number(orderRow?.count || 0);
 
     // 3. Profit Today
-    let profitCond = and(gte(sales.created_at, start), lte(sales.created_at, end)) as any;
+    let profitCond = and(gte(sales.created_at, start), lte(sales.created_at, end), ne(sales.status, "VOID")) as any;
     if (storeId !== undefined) {
       profitCond = and(profitCond, eq(sales.store_id, storeId)) as any;
     }
@@ -80,7 +80,7 @@ export class PostgresDashboardRepository implements IDashboardRepository {
     const client = tx || db;
     const storeId = getStoreId();
 
-    let cond = eq(products.is_active, 1);
+    let cond = and(eq(products.is_active, 1), ne(sales.status, "VOID")) as any;
     if (storeId !== undefined) {
       cond = and(cond, eq(products.store_id, storeId)) as any;
     }
@@ -93,6 +93,7 @@ export class PostgresDashboardRepository implements IDashboardRepository {
       })
       .from(sale_items)
       .innerJoin(products, eq(sale_items.product_id, products.id))
+      .innerJoin(sales, eq(sale_items.sale_id, sales.id))
       .where(cond)
       .groupBy(products.name, sale_items.product_id)
       .orderBy(desc(sql`SUM(${sale_items.quantity})`))
@@ -122,6 +123,7 @@ export class PostgresDashboardRepository implements IDashboardRepository {
         amount: sales.grand_total,
         payment: sales.payment_method,
         time: sales.created_at,
+        status: sales.status,
       })
       .from(sales)
       .leftJoin(customers, eq(sales.customer_id, customers.id))
@@ -135,6 +137,7 @@ export class PostgresDashboardRepository implements IDashboardRepository {
       amount: Number(r.amount ?? 0) / 100.0,
       payment: r.payment,
       time: r.time.toISOString(),
+      status: r.status,
     }));
   }
 }

@@ -102,6 +102,10 @@ export const sales = pgTable(
     pdf_url: text("pdf_url"),
     shared_at: timestamp("shared_at"),
     created_at: timestamp("created_at").defaultNow().notNull(),
+    status: text("status").default("COMPLETED").notNull(),
+    void_reason: text("void_reason"),
+    voided_by: text("voided_by"),
+    voided_at: timestamp("voided_at"),
   },
   (table) => ({
     invoiceIdx: index("idx_sales_invoice_number").on(table.store_id, table.invoice_number),

@@ -133,6 +133,7 @@ app.use("/products", authenticate(), productRoutes);
 app.use("/customers", authenticate(), customerRoutes);
 app.use("/checkout", authenticate(), checkoutRoutes);
 app.use("/sales", authenticate(), salesRoutes);
+app.use("/invoices", authenticate(), salesRoutes);
 app.use("/dashboard", authenticate(), dashboardRoutes);
 app.use("/reports", authenticate(), authorize("admin", "manager"), reportsRoutes);
 app.use("/printer", authenticate(), printerRoutes);

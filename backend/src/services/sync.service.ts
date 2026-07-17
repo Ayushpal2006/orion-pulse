@@ -203,8 +203,14 @@ export class SyncQueueManager {
             Number(payload.discount ?? 0),
             Number(payload.gst ?? 0),
             Number(payload.grandTotal ?? 0),
-            payload.publicToken ?? ""
+            payload.publicToken ?? "",
+            payload.status ?? "COMPLETED",
+            payload.voidReason ?? "",
+            payload.voidDate ?? "",
+            payload.voidTime ?? "",
+            payload.voidBy ?? ""
           ];
+          uniqueKey = payload.invoiceNumber ?? "";
           break;
         case "customer":
           tabName = "Customers";
@@ -310,7 +316,7 @@ export class SyncQueueManager {
         for (const title of addSheets) {
           let headers: string[] = [];
           if (title === "Sales") {
-            headers = ["Invoice Number", "Date & Time", "Cashier", "Payment Method", "Subtotal", "Discount", "GST", "Grand Total", "Public Link"];
+            headers = ["Invoice Number", "Date & Time", "Cashier", "Payment Method", "Subtotal", "Discount", "GST", "Grand Total", "Public Link", "Status", "Void Reason", "Void Date", "Void Time", "Void By"];
           } else if (title === "Customers") {
             headers = ["Phone", "Name", "Email", "Address", "Total Orders", "Lifetime Value (INR)", "Last Visit", "Active Status"];
           } else if (title === "Products") {

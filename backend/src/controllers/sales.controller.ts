@@ -249,4 +249,55 @@ export class SalesController {
       next(error);
     }
   };
+
+  voidInvoice = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const id = req.params.id as string;
+      const { reason } = req.body;
+      const authenticatedReq = req as any; // Cast request to read authenticated user
+      const voidedBy = authenticatedReq.user?.name || "Admin";
+      const userId = authenticatedReq.user?.id || 1;
+
+      if (!id) {
+        res.status(400).json({
+          success: false,
+          message: "Validation Error",
+          error: "Sale ID or Invoice number is required",
+        });
+        return;
+      }
+
+      if (!reason) {
+        res.status(400).json({
+          success: false,
+          message: "Validation Error",
+          error: "Void reason is required",
+        });
+        return;
+      }
+
+      let saleId: number;
+      const numericId = parseInt(id, 10);
+      if (!isNaN(numericId) && String(numericId) === id) {
+        saleId = numericId;
+      } else {
+        const sale = await this.service.getByInvoice(id);
+        if (!sale) {
+          res.status(404).json({ success: false, error: "Invoice not found" });
+          return;
+        }
+        saleId = sale.sale.id;
+      }
+
+      const result = await this.service.voidInvoice(saleId, reason, voidedBy, userId);
+
+      const updatedReceipt = await this.service.getReceipt(String(saleId));
+      res.status(200).json({
+        success: true,
+        data: updatedReceipt,
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
 }
