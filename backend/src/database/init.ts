@@ -83,7 +83,9 @@ export async function initDb(): Promise<void> {
         ["pdf_retention_period", "90 Days"],
         ["pdf_last_cleanup", "Never"],
         ["logo", ""],
-        ["require_customer_before_checkout", "0"]
+        ["require_customer_before_checkout", "0"],
+        ["receipt_template", "Classic"],
+        ["qr_position", "Bottom"]
       ];
 
       for (const [key, val] of seedSettings) {

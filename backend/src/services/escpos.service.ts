@@ -126,7 +126,21 @@ export class EscposFormatter {
     return this;
   }
 
-  formatReceipt(receipt: any): Buffer {
+  formatReceipt(receipt: any, template: string = "Classic"): Buffer {
+    switch (template) {
+      case "Retail":
+        return this.formatRetail(receipt);
+      case "Premium":
+        return this.formatPremium(receipt);
+      case "Compact":
+        return this.formatCompact(receipt);
+      case "Classic":
+      default:
+        return this.formatClassic(receipt);
+    }
+  }
+
+  formatClassic(receipt: any): Buffer {
     this.init();
 
     // 1. Shop Info
@@ -215,6 +229,240 @@ export class EscposFormatter {
     this.lineFeed();
     this.text("Visit Again");
     this.lineFeed(3); // extra feed spacing
+
+    this.cut();
+
+    return this.getBuffer();
+  }
+
+  formatRetail(receipt: any): Buffer {
+    this.init();
+
+    // 1. Shop Info
+    this.alignCenter();
+    this.bold(true);
+    this.text(receipt.shop.name);
+    this.lineFeed();
+    this.bold(false);
+    this.text(receipt.shop.address);
+    this.lineFeed();
+    this.text(`Phone: ${receipt.shop.phone}`);
+    this.lineFeed();
+    this.text(`GSTIN: ${receipt.shop.gstin}`);
+    this.lineFeed();
+
+    this.divider();
+
+    // 2. Invoice Details
+    this.alignLeft();
+    this.text(`Invoice: ${receipt.invoiceNumber}`);
+    this.lineFeed();
+    this.text(`Date: ${receipt.date} ${receipt.time}`);
+    this.lineFeed();
+    this.text(`Customer: ${receipt.customer.name}`);
+    this.lineFeed();
+    if (receipt.customer.phone) {
+      this.text(`Phone: +91 ${receipt.customer.phone}`);
+      this.lineFeed();
+    }
+
+    this.divider();
+
+    // 3. Items Details
+    this.text("Items Details");
+    this.lineFeed();
+    this.divider();
+
+    // Retail multi-line formatting: # and Name on line 1, Qty/Price/Total on line 2
+    for (let idx = 0; idx < receipt.items.length; idx++) {
+      const item = receipt.items[idx];
+      this.text(`${idx + 1}  ${item.name}`);
+      this.lineFeed();
+      const qtyStr = `Qty: ${item.qty}`;
+      const priceStr = `Price: Rs ${item.price.toFixed(2)}`;
+      const amtStr = `Rs ${item.lineTotal.toFixed(2)}`;
+      this.row(`   ${qtyStr}  ${priceStr}`, amtStr);
+    }
+
+    this.divider();
+
+    // 4. Summary Breakdown
+    this.row("Subtotal", `Rs ${receipt.subtotal.toFixed(2)}`);
+    this.row("Discount", `Rs ${receipt.discount.toFixed(2)}`);
+    this.row("GST", `Rs ${receipt.gst.toFixed(2)}`);
+
+    this.divider();
+
+    this.bold(true);
+    this.row("GRAND TOTAL", `Rs ${receipt.grandTotal.toFixed(2)}`);
+    this.bold(false);
+
+    this.divider();
+
+    // 5. Payment details & UPI
+    this.alignCenter();
+    this.text(`Paid via: ${receipt.paymentMethod}`);
+    this.lineFeed();
+
+    if (receipt.paymentMethod === "UPI") {
+      this.lineFeed();
+      this.text("Scan UPI to Pay:");
+      this.lineFeed();
+      this.qrCode(receipt.upiPayload);
+      this.lineFeed();
+    }
+
+    this.divider();
+
+    this.bold(true);
+    this.text(receipt.thankYouMessage);
+    this.lineFeed();
+    this.text("Visit Again");
+    this.lineFeed(3);
+
+    this.cut();
+
+    return this.getBuffer();
+  }
+
+  formatPremium(receipt: any): Buffer {
+    this.init();
+
+    // 1. Centered Premium shop header
+    this.alignCenter();
+    this.bold(true);
+    this.sizeDoubleWidthHeight();
+    this.text(receipt.shop.name);
+    this.lineFeed(2);
+
+    this.sizeNormal();
+    this.bold(false);
+    this.text(receipt.shop.address);
+    this.lineFeed();
+    this.text(`Phone: ${receipt.shop.phone}`);
+    this.lineFeed();
+    this.text(`GSTIN: ${receipt.shop.gstin}`);
+    this.lineFeed(2);
+
+    this.divider();
+
+    // 2. Invoice Details centered
+    this.text("INVOICE DETAILS");
+    this.lineFeed();
+    this.text(`Number: ${receipt.invoiceNumber}`);
+    this.lineFeed();
+    this.text(`Date & Time: ${receipt.date} ${receipt.time}`);
+    this.lineFeed();
+    this.text(`Cashier: ${receipt.cashier}`);
+    this.lineFeed();
+    this.text(`Customer: ${receipt.customer.name}`);
+    this.lineFeed(2);
+
+    this.divider();
+
+    // 3. Items list elegant
+    this.alignLeft();
+    this.text("ITEMS LIST");
+    this.lineFeed();
+    this.divider();
+
+    for (const item of receipt.items) {
+      this.bold(true);
+      this.text(item.name);
+      this.lineFeed();
+      this.bold(false);
+      this.row(`  ${item.qty} Unit(s) x Rs ${item.price.toFixed(2)}`, `Rs ${item.lineTotal.toFixed(2)}`);
+    }
+
+    this.divider();
+
+    // 4. Summary Breakdown
+    this.row("Subtotal", `Rs ${receipt.subtotal.toFixed(2)}`);
+    this.row("Discount", `Rs ${receipt.discount.toFixed(2)}`);
+    this.row("GST Tax", `Rs ${receipt.gst.toFixed(2)}`);
+
+    this.divider();
+
+    this.bold(true);
+    this.row("GRAND TOTAL", `Rs ${receipt.grandTotal.toFixed(2)}`);
+    this.bold(false);
+
+    this.divider();
+
+    // 5. Payment details & UPI
+    this.alignCenter();
+    this.bold(true);
+    this.text(`Paid via: ${receipt.paymentMethod}`);
+    this.lineFeed();
+    this.bold(false);
+
+    if (receipt.paymentMethod === "UPI") {
+      this.lineFeed();
+      this.text("SCAN UPI TO PAY:");
+      this.lineFeed();
+      this.qrCode(receipt.upiPayload);
+      this.lineFeed();
+    }
+
+    this.divider();
+
+    this.bold(true);
+    this.text(receipt.thankYouMessage);
+    this.lineFeed();
+    this.text("Visit Again");
+    this.lineFeed(3);
+
+    this.cut();
+
+    return this.getBuffer();
+  }
+
+  formatCompact(receipt: any): Buffer {
+    this.init();
+
+    // 1. Compact Shop info
+    this.alignCenter();
+    this.bold(true);
+    this.text(receipt.shop.name);
+    this.lineFeed();
+    this.bold(false);
+    this.text(`PH: ${receipt.shop.phone} | GST: ${receipt.shop.gstin}`);
+    this.lineFeed();
+    this.divider();
+
+    // 2. Compact Invoice details
+    this.alignLeft();
+    this.text(`INV: ${receipt.invoiceNumber}`);
+    this.lineFeed();
+    this.text(`DAT: ${receipt.date} ${receipt.time}`);
+    this.lineFeed();
+    this.text(`CUST: ${receipt.customer.name}`);
+    this.lineFeed();
+    this.divider();
+
+    // 3. Compact Items list
+    for (const item of receipt.items) {
+      this.row(`${item.qty}x ${item.name}`, `Rs ${item.lineTotal.toFixed(2)}`);
+    }
+    this.divider();
+
+    // 4. Compact Summary
+    this.row("Sub/GST", `Rs ${receipt.subtotal.toFixed(2)} / Rs ${receipt.gst.toFixed(2)}`);
+    if (receipt.discount > 0) {
+      this.row("Disc", `Rs ${receipt.discount.toFixed(2)}`);
+    }
+    this.bold(true);
+    this.row("TOTAL", `Rs ${receipt.grandTotal.toFixed(2)}`);
+    this.bold(false);
+    this.divider();
+
+    // 5. Compact Payment details (No QR)
+    this.alignCenter();
+    this.text(`Paid: ${receipt.paymentMethod}`);
+    this.lineFeed();
+    this.bold(true);
+    this.text(receipt.thankYouMessage);
+    this.lineFeed(2);
 
     this.cut();
 

@@ -92,7 +92,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           <div className="grid size-9 place-items-center rounded-xl bg-primary text-primary-foreground font-black">O</div>
           <div className="leading-tight">
             <div className="text-sm font-semibold tracking-tight">Orion POS</div>
-            <div className="text-[11px] text-muted-foreground">Retail OS · v1.0</div>
+            <div className="text-[11px] text-muted-foreground">Retail OS · v1.4</div>
           </div>
         </div>
         <nav className="flex-1 space-y-1 px-3">

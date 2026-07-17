@@ -2,9 +2,10 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { Loader2 } from "lucide-react";
-import { getSaleReceipt } from "@/lib/api";
+import { getSaleReceipt, API_BASE_URL } from "@/lib/api";
 import { waitForReceiptResources } from "@/lib/print-adapter";
 import { Button } from "@/components/ui/button";
+import { ReceiptRenderer } from "@/components/receipt-templates";
 
 export const Route = createFileRoute("/print/invoice/$id")({
   validateSearch: (search: Record<string, unknown>) => {
@@ -23,11 +24,12 @@ export const Route = createFileRoute("/print/invoice/$id")({
 
 interface ThermalReceiptProps {
   receipt: any;
+  template: "Classic" | "Retail" | "Premium" | "Compact";
+  paperWidth: "58mm" | "80mm";
+  qrPosition: "Top" | "Bottom";
 }
 
-function ThermalReceipt({ receipt }: ThermalReceiptProps) {
-  const formatInr = (val: number) => `₹${val.toFixed(2)}`;
-
+function ThermalReceipt({ receipt, template, paperWidth, qrPosition }: ThermalReceiptProps) {
   useEffect(() => {
     console.log("PRINT STEP 4: Receipt component mounted");
   }, []);
@@ -42,7 +44,7 @@ function ThermalReceipt({ receipt }: ThermalReceiptProps) {
     <div 
       className="thermal-receipt" 
       style={{
-        width: "58mm",
+        width: paperWidth === "80mm" ? "80mm" : "58mm",
         padding: "2mm 2mm 8mm 2mm",
         boxSizing: "border-box",
         background: "#ffffff",
@@ -53,110 +55,12 @@ function ThermalReceipt({ receipt }: ThermalReceiptProps) {
         margin: "0 auto",
       }}
     >
-      {/* Shop Info Header */}
-      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", marginBottom: "6px" }}>
-        {receipt.shop.logo && (
-          <img 
-            src={receipt.shop.logo} 
-            alt="Store Logo" 
-            style={{ maxHeight: "36px", objectContain: "contain", marginBottom: "6px" }} 
-          />
-        )}
-        <div style={{ fontSize: "16px", fontWeight: "bold", textTransform: "uppercase", marginBottom: "2px", lineHeight: "1.1" }}>
-          {receipt.shop.name}
-        </div>
-        <div style={{ fontSize: "10px", color: "#333333", marginBottom: "1px" }}>{receipt.shop.address}</div>
-        <div style={{ fontSize: "10px", color: "#333333", marginBottom: "1px" }}>PH: {receipt.shop.phone}</div>
-        <div style={{ fontSize: "10px", color: "#333333" }}>GSTIN: {receipt.shop.gstin}</div>
-      </div>
-
-      {/* Dashed Separator */}
-      <div style={{ borderTop: "1px dashed #000000", margin: "6px 0", width: "100%" }}></div>
-
-      {/* Invoice Info */}
-      <div style={{ fontSize: "10px", lineHeight: "1.35", textAlign: "left", margin: "4px 0" }}>
-        <div><strong>INV  :</strong> {receipt.invoiceNumber}</div>
-        <div><strong>DATE :</strong> {receipt.date}</div>
-        <div><strong>TIME :</strong> {receipt.time}</div>
-        <div><strong>CASH :</strong> {receipt.cashier}</div>
-        <div><strong>CUST :</strong> {receipt.customer.name}</div>
-        {receipt.customer.phone && <div><strong>PHONE:</strong> +91 {receipt.customer.phone}</div>}
-      </div>
-
-      {/* Dashed Separator */}
-      <div style={{ borderTop: "1px dashed #000000", margin: "6px 0", width: "100%" }}></div>
-
-      {/* Items List Table */}
-      <table style={{ width: "100%", fontSize: "10px", borderCollapse: "collapse", margin: "4px 0" }}>
-        <thead>
-          <tr style={{ borderBottom: "1px dashed #000000" }}>
-            <th align="left" style={{ paddingBottom: "3px", fontWeight: "bold" }}>Item</th>
-            <th align="right" style={{ paddingBottom: "3px", fontWeight: "bold" }}>Total</th>
-          </tr>
-        </thead>
-        <tbody>
-          {receipt.items.map((item: any, idx: number) => (
-            <tr key={idx} style={{ verticalAlign: "top" }}>
-              <td style={{ padding: "3px 0", textAlign: "left", paddingRight: "4px" }}>
-                {item.qty}x {item.name}
-              </td>
-              <td align="right" style={{ padding: "3px 0", textAlign: "right", whiteSpace: "nowrap" }}>
-                {formatInr(item.lineTotal)}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-
-      {/* Dashed Separator */}
-      <div style={{ borderTop: "1px dashed #000000", margin: "6px 0", width: "100%" }}></div>
-
-      {/* Totals Summary */}
-      <table style={{ width: "100%", fontSize: "10px", lineHeight: "1.35", margin: "4px 0" }}>
-        <tbody>
-          <tr>
-            <td style={{ textAlign: "left", padding: "2px 0" }}>Subtotal</td>
-            <td style={{ textAlign: "right", padding: "2px 0" }}>{formatInr(receipt.subtotal)}</td>
-          </tr>
-          {receipt.discount > 0 && (
-            <tr>
-              <td style={{ textAlign: "left", padding: "2px 0" }}>Discount</td>
-              <td style={{ textAlign: "right", padding: "2px 0" }}>-{formatInr(receipt.discount)}</td>
-            </tr>
-          )}
-          <tr>
-            <td style={{ textAlign: "left", padding: "2px 0" }}>GST Tax</td>
-            <td style={{ textAlign: "right", padding: "2px 0" }}>{formatInr(receipt.gst)}</td>
-          </tr>
-          <tr style={{ fontWeight: "bold", fontSize: "13px" }}>
-            <td style={{ textAlign: "left", paddingTop: "4px" }}>GRAND TOTAL</td>
-            <td style={{ textAlign: "right", paddingTop: "4px" }}>{formatInr(receipt.grandTotal)}</td>
-          </tr>
-        </tbody>
-      </table>
-
-      {/* Dashed Separator */}
-      <div style={{ borderTop: "1px dashed #000000", margin: "6px 0", width: "100%" }}></div>
-
-      {/* Footer payment details & UPI QR */}
-      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", fontSize: "10px", margin: "4px 0" }}>
-        <div style={{ fontWeight: "bold", marginBottom: "4px" }}>Paid via {receipt.paymentMethod}</div>
-        {receipt.paymentMethod === "UPI" && receipt.upiQrCode && (
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", margin: "6px 0" }}>
-            <div style={{ background: "#ffffff", padding: "6px", border: "1px solid #dddddd", display: "inline-block", marginBottom: "2px" }}>
-              <img 
-                src={receipt.upiQrCode} 
-                style={{ width: "130px", height: "130px", display: "block" }} 
-                alt="UPI QR Code"
-              />
-            </div>
-            <span style={{ fontSize: "8px", color: "#555555", fontWeight: "bold" }}>Scan to Pay via UPI</span>
-          </div>
-        )}
-        <div style={{ marginTop: "6px", fontWeight: "bold", fontSize: "10px", whiteSpace: "pre-line", lineHeight: "1.3" }}>
-          {receipt.thankYouMessage}
-        </div>
-      </div>
+      <ReceiptRenderer
+        receipt={receipt}
+        template={template}
+        paperWidth={paperWidth}
+        qrPosition={qrPosition}
+      />
     </div>
   );
 }
@@ -175,12 +79,28 @@ function PrintInvoicePage() {
     };
   }, []);
 
+  // Fetch receipt details
   const { data: receipt, isLoading, isError, error, refetch } = useQuery({
     queryKey: ["receipt", id],
     queryFn: () => getSaleReceipt(id),
     staleTime: 5000,
     retry: 1,
   });
+
+  // Fetch settings details to load configured template automatically
+  const { data: settings } = useQuery({
+    queryKey: ["settings"],
+    queryFn: async () => {
+      const res = await fetch(`${API_BASE_URL}/settings`);
+      const json = await res.json();
+      return json.success ? json.data : {};
+    },
+    staleTime: 30000,
+  });
+
+  const template = settings?.receipt_template || "Classic";
+  const qrPosition = settings?.qr_position || "Bottom";
+  const paperWidth = settings?.paper_width || "58mm";
 
   // Fetch complete log
   useEffect(() => {
@@ -246,7 +166,9 @@ function PrintInvoicePage() {
         styleEl.id = "orion-print-style-inject";
         document.head.appendChild(styleEl);
       }
-      styleEl.innerHTML = `@media print { @page { size: 58mm auto; margin: 0; } }`;
+      
+      const sizeValue = paperWidth === "80mm" ? "80mm auto" : paperWidth === "A4" ? "A4 portrait" : "58mm auto";
+      styleEl.innerHTML = `@media print { @page { size: ${sizeValue}; margin: 0; } }`;
 
       const isMobile = /Android|iPhone|iPad|iPod|Opera Mini|IEMobile|WPDesktop/i.test(navigator.userAgent);
 
@@ -281,7 +203,7 @@ function PrintInvoicePage() {
         window.removeEventListener("afterprint", handleAfterPrint);
       };
     }
-  }, [isReady, autoprint]);
+  }, [isReady, autoprint, paperWidth]);
 
   if (isLoading) {
     return (
@@ -331,7 +253,12 @@ function PrintInvoicePage() {
 
       {/* Print template container */}
       <div id="orion-print-section">
-        <ThermalReceipt receipt={receipt} />
+        <ThermalReceipt 
+          receipt={receipt} 
+          template={template as any}
+          paperWidth={(paperWidth === "A4" ? "80mm" : paperWidth) as any}
+          qrPosition={qrPosition as any}
+        />
       </div>
     </div>
   );

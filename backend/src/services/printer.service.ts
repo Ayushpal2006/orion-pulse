@@ -39,36 +39,40 @@ export class PrinterService {
   }
 
   async printTestPage(config: PrinterConfig): Promise<PrintResult> {
+    const template = await settingsRepository.get("receipt_template", "Classic");
     const formatter = new EscposFormatter(config);
-    formatter.init();
-    formatter.alignCenter();
-    formatter.bold(true);
-    formatter.sizeDoubleWidthHeight();
-    formatter.text("Orion POS");
-    formatter.lineFeed();
-    formatter.sizeNormal();
-    formatter.text("Printer Test Page");
-    formatter.lineFeed();
-    formatter.bold(false);
-    formatter.divider();
-    formatter.alignLeft();
-    formatter.text(`Date: ${new Date().toLocaleDateString("en-IN")}`);
-    formatter.lineFeed();
-    formatter.text(`Time: ${new Date().toLocaleTimeString("en-IN")}`);
-    formatter.lineFeed();
-    formatter.text(`Type: ${config.type}`);
-    formatter.lineFeed();
-    formatter.text(`Width: ${config.paperWidth}`);
-    formatter.lineFeed();
-    formatter.text(`Density: ${config.characterDensity}`);
-    formatter.lineFeed();
-    formatter.divider();
-    formatter.alignCenter();
-    formatter.bold(true);
-    formatter.text("SUCCESS");
-    formatter.lineFeed(3);
-    formatter.cut();
+    
+    // Create a mock receipt for the test print
+    const dummyReceipt = {
+      shop: {
+        name: "Test Shop",
+        address: "123, POS Street",
+        phone: "9876543210",
+        gstin: "27AAAAA1111A1Z1",
+        logo: ""
+      },
+      invoiceNumber: "TEST-123456",
+      date: new Date().toLocaleDateString("en-IN"),
+      time: new Date().toLocaleTimeString("en-IN"),
+      cashier: "Test Cashier",
+      customer: {
+        name: "Test Customer",
+        phone: "9999999999"
+      },
+      items: [
+        { name: "Test Item 1", qty: 1, price: 100.00, lineTotal: 100.00 },
+        { name: "Test Item 2", qty: 2, price: 50.00, lineTotal: 100.00 }
+      ],
+      subtotal: 200.00,
+      discount: 0.00,
+      gst: 36.00,
+      grandTotal: 236.00,
+      paymentMethod: "UPI",
+      upiPayload: "upi://pay?pa=test@upi&pn=Test%20Shop&am=236.00&cu=INR",
+      thankYouMessage: "Test Print Successful!"
+    };
 
-    return this.printBuffer(formatter.getBuffer(), config);
+    const buffer = formatter.formatReceipt(dummyReceipt, template);
+    return this.printBuffer(buffer, config);
   }
 }

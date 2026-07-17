@@ -90,6 +90,8 @@ function Settings() {
           if (d.google_sync_enabled) setSyncEnabled(d.google_sync_enabled === "1");
           if (d.logo) s.setLogo(d.logo);
           if (d.require_customer_before_checkout) s.setRequireCustomerBeforeCheckout(d.require_customer_before_checkout === "1");
+          if (d.receipt_template) s.setReceiptTemplate(d.receipt_template as any);
+          if (d.qr_position) s.setQrPosition(d.qr_position as any);
         }
       } catch (err) {
         console.error("Failed to load settings from SQLite backend:", err);
@@ -140,6 +142,8 @@ function Settings() {
             google_sync_enabled: syncEnabled ? "1" : "0",
             logo: s.logo || "",
             require_customer_before_checkout: s.requireCustomerBeforeCheckout ? "1" : "0",
+            receipt_template: s.receiptTemplate,
+            qr_position: s.qrPosition,
           }),
         });
       } catch (err) {
@@ -162,6 +166,8 @@ function Settings() {
     syncEnabled,
     s.logo,
     s.requireCustomerBeforeCheckout,
+    s.receiptTemplate,
+    s.qrPosition,
     loaded,
   ]);
 
@@ -313,6 +319,17 @@ function Settings() {
               </div>
             </Row>
 
+            <Row label="Receipt Template">
+              <Select value={s.receiptTemplate} onValueChange={(v) => s.setReceiptTemplate(v as any)}>
+                <SelectTrigger className="h-11 rounded-xl"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Classic">Classic</SelectItem>
+                  <SelectItem value="Retail">Retail</SelectItem>
+                  <SelectItem value="Premium">Premium</SelectItem>
+                  <SelectItem value="Compact">Compact</SelectItem>
+                </SelectContent>
+              </Select>
+            </Row>
             {/* Expanded Printing configurations */}
             <div className="grid grid-cols-2 gap-3">
               <Row label="Character density">
@@ -773,7 +790,21 @@ function Settings() {
                 </RadioGroup>
               </Row>
             </div>
-            <div className="grid place-items-center rounded-2xl bg-muted/30 p-4">
+            <div className="flex flex-col items-center justify-center rounded-2xl bg-muted/30 p-4">
+              <Button
+                variant="outline"
+                size="sm"
+                className="mb-3 rounded-xl border border-neutral-300 bg-white shadow-sm h-9 px-4 hover:bg-neutral-50"
+                onClick={() => {
+                  const templates = ["Classic", "Retail", "Premium", "Compact"] as const;
+                  const idx = templates.indexOf(s.receiptTemplate);
+                  const next = templates[(idx + 1) % templates.length];
+                  s.setReceiptTemplate(next);
+                  toast.success(`Preview switched to ${next} template`);
+                }}
+              >
+                👁️ Preview Template
+              </Button>
               <ReceiptPreview />
             </div>
           </div>

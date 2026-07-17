@@ -56,6 +56,7 @@ type State = {
   storeEmail: string;
   whatsappFooter: string;
   requireCustomerBeforeCheckout: boolean;
+  receiptTemplate: "Classic" | "Retail" | "Premium" | "Compact";
 };
 
 type Actions = {
@@ -108,6 +109,7 @@ type Actions = {
   setStoreEmail: (s: string) => void;
   setWhatsappFooter: (s: string) => void;
   setRequireCustomerBeforeCheckout: (v: boolean) => void;
+  setReceiptTemplate: (t: "Classic" | "Retail" | "Premium" | "Compact") => void;
 };
 
 export const useApp = create<State & Actions>((set, get) => ({
@@ -137,6 +139,7 @@ export const useApp = create<State & Actions>((set, get) => ({
   storeEmail: "hello@orionpos.in",
   whatsappFooter: "Thank you for shopping. Visit Again.",
   requireCustomerBeforeCheckout: false,
+  receiptTemplate: "Classic",
 
   setRole: (role) => set({ role }),
   setPaletteOpen: (paletteOpen) => set({ paletteOpen }),
@@ -274,6 +277,7 @@ export const useApp = create<State & Actions>((set, get) => ({
   setStoreEmail: (storeEmail) => set({ storeEmail }),
   setWhatsappFooter: (whatsappFooter) => set({ whatsappFooter }),
   setRequireCustomerBeforeCheckout: (requireCustomerBeforeCheckout) => set({ requireCustomerBeforeCheckout }),
+  setReceiptTemplate: (receiptTemplate) => set({ receiptTemplate }),
 }));
 
 export const cartTotals = (cart: CartLine[]) => {

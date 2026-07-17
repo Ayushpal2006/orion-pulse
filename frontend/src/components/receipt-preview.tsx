@@ -1,6 +1,6 @@
-import { QRCodeSVG } from "qrcode.react";
 import { useApp } from "@/lib/store";
 import { cn } from "@/lib/utils";
+import { ReceiptRenderer } from "./receipt-templates";
 
 export function ReceiptPreview() {
   const shopName = useApp((s) => s.shopName);
@@ -13,100 +13,55 @@ export function ReceiptPreview() {
   const qrPosition = useApp((s) => s.qrPosition);
   const paperWidth = useApp((s) => s.paperWidth);
   const logo = useApp((s) => s.logo);
+  const receiptTemplate = useApp((s) => s.receiptTemplate);
 
-  const upi = `upi://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(shopName)}&am=997.00&cu=INR`;
+  const receipt = {
+    shop: {
+      logo,
+      name: shopName,
+      address: storeAddress,
+      phone: storePhone,
+      gstin,
+    },
+    invoiceNumber: "INV-20260715-000021",
+    date: "15 Jul 2026",
+    time: "06:49 PM",
+    cashier: "Admin",
+    customer: {
+      name: "Walk-in Customer",
+    },
+    items: [
+      { name: "Cotton Tee", qty: 1, price: 499.00, discount: 0, gst: 0, lineTotal: 499.00 },
+      { name: "Socks", qty: 2, price: 249.00, discount: 0, gst: 0, lineTotal: 498.00 },
+    ],
+    subtotal: 997.00,
+    discount: 0.00,
+    gst: 0.00,
+    grandTotal: 997.00,
+    paymentMethod: "UPI",
+    upiPayload: `upi://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(shopName)}&am=997.00&cu=INR`,
+    thankYouMessage: receiptHeader, // receiptHeader is rendered under the header in classic, but in unified renderer it maps to thankYouMessage or custom header. Let's combine them or pass receiptFooter
+  };
 
-  const qr = (
-    <div className="flex flex-col items-center gap-1.5 py-2">
-      <div className="bg-white p-2 border border-neutral-200 inline-block">
-        <QRCodeSVG value={upi} size={130} />
-      </div>
-      <div className="text-[8px] font-bold text-neutral-600">Scan to Pay via UPI</div>
-    </div>
-  );
+  // Adjust mock data fields mapping to standard structures
+  const normReceipt = {
+    ...receipt,
+    thankYouMessage: receiptFooter || "Thank you for shopping with us",
+  };
 
   return (
     <div
       className={cn(
-        "mx-auto bg-white p-3 font-mono text-[10px] leading-relaxed text-black transition-all border border-neutral-200",
+        "mx-auto bg-white p-3 font-mono text-[10px] leading-relaxed text-black transition-all border border-neutral-200 shadow-sm",
         paperWidth === "58mm" ? "w-[220px]" : "w-[280px]",
       )}
     >
-      <div className="flex flex-col items-center text-center">
-        {logo && (
-          <img src={logo} alt="" className="mb-1.5 max-h-9 object-contain" />
-        )}
-        <div className="text-[12px] font-bold uppercase tracking-wider leading-none mb-1">{shopName}</div>
-        <div className="text-[9px] text-neutral-600 leading-tight">{storeAddress}</div>
-        <div className="text-[9px] text-neutral-600">PH: {storePhone}</div>
-        <div className="text-[9px] text-neutral-600">GSTIN: {gstin}</div>
-      </div>
-      
-      <div className="my-2 border-t border-dashed border-black" />
-      <div className="text-center text-[9px] leading-normal">{receiptHeader}</div>
-      <div className="my-2 border-t border-dashed border-black" />
-      
-      <div className="text-left leading-normal space-y-0.5 my-1.5">
-        <div><strong>INV  :</strong> INV-20260715-000021</div>
-        <div><strong>DATE :</strong> 15 Jul 2026</div>
-        <div><strong>TIME :</strong> 06:49 PM</div>
-        <div><strong>CASH :</strong> Admin</div>
-        <div><strong>CUST :</strong> Walk-in Customer</div>
-      </div>
-      
-      <div className="my-2 border-t border-dashed border-black" />
-      
-      {qrPosition === "Top" && qr}
-      
-      <table className="w-full text-[9px] border-collapse my-1">
-        <thead>
-          <tr className="border-b border-dashed border-black">
-            <th align="left" className="pb-1 font-bold">Item</th>
-            <th align="right" className="pb-1 font-bold">Total</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr className="align-top">
-            <td className="py-1 text-left pr-1">1x Cotton Tee</td>
-            <td align="right" className="py-1 text-right whitespace-nowrap">₹499.00</td>
-          </tr>
-          <tr className="align-top">
-            <td className="py-1 text-left pr-1">2x Socks</td>
-            <td align="right" className="py-1 text-right whitespace-nowrap">₹498.00</td>
-          </tr>
-        </tbody>
-      </table>
-      
-      <div className="my-2 border-t border-dashed border-black" />
-      
-      <table className="w-full text-[9px] leading-normal my-1">
-        <tbody>
-          <tr>
-            <td className="text-left py-0.5">Subtotal</td>
-            <td align="right" className="text-right py-0.5">₹997.00</td>
-          </tr>
-          <tr>
-            <td className="text-left py-0.5">Discount</td>
-            <td align="right" className="text-right py-0.5">-₹0.00</td>
-          </tr>
-          <tr>
-            <td className="text-left py-0.5">GST Tax</td>
-            <td align="right" className="text-right py-0.5">₹0.00</td>
-          </tr>
-          <tr className="font-bold text-[12px]">
-            <td className="text-left pt-1">GRAND TOTAL</td>
-            <td align="right" className="text-right pt-1">₹997.00</td>
-          </tr>
-        </tbody>
-      </table>
-      
-      <div className="my-2 border-t border-dashed border-black" />
-      
-      <div className="flex flex-col items-center text-center space-y-1 my-1">
-        <div className="font-bold">Paid via UPI</div>
-        {qrPosition === "Bottom" && qr}
-        <div className="mt-1 font-bold text-[9px] whitespace-pre-line leading-normal">{receiptFooter}</div>
-      </div>
+      <ReceiptRenderer
+        receipt={normReceipt}
+        template={receiptTemplate}
+        paperWidth={paperWidth === "A4" ? "80mm" : paperWidth}
+        qrPosition={qrPosition}
+      />
     </div>
   );
 }

@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from "express";
-import { saleRepository } from "../repositories";
+import { saleRepository, settingsRepository } from "../repositories";
 import { SalesService } from "../services/sales.service";
 import { PrinterService } from "../services/printer.service";
 import { EscposFormatter } from "../services/escpos.service";
@@ -149,7 +149,8 @@ export class SalesController {
 
       const printerConfig = await this.printerService.getPrinterConfig();
       const formatter = new EscposFormatter(printerConfig);
-      const buffer = formatter.formatReceipt(receipt);
+      const template = await settingsRepository.get("receipt_template", "Classic");
+      const buffer = formatter.formatReceipt(receipt, template);
 
       const result = await this.printerService.printBuffer(buffer, printerConfig);
 
