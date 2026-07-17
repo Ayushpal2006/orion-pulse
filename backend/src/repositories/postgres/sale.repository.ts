@@ -2,7 +2,7 @@ import { ISaleRepository } from "../interfaces/ISaleRepository";
 import { Sale } from "../../types/checkout.types";
 import { db } from "../../db";
 import { sales, sale_items, products, customers } from "../../db/schema";
-import { eq, and, desc, sql, like, gte, lte } from "drizzle-orm";
+import { eq, and, desc, sql, like, gte, lte, ne } from "drizzle-orm";
 import { getStoreId } from "../../db/context";
 import { getUtcBoundariesForFilter } from "../../utils/datetime";
 
@@ -307,6 +307,142 @@ export class PostgresSaleRepository implements ISaleRepository {
     const rows = await queryBuilder.where(cond).orderBy(desc(sales.id));
     return rows;
   }
+
+  async searchSalesPaginated(
+    params: {
+      page?: number;
+      limit?: number;
+      search?: string;
+      invoiceNumber?: string;
+      customerName?: string;
+      phone?: string;
+      customerId?: number;
+      paymentMethod?: string;
+      status?: string;
+      date?: string;
+      startDate?: string;
+      endDate?: string;
+      dateFilter?: string;
+      sort?: string;
+    },
+    tx?: any
+  ): Promise<{ sales: any[]; totalCount: number }> {
+    const client = tx || db;
+    const storeId = getStoreId();
+
+    let cond = sql`1=1`;
+    if (storeId !== undefined) {
+      cond = and(cond, eq(sales.store_id, storeId)) as any;
+    }
+
+    if (params.invoiceNumber) {
+      cond = and(cond, like(sales.invoice_number, `%${params.invoiceNumber}%`)) as any;
+    }
+    if (params.customerId) {
+      cond = and(cond, eq(sales.customer_id, params.customerId)) as any;
+    }
+    if (params.paymentMethod) {
+      cond = and(cond, eq(sales.payment_method, params.paymentMethod)) as any;
+    }
+    if (params.status && params.status !== "ALL" && params.status !== "all") {
+      cond = and(cond, eq(sales.status, params.status)) as any;
+    }
+
+    if (params.search) {
+      const searchPattern = `%${params.search}%`;
+      const orCond = sql`(${sales.invoice_number} LIKE ${searchPattern} OR ${customers.name} LIKE ${searchPattern} OR ${customers.phone} LIKE ${searchPattern} OR ${sales.payment_method} LIKE ${searchPattern} OR ${sales.status} LIKE ${searchPattern})`;
+      cond = and(cond, orCond) as any;
+    }
+
+    if (params.dateFilter && params.dateFilter !== "all" && params.dateFilter !== "ALL") {
+      const { start, end } = getUtcBoundariesForFilter(params.dateFilter, params.startDate, params.endDate);
+      cond = and(cond, gte(sales.created_at, start), lte(sales.created_at, end)) as any;
+    } else {
+      if (params.date) {
+        const { start, end } = getUtcBoundariesForFilter("custom", params.date, params.date);
+        cond = and(cond, gte(sales.created_at, start), lte(sales.created_at, end)) as any;
+      }
+      if (params.startDate) {
+        const endLimit = params.endDate || params.startDate;
+        const { start, end } = getUtcBoundariesForFilter("custom", params.startDate, endLimit);
+        cond = and(cond, gte(sales.created_at, start), lte(sales.created_at, end)) as any;
+      }
+    }
+
+    if (params.customerName) {
+      cond = and(cond, like(customers.name, `%${params.customerName}%`)) as any;
+    }
+    if (params.phone) {
+      cond = and(cond, like(customers.phone, `%${params.phone}%`)) as any;
+    }
+
+    const countRows = await client
+      .select({ count: sql<number>`count(*)` })
+      .from(sales)
+      .leftJoin(customers, eq(sales.customer_id, customers.id))
+      .where(cond);
+    const totalCount = Number(countRows[0]?.count || 0);
+
+    let queryBuilder = client
+      .select({
+        id: sales.id,
+        invoice_number: sales.invoice_number,
+        customer_id: sales.customer_id,
+        cashier_name: sales.cashier_name,
+        payment_method: sales.payment_method,
+        subtotal: sales.subtotal,
+        discount: sales.discount,
+        gst: sales.gst,
+        grand_total: sales.grand_total,
+        paid_amount: sales.paid_amount,
+        balance: sales.balance,
+        public_token: sales.public_token,
+        pdf_url: sales.pdf_url,
+        shared_at: sales.shared_at,
+        created_at: sales.created_at,
+        customer_name: customers.name,
+        customer_phone: customers.phone,
+        status: sales.status,
+        void_reason: sales.void_reason,
+        voided_by: sales.voided_by,
+        voided_at: sales.voided_at,
+      })
+      .from(sales)
+      .leftJoin(customers, eq(sales.customer_id, customers.id))
+      .where(cond);
+
+    const sortOption = params.sort || "newest";
+    if (sortOption === "newest") {
+      queryBuilder = queryBuilder.orderBy(desc(sales.created_at), desc(sales.id));
+    } else if (sortOption === "oldest") {
+      queryBuilder = queryBuilder.orderBy(sales.created_at, sales.id);
+    } else if (sortOption === "highest_amount") {
+      queryBuilder = queryBuilder.orderBy(desc(sales.grand_total), desc(sales.id));
+    } else if (sortOption === "lowest_amount") {
+      queryBuilder = queryBuilder.orderBy(sales.grand_total, sales.id);
+    } else {
+      queryBuilder = queryBuilder.orderBy(desc(sales.id));
+    }
+
+    const pageNum = params.page || 1;
+    const limitNum = params.limit || 20;
+    const offsetNum = (pageNum - 1) * limitNum;
+
+    const rows = await queryBuilder.limit(limitNum).offset(offsetNum);
+
+    return {
+      sales: rows.map((r: any) => ({
+        ...r,
+        public_token: r.public_token ?? undefined,
+        pdf_url: r.pdf_url ?? undefined,
+        shared_at: r.shared_at ? r.shared_at.toISOString() : undefined,
+        created_at: r.created_at.toISOString(),
+        voided_at: r.voided_at ? r.voided_at.toISOString() : undefined,
+      })),
+      totalCount,
+    };
+  }
+
 
   async getSalesExport(
     filter: string,

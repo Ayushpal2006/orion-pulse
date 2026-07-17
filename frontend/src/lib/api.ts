@@ -540,3 +540,76 @@ export async function getCustomerSales(phone: string): Promise<any[]> {
     throw error;
   }
 }
+
+/** Log action to the database audit_logs. */
+export async function logSaleAudit(invoiceNumber: string, action: string, details: string): Promise<void> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/sales/${encodeURIComponent(invoiceNumber)}/audit`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${localStorage.getItem("token") || ""}`,
+      },
+      body: JSON.stringify({ action, details }),
+    });
+    if (!res.ok) {
+      console.error("Failed to log audit event:", res.statusText);
+    }
+  } catch (error) {
+    console.error("Failed to call audit endpoint:", error);
+  }
+}
+
+export async function getSalesPaginated(params: {
+  page?: number;
+  limit?: number;
+  search?: string;
+  invoiceNumber?: string;
+  customerName?: string;
+  phone?: string;
+  customerId?: number;
+  paymentMethod?: string;
+  status?: string;
+  startDate?: string;
+  endDate?: string;
+  dateFilter?: string;
+  sort?: string;
+}): Promise<{ data: any[]; pagination: { page: number; limit: number; totalCount: number; totalPages: number } }> {
+  try {
+    const q = new URLSearchParams();
+    if (params.page !== undefined) q.append("page", String(params.page));
+    if (params.limit !== undefined) q.append("limit", String(params.limit));
+    if (params.search !== undefined) q.append("search", params.search);
+    if (params.invoiceNumber !== undefined) q.append("invoice", params.invoiceNumber);
+    if (params.customerName !== undefined) q.append("customer", params.customerName);
+    if (params.phone !== undefined) q.append("phone", params.phone);
+    if (params.customerId !== undefined) q.append("customerId", String(params.customerId));
+    if (params.paymentMethod !== undefined) q.append("payment", params.paymentMethod);
+    if (params.status !== undefined) q.append("status", params.status);
+    if (params.startDate !== undefined) q.append("startDate", params.startDate);
+    if (params.endDate !== undefined) q.append("endDate", params.endDate);
+    if (params.dateFilter !== undefined) q.append("dateFilter", params.dateFilter);
+    if (params.sort !== undefined) q.append("sort", params.sort);
+
+    const res = await fetch(`${API_BASE_URL}/sales?${q.toString()}`, {
+      headers: {
+        "Authorization": `Bearer ${localStorage.getItem("token") || ""}`
+      }
+    });
+    if (!res.ok) {
+      const errorData = await res.json().catch(() => ({}));
+      throw new Error(errorData.error || `HTTP error! status: ${res.status}`);
+    }
+    const payload = await res.json();
+    return {
+      data: payload.data || [],
+      pagination: payload.pagination || { page: 1, limit: 20, totalCount: 0, totalPages: 0 }
+    };
+  } catch (error) {
+    if (error instanceof TypeError && error.message === "Failed to fetch") {
+      throw new Error("Server is unavailable. Please check if the backend server is running on port 8080.");
+    }
+    throw error;
+  }
+}
+

@@ -138,6 +138,7 @@ export class SalesService {
     const formattedTime = formatToKolkataTime(sale.created_at);
 
     const itemsMapped = items.map((i) => ({
+      productId: i.product_id,
       name: i.product_name,
       qty: i.quantity,
       price: i.selling_price / 100.0,
@@ -216,7 +217,7 @@ export class SalesService {
       status: sale.status,
       voidReason: sale.void_reason ?? undefined,
       voidedBy: sale.voided_by ?? undefined,
-      voidedAt: sale.voided_at ? sale.voided_at.toISOString() : undefined,
+      voidedAt: sale.voided_at ? sale.voided_at : undefined,
     };
   }
 
@@ -368,4 +369,14 @@ export class SalesService {
     }
 
     return result;
+  }
+
+  async logAudit(storeId: number, userId: number, action: string, details: string): Promise<void> {
+    await db.insert(audit_logs).values({
+      store_id: storeId,
+      user_id: userId,
+      action,
+      details,
+    });
+  }
 }

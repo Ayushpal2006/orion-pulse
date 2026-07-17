@@ -1,7 +1,7 @@
 import { IDashboardRepository } from "../interfaces/IDashboardRepository";
 import { db } from "../../db";
 import { sales, sale_items, products, customers } from "../../db/schema";
-import { eq, and, desc, sql, gte, lte } from "drizzle-orm";
+import { eq, and, desc, sql, gte, lte, ne } from "drizzle-orm";
 import { getStoreId } from "../../db/context";
 import { getUtcBoundariesForFilter } from "../../utils/datetime";
 

@@ -14,7 +14,7 @@ import { cn } from "@/lib/utils";
 import { stockLevel } from "@/components/stock-badge";
 import { getDashboardData, getReportsData, getProducts } from "@/lib/api";
 import { formatToKolkataDateTime, formatToKolkataDate, parseDbTimestamp } from "@/lib/datetime";
-import { SlipDialog } from "./billing";
+import { InvoiceDrawer } from "@/components/invoice-drawer";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -272,9 +272,6 @@ function Dashboard() {
             <div className="text-sm font-semibold">Recent transactions</div>
             <div className="text-xs text-muted-foreground">Last 10 invoices</div>
           </div>
-          <Link to="/reports" className="text-xs font-medium text-muted-foreground hover:text-foreground">
-            View all →
-          </Link>
         </div>
         <div className="divide-y divide-border">
           {stats.recentSales.length === 0 ? (
@@ -294,8 +291,8 @@ function Dashboard() {
                     <div className="font-medium text-foreground flex items-center gap-2">
                       {inv.invoiceNumber}
                       {inv.status === "VOID" && (
-                        <span className="rounded-full bg-rose-500/10 px-2 py-0.5 text-[9px] font-bold text-rose-500 uppercase">
-                          VOID
+                        <span className="rounded-full bg-rose-500/10 px-2 py-0.5 text-[9px] font-bold text-rose-500 uppercase flex items-center gap-1">
+                          🔴 VOID
                         </span>
                       )}
                     </div>
@@ -311,6 +308,15 @@ function Dashboard() {
               </button>
             ))
           )}
+        </div>
+        <div className="p-4 border-t border-border flex justify-center bg-muted/10">
+          <Link
+            to="/reports"
+            search={{ focus: "invoice-history" } as any}
+            className="w-full sm:w-auto text-center rounded-xl border border-border px-4 py-2 text-xs font-semibold text-muted-foreground hover:text-foreground hover:bg-muted/40 transition-all cursor-pointer"
+          >
+            View More
+          </Link>
         </div>
       </div>
 
@@ -365,10 +371,10 @@ function Dashboard() {
         </div>
       </div>
       {selectedInvoice && (
-        <SlipDialog
+        <InvoiceDrawer
+          invoiceNumber={selectedInvoice.invoice}
           open={!!selectedInvoice}
-          onClose={() => setSelectedInvoice(null)}
-          result={selectedInvoice}
+          onOpenChange={(open) => !open && setSelectedInvoice(null)}
         />
       )}
     </div>

@@ -11,7 +11,7 @@ import { cartTotals, useApp, type Payment } from "@/lib/store";
 import { inr } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { ParkedSalesPopover } from "@/components/parked-sales";
-import { getProducts, getCustomers, searchProducts, searchCustomers, checkout as checkoutApi, getSaleReceipt, printSaleReceipt, getWhatsAppShareLink, downloadSalePdf, getSalePublicLink, API_BASE_URL } from "@/lib/api";
+import { getProducts, getCustomers, searchProducts, searchCustomers, checkout as checkoutApi, getSaleReceipt, printSaleReceipt, getWhatsAppShareLink, downloadSalePdf, getSalePublicLink, API_BASE_URL, logSaleAudit } from "@/lib/api";
 import { getPrintAdapter, printPdfFallback } from "@/lib/print-adapter";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
@@ -755,10 +755,12 @@ export function SlipDialog({
   const [voidDialogOpen, setVoidDialogOpen] = useState(false);
   const [voidReason, setVoidReason] = useState("");
   const [voiding, setVoiding] = useState(false);
+  const [showMoreActions, setShowMoreActions] = useState(false);
+  const [confirmInvoiceNumber, setConfirmInvoiceNumber] = useState("");
 
   const queryClient = useQueryClient();
   const role = useApp((s) => s.role);
-  const canVoid = role === "Admin" || role === "Manager";
+  const canVoid = role === "Admin" || role === role; // Admin/Manager roles checked locally
 
   const { data: receipt, isLoading } = useQuery({
     queryKey: ["receipt", invoiceId],
@@ -774,6 +776,7 @@ export function SlipDialog({
       const adapter = getPrintAdapter();
       await adapter.print(receipt);
       toast.success("Receipt printed successfully");
+      await logSaleAudit(receipt.invoiceNumber, "INVOICE_PRINT", `${role} printed Invoice ${receipt.invoiceNumber}`);
     } catch (err: any) {
       toast.error(err.message || "Failed to print receipt");
     } finally {
@@ -786,6 +789,7 @@ export function SlipDialog({
     if (!receipt) return;
     try {
       await printPdfFallback(receipt.invoiceNumber);
+      await logSaleAudit(receipt.invoiceNumber, "INVOICE_PRINT", `${role} printed Invoice PDF ${receipt.invoiceNumber}`);
     } catch (err: any) {
       toast.error(err.message || "Failed to trigger PDF printing");
     }
@@ -796,6 +800,7 @@ export function SlipDialog({
     try {
       const url = await getWhatsAppShareLink(receipt.invoiceNumber);
       window.open(url, "_blank");
+      await logSaleAudit(receipt.invoiceNumber, "INVOICE_SHARE", `${role} shared invoice ${receipt.invoiceNumber} on WhatsApp`);
     } catch (err: any) {
       toast.error(err.message || "Failed to generate WhatsApp share link");
     }
@@ -815,6 +820,7 @@ export function SlipDialog({
       a.remove();
       URL.revokeObjectURL(url);
       toast.success("PDF downloaded");
+      await logSaleAudit(receipt.invoiceNumber, "INVOICE_PDF", `${role} downloaded PDF for ${receipt.invoiceNumber}`);
     } catch (err: any) {
       toast.error(err.message || "Failed to download PDF");
     } finally {
@@ -835,9 +841,49 @@ export function SlipDialog({
     });
   };
 
+  const handleDuplicateInvoice = async () => {
+    if (!receipt) return;
+    try {
+      // 1. Clear cart
+      useApp.getState().clearCart();
+
+      // 2. Map items with quantities, discounts, and customer details back to cart
+      const storeProducts = useApp.getState().products;
+      const duplicatedCartLines = receipt.items.map((item: any) => {
+        const matchingProd = storeProducts.find((p) => String(p.id) === String(item.productId));
+        return {
+          productId: String(item.productId),
+          name: item.name,
+          price: item.price,
+          gst: item.gst,
+          qty: item.qty,
+          discount: Math.round(item.discount * 100), // convert 0.1 to 10
+          emoji: matchingProd?.emoji || "🛍️",
+        };
+      });
+
+      useApp.setState({
+        cart: duplicatedCartLines,
+        customerMobile: receipt.customer.phone === "0000000000" ? "" : (receipt.customer.phone || ""),
+        customerName: receipt.customer.name === "Walk-in Customer" ? "" : (receipt.customer.name || ""),
+        payment: receipt.paymentMethod,
+      });
+
+      await logSaleAudit(receipt.invoiceNumber, "INVOICE_DUPLICATE", `${role} duplicated Invoice ${receipt.invoiceNumber}`);
+      toast.success("Invoice items and customer copied to checkout cart");
+      onClose();
+    } catch (err: any) {
+      toast.error("Failed to duplicate invoice: " + err.message);
+    }
+  };
+
   const handleVoidInvoice = async () => {
     if (!voidReason) {
       toast.error("Please select a reason to void the invoice");
+      return;
+    }
+    if (confirmInvoiceNumber.trim().toUpperCase() !== receipt.invoiceNumber.toUpperCase()) {
+      toast.error("Invoice number does not match");
       return;
     }
     setVoiding(true);
@@ -856,6 +902,8 @@ export function SlipDialog({
       }
       toast.success("Invoice voided successfully");
       setVoidDialogOpen(false);
+      setConfirmInvoiceNumber("");
+      setVoidReason("");
       
       queryClient.invalidateQueries({ queryKey: ["receipt", invoiceId] });
       queryClient.invalidateQueries({ queryKey: ["reports"] });
@@ -881,6 +929,8 @@ export function SlipDialog({
       </Dialog>
     );
   }
+
+  const canVoidAction = role === "Admin" || role === "Manager";
 
   return (
     <>
@@ -983,48 +1033,79 @@ export function SlipDialog({
             </div>
           </div>
 
-          {/* Action buttons — View / Print / PDF / WhatsApp / Duplicate / Copy / Void */}
-          <div className="mt-2 grid grid-cols-2 gap-2">
-            <Button variant="outline" onClick={() => window.open(`/print/invoice/${receipt.invoiceNumber}`, "_blank")} className="rounded-xl text-xs h-9">
-              👁️ View Receipt
-            </Button>
-            <Button variant="outline" onClick={handlePrint} disabled={printing || isLoading} className="rounded-xl text-xs h-9">
-              {printing ? "Printing…" : "🖨️ Print"}
-            </Button>
-            <Button variant="outline" onClick={handleDownloadPdf} disabled={downloadingPdf || isLoading} className="rounded-xl text-xs h-9">
-              {downloadingPdf ? "Generating…" : "📄 Download PDF"}
-            </Button>
-            {receipt && receipt.customer.phone ? (
-              <Button variant="outline" onClick={handleWhatsApp} className="rounded-xl text-xs h-9">
-                💬 WhatsApp
+          {/* Safe Action Menu Layout */}
+          <div className="mt-3 space-y-2">
+            <div className="text-xs font-semibold text-muted-foreground px-1">Invoice Actions</div>
+            <div className="grid grid-cols-2 gap-2">
+              <Button variant="outline" onClick={() => {
+                logSaleAudit(receipt.invoiceNumber, "INVOICE_VIEW", `${role} viewed receipt HTML`);
+                window.open(`/print/invoice/${receipt.invoiceNumber}`, "_blank");
+              }} className="rounded-xl text-xs h-9">
+                👁️ View Receipt
+              </Button>
+              <Button variant="outline" onClick={handlePrint} disabled={printing || isLoading} className="rounded-xl text-xs h-9">
+                {printing ? "Printing…" : "🖨️ Print"}
+              </Button>
+              <Button variant="outline" onClick={handleDownloadPdf} disabled={downloadingPdf || isLoading} className="rounded-xl text-xs h-9">
+                {downloadingPdf ? "Generating…" : "📄 Download PDF"}
+              </Button>
+              {receipt && receipt.customer.phone ? (
+                <Button variant="outline" onClick={handleWhatsApp} className="rounded-xl text-xs h-9">
+                  💬 WhatsApp
+                </Button>
+              ) : (
+                <Button variant="outline" disabled className="rounded-xl text-xs h-9 opacity-50" title="Customer phone required">
+                  💬 WhatsApp
+                </Button>
+              )}
+            </div>
+
+            {!showMoreActions ? (
+              <Button
+                variant="outline"
+                onClick={() => setShowMoreActions(true)}
+                className="w-full rounded-xl text-xs h-9 text-muted-foreground border-dashed"
+              >
+                More Actions →
               </Button>
             ) : (
-              <Button variant="outline" disabled className="rounded-xl text-xs h-9 opacity-50" title="Customer phone required">
-                💬 WhatsApp
-              </Button>
-            )}
-            <Button variant="outline" onClick={() => toast.info("Duplicate Invoice feature coming soon (places items back to checkout cart)")} className="rounded-xl text-xs h-9">
-              📋 Duplicate Invoice
-            </Button>
-            <Button variant="outline" onClick={handleCopyLink} className="rounded-xl text-xs h-9">
-              🔗 Copy Link
-            </Button>
-            {receipt.status !== "VOID" && (
-              <Button
-                onClick={() => {
-                  if (!canVoid) {
-                    toast.error("Only Admin or Manager accounts can void invoices");
-                    return;
-                  }
-                  setVoidDialogOpen(true);
-                }}
-                className="rounded-xl text-xs h-9 col-span-2 bg-red-600 hover:bg-red-700 text-white font-bold transition-colors"
-              >
-                🟥 Void Invoice
-              </Button>
+              <div className="space-y-2 animate-fade-in border-t border-border pt-2">
+                <div className="text-xs font-semibold text-muted-foreground px-1">More Actions</div>
+                <div className="grid grid-cols-1 gap-2">
+                  <Button
+                    variant="outline"
+                    onClick={handleDuplicateInvoice}
+                    className="w-full rounded-xl text-xs h-9 text-left justify-start"
+                  >
+                    📋 Duplicate Invoice
+                  </Button>
+                  {receipt.status !== "VOID" && (
+                    <Button
+                      onClick={() => {
+                        if (!canVoidAction) {
+                          toast.error("Only Admin or Manager accounts can void invoices");
+                          return;
+                        }
+                        setVoidDialogOpen(true);
+                      }}
+                      className="w-full rounded-xl text-xs h-9 bg-red-600 hover:bg-red-700 text-white font-bold transition-colors"
+                    >
+                      🟥 Void Invoice
+                    </Button>
+                  )}
+                  <Button
+                    variant="ghost"
+                    onClick={() => setShowMoreActions(false)}
+                    className="w-full rounded-xl text-[10px] h-7 text-muted-foreground hover:bg-transparent"
+                  >
+                    ← Hide More Actions
+                  </Button>
+                </div>
+              </div>
             )}
           </div>
-          <Button onClick={onClose} className="h-10 w-full rounded-xl mt-1">
+          
+          <Button onClick={onClose} className="h-10 w-full rounded-xl mt-2">
             {receipt.status === "VOID" ? "Close Dialog" : "✅ New Sale"}
           </Button>
         </DialogContent>
@@ -1060,22 +1141,40 @@ export function SlipDialog({
                 <option value="Other">Other</option>
               </select>
             </div>
+            
+            <div className="space-y-2">
+              <label htmlFor="confirm-inv" className="text-xs font-semibold text-foreground">
+                Type Invoice Number to confirm: <span className="font-mono bg-muted px-1.5 py-0.5 rounded text-[10px] select-all">{receipt.invoiceNumber}</span>
+              </label>
+              <Input
+                id="confirm-inv"
+                type="text"
+                placeholder={receipt.invoiceNumber}
+                value={confirmInvoiceNumber}
+                onChange={(e) => setConfirmInvoiceNumber(e.target.value)}
+                className="rounded-xl font-mono text-xs uppercase"
+              />
+            </div>
           </div>
 
           <div className="flex gap-2 justify-end mt-4">
             <Button
               variant="outline"
-              onClick={() => setVoidDialogOpen(false)}
+              onClick={() => {
+                setVoidDialogOpen(false);
+                setConfirmInvoiceNumber("");
+                setVoidReason("");
+              }}
               className="rounded-xl"
             >
               Cancel
             </Button>
             <Button
               onClick={handleVoidInvoice}
-              disabled={voiding || !voidReason}
+              disabled={voiding || !voidReason || confirmInvoiceNumber.trim().toUpperCase() !== receipt.invoiceNumber.toUpperCase()}
               className="bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl"
             >
-              {voiding ? "Voiding..." : "Void Invoice"}
+              {voiding ? "Voiding..." : "Yes, Void Invoice"}
             </Button>
           </div>
         </DialogContent>

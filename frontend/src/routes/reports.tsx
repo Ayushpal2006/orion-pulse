@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { format } from "date-fns";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { useQuery } from "@tanstack/react-query";
@@ -16,7 +16,7 @@ import { useCan } from "@/components/role-gate";
 import { cn } from "@/lib/utils";
 import type { DateRange } from "react-day-picker";
 import { getReportsData, API_BASE_URL } from "@/lib/api";
-import { SlipDialog } from "./billing";
+import { InvoiceHistory } from "@/components/invoice-history";
 
 export const Route = createFileRoute("/reports")({
   head: () => ({
@@ -55,7 +55,19 @@ function Reports() {
   const [filter, setFilter] = useState<Filter>("last7");
   const [range, setRange] = useState<DateRange | undefined>();
   const [showVoidInvoices, setShowVoidInvoices] = useState(false);
-  const [selectedInvoice, setSelectedInvoice] = useState<any>(null);
+
+  // Smooth scroll to Invoice History if navigated from Dashboard "View More"
+  useEffect(() => {
+    const searchParams = new URLSearchParams(window.location.search);
+    if (searchParams.get("focus") === "invoice-history") {
+      setTimeout(() => {
+        const el = document.getElementById("invoice-history");
+        if (el) {
+          el.scrollIntoView({ behavior: "smooth" });
+        }
+      }, 300);
+    }
+  }, []);
 
   // Format dates for backend custom queries
   const startDateStr = (filter === "custom" && range?.from) ? format(range.from, "yyyy-MM-dd") : undefined;
@@ -322,49 +334,9 @@ function Reports() {
             </div>
           </div>
 
-          <div className="card-soft overflow-hidden">
-            <div className="border-b border-border p-4 text-sm font-semibold">Recent Invoices</div>
-            <table className="w-full text-sm">
-              <thead className="bg-muted/40 text-xs uppercase tracking-wide text-muted-foreground">
-                <tr>
-                  <th className="px-4 py-3 text-left font-medium">Invoice</th>
-                  <th className="px-4 py-3 text-left font-medium">Date</th>
-                  <th className="px-4 py-3 text-left font-medium">Payment</th>
-                  <th className="px-4 py-3 text-right font-medium">Total</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {recentInvoices.length === 0 ? (
-                  <tr>
-                    <td colSpan={4} className="px-4 py-8 text-center text-xs text-muted-foreground">
-                      No invoices found in this period.
-                    </td>
-                  </tr>
-                ) : (
-                  recentInvoices.map((i: any) => (
-                    <tr 
-                      key={i.id}
-                      onClick={() => setSelectedInvoice({ invoice: i.invoiceNumber })}
-                      className="cursor-pointer hover:bg-muted/40 transition-colors"
-                    >
-                      <td className="px-4 py-3 font-medium text-foreground flex items-center gap-2">
-                        {i.invoiceNumber}
-                        {i.status === "VOID" && (
-                          <span className="rounded-full bg-rose-500/10 px-2 py-0.5 text-[9px] font-bold text-rose-500 uppercase">
-                            VOID
-                          </span>
-                        )}
-                      </td>
-                      <td className="px-4 py-3 text-muted-foreground">
-                        {format(new Date(i.date), "dd MMM yyyy hh:mm a")}
-                      </td>
-                      <td className="px-4 py-3 text-muted-foreground">{i.payment}</td>
-                      <td className="px-4 py-3 text-right tabular font-semibold text-foreground">{inr(i.total)}</td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+          <div className="pt-4 border-t border-border/60">
+            <div className="text-base font-bold text-foreground mb-4">Invoice History Ledger</div>
+            <InvoiceHistory />
           </div>
         </TabsContent>
 
@@ -417,13 +389,6 @@ function Reports() {
           </div>
         </TabsContent>
       </Tabs>
-      {selectedInvoice && (
-        <SlipDialog
-          open={!!selectedInvoice}
-          onClose={() => setSelectedInvoice(null)}
-          result={selectedInvoice}
-        />
-      )}
     </div>
   );
 }

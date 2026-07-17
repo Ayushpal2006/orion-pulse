@@ -24,10 +24,31 @@ export interface ISaleRepository {
     },
     tx?: DatabaseAdapter
   ): Promise<any[]>;
+  searchSalesPaginated(
+    params: {
+      page?: number;
+      limit?: number;
+      search?: string;
+      invoiceNumber?: string;
+      customerName?: string;
+      phone?: string;
+      customerId?: number;
+      paymentMethod?: string;
+      status?: string;
+      date?: string;
+      startDate?: string;
+      endDate?: string;
+      dateFilter?: string;
+      sort?: string;
+    },
+    tx?: DatabaseAdapter
+  ): Promise<{ sales: any[]; totalCount: number }>;
   getSalesExport(
     filter: string,
     startDate?: string,
     endDate?: string,
+    showVoid?: boolean,
     tx?: DatabaseAdapter
   ): Promise<any[]>;
 }
+

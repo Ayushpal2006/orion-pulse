@@ -24,7 +24,7 @@ import { formatToKolkataDateTime, formatToKolkataDate, parseDbTimestamp } from "
 import { toast } from "sonner";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { getCustomers, searchCustomers, deleteCustomerApi, getCustomerInvoices, getWhatsAppShareLink, getSalePublicLink, API_BASE_URL } from "@/lib/api";
-import { SlipDialog } from "./billing";
+import { InvoiceHistory } from "@/components/invoice-history";
 
 export const Route = createFileRoute("/customers")({
   head: () => ({
@@ -297,23 +297,6 @@ function CustomerDetail({
   onDelete: () => void;
   onSaved: () => void;
 }) {
-  const [selectedInvoice, setSelectedInvoice] = useState<any>(null);
-  const { data: sales = [], isLoading } = useQuery({
-    queryKey: ["customer-invoices", customer.id],
-    queryFn: () => getCustomerInvoices(customer.id),
-  });
-
-  const handleWhatsApp = async (invoiceNumber: string) => {
-    try {
-      const url = await getWhatsAppShareLink(invoiceNumber);
-      window.open(url, "_blank");
-    } catch {
-      toast.error("Failed to generate WhatsApp share link");
-    }
-  };
-
-
-
   return (
     <div className="border-t border-border bg-muted/20 p-4 animate-fade-in">
       <div className="mb-3 grid grid-cols-3 gap-3 sm:hidden">
@@ -346,67 +329,7 @@ function CustomerDetail({
       </div>
 
       <div className="text-xs font-semibold text-muted-foreground mb-3 mt-4">Transaction History Timeline</div>
-      {isLoading ? (
-        <div className="flex h-16 items-center justify-center">
-          <Loader2 className="size-4 animate-spin text-muted-foreground" />
-        </div>
-      ) : sales.length === 0 ? (
-        <div className="text-xs text-muted-foreground p-2 border border-dashed border-border rounded-xl text-center">
-          No transactions billed to this account yet.
-        </div>
-      ) : (
-        <ol className="space-y-3">
-          {sales.map((sale: any) => (
-            <li key={sale.id} className="flex gap-3">
-              <div className="mt-1 grid size-7 shrink-0 place-items-center rounded-full bg-elevated border border-border">
-                <Calendar className="size-3.5 text-muted-foreground" />
-              </div>
-              <div className="flex-1 rounded-xl border border-border bg-elevated p-3 space-y-2 shadow-sm">
-                <div className="flex items-center justify-between">
-                  <div className="text-sm font-semibold text-foreground flex items-center gap-2">
-                    {sale.invoice_number}
-                    {sale.status === "VOID" && (
-                      <span className="rounded-full bg-rose-500/10 px-2 py-0.5 text-[9px] font-bold text-rose-500 uppercase">
-                        VOID
-                      </span>
-                    )}
-                  </div>
-                  <div className="tabular text-sm font-bold text-foreground">{inr((sale.grand_total ?? 0) / 100)}</div>
-                </div>
-                <div className="text-xs text-muted-foreground">
-                  {formatToKolkataDateTime(sale.created_at)} · {sale.payment_method}
-                </div>
-                <div className="pt-1 flex flex-wrap gap-1.5 border-t border-border/40">
-                  {sale.public_token && (
-                    <a
-                      href={getSalePublicLink(sale.public_token)}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 rounded-lg border border-border bg-background px-2.5 py-1 text-[11px] font-medium hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
-                    >
-                      <ExternalLink className="size-3" /> View HTML
-                    </a>
-                  )}
-                  <Button
-                    variant="outline"
-                    className="h-7 rounded-lg text-[11px] px-2.5 font-bold"
-                    onClick={() => setSelectedInvoice({ invoice: sale.invoice_number })}
-                  >
-                    ⚙️ Actions
-                  </Button>
-                </div>
-              </div>
-            </li>
-          ))}
-        </ol>
-      )}
-      {selectedInvoice && (
-        <SlipDialog
-          open={!!selectedInvoice}
-          onClose={() => setSelectedInvoice(null)}
-          result={selectedInvoice}
-        />
-      )}
+      <InvoiceHistory customerId={customer.id} />
     </div>
   );
 }

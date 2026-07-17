@@ -6,8 +6,8 @@ import { getStoreId } from "../../db/context";
 import { getUtcBoundariesForFilter } from "../../utils/datetime";
 
 export class PostgresReportsRepository implements IReportsRepository {
-  private getDateCondition(column: any, filter: string, startDate?: string, endDate?: string) {
-    return this.getReportCondition(column, filter, startDate, endDate, false);
+  private getDateCondition(column: any, filter: string, startDate?: string, endDate?: string, showVoid: boolean = false) {
+    return this.getReportCondition(column, filter, startDate, endDate, showVoid);
   }
 
   private getReportCondition(column: any, filter: string, startDate?: string, endDate?: string, showVoid: boolean = false) {
@@ -22,6 +22,7 @@ export class PostgresReportsRepository implements IReportsRepository {
     filter: string,
     startDate?: string,
     endDate?: string,
+    showVoid: boolean = false,
     tx?: any
   ): Promise<{
     revenue: number;
@@ -31,7 +32,7 @@ export class PostgresReportsRepository implements IReportsRepository {
   }> {
     const client = tx || db;
     const storeId = getStoreId();
-    let cond = this.getDateCondition(sales.created_at, filter, startDate, endDate);
+    let cond = this.getDateCondition(sales.created_at, filter, startDate, endDate, showVoid);
     if (storeId !== undefined) {
       cond = and(cond, eq(sales.store_id, storeId)) as any;
     }
@@ -71,11 +72,12 @@ export class PostgresReportsRepository implements IReportsRepository {
     filter: string,
     startDate?: string,
     endDate?: string,
+    showVoid: boolean = false,
     tx?: any
   ): Promise<any[]> {
     const client = tx || db;
     const storeId = getStoreId();
-    let cond = this.getDateCondition(sales.created_at, filter, startDate, endDate);
+    let cond = this.getDateCondition(sales.created_at, filter, startDate, endDate, showVoid);
     if (storeId !== undefined) {
       cond = and(cond, eq(sales.store_id, storeId)) as any;
     }
@@ -110,11 +112,12 @@ export class PostgresReportsRepository implements IReportsRepository {
     filter: string,
     startDate?: string,
     endDate?: string,
+    showVoid: boolean = false,
     tx?: any
   ): Promise<any[]> {
     const client = tx || db;
     const storeId = getStoreId();
-    let cond = this.getDateCondition(sales.created_at, filter, startDate, endDate);
+    let cond = this.getDateCondition(sales.created_at, filter, startDate, endDate, showVoid);
     if (storeId !== undefined) {
       cond = and(cond, eq(sales.store_id, storeId)) as any;
     }
@@ -143,11 +146,12 @@ export class PostgresReportsRepository implements IReportsRepository {
     filter: string,
     startDate?: string,
     endDate?: string,
+    showVoid: boolean = false,
     tx?: any
   ): Promise<Record<string, number>> {
     const client = tx || db;
     const storeId = getStoreId();
-    let cond = this.getDateCondition(sales.created_at, filter, startDate, endDate);
+    let cond = this.getDateCondition(sales.created_at, filter, startDate, endDate, showVoid);
     if (storeId !== undefined) {
       cond = and(cond, eq(sales.store_id, storeId)) as any;
     }
@@ -172,11 +176,12 @@ export class PostgresReportsRepository implements IReportsRepository {
     filter: string,
     startDate?: string,
     endDate?: string,
+    showVoid: boolean = false,
     tx?: any
   ): Promise<any[]> {
     const client = tx || db;
     const storeId = getStoreId();
-    let cond = this.getDateCondition(sales.created_at, filter, startDate, endDate);
+    let cond = this.getDateCondition(sales.created_at, filter, startDate, endDate, showVoid);
     if (storeId !== undefined) {
       cond = and(cond, eq(sales.store_id, storeId)) as any;
     }
@@ -379,11 +384,12 @@ export class PostgresReportsRepository implements IReportsRepository {
     filter: string,
     startDate?: string,
     endDate?: string,
+    showVoid: boolean = false,
     tx?: any
   ): Promise<any[]> {
     const client = tx || db;
     const storeId = getStoreId();
-    let cond = this.getDateCondition(sales.created_at, filter, startDate, endDate);
+    let cond = this.getDateCondition(sales.created_at, filter, startDate, endDate, showVoid);
     if (storeId !== undefined) {
       cond = and(cond, eq(sales.store_id, storeId)) as any;
     }
@@ -434,6 +440,7 @@ export class PostgresReportsRepository implements IReportsRepository {
     filter: string,
     startDate?: string,
     endDate?: string,
+    showVoid: boolean = false,
     tx?: any
   ): Promise<{
     totalUnitsSold: number;
@@ -442,7 +449,7 @@ export class PostgresReportsRepository implements IReportsRepository {
   }> {
     const client = tx || db;
     const storeId = getStoreId();
-    let cond = this.getDateCondition(sales.created_at, filter, startDate, endDate);
+    let cond = this.getDateCondition(sales.created_at, filter, startDate, endDate, showVoid);
     if (storeId !== undefined) {
       cond = and(cond, eq(sales.store_id, storeId)) as any;
     }

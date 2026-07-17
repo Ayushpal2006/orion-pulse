@@ -23,15 +23,56 @@ export class SalesController {
   getAll = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const {
+        page,
+        limit,
+        search,
         invoice,
         customer,
         phone,
-        date,
-        cashier,
+        customerId,
         payment,
+        status,
+        date,
         startDate,
         endDate,
+        dateFilter,
+        sort,
+        cashier,
       } = req.query;
+
+      if (page || limit || search || status || sort || dateFilter) {
+        const pageNum = parseInt(page as string, 10) || 1;
+        const limitNum = parseInt(limit as string, 10) || 20;
+
+        const result = await this.saleRepo.searchSalesPaginated({
+          page: pageNum,
+          limit: limitNum,
+          search: search as string,
+          invoiceNumber: invoice as string,
+          customerName: customer as string,
+          phone: phone as string,
+          customerId: customerId ? parseInt(customerId as string, 10) : undefined,
+          paymentMethod: payment as string,
+          status: status as string,
+          date: date as string,
+          startDate: startDate as string,
+          endDate: endDate as string,
+          dateFilter: dateFilter as string,
+          sort: sort as string,
+        });
+
+        res.status(200).json({
+          success: true,
+          data: result.sales,
+          pagination: {
+            page: pageNum,
+            limit: limitNum,
+            totalCount: result.totalCount,
+            totalPages: Math.ceil(result.totalCount / limitNum),
+          }
+        });
+        return;
+      }
 
       let salesData;
       if (invoice || customer || phone || date || cashier || payment || startDate) {
@@ -57,6 +98,7 @@ export class SalesController {
       next(error);
     }
   };
+
 
   getById = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
@@ -296,6 +338,27 @@ export class SalesController {
         success: true,
         data: updatedReceipt,
       });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  logAuditAction = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const id = req.params.id as string;
+      const { action, details } = req.body;
+      const authenticatedReq = req as any;
+      const userId = authenticatedReq.user?.id || 1;
+      const storeId = authenticatedReq.user?.storeId || 1;
+
+      if (!action) {
+        res.status(400).json({ success: false, error: "Action is required" });
+        return;
+      }
+
+      await this.service.logAudit(storeId, userId, action, details);
+
+      res.status(200).json({ success: true });
     } catch (error) {
       next(error);
     }

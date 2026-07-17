@@ -1,9 +1,9 @@
 import { db } from "../db";
-import { sales, sale_items, products, customers, inventory_logs } from "../db/schema";
+import { sales, sale_items, products, customers, inventory_logs, audit_logs } from "../db/schema";
 import { eq, and, desc, like } from "drizzle-orm";
 import { CheckoutRequest, CheckoutResponse } from "../types/checkout.types";
 import { ValidationError, NotFoundError } from "../utils/errors";
-import { getStoreId } from "../db/context";
+import { getStoreId, getUserId } from "../db/context";
 import { getKolkataDateString } from "../utils/datetime";
 import { formatInTimeZone } from "date-fns-tz";
 import { settingsRepository } from "../repositories";
@@ -219,6 +219,14 @@ export class CheckoutService {
           pdf_url: "",
         })
         .returning();
+
+      // Add creation details to audit logs
+      await tx.insert(audit_logs).values({
+        store_id: storeId,
+        user_id: getUserId(),
+        action: "INVOICE_CREATE",
+        details: `${request.cashierName || "Admin"} created Invoice ${invoiceNumber}`,
+      });
 
       // 5. Create Sale Item records
       for (const item of processedItems) {

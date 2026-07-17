@@ -483,15 +483,68 @@ export function ReceiptRenderer({
     qrPosition
   };
 
-  switch (template) {
-    case "Retail":
-      return <RetailTemplate {...props} />;
-    case "Premium":
-      return <PremiumTemplate {...props} />;
-    case "Compact":
-      return <CompactTemplate {...props} />;
-    case "Classic":
-    default:
-      return <ClassicTemplate {...props} />;
-  }
+  const isVoid = (receipt as any).status === "VOID";
+
+  const renderTemplate = () => {
+    switch (template) {
+      case "Retail":
+        return <RetailTemplate {...props} />;
+      case "Premium":
+        return <PremiumTemplate {...props} />;
+      case "Compact":
+        return <CompactTemplate {...props} />;
+      case "Classic":
+      default:
+        return <ClassicTemplate {...props} />;
+    }
+  };
+
+  return (
+    <div style={{ position: "relative", overflow: "hidden", width: "100%" }}>
+      {isVoid && (
+        <div style={{
+          position: "absolute",
+          top: "50%",
+          left: "50%",
+          transform: "translate(-50%, -50%) rotate(-30deg)",
+          fontSize: "48px",
+          fontWeight: "900",
+          color: "rgba(239, 68, 68, 0.12)",
+          border: "4px solid rgba(239, 68, 68, 0.12)",
+          padding: "4px 16px",
+          borderRadius: "8px",
+          pointerEvents: "none",
+          zIndex: 9999,
+          letterSpacing: "4px",
+          textTransform: "uppercase",
+          fontFamily: "sans-serif"
+        }}>
+          VOID
+        </div>
+      )}
+      
+      {isVoid && (
+        <div style={{
+          border: "1px solid rgba(239, 68, 68, 0.3)",
+          backgroundColor: "rgba(239, 68, 68, 0.05)",
+          color: "#ef4444",
+          fontSize: "9px",
+          fontWeight: "bold",
+          padding: "6px",
+          borderRadius: "6px",
+          marginBottom: "8px",
+          textAlign: "left",
+          lineHeight: "1.35",
+          fontFamily: "monospace"
+        }}>
+          <div>STATUS: VOID</div>
+          <div>REASON: {(receipt as any).voidReason || "N/A"}</div>
+          <div>VOIDED BY: {(receipt as any).voidedBy || "N/A"}</div>
+          <div>VOIDED ON: {(receipt as any).voidedAt ? new Date((receipt as any).voidedAt).toLocaleString("en-IN") : "N/A"}</div>
+        </div>
+      )}
+
+      {renderTemplate()}
+    </div>
+  );
 }

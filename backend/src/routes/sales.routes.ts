@@ -34,6 +34,9 @@ router.post("/:id/return", returnController.processReturn);
 // POST void sale
 router.post("/:id/void", authorize("admin", "manager"), controller.voidInvoice);
 
+// POST log audit action
+router.post("/:id/audit", controller.logAuditAction);
+
 // GET sale returns list
 router.get("/:id/returns", returnController.getReturnsBySale);
 
