@@ -158,8 +158,31 @@ export async function initDb(): Promise<void> {
     }
 
     logger.info("✅ PostgreSQL database initialization completed successfully.");
-  } catch (error) {
-    logger.error("❌ Database initialization failed:", error);
+  } catch (error: any) {
+    const pgErrorDetails: Record<string, any> = {};
+    if (error) {
+      pgErrorDetails.message = error.message;
+      pgErrorDetails.stack = error.stack;
+      if (error.code) pgErrorDetails.code = error.code;
+      if (error.detail) pgErrorDetails.detail = error.detail;
+      if (error.hint) pgErrorDetails.hint = error.hint;
+      if (error.position) pgErrorDetails.position = error.position;
+      if (error.where) pgErrorDetails.where = error.where;
+      if (error.query) pgErrorDetails.query = error.query;
+    }
+
+    logger.error("❌ Database initialization failed with detailed error properties:", error, pgErrorDetails);
+
+    console.error("❌ Database initialization failed with detailed error properties:");
+    console.error(`Message: ${error?.message}`);
+    console.error(`Code: ${error?.code}`);
+    console.error(`Detail: ${error?.detail}`);
+    console.error(`Hint: ${error?.hint}`);
+    console.error(`Position: ${error?.position}`);
+    console.error(`Where: ${error?.where}`);
+    console.error(`Query: ${error?.query}`);
+    console.error(`Stack: ${error?.stack}`);
+
     process.exit(1);
   }
 }
