@@ -185,6 +185,29 @@ export const inventory_logs = pgTable(
   })
 );
 
+export const inventory_movements = pgTable(
+  "inventory_movements",
+  {
+    id: serial("id").primaryKey(),
+    store_id: integer("store_id").references(() => stores.id).notNull(),
+    movement_type: text("movement_type").notNull(),
+    product_id: integer("product_id").references(() => products.id).notNull(),
+    quantity: integer("quantity").notNull(),
+    previous_stock: integer("previous_stock").notNull(),
+    new_stock: integer("new_stock").notNull(),
+    reference_type: text("reference_type"),
+    reference_id: text("reference_id"),
+    reason: text("reason"),
+    created_by: text("created_by"),
+    created_at: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    productIdx: index("idx_inv_mov_product").on(table.product_id),
+    storeIdx: index("idx_inv_mov_store").on(table.store_id),
+    createdIdx: index("idx_inv_mov_created").on(table.created_at),
+  })
+);
+
 export const sync_jobs = pgTable("sync_jobs", {
   id: serial("id").primaryKey(),
   store_id: integer("store_id").references(() => stores.id).notNull(),

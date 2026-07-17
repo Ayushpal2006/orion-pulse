@@ -4,8 +4,11 @@ import { eq, and, desc, sql, like } from "drizzle-orm";
 import { getStoreId } from "../db/context";
 import { NotFoundError, ValidationError } from "../utils/errors";
 import { getKolkataDateString } from "../utils/datetime";
+import { InventoryMovementService } from "./inventory-movement.service";
 
 export class PurchaseService {
+  private movementService = new InventoryMovementService();
+
   async generateNextPONumber(storeId: number, txClient?: any): Promise<string> {
     const client = txClient || db;
     const todayStr = getKolkataDateString();
@@ -258,19 +261,23 @@ export class PurchaseService {
           const margin = product.selling_price > 0 ? Math.round(((product.selling_price - item.purchase_price) / product.selling_price) * 100) : 0;
           const markup = item.purchase_price > 0 ? Math.round(((product.selling_price - item.purchase_price) / item.purchase_price) * 100) : 0;
 
-          // Update product stock and costing
-          const [updatedProduct] = await tx
-            .update(products)
-            .set({
-              stock: afterStock,
-              average_cost: newAverageCost,
-              last_purchase_cost: item.purchase_price,
-              margin_percent: margin,
-              markup_percent: markup,
-              updated_at: new Date(),
-            })
-            .where(eq(products.id, item.product_id))
-            .returning();
+          // Update product stock and costing using unified service
+          const movementResult = await this.movementService.recordPurchase(
+            item.product_id,
+            storeId,
+            qtyToReceive,
+            po.po_number,
+            "System",
+            `Received Purchase: PO Invoice ${invoiceDetails.invoice_number ?? ""}`,
+            {
+              averageCost: newAverageCost,
+              lastPurchaseCost: item.purchase_price,
+              margin,
+              markup,
+            },
+            tx
+          );
+          const updatedProduct = movementResult.product;
 
           if (updatedProduct) {
             syncProductsList.push({
@@ -279,17 +286,6 @@ export class PurchaseService {
               updated_at: updatedProduct.updated_at.toISOString()
             });
           }
-
-          // Log inventory transaction (PURCHASE type)
-          await tx.insert(inventory_logs).values({
-            product_id: item.product_id,
-            store_id: storeId,
-            type: "PURCHASE",
-            quantity: qtyToReceive,
-            before_stock: beforeStock,
-            after_stock: afterStock,
-            reference: po.po_number,
-          });
         }
       }
 

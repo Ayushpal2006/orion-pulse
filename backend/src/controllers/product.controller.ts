@@ -180,4 +180,25 @@ export class ProductController {
       next(error);
     }
   };
+
+  getMovements = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const id = parseInt(req.params.id as string, 10);
+      if (isNaN(id)) {
+        res.status(400).json({
+          success: false,
+          message: "Validation Error",
+          error: "ID must be a number",
+        });
+        return;
+      }
+      const movements = await this.service.getMovements(id);
+      res.status(200).json({
+        success: true,
+        data: movements,
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
 }

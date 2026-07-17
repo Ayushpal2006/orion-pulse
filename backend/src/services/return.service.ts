@@ -4,8 +4,11 @@ import { eq, and, desc, sql, like } from "drizzle-orm";
 import { getStoreId } from "../db/context";
 import { NotFoundError, ValidationError } from "../utils/errors";
 import { getKolkataDateString } from "../utils/datetime";
+import { InventoryMovementService } from "./inventory-movement.service";
 
 export class ReturnService {
+  private movementService = new InventoryMovementService();
+
   async generateNextReturnNumber(storeId: number, txClient?: any): Promise<string> {
     const client = txClient || db;
     const todayStr = getKolkataDateString();
@@ -131,14 +134,16 @@ export class ReturnService {
           .limit(1);
 
         if (product) {
-          const beforeStock = product.stock;
-          const afterStock = beforeStock + retItem.quantity;
-
-          const [updatedProduct] = await tx
-            .update(products)
-            .set({ stock: afterStock, updated_at: new Date() })
-            .where(eq(products.id, retItem.productId))
-            .returning();
+          const movementResult = await this.movementService.recordCustomerReturn(
+            retItem.productId,
+            storeId,
+            retItem.quantity,
+            returnInvoiceNumber,
+            "System",
+            "Customer Return Invoice",
+            tx
+          );
+          const updatedProduct = movementResult.product;
 
           if (updatedProduct) {
             syncProductsList.push({
@@ -147,17 +152,6 @@ export class ReturnService {
               updated_at: updatedProduct.updated_at.toISOString()
             });
           }
-
-          // Log inventory movement (RETURN type)
-          await tx.insert(inventory_logs).values({
-            product_id: retItem.productId,
-            store_id: storeId,
-            type: "RETURN",
-            quantity: retItem.quantity,
-            before_stock: beforeStock,
-            after_stock: afterStock,
-            reference: returnInvoiceNumber,
-          });
         }
       }
 

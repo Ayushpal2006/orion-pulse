@@ -5,8 +5,10 @@ import { products, customers, sales, sale_items, inventory_logs, settings } from
 import { eq, and, sql, gt } from "drizzle-orm";
 import { getStoreId } from "../db/context";
 import { ValidationError } from "../utils/errors";
+import { InventoryMovementService } from "../services/inventory-movement.service";
 
 const router = Router();
+const movementService = new InventoryMovementService();
 
 // POST upload offline-first delta changes
 router.post("/upload", async (req: Request, res: Response): Promise<void> => {
@@ -114,22 +116,16 @@ router.post("/upload", async (req: Request, res: Response): Promise<void> => {
                 const beforeStock = product.stock;
                 const afterStock = Math.max(0, beforeStock - item.quantity);
 
-                // Update product stock
-                await tx
-                  .update(products)
-                  .set({ stock: afterStock, updated_at: new Date() })
-                  .where(eq(products.id, product.id));
-
-                // Log inventory log (SALE type)
-                await tx.insert(inventory_logs).values({
-                  product_id: product.id,
-                  store_id: storeId,
-                  type: "SALE",
-                  quantity: item.quantity,
-                  before_stock: beforeStock,
-                  after_stock: afterStock,
-                  reference: sale.invoice_number,
-                });
+                // Record Sale movement using unified service
+                await movementService.recordSale(
+                  product.id,
+                  storeId,
+                  item.quantity,
+                  sale.invoice_number,
+                  sale.cashier_name || "Offline Cashier",
+                  "Offline POS Sync Sale",
+                  tx
+                );
 
                 // Insert sale item
                 await tx.insert(sale_items).values({
@@ -161,20 +157,16 @@ router.post("/upload", async (req: Request, res: Response): Promise<void> => {
             if (adj.type === "ADD") afterStock = beforeStock + adj.quantity;
             else if (adj.type === "REMOVE") afterStock = Math.max(0, beforeStock - adj.quantity);
 
-            await tx
-              .update(products)
-              .set({ stock: afterStock, updated_at: new Date() })
-              .where(eq(products.id, product.id));
-
-            await tx.insert(inventory_logs).values({
-              product_id: product.id,
-              store_id: storeId,
-              type: "ADJUSTMENT",
-              quantity: adj.type === "ADD" ? adj.quantity : -adj.quantity,
-              before_stock: beforeStock,
-              after_stock: afterStock,
-              reference: `Offline sync adjustment: ${adj.reason}`,
-            });
+            // Record stock adjustment using unified service
+            const adjQty = adj.type === "ADD" ? adj.quantity : -adj.quantity;
+            await movementService.recordStockAdjustment(
+              product.id,
+              storeId,
+              adjQty,
+              `Offline sync adjustment: ${adj.reason || ""}`,
+              "System",
+              tx
+            );
           }
         }
       }

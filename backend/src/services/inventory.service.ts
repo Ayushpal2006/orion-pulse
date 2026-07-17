@@ -3,8 +3,11 @@ import { products, inventory_adjustments, inventory_logs, suppliers } from "../d
 import { eq, and, sql } from "drizzle-orm";
 import { getStoreId } from "../db/context";
 import { NotFoundError, ValidationError } from "../utils/errors";
+import { InventoryMovementService } from "./inventory-movement.service";
 
 export class InventoryService {
+  private movementService = new InventoryMovementService();
+
   async adjustStock(productId: number, quantity: number, type: "ADD" | "REMOVE", reason: string): Promise<any> {
     const storeId = getStoreId();
     if (storeId === undefined) {
@@ -40,12 +43,17 @@ export class InventoryService {
         throw new ValidationError("Adjustment type must be ADD or REMOVE");
       }
 
-      // 1. Update product stock
-      const [updatedProduct] = await tx
-        .update(products)
-        .set({ stock: afterStock, updated_at: new Date() })
-        .where(eq(products.id, productId))
-        .returning();
+      // 1. Update product stock using unified service
+      const adjQty = type === "ADD" ? quantity : -quantity;
+      const movementResult = await this.movementService.recordStockAdjustment(
+        productId,
+        storeId,
+        adjQty,
+        reason,
+        "System",
+        tx
+      );
+      const updatedProduct = movementResult.product;
 
       // 2. Insert into adjustments
       const [adjustment] = await tx
@@ -60,17 +68,6 @@ export class InventoryService {
           after_stock: afterStock,
         })
         .returning();
-
-      // 3. Log to inventory_logs
-      await tx.insert(inventory_logs).values({
-        product_id: productId,
-        store_id: storeId,
-        type: "ADJUSTMENT",
-        quantity: type === "ADD" ? quantity : -quantity,
-        before_stock: beforeStock,
-        after_stock: afterStock,
-        reference: `Manual Adjustment: ${reason}`,
-      });
 
       return { adjustment, updatedProduct };
     });

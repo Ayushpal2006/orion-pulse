@@ -7,6 +7,7 @@ import { getStoreId, getUserId } from "../db/context";
 import { getKolkataDateString } from "../utils/datetime";
 import { formatInTimeZone } from "date-fns-tz";
 import { settingsRepository } from "../repositories";
+import { InventoryMovementService } from "./inventory-movement.service";
 
 const idempotencyCache = new Map<string, { timestamp: number; response: any }>();
 
@@ -23,6 +24,8 @@ if (typeof global !== "undefined" && typeof setInterval === "function") {
 }
 
 export class CheckoutService {
+  private movementService = new InventoryMovementService();
+
   async generateNextInvoiceNumber(storeId: number, txClient?: any): Promise<string> {
     const client = txClient || db;
     const todayStr = getKolkataDateString();
@@ -127,48 +130,21 @@ export class CheckoutService {
       const syncProductsList: any[] = [];
 
       for (const item of request.items) {
-        // Lock product row for update to prevent concurrent race conditions
-        const [product] = await tx
-          .select()
-          .from(products)
-          .where(and(eq(products.id, item.productId), eq(products.store_id, storeId)))
-          .for("update");
-
-        if (!product || product.is_active === 0) {
-          throw new NotFoundError(`Product with ID ${item.productId} not found or inactive`);
-        }
-
-        if (product.stock < item.quantity) {
-          throw new ValidationError(
-            `Product "${product.name}" is out of stock. Available: ${product.stock}, Requested: ${item.quantity}`
-          );
-        }
-
-        const beforeStock = product.stock;
-        const afterStock = beforeStock - item.quantity;
-
-        // Update product stock
-        const [updatedProduct] = await tx
-          .update(products)
-          .set({ stock: afterStock, updated_at: new Date() })
-          .where(eq(products.id, product.id))
-          .returning();
+        const movementResult = await this.movementService.recordSale(
+          item.productId,
+          storeId,
+          item.quantity,
+          invoiceNumber,
+          request.cashierName || "System",
+          "POS Sale Checkout",
+          tx
+        );
+        const product = movementResult.product;
 
         syncProductsList.push({
-          ...updatedProduct,
-          created_at: updatedProduct.created_at.toISOString(),
-          updated_at: updatedProduct.updated_at.toISOString()
-        });
-
-        // Log inventory movement (SALE type)
-        await tx.insert(inventory_logs).values({
-          product_id: product.id,
-          store_id: storeId,
-          type: "SALE",
-          quantity: item.quantity,
-          before_stock: beforeStock,
-          after_stock: afterStock,
-          reference: invoiceNumber,
+          ...product,
+          created_at: product.created_at.toISOString(),
+          updated_at: product.updated_at.toISOString()
         });
 
         // Calculations

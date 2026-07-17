@@ -91,6 +91,26 @@ export async function getProducts(): Promise<Product[]> {
   }
 }
 
+export async function getProductMovements(productId: number): Promise<any[]> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/products/${productId}/movements`);
+    if (!res.ok) {
+      const errorData = await res.json().catch(() => ({}));
+      throw new Error(errorData.error || `HTTP error! status: ${res.status}`);
+    }
+    const payload = await res.json();
+    if (payload.success && Array.isArray(payload.data)) {
+      return payload.data;
+    }
+    return [];
+  } catch (error) {
+    if (error instanceof TypeError && error.message === "Failed to fetch") {
+      throw new Error("Server is unavailable. Please check if the backend server is running on port 8080.");
+    }
+    throw error;
+  }
+}
+
 export async function searchProducts(q: string): Promise<Product[]> {
   try {
     const res = await fetch(`${API_BASE_URL}/products/search?q=${encodeURIComponent(q)}`);

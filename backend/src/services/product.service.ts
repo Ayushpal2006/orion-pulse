@@ -120,4 +120,21 @@ export class ProductService {
   async search(query: string): Promise<Product[]> {
     return this.repository.search(query);
   }
+
+  async getMovements(id: number): Promise<any[]> {
+    const existing = await this.repository.getById(id);
+    if (!existing) {
+      throw new NotFoundError(`Product with ID ${id} not found`);
+    }
+
+    const { db } = require("../db");
+    const { inventory_movements } = require("../db/schema");
+    const { eq, desc } = require("drizzle-orm");
+
+    return db
+      .select()
+      .from(inventory_movements)
+      .where(eq(inventory_movements.product_id, id))
+      .orderBy(desc(inventory_movements.created_at));
+  }
 }

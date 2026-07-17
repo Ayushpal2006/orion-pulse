@@ -17,6 +17,9 @@ router.get("/", controller.getAll);
 // GET product by ID
 router.get("/:id", controller.getById);
 
+// GET product stock movements history
+router.get("/:id/movements", controller.getMovements);
+
 // POST create product
 router.post("/", authorize("admin", "manager"), validate(CreateProductSchema), controller.create);
 

@@ -239,6 +239,21 @@ export class SyncQueueManager {
           ];
           uniqueKey = payload.sku ?? "";
           break;
+        case "inventory_movement":
+          tabName = "Inventory Movements";
+          rowData = [
+            payload.created_at ? formatInTimeZone(new Date(payload.created_at), "Asia/Kolkata", "yyyy-MM-dd") : "",
+            payload.created_at ? formatInTimeZone(new Date(payload.created_at), "Asia/Kolkata", "hh:mm a") : "",
+            payload.product_name ?? String(payload.product_id),
+            payload.movement_type ?? "",
+            payload.reference_id ?? "",
+            Number(payload.quantity ?? 0),
+            Number(payload.previous_stock ?? 0),
+            Number(payload.new_stock ?? 0),
+            payload.reason ?? "",
+          ];
+          uniqueKey = null;
+          break;
         default:
           return { success: true };
       }
@@ -298,7 +313,7 @@ export class SyncQueueManager {
       const meta = await sheets.spreadsheets.get({ spreadsheetId });
       const existingTitles = meta.data.sheets?.map((s: any) => s.properties?.title) || [];
       
-      const required = ["Sales", "Customers", "Products", "GST"];
+      const required = ["Sales", "Customers", "Products", "GST", "Inventory Movements"];
       const addSheets = required.filter(t => !existingTitles.includes(t));
       
       if (addSheets.length > 0) {
@@ -323,6 +338,8 @@ export class SyncQueueManager {
             headers = ["SKU", "Name", "Purchase Price (INR)", "Selling Price (INR)", "Stock", "GST (%)", "Active Status"];
           } else if (title === "GST") {
             headers = ["GST Slab", "Taxable Value (INR)", "Tax Collected (INR)"];
+          } else if (title === "Inventory Movements") {
+            headers = ["Date", "Time", "Product", "Movement", "Reference", "Quantity", "Previous Stock", "New Stock", "Reason"];
           }
 
           if (headers.length > 0) {

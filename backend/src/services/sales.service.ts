@@ -7,6 +7,7 @@ import { db } from "../db";
 import { sales, sale_items, products, customers, audit_logs, inventory_logs } from "../db/schema";
 import { eq, and } from "drizzle-orm";
 import { SyncQueueManager } from "./sync.service";
+import { InventoryMovementService } from "./inventory-movement.service";
 
 export interface ReceiptResponse {
   invoiceNumber: string;
@@ -52,6 +53,7 @@ export interface ReceiptResponse {
 export class SalesService {
   private saleRepo = saleRepository;
   private customerRepo = customerRepository;
+  private movementService = new InventoryMovementService();
 
   async getAll(): Promise<Sale[]> {
     return this.saleRepo.getAll();
@@ -256,28 +258,17 @@ export class SalesService {
           .for("update");
 
         if (product) {
-          const beforeStock = product.stock;
-          const afterStock = beforeStock + item.quantity;
-
-          // Update stock
-          const [updatedProduct] = await tx
-            .update(products)
-            .set({ stock: afterStock, updated_at: new Date() })
-            .where(eq(products.id, product.id))
-            .returning();
-
+          const movementResult = await this.movementService.recordVoidInvoice(
+            product.id,
+            storeId,
+            item.quantity,
+            sale.invoice_number,
+            voidedBy,
+            `Voided invoice: ${reason}`,
+            tx
+          );
+          const updatedProduct = movementResult.product;
           syncProductsList.push(updatedProduct);
-
-          // Log inventory movement (VOID type)
-          await tx.insert(inventory_logs).values({
-            product_id: product.id,
-            store_id: storeId,
-            type: "VOID",
-            quantity: item.quantity,
-            before_stock: beforeStock,
-            after_stock: afterStock,
-            reference: sale.invoice_number,
-          });
         }
       }
 
