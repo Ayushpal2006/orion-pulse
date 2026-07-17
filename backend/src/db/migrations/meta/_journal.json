@@ -29,6 +29,20 @@
       "when": 1783956906460,
       "tag": "0003_tough_hobgoblin",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1783957500000,
+      "tag": "0004_void_system",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1783958000000,
+      "tag": "0005_add_inventory_movements",
+      "breakpoints": true
     }
   ]
 }

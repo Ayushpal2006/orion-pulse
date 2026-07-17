@@ -1,4 +1,4 @@
-CREATE TABLE "inventory_movements" (
+CREATE TABLE IF NOT EXISTS "inventory_movements" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"store_id" integer NOT NULL,
 	"movement_type" text NOT NULL,
@@ -9,7 +9,7 @@ CREATE TABLE "inventory_movements" (
 	"reference_type" text,
 	"reference_id" text,
 	"reason" text,
-	"created_by" text,
+	"created_by" text NOT NULL,
 	"created_at" timestamp DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
@@ -17,8 +17,8 @@ ALTER TABLE "inventory_movements" ADD CONSTRAINT "inventory_movements_store_id_s
 --> statement-breakpoint
 ALTER TABLE "inventory_movements" ADD CONSTRAINT "inventory_movements_product_id_products_id_fk" FOREIGN KEY ("product_id") REFERENCES "public"."products"("id") ON DELETE no action ON UPDATE no action;
 --> statement-breakpoint
-CREATE INDEX "idx_inv_mov_product" ON "inventory_movements" USING btree ("product_id");
+CREATE INDEX IF NOT EXISTS "idx_inventory_movements_product_id" ON "inventory_movements" USING btree ("product_id");
 --> statement-breakpoint
-CREATE INDEX "idx_inv_mov_store" ON "inventory_movements" USING btree ("store_id");
+CREATE INDEX IF NOT EXISTS "idx_inventory_movements_store_id" ON "inventory_movements" USING btree ("store_id");
 --> statement-breakpoint
-CREATE INDEX "idx_inv_mov_created" ON "inventory_movements" USING btree ("created_at");
+CREATE INDEX IF NOT EXISTS "idx_inventory_movements_created_at" ON "inventory_movements" USING btree ("created_at");
