@@ -1,7 +1,7 @@
-ALTER TABLE "sales" ADD COLUMN "status" text DEFAULT 'COMPLETED' NOT NULL;
---> statement-breakpoint
-ALTER TABLE "sales" ADD COLUMN "void_reason" text;
---> statement-breakpoint
-ALTER TABLE "sales" ADD COLUMN "voided_by" text;
---> statement-breakpoint
-ALTER TABLE "sales" ADD COLUMN "voided_at" timestamp;
+ALTER TABLE "sales" ADD COLUMN IF NOT EXISTS "status" text DEFAULT 'COMPLETED' NOT NULL;
+
+ALTER TABLE "sales" ADD COLUMN IF NOT EXISTS "void_reason" text;
+
+ALTER TABLE "sales" ADD COLUMN IF NOT EXISTS "voided_by" text;
+
+ALTER TABLE "sales" ADD COLUMN IF NOT EXISTS "voided_at" timestamp;
