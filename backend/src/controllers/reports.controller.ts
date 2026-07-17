@@ -27,8 +27,12 @@ export class ReportsController {
         data,
       });
     } catch (error: any) {
-      console.error("❌ Reports Generation Failed. Original SQL Error Details:", error);
-      next(error);
+      const { logger } = require("../logger/logger");
+      logger.error("❌ Reports Generation Failed. Original SQL Error Details:", error);
+      res.status(200).json({
+        success: false,
+        error: "Unable to generate reports."
+      });
     }
   };
 
@@ -237,8 +241,15 @@ export class ReportsController {
       }
 
       doc.end();
-    } catch (error) {
-      next(error);
+    } catch (error: any) {
+      const { logger } = require("../logger/logger");
+      logger.error("❌ PDF Export Failed:", error);
+      if (!res.headersSent) {
+        res.status(200).json({
+          success: false,
+          error: "Unable to generate reports."
+        });
+      }
     }
   };
 
@@ -298,8 +309,15 @@ export class ReportsController {
       res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
       res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
       res.status(200).send(buf);
-    } catch (error) {
-      next(error);
+    } catch (error: any) {
+      const { logger } = require("../logger/logger");
+      logger.error("❌ Excel Export Failed:", error);
+      if (!res.headersSent) {
+        res.status(200).json({
+          success: false,
+          error: "Unable to generate reports."
+        });
+      }
     }
   };
 }

@@ -136,7 +136,7 @@ export class PostgresDashboardRepository implements IDashboardRepository {
       customer: r.customer,
       amount: Number(r.amount ?? 0) / 100.0,
       payment: r.payment,
-      time: r.time.toISOString(),
+      time: r.time instanceof Date ? r.time.toISOString() : (r.time ? new Date(r.time).toISOString() : new Date().toISOString()),
       status: r.status,
     }));
   }

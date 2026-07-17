@@ -293,7 +293,7 @@ export class PostgresReportsRepository implements IReportsRepository {
 
     const salesMap = new Map<string, number>();
     for (const r of rows) {
-      const dyStr = r.dy instanceof Date ? r.dy.toISOString().substring(0, 10) : String(r.dy);
+      const dyStr = r.dy instanceof Date && !isNaN(r.dy.getTime()) ? r.dy.toISOString().substring(0, 10) : (r.dy ? String(r.dy) : "");
       salesMap.set(dyStr, Number(r.amount) / 100.0);
     }
 
@@ -310,7 +310,7 @@ export class PostgresReportsRepository implements IReportsRepository {
 
     const profitMap = new Map<string, number>();
     for (const pr of profitRows) {
-      const dyStr = pr.dy instanceof Date ? pr.dy.toISOString().substring(0, 10) : String(pr.dy);
+      const dyStr = pr.dy instanceof Date && !isNaN(pr.dy.getTime()) ? pr.dy.toISOString().substring(0, 10) : (pr.dy ? String(pr.dy) : "");
       profitMap.set(dyStr, Number(pr.profit) / 100.0);
     }
 
@@ -373,7 +373,7 @@ export class PostgresReportsRepository implements IReportsRepository {
 
     return rows.map((r: any) => ({
       ...r,
-      date: r.date.toISOString(),
+      date: r.date instanceof Date && !isNaN(r.date.getTime()) ? r.date.toISOString() : (r.date ? new Date(r.date).toISOString() : new Date().toISOString()),
       grandTotal: Number(r.grandTotal ?? 0) / 100.0,
       total: Number(r.grandTotal ?? 0) / 100.0,
       payment: r.paymentMethod,
