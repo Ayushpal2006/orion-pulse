@@ -14,7 +14,9 @@ import {
   API_BASE_URL,
 } from "@/lib/api";
 import { getPrintAdapter } from "@/lib/print-adapter";
-import { Eye, Printer, FileText, Share2, Link, Copy, Trash2, Mail, RefreshCw, Send } from "lucide-react";
+import { Eye, Printer, FileText, Share2, Link, Copy, Trash2, Mail, RefreshCw, Send, AlertTriangle } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 
 export function InvoiceActionsMenu({
   receipt,
@@ -31,6 +33,7 @@ export function InvoiceActionsMenu({
   const [downloadingPdf, setDownloadingPdf] = useState(false);
   const [voidDialogOpen, setVoidDialogOpen] = useState(false);
   const [voidReason, setVoidReason] = useState("");
+  const [selectedReason, setSelectedReason] = useState("");
   const [confirmInvoiceNumber, setConfirmInvoiceNumber] = useState("");
   const [voiding, setVoiding] = useState(false);
 
@@ -143,12 +146,14 @@ export function InvoiceActionsMenu({
   };
 
   const handleVoidInvoice = async () => {
-    if (!voidReason) {
-      toast.error("Please enter a reason to void the invoice");
+    const finalReason = selectedReason === "Other" ? voidReason : selectedReason;
+    if (!finalReason) {
+      toast.error("Please select or enter a reason to void the invoice");
       return;
     }
-    if (confirmInvoiceNumber.trim().toUpperCase() !== invoiceNumber.toUpperCase()) {
-      toast.error("Invoice number does not match confirmation input");
+    const invoiceLast4 = invoiceNumber ? invoiceNumber.slice(-4) : "";
+    if (confirmInvoiceNumber.trim() !== invoiceLast4) {
+      toast.error("The last 4 digits of the invoice number do not match");
       return;
     }
     setVoiding(true);
@@ -159,7 +164,7 @@ export function InvoiceActionsMenu({
           "Content-Type": "application/json",
           Authorization: `Bearer ${localStorage.getItem("token") || ""}`,
         },
-        body: JSON.stringify({ reason: voidReason }),
+        body: JSON.stringify({ reason: finalReason }),
       });
       const data = await res.json();
       if (!res.ok || !data.success) {
@@ -169,6 +174,7 @@ export function InvoiceActionsMenu({
       setVoidDialogOpen(false);
       setConfirmInvoiceNumber("");
       setVoidReason("");
+      setSelectedReason("");
 
       // Invalidate queries to refresh UI lists and charts
       queryClient.invalidateQueries({ queryKey: ["receipt", invoiceNumber] });
@@ -261,38 +267,80 @@ export function InvoiceActionsMenu({
       </div>
 
       {/* Void Confirmation Dialog */}
-      <Dialog open={voidDialogOpen} onOpenChange={setVoidDialogOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="text-rose-600 font-bold flex items-center gap-2">
-              <Trash2 className="size-5" /> Void Invoice {invoiceNumber}
+      <Dialog open={voidDialogOpen} onOpenChange={(v) => {
+        setVoidDialogOpen(v);
+        if (!v) {
+          setConfirmInvoiceNumber("");
+          setVoidReason("");
+          setSelectedReason("");
+        }
+      }}>
+        <DialogContent className="sm:max-w-md rounded-2xl gap-4 p-5">
+          <DialogHeader className="space-y-1">
+            <DialogTitle className="text-rose-600 font-bold flex items-center gap-2 text-lg">
+              <Trash2 className="size-5" /> Void Invoice
             </DialogTitle>
-            <DialogDescription className="text-xs text-muted-foreground">
-              Voiding this transaction will restore stock levels, subtract life-time value and orders count from the customer profile, and update sheets/ledger records. This action cannot be undone.
+            <DialogDescription className="text-xs font-mono bg-muted/50 px-2.5 py-1 rounded-md border border-border w-fit text-foreground font-medium">
+              Invoice #{invoiceNumber}
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 py-2">
+
+          {/* Destructive Warning Alert Box */}
+          <div className="rounded-xl border border-rose-500/20 bg-rose-500/[0.05] p-3 text-xs text-rose-700 flex gap-2.5 shadow-sm">
+            <AlertTriangle className="size-5 shrink-0 mt-0.5 text-rose-500" />
+            <div className="space-y-1">
+              <div className="font-bold text-rose-800">Critical Warning</div>
+              <div className="leading-relaxed opacity-90">
+                Voiding this transaction will restore stock levels, deduct customer loyalty spend/visits, and update the sheets ledger. This action is final.
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-3">
             <div className="space-y-1">
               <label className="text-xs font-semibold text-foreground">Reason for voiding</label>
-              <Input
-                placeholder="E.g., Customer return, billing error, payment change"
-                value={voidReason}
-                onChange={(e) => setVoidReason(e.target.value)}
-                className="h-10 rounded-xl text-sm"
-              />
+              <Select value={selectedReason} onValueChange={setSelectedReason}>
+                <SelectTrigger className="h-10 rounded-xl text-sm">
+                  <SelectValue placeholder="Select a reason" />
+                </SelectTrigger>
+                <SelectContent className="rounded-xl">
+                  <SelectItem value="Customer Return">Customer Return</SelectItem>
+                  <SelectItem value="Wrong Item Scanned">Wrong Item Scanned</SelectItem>
+                  <SelectItem value="Wrong Quantity">Wrong Quantity</SelectItem>
+                  <SelectItem value="Payment Cancelled">Payment Cancelled</SelectItem>
+                  <SelectItem value="Duplicate Invoice">Duplicate Invoice</SelectItem>
+                  <SelectItem value="Billing Mistake">Billing Mistake</SelectItem>
+                  <SelectItem value="Other">Other</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
-            <div className="space-y-1">
+
+            {selectedReason === "Other" && (
+              <div className="space-y-1 animate-fade-in">
+                <label className="text-xs font-semibold text-foreground">Specify reason</label>
+                <Textarea
+                  placeholder="Enter details about why this invoice is being voided..."
+                  value={voidReason}
+                  onChange={(e) => setVoidReason(e.target.value)}
+                  className="rounded-xl min-h-[70px] text-sm focus-visible:ring-rose-500"
+                />
+              </div>
+            )}
+
+            <div className="space-y-1 pt-1">
               <label className="text-xs font-semibold text-foreground">
-                Type <span className="font-mono text-rose-600 font-bold bg-rose-50 px-1.5 py-0.5 rounded">{invoiceNumber}</span> to confirm
+                Type the last 4 digits of the invoice number (<span className="font-mono text-rose-600 font-bold bg-rose-100/70 px-1.5 py-0.5 rounded">{invoiceNumber ? invoiceNumber.slice(-4) : ""}</span>) to confirm
               </label>
               <Input
-                placeholder="Enter invoice number exactly"
+                placeholder="Enter last 4 digits"
+                maxLength={4}
                 value={confirmInvoiceNumber}
                 onChange={(e) => setConfirmInvoiceNumber(e.target.value)}
-                className="h-10 rounded-xl font-mono text-sm uppercase"
+                className="h-10 rounded-xl font-mono text-sm uppercase text-center tracking-widest focus-visible:ring-rose-500"
               />
             </div>
           </div>
+
           <div className="flex justify-end gap-2 border-t border-border pt-3">
             <Button
               variant="outline"
@@ -301,6 +349,7 @@ export function InvoiceActionsMenu({
                 setVoidDialogOpen(false);
                 setConfirmInvoiceNumber("");
                 setVoidReason("");
+                setSelectedReason("");
               }}
               className="rounded-xl h-9 text-xs"
             >
@@ -310,8 +359,13 @@ export function InvoiceActionsMenu({
               variant="destructive"
               size="sm"
               onClick={handleVoidInvoice}
-              disabled={voiding || !voidReason || confirmInvoiceNumber.toUpperCase() !== invoiceNumber.toUpperCase()}
-              className="rounded-xl h-9 text-xs font-bold"
+              disabled={
+                voiding ||
+                !selectedReason ||
+                (selectedReason === "Other" && !voidReason.trim()) ||
+                confirmInvoiceNumber !== (invoiceNumber ? invoiceNumber.slice(-4) : "")
+              }
+              className="rounded-xl h-9 text-xs font-bold shadow-sm"
             >
               {voiding ? "Voiding..." : "Confirm Void"}
             </Button>
