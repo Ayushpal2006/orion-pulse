@@ -3,7 +3,7 @@ import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "rec
 import { useMemo, useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
-  IndianRupee, ShoppingBag, TrendingUp, Package, Sparkles, Plus, Truck, AlertTriangle, Flame, Loader2, RefreshCw,
+  IndianRupee, ShoppingBag, TrendingUp, Package, Sparkles, Plus, Truck, AlertTriangle, Flame, Loader2, RefreshCw, Sliders
 } from "lucide-react";
 import { toast } from "sonner";
 import { MetricCard } from "@/components/metric-card";
@@ -12,7 +12,7 @@ import { useApp } from "@/lib/store";
 import { inr } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { stockLevel } from "@/components/stock-badge";
-import { getDashboardData, getReportsData, getProducts } from "@/lib/api";
+import { getDashboardData, getReportsData, getProducts, getStockAdjustments } from "@/lib/api";
 import { formatToKolkataDateTime, formatToKolkataDate, parseDbTimestamp } from "@/lib/datetime";
 import { InvoiceDrawer } from "@/components/invoice-drawer";
 
@@ -67,6 +67,13 @@ function Dashboard() {
   const { data: reportData, isLoading: isLoadingTrend } = useQuery({
     queryKey: ["reports", range],
     queryFn: () => getReportsData(rangeFilterMap[range]),
+  });
+
+  // 3. Fetch today's stock adjustments
+  const todayStr = useMemo(() => new Date().toISOString().substring(0, 10), []);
+  const { data: todayAdjustments = [] } = useQuery({
+    queryKey: ["stock-adjustments-today"],
+    queryFn: () => getStockAdjustments({ startDate: todayStr }),
   });
 
   const lowStock = useMemo(() => products.filter((p) => stockLevel(p) !== "ok"), [products]);
@@ -131,8 +138,8 @@ function Dashboard() {
         </div>
       </div>
 
-      {/* 1. KPI cards — 2x2 grid */}
-      <div className="grid grid-cols-2 gap-3 md:gap-4">
+      {/* 1. KPI cards — 5-column grid on large screens */}
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 md:gap-4">
         <MetricCard
           label="Revenue Today"
           value={inr(stats.todayRevenue)}
@@ -168,6 +175,17 @@ function Dashboard() {
           accent={stats.lowStockCount || lowStock.length ? "warn" : "default"}
           icon={<Package className="size-4" />}
         />
+        <MetricCard
+          label="Adjustments Today"
+          value={String(todayAdjustments.length)}
+          hint={
+            <span className="text-muted-foreground font-medium">
+              Net: {todayAdjustments.reduce((acc: number, a: any) => acc + (a.quantity_change || 0), 0)} units
+            </span>
+          }
+          accent="default"
+          icon={<Sliders className="size-4" />}
+        />
       </div>
 
       {/* 2. Quick Actions */}
@@ -182,8 +200,11 @@ function Dashboard() {
         <Button asChild variant="outline" size="sm" className="rounded-xl">
           <Link to="/inventory"><Package className="mr-1.5 size-4" /> Add product</Link>
         </Button>
-        <Button variant="outline" size="sm" className="rounded-xl" onClick={() => toast.info("Stock purchase module coming soon")}>
-          <Truck className="mr-1.5 size-4" /> Purchase stock
+        <Button asChild variant="outline" size="sm" className="rounded-xl">
+          <Link to="/purchases"><Truck className="mr-1.5 size-4" /> Purchase stock</Link>
+        </Button>
+        <Button asChild variant="outline" size="sm" className="rounded-xl">
+          <Link to="/stock-adjustments"><Sliders className="mr-1.5 size-4" /> Adjust stock</Link>
         </Button>
       </div>
 

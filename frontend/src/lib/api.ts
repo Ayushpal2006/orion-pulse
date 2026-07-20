@@ -329,6 +329,103 @@ export async function createCustomer(dto: {
   }
 }
 
+export async function getSuppliers(q?: string, sort?: string, includeArchived?: boolean): Promise<any[]> {
+  try {
+    const params = new URLSearchParams();
+    if (q) params.append("q", q);
+    if (sort) params.append("sort", sort);
+    if (includeArchived) params.append("includeArchived", "true");
+
+    const res = await fetch(`${API_BASE_URL}/api/suppliers?${params.toString()}`);
+    if (!res.ok) {
+      const errorData = await res.json().catch(() => ({}));
+      throw new Error(errorData.error || `HTTP error! status: ${res.status}`);
+    }
+    const payload = await res.json();
+    if (payload.success && Array.isArray(payload.data)) {
+      return payload.data;
+    }
+    return [];
+  } catch (error) {
+    if (error instanceof TypeError && error.message === "Failed to fetch") {
+      throw new Error("Server is unavailable. Please check if the backend server is running on port 8080.");
+    }
+    throw error;
+  }
+}
+
+export async function createSupplier(dto: {
+  name: string;
+  phone?: string | null;
+  email?: string | null;
+  gstin?: string | null;
+  address?: string | null;
+  notes?: string | null;
+}): Promise<any> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/suppliers`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(dto),
+    });
+    if (!res.ok) {
+      const errorData = await res.json().catch(() => ({}));
+      throw new Error(errorData.error || `HTTP error! status: ${res.status}`);
+    }
+    const payload = await res.json();
+    if (payload.success && payload.data) {
+      return payload.data;
+    }
+    throw new Error("Invalid response format from server");
+  } catch (error) {
+    if (error instanceof TypeError && error.message === "Failed to fetch") {
+      throw new Error("Server is unavailable. Please check if the backend server is running on port 8080.");
+    }
+    throw error;
+  }
+}
+
+export async function updateSupplier(id: string | number, dto: any): Promise<any> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/suppliers/${id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(dto),
+    });
+    if (!res.ok) {
+      const errorData = await res.json().catch(() => ({}));
+      throw new Error(errorData.error || `HTTP error! status: ${res.status}`);
+    }
+    const payload = await res.json();
+    if (payload.success && payload.data) {
+      return payload.data;
+    }
+    throw new Error("Invalid response format from server");
+  } catch (error) {
+    if (error instanceof TypeError && error.message === "Failed to fetch") {
+      throw new Error("Server is unavailable. Please check if the backend server is running on port 8080.");
+    }
+    throw error;
+  }
+}
+
+export async function deleteSupplierApi(id: string | number): Promise<void> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/suppliers/${id}`, {
+      method: "DELETE",
+    });
+    if (!res.ok) {
+      const errorData = await res.json().catch(() => ({}));
+      throw new Error(errorData.error || `HTTP error! status: ${res.status}`);
+    }
+  } catch (error) {
+    if (error instanceof TypeError && error.message === "Failed to fetch") {
+      throw new Error("Server is unavailable. Please check if the backend server is running on port 8080.");
+    }
+    throw error;
+  }
+}
+
 export async function checkout(dto: {
   customerPhone: string;
   paymentMethod: string;
@@ -633,3 +730,358 @@ export async function getSalesPaginated(params: {
   }
 }
 
+export async function getPurchases(filters?: { q?: string; startDate?: string; endDate?: string }): Promise<any[]> {
+  try {
+    const params = new URLSearchParams();
+    if (filters?.q) params.append("q", filters.q);
+    if (filters?.startDate) params.append("startDate", filters.startDate);
+    if (filters?.endDate) params.append("endDate", filters.endDate);
+
+    const res = await fetch(`${API_BASE_URL}/api/purchases?${params.toString()}`);
+    if (!res.ok) {
+      const errorData = await res.json().catch(() => ({}));
+      throw new Error(errorData.error || `HTTP error! status: ${res.status}`);
+    }
+    const payload = await res.json();
+    if (payload.success && Array.isArray(payload.data)) {
+      return payload.data;
+    }
+    return [];
+  } catch (error) {
+    if (error instanceof TypeError && error.message === "Failed to fetch") {
+      throw new Error("Server is unavailable. Please check if the backend server is running on port 8080.");
+    }
+    throw error;
+  }
+}
+
+export async function getPurchaseById(id: string | number): Promise<any> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/purchases/${id}`);
+    if (!res.ok) {
+      const errorData = await res.json().catch(() => ({}));
+      throw new Error(errorData.error || `HTTP error! status: ${res.status}`);
+    }
+    const payload = await res.json();
+    if (payload.success && payload.data) {
+      return payload.data;
+    }
+    throw new Error("Invalid response format from server");
+  } catch (error) {
+    if (error instanceof TypeError && error.message === "Failed to fetch") {
+      throw new Error("Server is unavailable. Please check if the backend server is running on port 8080.");
+    }
+    throw error;
+  }
+}
+
+export async function createPurchase(dto: any): Promise<any> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/purchases`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(dto),
+    });
+    if (!res.ok) {
+      const errorData = await res.json().catch(() => ({}));
+      throw new Error(errorData.error || `HTTP error! status: ${res.status}`);
+    }
+    const payload = await res.json();
+    if (payload.success && payload.data) {
+      return payload.data;
+    }
+    throw new Error("Invalid response format from server");
+  } catch (error) {
+    if (error instanceof TypeError && error.message === "Failed to fetch") {
+      throw new Error("Server is unavailable. Please check if the backend server is running on port 8080.");
+    }
+    throw error;
+  }
+}
+
+export async function updatePurchase(id: string | number, dto: any): Promise<any> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/purchases/${id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(dto),
+    });
+    if (!res.ok) {
+      const errorData = await res.json().catch(() => ({}));
+      throw new Error(errorData.error || `HTTP error! status: ${res.status}`);
+    }
+    const payload = await res.json();
+    if (payload.success && payload.data) {
+      return payload.data;
+    }
+    throw new Error("Invalid response format from server");
+  } catch (error) {
+    if (error instanceof TypeError && error.message === "Failed to fetch") {
+      throw new Error("Server is unavailable. Please check if the backend server is running on port 8080.");
+    }
+    throw error;
+  }
+}
+
+export async function deletePurchase(id: string | number): Promise<void> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/purchases/${id}`, {
+      method: "DELETE",
+    });
+    if (!res.ok) {
+      const errorData = await res.json().catch(() => ({}));
+      throw new Error(errorData.error || `HTTP error! status: ${res.status}`);
+    }
+  } catch (error) {
+    if (error instanceof TypeError && error.message === "Failed to fetch") {
+      throw new Error("Server is unavailable. Please check if the backend server is running on port 8080.");
+    }
+    throw error;
+  }
+}
+
+export async function getStockAdjustments(filters?: {
+  q?: string;
+  startDate?: string;
+  endDate?: string;
+  product_id?: number;
+  adjustment_type?: string;
+}): Promise<any[]> {
+  try {
+    const params = new URLSearchParams();
+    if (filters?.q) params.append("q", filters.q);
+    if (filters?.startDate) params.append("startDate", filters.startDate);
+    if (filters?.endDate) params.append("endDate", filters.endDate);
+    if (filters?.product_id) params.append("product_id", String(filters.product_id));
+    if (filters?.adjustment_type) params.append("adjustment_type", filters.adjustment_type);
+
+    const res = await fetch(`${API_BASE_URL}/api/stock-adjustments?${params.toString()}`);
+    if (!res.ok) {
+      const errorData = await res.json().catch(() => ({}));
+      throw new Error(errorData.error || `HTTP error! status: ${res.status}`);
+    }
+    const payload = await res.json();
+    if (payload.success && Array.isArray(payload.data)) {
+      return payload.data;
+    }
+    return [];
+  } catch (error) {
+    if (error instanceof TypeError && error.message === "Failed to fetch") {
+      throw new Error("Server is unavailable. Please check if the backend server is running on port 8080.");
+    }
+    throw error;
+  }
+}
+
+export async function getStockAdjustmentById(id: string | number): Promise<any> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/stock-adjustments/${id}`);
+    if (!res.ok) {
+      const errorData = await res.json().catch(() => ({}));
+      throw new Error(errorData.error || `HTTP error! status: ${res.status}`);
+    }
+    const payload = await res.json();
+    if (payload.success && payload.data) {
+      return payload.data;
+    }
+    throw new Error("Invalid response format from server");
+  } catch (error) {
+    if (error instanceof TypeError && error.message === "Failed to fetch") {
+      throw new Error("Server is unavailable. Please check if the backend server is running on port 8080.");
+    }
+    throw error;
+  }
+}
+
+export async function createStockAdjustment(dto: any): Promise<any> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/stock-adjustments`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(dto),
+    });
+    if (!res.ok) {
+      const errorData = await res.json().catch(() => ({}));
+      throw new Error(errorData.error || `HTTP error! status: ${res.status}`);
+    }
+    const payload = await res.json();
+    if (payload.success && payload.data) {
+      return payload.data;
+    }
+    throw new Error("Invalid response format from server");
+  } catch (error) {
+    if (error instanceof TypeError && error.message === "Failed to fetch") {
+      throw new Error("Server is unavailable. Please check if the backend server is running on port 8080.");
+    }
+    throw error;
+  }
+}
+
+export async function getSupplierLedger(
+  supplierId: number | string,
+  filters?: { startDate?: string; endDate?: string; transaction_type?: string }
+): Promise<any[]> {
+  try {
+    const params = new URLSearchParams();
+    if (filters?.startDate) params.append("startDate", filters.startDate);
+    if (filters?.endDate) params.append("endDate", filters.endDate);
+    if (filters?.transaction_type) params.append("transaction_type", filters.transaction_type);
+
+    const res = await fetch(`${API_BASE_URL}/api/supplier-payments/ledger/${supplierId}?${params.toString()}`);
+    if (!res.ok) {
+      const errorData = await res.json().catch(() => ({}));
+      throw new Error(errorData.error || `HTTP error! status: ${res.status}`);
+    }
+    const payload = await res.json();
+    if (payload.success && Array.isArray(payload.data)) {
+      return payload.data;
+    }
+    return [];
+  } catch (error) {
+    if (error instanceof TypeError && error.message === "Failed to fetch") {
+      throw new Error("Server is unavailable. Please check if the backend server is running on port 8080.");
+    }
+    throw error;
+  }
+}
+
+export async function getSupplierPayments(filters?: {
+  q?: string;
+  startDate?: string;
+  endDate?: string;
+  supplier_id?: number;
+}): Promise<any[]> {
+  try {
+    const params = new URLSearchParams();
+    if (filters?.q) params.append("q", filters.q);
+    if (filters?.startDate) params.append("startDate", filters.startDate);
+    if (filters?.endDate) params.append("endDate", filters.endDate);
+    if (filters?.supplier_id) params.append("supplier_id", String(filters.supplier_id));
+
+    const res = await fetch(`${API_BASE_URL}/api/supplier-payments?${params.toString()}`);
+    if (!res.ok) {
+      const errorData = await res.json().catch(() => ({}));
+      throw new Error(errorData.error || `HTTP error! status: ${res.status}`);
+    }
+    const payload = await res.json();
+    if (payload.success && Array.isArray(payload.data)) {
+      return payload.data;
+    }
+    return [];
+  } catch (error) {
+    if (error instanceof TypeError && error.message === "Failed to fetch") {
+      throw new Error("Server is unavailable. Please check if the backend server is running on port 8080.");
+    }
+    throw error;
+  }
+}
+
+export async function createSupplierPayment(dto: any): Promise<any> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/supplier-payments`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(dto),
+    });
+    if (!res.ok) {
+      const errorData = await res.json().catch(() => ({}));
+      throw new Error(errorData.error || `HTTP error! status: ${res.status}`);
+    }
+    const payload = await res.json();
+    if (payload.success && payload.data) {
+      return payload.data;
+    }
+    throw new Error("Invalid response format from server");
+  } catch (error) {
+    if (error instanceof TypeError && error.message === "Failed to fetch") {
+      throw new Error("Server is unavailable. Please check if the backend server is running on port 8080.");
+    }
+    throw error;
+  }
+}
+
+export async function getSupplierReports(): Promise<any> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/supplier-payments/reports`);
+    if (!res.ok) {
+      const errorData = await res.json().catch(() => ({}));
+      throw new Error(errorData.error || `HTTP error! status: ${res.status}`);
+    }
+    const payload = await res.json();
+    if (payload.success && payload.data) {
+      return payload.data;
+    }
+    throw new Error("Invalid response format from server");
+  } catch (error) {
+    if (error instanceof TypeError && error.message === "Failed to fetch") {
+      throw new Error("Server is unavailable. Please check if the backend server is running on port 8080.");
+    }
+    throw error;
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Profit & Margin Engine API
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type ProfitFilters = {
+  filter?: string;
+  startDate?: string;
+  endDate?: string;
+  category?: string;
+  productId?: number;
+  limit?: number;
+  offset?: number;
+};
+
+function buildProfitParams(filters: ProfitFilters = {}): string {
+  const p = new URLSearchParams();
+  if (filters.filter) p.set("filter", filters.filter);
+  if (filters.startDate) p.set("startDate", filters.startDate);
+  if (filters.endDate) p.set("endDate", filters.endDate);
+  if (filters.category) p.set("category", filters.category);
+  if (filters.productId) p.set("productId", String(filters.productId));
+  if (filters.limit) p.set("limit", String(filters.limit));
+  if (filters.offset) p.set("offset", String(filters.offset));
+  return p.toString();
+}
+
+async function profitFetch(url: string): Promise<any> {
+  const res = await fetch(url);
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as any).error || `HTTP ${res.status}`);
+  }
+  const payload = await res.json();
+  if (payload.success) return payload.data;
+  throw new Error("Invalid response from profit API");
+}
+
+export async function getProfitSummary(filters: ProfitFilters = {}): Promise<any> {
+  return profitFetch(`${API_BASE_URL}/api/profit/summary?${buildProfitParams(filters)}`);
+}
+
+export async function getProfitDashboard(): Promise<any> {
+  return profitFetch(`${API_BASE_URL}/api/profit/dashboard`);
+}
+
+export async function getProfitProducts(filters: ProfitFilters = {}): Promise<any[]> {
+  return profitFetch(`${API_BASE_URL}/api/profit/products?${buildProfitParams(filters)}`);
+}
+
+export async function getProfitSales(filters: ProfitFilters = {}): Promise<any[]> {
+  return profitFetch(`${API_BASE_URL}/api/profit/sales?${buildProfitParams(filters)}`);
+}
+
+export async function getProfitTrends(filters: ProfitFilters = {}): Promise<{ daily: any[]; monthly: any[] }> {
+  return profitFetch(`${API_BASE_URL}/api/profit/trends?${buildProfitParams(filters)}`);
+}
+
+export async function getProfitReport(filters: ProfitFilters = {}): Promise<any> {
+  return profitFetch(`${API_BASE_URL}/api/profit/reports?${buildProfitParams(filters)}`);
+}
+
+export function triggerProfitExport(format: "excel" | "csv" | "pdf", filters: ProfitFilters = {}): void {
+  const params = buildProfitParams(filters);
+  window.open(`${API_BASE_URL}/api/profit/export/${format}?${params}`, "_blank");
+}

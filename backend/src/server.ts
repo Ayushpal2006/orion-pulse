@@ -19,10 +19,13 @@ import adminRoutes from "./routes/admin.routes";
 // New Phase 3-7 modules
 import authRoutes from "./routes/auth.routes";
 import supplierRoutes from "./routes/supplier.routes";
+import supplierPaymentRoutes from "./routes/supplier-payment.routes";
+import profitRoutes from "./routes/profit.routes";
 import purchaseRoutes from "./routes/purchase.routes";
 import inventoryRoutes from "./routes/inventory.routes";
 import expenseRoutes from "./routes/expense.routes";
 import analyticsRoutes from "./routes/analytics.routes";
+import stockAdjustmentRoutes from "./routes/stock-adjustment.routes";
 import exportRoutes from "./routes/export.routes";
 import backupRoutes from "./routes/backup.routes";
 import deviceRoutes from "./routes/device.routes";
@@ -145,10 +148,13 @@ app.use("/api/admin", authenticate(), authorize("admin"), adminRoutes);
 
 // New Modules
 app.use("/api/suppliers", authenticate(), supplierRoutes);
+app.use("/api/supplier-payments", authenticate(), supplierPaymentRoutes);
+app.use("/api/profit", authenticate(), profitRoutes);
 app.use("/api/purchases", authenticate(), purchaseRoutes);
 app.use("/api/inventory", authenticate(), inventoryRoutes);
 app.use("/api/expenses", authenticate(), expenseRoutes);
 app.use("/api/analytics", authenticate(), authorize("admin", "manager"), analyticsRoutes);
+app.use("/api/stock-adjustments", authenticate(), stockAdjustmentRoutes);
 app.use("/api/export", authenticate(), exportRoutes);
 app.use("/api/backup", authenticate(), backupRoutes);
 app.use("/api/device", authenticate(), deviceRoutes);

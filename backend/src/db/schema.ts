@@ -233,87 +233,115 @@ export const settings = pgTable(
   })
 );
 
-// Supplier ERP (Phase 5)
-export const suppliers = pgTable("suppliers", {
-  id: serial("id").primaryKey(),
-  store_id: integer("store_id").references(() => stores.id).notNull(),
-  supplier_code: text("supplier_code").unique().notNull(),
-  company_name: text("company_name").notNull(),
-  contact_person: text("contact_person"),
-  phone: text("phone"),
-  email: text("email"),
-  gst_number: text("gst_number"),
-  pan_number: text("pan_number"),
-  address: text("address"),
-  city: text("city"),
-  state: text("state"),
-  country: text("country"),
-  postal_code: text("postal_code"),
-  opening_balance: integer("opening_balance").default(0).notNull(),
-  current_balance: integer("current_balance").default(0).notNull(),
-  payment_terms: text("payment_terms"),
-  credit_limit: integer("credit_limit").default(0).notNull(),
-  is_active: integer("is_active").default(1).notNull(),
-  notes: text("notes"),
-  created_at: timestamp("created_at").defaultNow().notNull(),
-  updated_at: timestamp("updated_at").defaultNow().notNull(),
-});
+// Supplier ERP
+export const suppliers = pgTable(
+  "suppliers",
+  {
+    id: serial("id").primaryKey(),
+    store_id: integer("store_id").references(() => stores.id).notNull(),
+    name: text("name").notNull(),
+    phone: text("phone"),
+    email: text("email"),
+    gstin: text("gstin"),
+    address: text("address"),
+    notes: text("notes"),
+    is_archived: integer("is_archived").default(0).notNull(),
+    current_balance: integer("current_balance").default(0).notNull(), // Paise
+    created_at: timestamp("created_at").defaultNow().notNull(),
+    updated_at: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    storeIdx: index("idx_suppliers_store_id").on(table.store_id),
+    nameIdx: index("idx_suppliers_name").on(table.name),
+    phoneIdx: index("idx_suppliers_phone").on(table.store_id, table.phone),
+  })
+);
 
-export const purchase_orders = pgTable("purchase_orders", {
-  id: serial("id").primaryKey(),
-  store_id: integer("store_id").references(() => stores.id).notNull(),
-  supplier_id: integer("supplier_id").references(() => suppliers.id).notNull(),
-  po_number: text("po_number").unique().notNull(),
-  status: text("status").notNull(), // Draft, Pending, Approved, Ordered, Partially Received, Received, Cancelled
-  expected_delivery: timestamp("expected_delivery"),
-  subtotal: integer("subtotal").notNull(),
-  discount: integer("discount").default(0).notNull(),
-  gst: integer("gst").default(0).notNull(),
-  grand_total: integer("grand_total").notNull(),
-  invoice_number: text("invoice_number"),
-  invoice_date: timestamp("invoice_date"),
-  transport_charges: integer("transport_charges").default(0).notNull(),
-  other_charges: integer("other_charges").default(0).notNull(),
-  net_amount: integer("net_amount").notNull(),
-  payment_status: text("payment_status").notNull(), // Unpaid, Partially Paid, Paid
-  notes: text("notes"),
-  created_at: timestamp("created_at").defaultNow().notNull(),
-  updated_at: timestamp("updated_at").defaultNow().notNull(),
-});
 
-export const purchase_items = pgTable("purchase_items", {
-  id: serial("id").primaryKey(),
-  purchase_order_id: integer("purchase_order_id").references(() => purchase_orders.id, { onDelete: "cascade" }).notNull(),
-  product_id: integer("product_id").references(() => products.id).notNull(),
-  quantity: integer("quantity").notNull(),
-  received_quantity: integer("received_quantity").default(0).notNull(),
-  purchase_price: integer("purchase_price").notNull(),
-  discount: integer("discount").default(0).notNull(),
-  gst: integer("gst").default(0).notNull(),
-  line_total: integer("line_total").notNull(),
-});
+export const purchase_orders = pgTable(
+  "purchase_orders",
+  {
+    id: serial("id").primaryKey(),
+    store_id: integer("store_id").references(() => stores.id).notNull(),
+    supplier_id: integer("supplier_id").references(() => suppliers.id).notNull(),
+    purchase_number: text("purchase_number").unique().notNull(),
+    supplier_invoice_number: text("supplier_invoice_number"),
+    purchase_date: timestamp("purchase_date").defaultNow().notNull(),
+    subtotal: integer("subtotal").notNull(),
+    discount: integer("discount").default(0).notNull(),
+    tax: integer("tax").default(0).notNull(),
+    grand_total: integer("grand_total").notNull(),
+    payment_status: text("payment_status").notNull(), // Pending, Paid, Partially Paid
+    payment_method: text("payment_method"),
+    notes: text("notes"),
+    created_at: timestamp("created_at").defaultNow().notNull(),
+    updated_at: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    storeIdx: index("idx_purchase_orders_store_id").on(table.store_id),
+    supplierIdx: index("idx_purchase_orders_supplier_id").on(table.supplier_id),
+    purchaseNumIdx: index("idx_purchase_orders_num").on(table.purchase_number),
+  })
+);
 
-export const supplier_payments = pgTable("supplier_payments", {
-  id: serial("id").primaryKey(),
-  store_id: integer("store_id").references(() => stores.id).notNull(),
-  supplier_id: integer("supplier_id").references(() => suppliers.id).notNull(),
-  amount: integer("amount").notNull(),
-  payment_method: text("payment_method").notNull(), // Cash, UPI, Bank, Cheque, Credit
-  reference_number: text("reference_number"),
-  payment_date: timestamp("payment_date").defaultNow().notNull(),
-  notes: text("notes"),
-});
+export const purchase_items = pgTable(
+  "purchase_items",
+  {
+    id: serial("id").primaryKey(),
+    purchase_order_id: integer("purchase_order_id")
+      .references(() => purchase_orders.id, { onDelete: "cascade" })
+      .notNull(),
+    product_id: integer("product_id").references(() => products.id).notNull(),
+    quantity: integer("quantity").notNull(),
+    purchase_price: integer("purchase_price").notNull(),
+    selling_price: integer("selling_price").notNull(),
+    line_total: integer("line_total").notNull(),
+  },
+  (table) => ({
+    poIdx: index("idx_purchase_items_po_id").on(table.purchase_order_id),
+    prodIdx: index("idx_purchase_items_prod_id").on(table.product_id),
+  })
+);
 
-export const supplier_ledger = pgTable("supplier_ledger", {
-  id: serial("id").primaryKey(),
-  store_id: integer("store_id").references(() => stores.id).notNull(),
-  supplier_id: integer("supplier_id").references(() => suppliers.id).notNull(),
-  transaction_type: text("transaction_type").notNull(), // PURCHASE, PAYMENT, RETURN, ADJUSTMENT
-  amount: integer("amount").notNull(), // positive = credit (owed), negative = debit (paid/returned)
-  balance: integer("balance").notNull(),
-  reference: text("reference"),
-  created_at: timestamp("created_at").defaultNow().notNull(),
-});
+export const supplier_payments = pgTable(
+  "supplier_payments",
+  {
+    id: serial("id").primaryKey(),
+    store_id: integer("store_id").references(() => stores.id).notNull(),
+    supplier_id: integer("supplier_id").references(() => suppliers.id).notNull(),
+    payment_number: text("payment_number").unique().notNull(),
+    amount: integer("amount").notNull(), // Paise
+    payment_method: text("payment_method").notNull(), // Cash, UPI, Bank Transfer, Cheque, Card, Other
+    reference_number: text("reference_number"),
+    notes: text("notes"),
+    payment_date: timestamp("payment_date").defaultNow().notNull(),
+    created_by: text("created_by").default("System").notNull(),
+    created_at: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    storeIdx: index("idx_supplier_payments_store_id").on(table.store_id),
+    supplierIdx: index("idx_supplier_payments_supplier_id").on(table.supplier_id),
+    numIdx: index("idx_supplier_payments_number").on(table.payment_number),
+  })
+);
+
+export const supplier_ledger = pgTable(
+  "supplier_ledger",
+  {
+    id: serial("id").primaryKey(),
+    store_id: integer("store_id").references(() => stores.id).notNull(),
+    supplier_id: integer("supplier_id").references(() => suppliers.id).notNull(),
+    transaction_type: text("transaction_type").notNull(), // PURCHASE, PAYMENT, PURCHASE_CANCEL
+    amount: integer("amount").notNull(), // Paise
+    balance: integer("balance").notNull(), // Running balance in paise
+    reference: text("reference"), // purchase_number or payment_number
+    created_at: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    storeIdx: index("idx_supplier_ledger_store_id").on(table.store_id),
+    supplierIdx: index("idx_supplier_ledger_supplier_id").on(table.supplier_id),
+  })
+);
 
 export const inventory_adjustments = pgTable("inventory_adjustments", {
   id: serial("id").primaryKey(),
@@ -433,3 +461,43 @@ export const support_tickets = pgTable("support_tickets", {
   priority: text("priority").default("Medium").notNull(), // Low, Medium, High, Urgent
   created_at: timestamp("created_at").defaultNow().notNull(),
 });
+
+export const stock_adjustments = pgTable(
+  "stock_adjustments",
+  {
+    id: serial("id").primaryKey(),
+    store_id: integer("store_id").references(() => stores.id).notNull(),
+    product_id: integer("product_id").references(() => products.id).notNull(),
+    adjustment_type: text("adjustment_type").notNull(), // OPENING_STOCK, PHYSICAL_COUNT, DAMAGED, LOST, FOUND, MANUAL_CORRECTION, SAMPLE, RETURN_FROM_CUSTOMER
+    quantity_before: integer("quantity_before").notNull(),
+    quantity_change: integer("quantity_change").notNull(),
+    quantity_after: integer("quantity_after").notNull(),
+    reason: text("reason").notNull(),
+    notes: text("notes"),
+    created_by: text("created_by").default("System").notNull(),
+    created_at: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    storeIdx: index("idx_stock_adjustments_store_id").on(table.store_id),
+    productIdx: index("idx_stock_adjustments_product_id").on(table.product_id),
+    typeIdx: index("idx_stock_adjustments_type").on(table.adjustment_type),
+  })
+);
+
+// Profit Engine — cost snapshot log (Average Cost Method; FIFO-ready)
+export const product_cost_history = pgTable(
+  "product_cost_history",
+  {
+    id: serial("id").primaryKey(),
+    store_id: integer("store_id").references(() => stores.id).notNull(),
+    product_id: integer("product_id").references(() => products.id).notNull(),
+    average_cost: integer("average_cost").notNull(), // Paise
+    effective_date: timestamp("effective_date").defaultNow().notNull(),
+    created_at: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    storeIdx: index("idx_pch_store_id").on(table.store_id),
+    productIdx: index("idx_pch_product_id").on(table.product_id),
+    dateIdx: index("idx_pch_effective_date").on(table.effective_date),
+  })
+);

@@ -43,6 +43,41 @@
       "when": 1783958000000,
       "tag": "0005_add_inventory_movements",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1784483507734,
+      "tag": "0006_windy_psylocke",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1784484813938,
+      "tag": "0007_dizzy_spectrum",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1784485948158,
+      "tag": "0008_safe_katie_power",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1784486298249,
+      "tag": "0009_chilly_franklin_storm",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1784488680250,
+      "tag": "0010_pink_preak",
+      "breakpoints": true
     }
   ]
 }

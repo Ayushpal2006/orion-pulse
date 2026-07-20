@@ -1,7 +1,7 @@
 import { useEffect, type ReactNode } from "react";
 import { Link, useRouterState } from "@tanstack/react-router";
 import {
-  LayoutDashboard, ShoppingCart, Package, Users, BarChart3, Search, Wifi, WifiOff, Settings, LogOut, UserCog,
+  LayoutDashboard, ShoppingCart, Package, Users, BarChart3, Search, Wifi, WifiOff, Settings, LogOut, UserCog, Truck, Receipt, Sliders, TrendingUp
 } from "lucide-react";
 import { usePWA } from "@/hooks/usePWA";
 import { Button } from "@/components/ui/button";
@@ -20,6 +20,10 @@ const nav: Array<{ to: string; label: string; icon: typeof LayoutDashboard; exac
   { to: "/billing", label: "Billing", icon: ShoppingCart },
   { to: "/inventory", label: "Inventory", icon: Package },
   { to: "/customers", label: "Customers", icon: Users },
+  { to: "/suppliers", label: "Suppliers", icon: Truck },
+  { to: "/purchases", label: "Purchases", icon: Receipt },
+  { to: "/stock-adjustments", label: "Adjustments", icon: Sliders },
+  { to: "/profit", label: "Profit", icon: TrendingUp },
   { to: "/reports", label: "Reports", icon: BarChart3 },
 ];
 

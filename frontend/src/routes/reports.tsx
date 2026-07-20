@@ -15,7 +15,7 @@ import { inr } from "@/lib/format";
 import { useCan } from "@/components/role-gate";
 import { cn } from "@/lib/utils";
 import type { DateRange } from "react-day-picker";
-import { getReportsData, API_BASE_URL } from "@/lib/api";
+import { getReportsData, getSupplierReports, API_BASE_URL } from "@/lib/api";
 import { InvoiceHistory } from "@/components/invoice-history";
 
 export const Route = createFileRoute("/reports")({
@@ -77,6 +77,11 @@ function Reports() {
   const { data: reports, isLoading, isError, refetch } = useQuery({
     queryKey: ["reports", filter, startDateStr, endDateStr, showVoidInvoices],
     queryFn: () => getReportsData(filter, startDateStr, endDateStr, showVoidInvoices),
+  });
+
+  const { data: supplierReports } = useQuery({
+    queryKey: ["supplier-reports"],
+    queryFn: getSupplierReports,
   });
 
   const handleExport = (type: "pdf" | "excel") => {
@@ -242,6 +247,7 @@ function Reports() {
             <TabsTrigger value="profit" className="rounded-lg">Profit</TabsTrigger>
           )}
           <TabsTrigger value="gst" className="rounded-lg">GST</TabsTrigger>
+          <TabsTrigger value="suppliers" className="rounded-lg">Suppliers</TabsTrigger>
         </TabsList>
 
         <TabsContent value="sales" className="mt-4 space-y-4 animate-fade-in">
@@ -386,6 +392,111 @@ function Reports() {
                 </tr>
               </tbody>
             </table>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="suppliers" className="mt-4 space-y-4 animate-fade-in">
+          {/* Payables KPI Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="card-soft p-5 text-center">
+              <span className="text-xs text-muted-foreground font-semibold uppercase tracking-wider">Total Outstanding Payables</span>
+              <div className="text-3xl font-black text-rose-500 mt-2">
+                {inr(supplierReports?.totalPayables || 0)}
+              </div>
+            </div>
+            <div className="card-soft p-5 text-center">
+              <span className="text-xs text-muted-foreground font-semibold uppercase tracking-wider">Outstanding Suppliers</span>
+              <div className="text-3xl font-black text-foreground mt-2">
+                {supplierReports?.outstandingSuppliers?.length || 0} vendors
+              </div>
+            </div>
+            <div className="card-soft p-5 text-center">
+              <span className="text-xs text-muted-foreground font-semibold uppercase tracking-wider">Payments Tracked</span>
+              <div className="text-3xl font-black text-foreground mt-2">
+                {supplierReports?.recentPayments?.length || 0} logs
+              </div>
+            </div>
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-2">
+            {/* Outstanding Suppliers List */}
+            <div className="card-soft overflow-hidden">
+              <div className="border-b border-border p-4 text-sm font-bold uppercase tracking-wide text-foreground">Outstanding Balances</div>
+              <div className="divide-y divide-border">
+                {!supplierReports?.outstandingSuppliers || supplierReports.outstandingSuppliers.length === 0 ? (
+                  <div className="p-6 text-center text-xs text-muted-foreground">All suppliers fully paid! 🎉</div>
+                ) : (
+                  supplierReports.outstandingSuppliers.map((s: any) => (
+                    <div key={s.id} className="flex items-center justify-between p-4 hover:bg-muted/10">
+                      <div>
+                        <div className="font-semibold text-foreground">{s.name}</div>
+                        <div className="text-xs text-muted-foreground">{s.phone || "No phone"}</div>
+                      </div>
+                      <div className="font-bold text-rose-500 tabular-nums">{inr(s.current_balance)}</div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+
+            {/* Top Suppliers by purchase volume */}
+            <div className="card-soft overflow-hidden">
+              <div className="border-b border-border p-4 text-sm font-bold uppercase tracking-wide text-foreground">Top Suppliers (Volume)</div>
+              <div className="divide-y divide-border">
+                {!supplierReports?.topSuppliers || supplierReports.topSuppliers.length === 0 ? (
+                  <div className="p-6 text-center text-xs text-muted-foreground">No purchase records found.</div>
+                ) : (
+                  supplierReports.topSuppliers.map((s: any) => (
+                    <div key={s.id} className="flex items-center justify-between p-4 hover:bg-muted/10">
+                      <div>
+                        <div className="font-semibold text-foreground">{s.name}</div>
+                        <div className="text-xs text-muted-foreground">{s.phone || "No phone"}</div>
+                      </div>
+                      <div className="font-bold text-foreground tabular-nums">{inr(s.totalPurchases)}</div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Recent Payments table */}
+          <div className="card-soft overflow-hidden">
+            <div className="border-b border-border p-4 text-sm font-bold uppercase tracking-wide text-foreground">Recent Payments</div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm text-left border-collapse">
+                <thead>
+                  <tr className="border-b bg-muted/40 text-xs font-semibold text-muted-foreground uppercase">
+                    <th className="p-4">Date</th>
+                    <th className="p-4">Payment ID</th>
+                    <th className="p-4">Supplier</th>
+                    <th className="p-4">Method</th>
+                    <th className="p-4">Ref Num</th>
+                    <th className="p-4 text-right">Amount</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {!supplierReports?.recentPayments || supplierReports.recentPayments.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="p-6 text-center text-xs text-muted-foreground">No payments recorded.</td>
+                    </tr>
+                  ) : (
+                    supplierReports.recentPayments.map((p: any) => (
+                      <tr key={p.id} className="hover:bg-muted/10 transition-colors">
+                        <td className="p-4 text-xs text-muted-foreground">
+                          {new Date(p.payment_date).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "2-digit" })}
+                        </td>
+                        <td className="p-4 font-mono text-xs font-medium text-foreground">{p.payment_number}</td>
+                        <td className="p-4 font-semibold text-foreground">{p.supplier_name}</td>
+                        <td className="p-4 text-xs">{p.payment_method}</td>
+                        <td className="p-4 font-mono text-xs text-muted-foreground">{p.reference_number || "—"}</td>
+                        <td className="p-4 text-right font-bold text-foreground tabular-nums">{inr(p.amount)}</td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
         </TabsContent>
       </Tabs>

@@ -100,7 +100,7 @@ export class InventoryService {
         stock: products.stock,
         minimum_stock: products.minimum_stock,
         reorder_quantity: products.reorder_quantity,
-        preferred_supplier: suppliers.company_name,
+        preferred_supplier: suppliers.name,
       })
       .from(products)
       .leftJoin(suppliers, eq(products.preferred_supplier_id, suppliers.id))

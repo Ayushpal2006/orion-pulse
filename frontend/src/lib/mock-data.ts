@@ -28,6 +28,19 @@ export type Customer = {
   notes?: string;
 };
 
+export type Supplier = {
+  id: string;
+  name: string;
+  phone?: string;
+  email?: string;
+  gstin?: string;
+  address?: string;
+  notes?: string;
+  isArchived: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type InvoiceLine = {
   productId: string;
   name: string;

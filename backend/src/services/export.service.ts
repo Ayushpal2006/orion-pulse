@@ -52,23 +52,18 @@ export class ExportService {
     const rows = await db
       .select()
       .from(suppliers)
-      .where(and(eq(suppliers.is_active, 1), eq(suppliers.store_id, storeId)))
+      .where(and(eq(suppliers.is_archived, 0), eq(suppliers.store_id, storeId)))
       .orderBy(desc(suppliers.id));
 
     const sheetData = rows.map((r) => ({
       ID: r.id,
-      Code: r.supplier_code,
-      Company: r.company_name,
-      Contact: r.contact_person || "",
+      Name: r.name,
       Phone: r.phone || "",
       Email: r.email || "",
-      GSTIN: r.gst_number || "",
-      PAN: r.pan_number || "",
+      GSTIN: r.gstin || "",
       Address: r.address || "",
-      "Opening Balance (INR)": r.opening_balance / 100.0,
-      "Current Balance (INR)": r.current_balance / 100.0,
-      "Payment Terms": r.payment_terms || "",
-      "Credit Limit (INR)": r.credit_limit / 100.0,
+      Notes: r.notes || "",
+      "Created At": r.created_at.toISOString(),
     }));
 
     const wb = XLSX.utils.book_new();

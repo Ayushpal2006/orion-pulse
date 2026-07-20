@@ -1,17 +1,27 @@
 import { Router } from "express";
 import { SupplierController } from "../controllers/supplier.controller";
-import { authorize } from "../middleware/auth.middleware";
+import { validate } from "../middleware/validation.middleware";
+import { CreateSupplierSchema, UpdateSupplierSchema } from "../validation/supplier.validation";
 
 const router = Router();
 const controller = new SupplierController();
 
-router.get("/", controller.getAll);
-router.get("/:id", controller.getById);
-router.post("/", authorize("admin", "manager"), controller.create);
-router.put("/:id", authorize("admin", "manager"), controller.update);
-router.delete("/:id", authorize("admin", "manager"), controller.delete);
+// GET suppliers search (MUST be defined before GET /:id)
+router.get("/search", controller.search);
 
-router.post("/:id/payments", authorize("admin", "manager"), controller.recordPayment);
-router.get("/:id/ledger", controller.getLedger);
+// GET all suppliers (supports q, sort, includeArchived query parameters)
+router.get("/", controller.getAll);
+
+// GET supplier by ID
+router.get("/:id", controller.getById);
+
+// POST create supplier
+router.post("/", validate(CreateSupplierSchema), controller.create);
+
+// PUT update supplier
+router.put("/:id", validate(UpdateSupplierSchema), controller.update);
+
+// DELETE supplier (soft delete / archive)
+router.delete("/:id", controller.delete);
 
 export default router;

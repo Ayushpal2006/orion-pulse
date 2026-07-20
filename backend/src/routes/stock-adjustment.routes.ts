@@ -1,14 +1,12 @@
 import { Router } from "express";
-import { PurchaseController } from "../controllers/purchase.controller";
+import { StockAdjustmentController } from "../controllers/stock-adjustment.controller";
 import { authorize } from "../middleware/auth.middleware";
 
 const router = Router();
-const controller = new PurchaseController();
+const controller = new StockAdjustmentController();
 
 router.get("/", controller.getAll);
 router.get("/:id", controller.getById);
 router.post("/", authorize("admin", "manager"), controller.create);
-router.put("/:id", authorize("admin", "manager"), controller.update);
-router.delete("/:id", authorize("admin", "manager"), controller.delete);
 
 export default router;
