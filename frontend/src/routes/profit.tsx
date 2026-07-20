@@ -31,7 +31,7 @@ import {
   triggerProfitExport, type ProfitFilters,
 } from "@/lib/api";
 
-export const Route = createFileRoute("/profit" as any)({
+export const Route = createFileRoute("/profit")({
   head: () => ({
     meta: [
       { title: "Profit & Margin · Orion POS" },
