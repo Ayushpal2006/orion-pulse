@@ -85,7 +85,7 @@ function InventorySkeleton() {
   );
 }
 
-function Inventory() {
+export function Inventory() {
   const products = useApp((s) => s.products);
   const setProducts = useApp((s) => s.setProducts);
   const deleteProduct = useApp((s) => s.deleteProduct);

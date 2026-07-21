@@ -58,7 +58,7 @@ const ADJUSTMENT_TYPES = [
   { key: "RETURN_FROM_CUSTOMER", label: "Return from Customer", color: "bg-cyan-500/10 text-cyan-500" },
 ] as const;
 
-function StockAdjustmentsPage() {
+export function StockAdjustmentsPage() {
   const queryClient = useQueryClient();
   const [q, setQ] = useState("");
   const [debouncedQ, setDebouncedQ] = useState("");

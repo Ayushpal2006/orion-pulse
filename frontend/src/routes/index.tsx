@@ -46,7 +46,7 @@ const getInsights = (revenue: number, lowStockCount: number) => [
   { tone: "growth", text: "Calculated margins are fully computed locally with zero cloud delay." },
 ];
 
-function Dashboard() {
+export function Dashboard() {
   const products = useApp((s) => s.products);
   const setProducts = useApp((s) => s.setProducts);
   const [range, setRange] = useState<Range>("Week");

@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { Link, useRouterState } from "@tanstack/react-router";
 import {
-  LayoutDashboard, ShoppingCart, Package, Users, BarChart3, Search, Wifi, WifiOff, Settings, LogOut, UserCog, Truck, Receipt, Sliders, TrendingUp, History, CreditCard, Wallet, ChevronDown, ChevronRight
+  LayoutDashboard, ShoppingCart, Package, Users, BarChart3, Search, Wifi, WifiOff, Settings, LogOut, UserCog, Truck, Receipt, Sliders, TrendingUp, History, CreditCard, Wallet, ChevronDown, ChevronRight, Menu, X
 } from "lucide-react";
 import { usePWA } from "@/hooks/usePWA";
 import { Button } from "@/components/ui/button";
@@ -9,11 +9,14 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
   DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger, SheetClose
+} from "@/components/ui/sheet";
 import { useApp, type Role } from "@/lib/store";
 import { CommandPalette } from "./command-palette";
 import { ThemeToggle, useThemeInit } from "./theme-toggle";
 import { cn } from "@/lib/utils";
-import { getProducts, getCustomers, API_BASE_URL } from "@/lib/api";
+import { getProducts, getCustomers } from "@/lib/api";
 
 export type NavItem = { to: string; label: string; icon: any; exact?: boolean; roles?: Role[] };
 export type NavGroup = { label: string; icon: any; items: NavItem[]; roles?: Role[] };
@@ -24,15 +27,16 @@ function isGroup(item: NavElement): item is NavGroup {
 }
 
 const navTree: NavElement[] = [
-  { to: "/", label: "Dashboard", icon: LayoutDashboard, exact: true },
+  { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard, exact: true },
   { to: "/billing", label: "Billing", icon: ShoppingCart },
   {
     label: "Inventory",
     icon: Package,
     items: [
       { to: "/products", label: "Products", icon: Package },
-      { to: "/stock-adjustments", label: "Adjust Stock", icon: Sliders },
-      { to: "/inventory/history", label: "Stock History", icon: History },
+      { to: "/adjust-stock", label: "Adjust Stock", icon: Sliders },
+      { to: "/stock-history", label: "Stock History", icon: History },
+
     ],
   },
   {
@@ -66,6 +70,9 @@ export function AppShell({ children }: { children: ReactNode }) {
   const setCustomers = useApp((s) => s.setCustomers);
   const pathname = useRouterState({ select: (s) => s.location.pathname });
 
+  // Mobile menu drawer state
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
   // Accordion open states for nav groups
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({
     Inventory: true,
@@ -98,130 +105,110 @@ export function AppShell({ children }: { children: ReactNode }) {
     getCustomers()
       .then((data) => {
         const mapped = data.map((c: any) => ({
-          id: String(c.id),
-          name: c.name,
-          mobile: c.phone,
-          ltv: (c.lifetime_value ?? 0) / 100,
-          visits: c.total_orders ?? 0,
-          lastVisit: c.last_visit ? new Date(c.last_visit).toLocaleDateString("en-IN", { day: "numeric", month: "short" }) : "Never",
-          since: c.created_at ? new Date(c.created_at).toLocaleDateString("en-IN", { month: "short", year: "numeric" }) : "Recently",
-          email: c.email || undefined,
-          address: c.address || undefined,
-          notes: c.notes || undefined,
+          ...c,
+          loyaltyPoints: c.loyalty_points ?? c.loyaltyPoints ?? 0,
+          totalSpent: c.total_spent ?? c.totalSpent ?? 0,
         }));
         setCustomers(mapped);
       })
       .catch((err) => console.error("AppShell customers fetch failed:", err));
-
-    // 3. Fetch settings
-    fetch(`${API_BASE_URL}/settings`)
-      .then((res) => res.json())
-      .then((json) => {
-        if (json.success && json.data) {
-          const d = json.data;
-          const store = useApp.getState();
-          if (d.shop_name) store.setShopName(d.shop_name);
-          if (d.shop_gstin) store.setGstin(d.shop_gstin);
-          if (d.shop_phone) store.setStorePhone(d.shop_phone);
-          if (d.shop_address) store.setStoreAddress(d.shop_address);
-          if (d.shop_upi_id) store.setUpiId(d.shop_upi_id);
-          if (d.printer_type) store.setPrinter(d.printer_type as any);
-          if (d.paper_width) store.setPaperWidth(d.paper_width as any);
-          if (d.whatsapp_footer) store.setWhatsappFooter(d.whatsapp_footer);
-          if (d.logo) store.setLogo(d.logo);
-          if (d.require_customer_before_checkout !== undefined) {
-            store.setRequireCustomerBeforeCheckout(d.require_customer_before_checkout === "1");
-          }
-        }
-      })
-      .catch((err) => console.error("AppShell settings fetch failed:", err));
   }, [setProducts, setCustomers]);
 
-  const isActive = (to: string, exact?: boolean) =>
-    exact ? pathname === to : pathname === to || pathname.startsWith(to + "/");
-
   const hasRole = (roles?: Role[]) => {
-    if (!roles) return true;
+    if (!roles || roles.length === 0) return true;
     return roles.includes(role);
   };
 
+  const isActive = (to: string, exact?: boolean) => {
+    if (exact) return pathname === to || (to === "/dashboard" && pathname === "/");
+    return pathname === to || pathname.startsWith(to + "/");
+  };
+
+  const renderNavItems = (onItemClick?: () => void) => {
+    return navTree.map((elem, idx) => {
+      if (!hasRole(elem.roles)) return null;
+
+      if (isGroup(elem)) {
+        const GroupIcon = elem.icon;
+        const isOpen = openGroups[elem.label] ?? false;
+        const isGroupActive = elem.items.some((sub) => isActive(sub.to, sub.exact));
+
+        return (
+          <div key={elem.label || idx} className="space-y-1">
+            <button
+              onClick={() => toggleGroup(elem.label)}
+              className={cn(
+                "flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-sm font-medium transition-colors",
+                isGroupActive ? "text-primary font-semibold" : "text-ink-soft hover:bg-muted hover:text-foreground"
+              )}
+            >
+              <div className="flex items-center gap-3">
+                <GroupIcon className="size-4" />
+                <span>{elem.label}</span>
+              </div>
+              {isOpen ? <ChevronDown className="size-3.5" /> : <ChevronRight className="size-3.5" />}
+            </button>
+            {isOpen && (
+              <div className="ml-3 space-y-1 border-l border-border/60 pl-2">
+                {elem.items.map((sub) => {
+                  if (!hasRole(sub.roles)) return null;
+                  const SubIcon = sub.icon;
+                  const active = isActive(sub.to, sub.exact);
+                  return (
+                    <Link
+                      key={sub.to}
+                      to={sub.to}
+                      onClick={onItemClick}
+                      className={cn(
+                        "flex items-center gap-2.5 rounded-lg px-2.5 py-2.5 text-xs font-medium transition-colors min-h-[40px]",
+                        active ? "bg-primary text-primary-foreground font-semibold" : "text-ink-soft hover:bg-muted hover:text-foreground"
+                      )}
+                    >
+                      <SubIcon className="size-3.5" />
+                      {sub.label}
+                    </Link>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        );
+      }
+
+      const Icon = elem.icon;
+      const active = isActive(elem.to, elem.exact);
+      return (
+        <Link
+          key={elem.to}
+          to={elem.to}
+          onClick={onItemClick}
+          className={cn(
+            "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors min-h-[44px]",
+            active ? "bg-primary text-primary-foreground font-semibold" : "text-ink-soft hover:bg-muted hover:text-foreground"
+          )}
+        >
+          <Icon className="size-4" />
+          {elem.label}
+        </Link>
+      );
+    });
+  };
+
   return (
-    <div className="min-h-screen bg-surface text-foreground">
-      {/* Desktop sidebar */}
-      <aside className="fixed inset-y-0 left-0 z-30 hidden w-60 flex-col border-r border-border bg-elevated lg:flex">
-        <div className="flex h-16 items-center gap-2 px-5">
-          <div className="grid size-9 place-items-center rounded-xl bg-primary text-primary-foreground font-black">O</div>
-          <div className="leading-tight">
-            <div className="text-sm font-semibold tracking-tight">Orion POS</div>
-            <div className="text-[11px] text-muted-foreground">Retail OS · v1.5</div>
+    <div className="min-h-screen bg-background text-foreground antialiased">
+      {/* Desktop Sidebar */}
+      <aside className="fixed inset-y-0 left-0 z-30 hidden w-60 flex-col border-r border-border bg-elevated/60 backdrop-blur lg:flex">
+        <div className="flex h-16 items-center gap-2 px-6 border-b border-border/40">
+          <div className="grid size-9 place-items-center rounded-xl bg-primary text-primary-foreground font-extrabold text-lg shadow-sm">
+            O
+          </div>
+          <div className="flex flex-col">
+            <span className="font-bold tracking-tight text-base leading-tight">Orion POS</span>
+            <span className="text-[10px] text-muted-foreground font-medium">Store #001 · Production</span>
           </div>
         </div>
-        <nav className="flex-1 space-y-1.5 overflow-y-auto px-3 py-2">
-          {navTree.map((elem, idx) => {
-            if (!hasRole(elem.roles)) return null;
-
-            if (isGroup(elem)) {
-              const GroupIcon = elem.icon;
-              const isGroupActive = elem.items.some((sub) => isActive(sub.to, sub.exact));
-              const isOpen = openGroups[elem.label] ?? true;
-
-              return (
-                <div key={idx} className="space-y-1">
-                  <button
-                    onClick={() => toggleGroup(elem.label)}
-                    className={cn(
-                      "flex w-full items-center justify-between rounded-xl px-3 py-2 text-xs font-semibold uppercase tracking-wider transition-colors",
-                      isGroupActive ? "text-primary" : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                    )}
-                  >
-                    <div className="flex items-center gap-2.5">
-                      <GroupIcon className="size-4" />
-                      <span>{elem.label}</span>
-                    </div>
-                    {isOpen ? <ChevronDown className="size-3.5" /> : <ChevronRight className="size-3.5" />}
-                  </button>
-                  {isOpen && (
-                    <div className="ml-3 space-y-1 border-l border-border/60 pl-2">
-                      {elem.items.map((sub) => {
-                        if (!hasRole(sub.roles)) return null;
-                        const SubIcon = sub.icon;
-                        const active = isActive(sub.to, sub.exact);
-                        return (
-                          <Link
-                            key={sub.to}
-                            to={sub.to}
-                            className={cn(
-                              "flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-xs font-medium transition-colors",
-                              active ? "bg-primary text-primary-foreground font-semibold" : "text-ink-soft hover:bg-muted hover:text-foreground"
-                            )}
-                          >
-                            <SubIcon className="size-3.5" />
-                            {sub.label}
-                          </Link>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-              );
-            }
-
-            const Icon = elem.icon;
-            const active = isActive(elem.to, elem.exact);
-            return (
-              <Link
-                key={elem.to}
-                to={elem.to}
-                className={cn(
-                  "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors",
-                  active ? "bg-primary text-primary-foreground font-semibold" : "text-ink-soft hover:bg-muted hover:text-foreground"
-                )}
-              >
-                <Icon className="size-4" />
-                {elem.label}
-              </Link>
-            );
-          })}
+        <nav className="flex-1 space-y-1.5 p-3 overflow-y-auto">
+          {renderNavItems()}
         </nav>
         <div className="p-3">
           <OfflineBadge />
@@ -231,6 +218,32 @@ export function AppShell({ children }: { children: ReactNode }) {
       {/* Top bar */}
       <header className="sticky top-0 z-20 border-b border-border bg-elevated/80 backdrop-blur lg:pl-60">
         <div className="flex h-16 items-center gap-3 px-4 sm:px-6">
+          {/* Mobile menu trigger */}
+          <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
+            <SheetTrigger asChild>
+              <Button variant="ghost" size="icon" className="lg:hidden size-10 rounded-xl">
+                <Menu className="size-5" />
+              </Button>
+            </SheetTrigger>
+            <SheetContent side="left" className="w-72 p-0 flex flex-col">
+              <SheetHeader className="p-4 border-b border-border text-left flex flex-row items-center gap-2">
+                <div className="grid size-9 place-items-center rounded-xl bg-primary text-primary-foreground font-extrabold text-lg shadow-sm">
+                  O
+                </div>
+                <div>
+                  <SheetTitle className="text-base font-bold">Orion POS</SheetTitle>
+                  <p className="text-[10px] text-muted-foreground">Store #001 · Navigation</p>
+                </div>
+              </SheetHeader>
+              <nav className="flex-1 p-3 overflow-y-auto space-y-1.5">
+                {renderNavItems(() => setMobileMenuOpen(false))}
+              </nav>
+              <div className="p-3 border-t border-border">
+                <OfflineBadge />
+              </div>
+            </SheetContent>
+          </Sheet>
+
           <button
             onClick={() => setPaletteOpen(true)}
             className="group flex h-10 flex-1 max-w-xl items-center gap-2 rounded-xl border border-border bg-muted/40 px-3 text-sm text-muted-foreground transition-colors hover:bg-muted"
@@ -285,20 +298,18 @@ export function AppShell({ children }: { children: ReactNode }) {
       <nav className="fixed bottom-0 left-0 right-0 z-30 border-t border-border bg-elevated/95 backdrop-blur lg:hidden">
         <div className="grid grid-cols-5">
           {[
-            { to: "/", label: "Home", icon: LayoutDashboard, exact: true },
+            { to: "/dashboard", label: "Home", icon: LayoutDashboard, exact: true },
             { to: "/billing", label: "Billing", icon: ShoppingCart },
             { to: "/products", label: "Products", icon: Package },
             { to: "/purchases", label: "Purchases", icon: Receipt },
-            { to: "/profit", label: "Profit", icon: TrendingUp, roles: ["Admin", "Manager"] as Role[] },
           ].map((n) => {
-            if (!hasRole(n.roles)) return null;
             const Icon = n.icon;
             const active = isActive(n.to, n.exact);
             return (
               <Link
                 key={n.to}
                 to={n.to}
-                className={cn("flex flex-col items-center gap-1 py-2.5 text-[11px] font-medium transition-colors", active ? "text-foreground" : "text-muted-foreground")}
+                className={cn("flex flex-col items-center gap-1 py-2 text-[11px] font-medium transition-colors touch-manipulation", active ? "text-foreground" : "text-muted-foreground")}
               >
                 <div className={cn("grid size-9 place-items-center rounded-xl transition-colors", active ? "bg-primary text-primary-foreground" : "")}>
                   <Icon className="size-[18px]" />
@@ -307,6 +318,16 @@ export function AppShell({ children }: { children: ReactNode }) {
               </Link>
             );
           })}
+          {/* Menu button on mobile bottom bar opens full drawer */}
+          <button
+            onClick={() => setMobileMenuOpen(true)}
+            className="flex flex-col items-center gap-1 py-2 text-[11px] font-medium text-muted-foreground hover:text-foreground touch-manipulation"
+          >
+            <div className="grid size-9 place-items-center rounded-xl">
+              <Menu className="size-[18px]" />
+            </div>
+            Menu
+          </button>
         </div>
       </nav>
 

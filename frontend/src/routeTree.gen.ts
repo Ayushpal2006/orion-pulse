@@ -10,15 +10,19 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as SuppliersRouteImport } from './routes/suppliers'
+import { Route as StockHistoryRouteImport } from './routes/stock-history'
 import { Route as StockAdjustmentsRouteImport } from './routes/stock-adjustments'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as ReportsRouteImport } from './routes/reports'
 import { Route as PurchasesRouteImport } from './routes/purchases'
 import { Route as ProfitRouteImport } from './routes/profit'
+import { Route as ProductsRouteImport } from './routes/products'
 import { Route as InventoryRouteImport } from './routes/inventory'
 import { Route as ExpensesRouteImport } from './routes/expenses'
+import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as CustomersRouteImport } from './routes/customers'
 import { Route as BillingRouteImport } from './routes/billing'
+import { Route as AdjustStockRouteImport } from './routes/adjust-stock'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as SupplierLedgerSupplierIdRouteImport } from './routes/supplier-ledger.$supplierId'
 import { Route as InventoryHistoryRouteImport } from './routes/inventory.history'
@@ -27,6 +31,11 @@ import { Route as PrintInvoiceIdRouteImport } from './routes/print.invoice.$id'
 const SuppliersRoute = SuppliersRouteImport.update({
   id: '/suppliers',
   path: '/suppliers',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const StockHistoryRoute = StockHistoryRouteImport.update({
+  id: '/stock-history',
+  path: '/stock-history',
   getParentRoute: () => rootRouteImport,
 } as any)
 const StockAdjustmentsRoute = StockAdjustmentsRouteImport.update({
@@ -54,6 +63,11 @@ const ProfitRoute = ProfitRouteImport.update({
   path: '/profit',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ProductsRoute = ProductsRouteImport.update({
+  id: '/products',
+  path: '/products',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const InventoryRoute = InventoryRouteImport.update({
   id: '/inventory',
   path: '/inventory',
@@ -64,6 +78,11 @@ const ExpensesRoute = ExpensesRouteImport.update({
   path: '/expenses',
   getParentRoute: () => rootRouteImport,
 } as any)
+const DashboardRoute = DashboardRouteImport.update({
+  id: '/dashboard',
+  path: '/dashboard',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const CustomersRoute = CustomersRouteImport.update({
   id: '/customers',
   path: '/customers',
@@ -72,6 +91,11 @@ const CustomersRoute = CustomersRouteImport.update({
 const BillingRoute = BillingRouteImport.update({
   id: '/billing',
   path: '/billing',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdjustStockRoute = AdjustStockRouteImport.update({
+  id: '/adjust-stock',
+  path: '/adjust-stock',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IndexRoute = IndexRouteImport.update({
@@ -98,15 +122,19 @@ const PrintInvoiceIdRoute = PrintInvoiceIdRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/adjust-stock': typeof AdjustStockRoute
   '/billing': typeof BillingRoute
   '/customers': typeof CustomersRoute
+  '/dashboard': typeof DashboardRoute
   '/expenses': typeof ExpensesRoute
   '/inventory': typeof InventoryRouteWithChildren
+  '/products': typeof ProductsRoute
   '/profit': typeof ProfitRoute
   '/purchases': typeof PurchasesRoute
   '/reports': typeof ReportsRoute
   '/settings': typeof SettingsRoute
   '/stock-adjustments': typeof StockAdjustmentsRoute
+  '/stock-history': typeof StockHistoryRoute
   '/suppliers': typeof SuppliersRoute
   '/inventory/history': typeof InventoryHistoryRoute
   '/supplier-ledger/$supplierId': typeof SupplierLedgerSupplierIdRoute
@@ -114,15 +142,19 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/adjust-stock': typeof AdjustStockRoute
   '/billing': typeof BillingRoute
   '/customers': typeof CustomersRoute
+  '/dashboard': typeof DashboardRoute
   '/expenses': typeof ExpensesRoute
   '/inventory': typeof InventoryRouteWithChildren
+  '/products': typeof ProductsRoute
   '/profit': typeof ProfitRoute
   '/purchases': typeof PurchasesRoute
   '/reports': typeof ReportsRoute
   '/settings': typeof SettingsRoute
   '/stock-adjustments': typeof StockAdjustmentsRoute
+  '/stock-history': typeof StockHistoryRoute
   '/suppliers': typeof SuppliersRoute
   '/inventory/history': typeof InventoryHistoryRoute
   '/supplier-ledger/$supplierId': typeof SupplierLedgerSupplierIdRoute
@@ -131,15 +163,19 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/adjust-stock': typeof AdjustStockRoute
   '/billing': typeof BillingRoute
   '/customers': typeof CustomersRoute
+  '/dashboard': typeof DashboardRoute
   '/expenses': typeof ExpensesRoute
   '/inventory': typeof InventoryRouteWithChildren
+  '/products': typeof ProductsRoute
   '/profit': typeof ProfitRoute
   '/purchases': typeof PurchasesRoute
   '/reports': typeof ReportsRoute
   '/settings': typeof SettingsRoute
   '/stock-adjustments': typeof StockAdjustmentsRoute
+  '/stock-history': typeof StockHistoryRoute
   '/suppliers': typeof SuppliersRoute
   '/inventory/history': typeof InventoryHistoryRoute
   '/supplier-ledger/$supplierId': typeof SupplierLedgerSupplierIdRoute
@@ -149,15 +185,19 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/adjust-stock'
     | '/billing'
     | '/customers'
+    | '/dashboard'
     | '/expenses'
     | '/inventory'
+    | '/products'
     | '/profit'
     | '/purchases'
     | '/reports'
     | '/settings'
     | '/stock-adjustments'
+    | '/stock-history'
     | '/suppliers'
     | '/inventory/history'
     | '/supplier-ledger/$supplierId'
@@ -165,15 +205,19 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/adjust-stock'
     | '/billing'
     | '/customers'
+    | '/dashboard'
     | '/expenses'
     | '/inventory'
+    | '/products'
     | '/profit'
     | '/purchases'
     | '/reports'
     | '/settings'
     | '/stock-adjustments'
+    | '/stock-history'
     | '/suppliers'
     | '/inventory/history'
     | '/supplier-ledger/$supplierId'
@@ -181,15 +225,19 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/adjust-stock'
     | '/billing'
     | '/customers'
+    | '/dashboard'
     | '/expenses'
     | '/inventory'
+    | '/products'
     | '/profit'
     | '/purchases'
     | '/reports'
     | '/settings'
     | '/stock-adjustments'
+    | '/stock-history'
     | '/suppliers'
     | '/inventory/history'
     | '/supplier-ledger/$supplierId'
@@ -198,15 +246,19 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AdjustStockRoute: typeof AdjustStockRoute
   BillingRoute: typeof BillingRoute
   CustomersRoute: typeof CustomersRoute
+  DashboardRoute: typeof DashboardRoute
   ExpensesRoute: typeof ExpensesRoute
   InventoryRoute: typeof InventoryRouteWithChildren
+  ProductsRoute: typeof ProductsRoute
   ProfitRoute: typeof ProfitRoute
   PurchasesRoute: typeof PurchasesRoute
   ReportsRoute: typeof ReportsRoute
   SettingsRoute: typeof SettingsRoute
   StockAdjustmentsRoute: typeof StockAdjustmentsRoute
+  StockHistoryRoute: typeof StockHistoryRoute
   SuppliersRoute: typeof SuppliersRoute
   SupplierLedgerSupplierIdRoute: typeof SupplierLedgerSupplierIdRoute
   PrintInvoiceIdRoute: typeof PrintInvoiceIdRoute
@@ -219,6 +271,13 @@ declare module '@tanstack/react-router' {
       path: '/suppliers'
       fullPath: '/suppliers'
       preLoaderRoute: typeof SuppliersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/stock-history': {
+      id: '/stock-history'
+      path: '/stock-history'
+      fullPath: '/stock-history'
+      preLoaderRoute: typeof StockHistoryRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/stock-adjustments': {
@@ -256,6 +315,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProfitRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/products': {
+      id: '/products'
+      path: '/products'
+      fullPath: '/products'
+      preLoaderRoute: typeof ProductsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/inventory': {
       id: '/inventory'
       path: '/inventory'
@@ -270,6 +336,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ExpensesRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/dashboard': {
+      id: '/dashboard'
+      path: '/dashboard'
+      fullPath: '/dashboard'
+      preLoaderRoute: typeof DashboardRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/customers': {
       id: '/customers'
       path: '/customers'
@@ -282,6 +355,13 @@ declare module '@tanstack/react-router' {
       path: '/billing'
       fullPath: '/billing'
       preLoaderRoute: typeof BillingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/adjust-stock': {
+      id: '/adjust-stock'
+      path: '/adjust-stock'
+      fullPath: '/adjust-stock'
+      preLoaderRoute: typeof AdjustStockRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/': {
@@ -329,15 +409,19 @@ const InventoryRouteWithChildren = InventoryRoute._addFileChildren(
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AdjustStockRoute: AdjustStockRoute,
   BillingRoute: BillingRoute,
   CustomersRoute: CustomersRoute,
+  DashboardRoute: DashboardRoute,
   ExpensesRoute: ExpensesRoute,
   InventoryRoute: InventoryRouteWithChildren,
+  ProductsRoute: ProductsRoute,
   ProfitRoute: ProfitRoute,
   PurchasesRoute: PurchasesRoute,
   ReportsRoute: ReportsRoute,
   SettingsRoute: SettingsRoute,
   StockAdjustmentsRoute: StockAdjustmentsRoute,
+  StockHistoryRoute: StockHistoryRoute,
   SuppliersRoute: SuppliersRoute,
   SupplierLedgerSupplierIdRoute: SupplierLedgerSupplierIdRoute,
   PrintInvoiceIdRoute: PrintInvoiceIdRoute,

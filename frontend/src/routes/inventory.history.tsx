@@ -26,7 +26,7 @@ export const Route = createFileRoute("/inventory/history")({
   component: StockHistoryPage,
 });
 
-function StockHistoryPage() {
+export function StockHistoryPage() {
   const [q, setQ] = useState("");
   const [debouncedQ, setDebouncedQ] = useState("");
   const [movementType, setMovementType] = useState("all");
