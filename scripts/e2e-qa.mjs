@@ -209,6 +209,45 @@ async function runE2ETests() {
     if (res.status !== 200 || !Array.isArray(res.data.data)) throw new Error(`Status ${res.status}: ${JSON.stringify(res.data)}`);
   });
 
+  await test("POST /api/stock-adjustments creates a stock adjustment", async () => {
+    const prodRes = await request("/api/products", {
+      method: "POST",
+      body: {
+        name: "QA Stock Adj Temp Product",
+        sku: "QA-ADJ-" + Math.floor(Math.random() * 10000),
+        barcode: "",
+        purchase_price: 50000,
+        selling_price: 100000,
+        stock: 20,
+        minimum_stock: 5,
+        gst: 18,
+        category: "Test",
+      },
+    });
+    if (prodRes.status !== 201 && prodRes.status !== 200) {
+      throw new Error(`Failed to create temp product: ${JSON.stringify(prodRes.data)}`);
+    }
+    const tempProductId = prodRes.data?.data?.id;
+    if (!tempProductId) throw new Error("No temp product ID returned");
+
+    const adjRes = await request("/api/stock-adjustments", {
+      method: "POST",
+      body: {
+        product_id: tempProductId,
+        adjustment_type: "MANUAL_CORRECTION",
+        quantity_change: 5,
+        reason: "E2E test correction",
+      },
+    });
+
+    await request(`/api/products/${tempProductId}`, { method: "DELETE" }).catch(() => {});
+
+    if (adjRes.status !== 201 && adjRes.status !== 200) {
+      throw new Error(`Status ${adjRes.status}: ${JSON.stringify(adjRes.data)}`);
+    }
+  });
+
+
   // ─── 5. Expenses ─────────────────────────────────────────────────────────────
 
   let testCategoryId = null;

@@ -1,5 +1,5 @@
 import { db } from "../db";
-import { products, stock_adjustments } from "../db/schema";
+import { products } from "../db/schema";
 import { eq, and } from "drizzle-orm";
 import { getStoreId } from "../db/context";
 import { NotFoundError, ValidationError } from "../utils/errors";

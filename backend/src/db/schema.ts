@@ -462,27 +462,6 @@ export const support_tickets = pgTable("support_tickets", {
   created_at: timestamp("created_at").defaultNow().notNull(),
 });
 
-export const stock_adjustments = pgTable(
-  "stock_adjustments",
-  {
-    id: serial("id").primaryKey(),
-    store_id: integer("store_id").references(() => stores.id).notNull(),
-    product_id: integer("product_id").references(() => products.id).notNull(),
-    adjustment_type: text("adjustment_type").notNull(), // OPENING_STOCK, PHYSICAL_COUNT, DAMAGED, LOST, FOUND, MANUAL_CORRECTION, SAMPLE, RETURN_FROM_CUSTOMER
-    quantity_before: integer("quantity_before").notNull(),
-    quantity_change: integer("quantity_change").notNull(),
-    quantity_after: integer("quantity_after").notNull(),
-    reason: text("reason").notNull(),
-    notes: text("notes"),
-    created_by: text("created_by").default("System").notNull(),
-    created_at: timestamp("created_at").defaultNow().notNull(),
-  },
-  (table) => ({
-    storeIdx: index("idx_stock_adjustments_store_id").on(table.store_id),
-    productIdx: index("idx_stock_adjustments_product_id").on(table.product_id),
-    typeIdx: index("idx_stock_adjustments_type").on(table.adjustment_type),
-  })
-);
 
 // Profit Engine — cost snapshot log (Average Cost Method; FIFO-ready)
 export const product_cost_history = pgTable(
