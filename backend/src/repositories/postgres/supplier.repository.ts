@@ -10,26 +10,30 @@ export class PostgresSupplierRepository implements ISupplierRepository {
     const client = tx || db;
     const storeId = getStoreId();
     
+    const conditions: any[] = [];
     const includeArchived = params?.includeArchived ?? false;
-    let cond = includeArchived ? sql`1=1` : eq(suppliers.is_archived, 0);
+
+    if (!includeArchived) {
+      conditions.push(eq(suppliers.is_archived, 0));
+    }
 
     if (storeId !== undefined) {
-      cond = and(cond, eq(suppliers.store_id, storeId)) as any;
+      conditions.push(eq(suppliers.store_id, storeId));
     }
 
     if (params?.q) {
       const likeQuery = `%${params.q}%`;
-      cond = and(
-        cond,
+      conditions.push(
         or(
           like(suppliers.name, likeQuery),
           like(suppliers.phone, likeQuery),
           like(suppliers.gstin, likeQuery)
         )
-      ) as any;
+      );
     }
 
-    const query = client.select().from(suppliers).where(cond);
+    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+    const query = client.select().from(suppliers).where(whereClause);
 
     // Apply sorting
     const sortField = params?.sort || "newest";

@@ -4,7 +4,7 @@ import {
   CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, CommandSeparator,
 } from "@/components/ui/command";
 import {
-  Package, Users, Receipt, LayoutDashboard, ScanBarcode, Plus, Settings, BarChart3, Tag, Sun, Moon, Monitor, Truck, Sliders, TrendingUp,
+  Package, Users, Receipt, LayoutDashboard, ScanBarcode, Plus, Settings, BarChart3, Tag, Sun, Moon, Monitor, Truck, Sliders, TrendingUp, History, CreditCard,
 } from "lucide-react";
 import { useApp } from "@/lib/store";
 import { API_BASE_URL } from "@/lib/api";
@@ -67,12 +67,14 @@ export function CommandPalette() {
         <CommandGroup heading="Navigation">
           <CommandItem onSelect={() => go("/")}><LayoutDashboard className="mr-2 size-4" /> Dashboard</CommandItem>
           <CommandItem onSelect={() => go("/billing")}><ScanBarcode className="mr-2 size-4" /> Billing</CommandItem>
-          <CommandItem onSelect={() => go("/inventory")}><Package className="mr-2 size-4" /> Inventory</CommandItem>
+          <CommandItem onSelect={() => go("/products")}><Package className="mr-2 size-4" /> Products</CommandItem>
+          <CommandItem onSelect={() => go("/stock-adjustments")}><Sliders className="mr-2 size-4" /> Stock Adjustments</CommandItem>
+          <CommandItem onSelect={() => go("/inventory/history")}><History className="mr-2 size-4" /> Stock History</CommandItem>
           <CommandItem onSelect={() => go("/customers")}><Users className="mr-2 size-4" /> Customers</CommandItem>
           <CommandItem onSelect={() => go("/suppliers")}><Truck className="mr-2 size-4" /> Suppliers</CommandItem>
           <CommandItem onSelect={() => go("/purchases")}><Receipt className="mr-2 size-4" /> Purchases</CommandItem>
-          <CommandItem onSelect={() => go("/stock-adjustments")}><Sliders className="mr-2 size-4" /> Stock Adjustments</CommandItem>
           <CommandItem onSelect={() => go("/profit")}><TrendingUp className="mr-2 size-4" /> Profit & Margin</CommandItem>
+          <CommandItem onSelect={() => go("/expenses")}><CreditCard className="mr-2 size-4" /> Expenses</CommandItem>
           <CommandItem onSelect={() => go("/reports")}><BarChart3 className="mr-2 size-4" /> Reports</CommandItem>
           <CommandItem onSelect={() => go("/settings")}><Settings className="mr-2 size-4" /> Settings</CommandItem>
         </CommandGroup>

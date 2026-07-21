@@ -53,11 +53,23 @@ export class ExpenseController {
         return;
       }
 
-      const rows = await db
+      let rows = await db
         .select()
         .from(expense_categories)
         .where(eq(expense_categories.store_id, storeId))
         .orderBy(expense_categories.name);
+
+      if (rows.length === 0) {
+        const defaultNames = ["Rent", "Electricity", "Salary", "Transport", "Maintenance", "Marketing", "Miscellaneous"];
+        await db.insert(expense_categories).values(
+          defaultNames.map((name) => ({ store_id: storeId, name }))
+        );
+        rows = await db
+          .select()
+          .from(expense_categories)
+          .where(eq(expense_categories.store_id, storeId))
+          .orderBy(expense_categories.name);
+      }
 
       res.status(200).json({ success: true, data: rows });
     } catch (error) {
@@ -219,6 +231,43 @@ export class ExpenseController {
           paymentBreakdown,
         },
       });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  updateExpense = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const id = parseInt(req.params.id as string, 10);
+      const storeId = getStoreId();
+      if (isNaN(id) || storeId === undefined) {
+        res.status(400).json({ success: false, error: "Invalid parameters" });
+        return;
+      }
+
+      const { categoryId, amount, paymentMethod, vendor, description, date, receiptImageUrl } = req.body;
+
+      const updateData: any = {};
+      if (categoryId !== undefined) updateData.category_id = categoryId;
+      if (amount !== undefined) updateData.amount = amount;
+      if (paymentMethod !== undefined) updateData.payment_method = paymentMethod;
+      if (vendor !== undefined) updateData.vendor = vendor;
+      if (description !== undefined) updateData.description = description;
+      if (date !== undefined) updateData.date = new Date(date);
+      if (receiptImageUrl !== undefined) updateData.receipt_image_url = receiptImageUrl;
+      updateData.updated_at = new Date();
+
+      const [updated] = await db
+        .update(expenses)
+        .set(updateData)
+        .where(and(eq(expenses.id, id), eq(expenses.store_id, storeId)))
+        .returning();
+
+      if (!updated) {
+        throw new NotFoundError(`Expense with ID ${id} not found`);
+      }
+
+      res.status(200).json({ success: true, data: updated });
     } catch (error) {
       next(error);
     }

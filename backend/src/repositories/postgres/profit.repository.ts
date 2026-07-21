@@ -64,16 +64,33 @@ export class PostgresProfitRepository implements IProfitRepository {
     const grossProfit = revenue - cogs;
     const grossMarginPercent = revenue > 0 ? Math.round((grossProfit / revenue) * 10000) / 100 : 0;
 
+    // Store expenses query for period
+    const { expenses } = require("../../db/schema");
+    const { start, end } = getUtcBoundariesForFilter(filters.filter || "last30", filters.startDate, filters.endDate);
+    const [expRow] = await db
+      .select({ total: sql<string>`COALESCE(SUM(${expenses.amount}), 0)` })
+      .from(expenses)
+      .where(and(eq(expenses.store_id, filters.storeId), gte(expenses.date, start), lte(expenses.date, end)));
+
+    const expensesAmount = Number(expRow?.total || 0);
+    const netProfit = grossProfit - expensesAmount;
+    const netMarginPercent = revenue > 0 ? Math.round((netProfit / revenue) * 10000) / 100 : 0;
+
     return {
       revenue,
       cogs,
       grossProfit,
       grossMarginPercent,
+      expenses: expensesAmount,
+      netProfit,
+      netMarginPercent,
       unitsSold: Number(row?.unitsSold || 0),
       invoiceCount: Number(row?.invoiceCount || 0),
       revenue_INR: revenue / 100,
       cogs_INR: cogs / 100,
       grossProfit_INR: grossProfit / 100,
+      expenses_INR: expensesAmount / 100,
+      netProfit_INR: netProfit / 100,
     };
   }
 

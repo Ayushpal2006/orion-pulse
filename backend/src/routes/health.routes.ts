@@ -10,12 +10,11 @@ router.get("/", async (req: Request, res: Response): Promise<void> => {
     // Probe database using simple query test
     await dbProxy.queryOne("SELECT 1");
   } catch (e) {
-    dbStatus = "DOWN";
+    dbStatus = "OFFLINE";
   }
 
-  const isUp = dbStatus === "UP";
-  res.status(isUp ? 200 : 503).json({
-    status: isUp ? "UP" : "DEGRADED",
+  res.status(200).json({
+    status: dbStatus === "UP" ? "UP" : "DEGRADED",
     uptime: Math.floor((Date.now() - startTime) / 1000),
     database: dbStatus,
     environment: process.env.NODE_ENV || "development",

@@ -34,7 +34,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { EmptyState } from "@/components/empty-state";
 import { toast } from "sonner";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { getPurchases, getPurchaseById, createPurchase, updatePurchase, deletePurchase, getSuppliers, getProducts } from "@/lib/api";
+import { getPurchases, getPurchaseById, createPurchase, updatePurchase, deletePurchase, getSuppliers, getProducts, createSupplier } from "@/lib/api";
 import { inr } from "@/lib/format";
 
 export const Route = createFileRoute("/purchases")({
@@ -78,6 +78,36 @@ function PurchasesPage() {
   const [supplierId, setSupplierId] = useState<number | null>(null);
   const [supplierSearch, setSupplierSearch] = useState("");
   const [supplierOpen, setSupplierOpen] = useState(false);
+
+  // Quick Supplier Creation State
+  const [newSupplierOpen, setNewSupplierOpen] = useState(false);
+  const [newSupplierName, setNewSupplierName] = useState("");
+  const [newSupplierPhone, setNewSupplierPhone] = useState("");
+  const [newSupplierGstin, setNewSupplierGstin] = useState("");
+
+  const handleQuickCreateSupplier = async () => {
+    if (!newSupplierName.trim()) {
+      toast.error("Supplier name is required");
+      return;
+    }
+    try {
+      const created = await createSupplier({
+        name: newSupplierName.trim(),
+        phone: newSupplierPhone.trim() || undefined,
+        gstin: newSupplierGstin.trim() || undefined,
+      });
+      toast.success(`Supplier "${created.name}" created!`);
+      setSupplierId(Number(created.id));
+      await queryClient.invalidateQueries({ queryKey: ["suppliers-active"] });
+      setNewSupplierOpen(false);
+      setSupplierOpen(false);
+      setNewSupplierName("");
+      setNewSupplierPhone("");
+      setNewSupplierGstin("");
+    } catch (err: any) {
+      toast.error(err.message || "Failed to create supplier");
+    }
+  };
 
   const [invoiceNumber, setInvoiceNumber] = useState("");
   const [purchaseDate, setPurchaseDate] = useState(() => new Date().toISOString().substring(0, 16));
@@ -639,15 +669,40 @@ function PurchasesPage() {
                   </Button>
                   {supplierOpen && (
                     <div className="absolute top-12 left-0 w-full bg-popover text-popover-foreground border border-border rounded-xl shadow-lg z-50 p-2 space-y-2">
-                      <Input
-                        value={supplierSearch}
-                        onChange={(e) => setSupplierSearch(e.target.value)}
-                        placeholder="Search supplier..."
-                        className="h-9 rounded-lg"
-                      />
+                      <div className="flex items-center gap-1.5">
+                        <Input
+                          value={supplierSearch}
+                          onChange={(e) => setSupplierSearch(e.target.value)}
+                          placeholder="Search name or phone..."
+                          className="h-9 rounded-lg"
+                        />
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          onClick={() => {
+                            setNewSupplierName(supplierSearch);
+                            setNewSupplierOpen(true);
+                          }}
+                          className="h-9 text-xs gap-1 shrink-0"
+                        >
+                          <Plus className="size-3.5" /> New
+                        </Button>
+                      </div>
                       <div className="max-h-40 overflow-y-auto divide-y divide-border/40">
                         {filteredSuppliers.length === 0 ? (
-                          <div className="p-3 text-xs text-muted-foreground text-center">No suppliers found</div>
+                          <div className="p-3 text-xs text-muted-foreground text-center space-y-2">
+                            <div>No suppliers match "{supplierSearch}"</div>
+                            <Button
+                              size="sm"
+                              onClick={() => {
+                                setNewSupplierName(supplierSearch);
+                                setNewSupplierOpen(true);
+                              }}
+                              className="w-full text-xs bg-primary text-primary-foreground"
+                            >
+                              <Plus className="mr-1.5 size-3.5" /> Create Supplier "{supplierSearch}"
+                            </Button>
+                          </div>
                         ) : (
                           filteredSuppliers.map((s: any) => (
                             <button
@@ -1069,6 +1124,51 @@ function PurchasesPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Quick Create Supplier Dialog */}
+      <Dialog open={newSupplierOpen} onOpenChange={setNewSupplierOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Plus className="size-5 text-primary" /> Create New Supplier
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <div className="space-y-1">
+              <label className="text-xs font-semibold uppercase text-muted-foreground">Supplier Name *</label>
+              <Input
+                placeholder="Vendor / Business Name"
+                value={newSupplierName}
+                onChange={(e) => setNewSupplierName(e.target.value)}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <label className="text-xs font-semibold uppercase text-muted-foreground">Phone</label>
+                <Input
+                  placeholder="Mobile number"
+                  value={newSupplierPhone}
+                  onChange={(e) => setNewSupplierPhone(e.target.value)}
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-semibold uppercase text-muted-foreground">GSTIN</label>
+                <Input
+                  placeholder="22AAAAA0000A1Z5"
+                  value={newSupplierGstin}
+                  onChange={(e) => setNewSupplierGstin(e.target.value)}
+                />
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setNewSupplierOpen(false)}>Cancel</Button>
+            <Button onClick={handleQuickCreateSupplier} className="bg-primary text-primary-foreground">
+              Save Supplier & Continue
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -260,20 +260,20 @@ function ProfitDashboard() {
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
         <KpiCard
           label="Revenue"
           value={summary ? inr(summary.revenue_INR) : "—"}
-          icon={<IndianRupee className="size-5" />}
+          icon={<IndianRupee className="size-4" />}
           color="text-primary"
           bg="bg-primary/10"
           loading={summaryLoading}
         />
         <KpiCard
-          label="Cost of Goods Sold"
+          label="COGS"
           value={summary ? inr(summary.cogs_INR) : "—"}
-          sub="Avg cost × qty sold"
-          icon={<Package className="size-5" />}
+          sub="Avg cost × qty"
+          icon={<Package className="size-4" />}
           color="text-amber-500"
           bg="bg-amber-500/10"
           loading={summaryLoading}
@@ -281,18 +281,36 @@ function ProfitDashboard() {
         <KpiCard
           label="Gross Profit"
           value={summary ? inr(summary.grossProfit_INR) : "—"}
-          sub={summary ? (summary.grossProfit >= 0 ? "▲ Profitable" : "▼ Loss") : ""}
-          icon={<TrendingUp className="size-5" />}
+          sub={summary ? `Margin: ${summary.grossMarginPercent.toFixed(1)}%` : ""}
+          icon={<TrendingUp className="size-4" />}
           color={summary && summary.grossProfit < 0 ? "text-rose-500" : "text-emerald-500"}
           bg={summary && summary.grossProfit < 0 ? "bg-rose-500/10" : "bg-emerald-500/10"}
           loading={summaryLoading}
         />
         <KpiCard
-          label="Gross Margin"
-          value={summary ? `${summary.grossMarginPercent.toFixed(1)}%` : "—"}
-          sub={summary ? `${summary.unitsSold} units · ${summary.invoiceCount} invoices` : ""}
-          icon={<BarChart3 className="size-5" />}
-          color={summary ? marginColor(summary.grossMarginPercent) : "text-foreground"}
+          label="Expenses"
+          value={summary ? inr(summary.expenses_INR || 0) : "—"}
+          sub="Overheads"
+          icon={<ShoppingBag className="size-4" />}
+          color="text-rose-500"
+          bg="bg-rose-500/10"
+          loading={summaryLoading}
+        />
+        <KpiCard
+          label="Net Profit"
+          value={summary ? inr(summary.netProfit_INR ?? (summary.grossProfit_INR - (summary.expenses_INR || 0))) : "—"}
+          sub={summary ? ((summary.netProfit ?? 0) >= 0 ? "▲ Profitable" : "▼ Net Loss") : ""}
+          icon={<TrendingUp className="size-4" />}
+          color={summary && (summary.netProfit ?? 0) < 0 ? "text-rose-500" : "text-emerald-500"}
+          bg={summary && (summary.netProfit ?? 0) < 0 ? "bg-rose-500/10" : "bg-emerald-500/10"}
+          loading={summaryLoading}
+        />
+        <KpiCard
+          label="Net Margin %"
+          value={summary ? `${(summary.netMarginPercent ?? 0).toFixed(1)}%` : "—"}
+          sub={summary ? `${summary.unitsSold} units · ${summary.invoiceCount} sales` : ""}
+          icon={<BarChart3 className="size-4" />}
+          color={summary ? marginColor(summary.netMarginPercent ?? summary.grossMarginPercent) : "text-foreground"}
           bg="bg-muted/40"
           loading={summaryLoading}
         />

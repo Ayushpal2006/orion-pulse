@@ -2,7 +2,7 @@ import { IStockAdjustmentRepository } from "../interfaces/IStockAdjustmentReposi
 import { StockAdjustment } from "../../types/stock-adjustment.types";
 import { db } from "../../db";
 import { stock_adjustments, products } from "../../db/schema";
-import { eq, and, desc, asc, like, or, sql, gte, lte } from "drizzle-orm";
+import { eq, and, desc, like, or, gte, lte } from "drizzle-orm";
 import { getStoreId } from "../../db/context";
 
 export class PostgresStockAdjustmentRepository implements IStockAdjustmentRepository {
@@ -47,39 +47,40 @@ export class PostgresStockAdjustmentRepository implements IStockAdjustmentReposi
   ): Promise<StockAdjustment[]> {
     const client = tx || db;
     const storeId = getStoreId();
-    let cond = sql`1=1`;
+    const conditions: any[] = [];
 
     if (storeId !== undefined) {
-      cond = and(cond, eq(stock_adjustments.store_id, storeId)) as any;
+      conditions.push(eq(stock_adjustments.store_id, storeId));
     }
 
     if (params?.product_id) {
-      cond = and(cond, eq(stock_adjustments.product_id, params.product_id)) as any;
+      conditions.push(eq(stock_adjustments.product_id, params.product_id));
     }
 
     if (params?.adjustment_type) {
-      cond = and(cond, eq(stock_adjustments.adjustment_type, params.adjustment_type)) as any;
+      conditions.push(eq(stock_adjustments.adjustment_type, params.adjustment_type));
     }
 
     if (params?.q) {
       const searchLike = `%${params.q}%`;
-      cond = and(
-        cond,
+      conditions.push(
         or(
           like(products.name, searchLike),
           like(stock_adjustments.reason, searchLike),
           like(stock_adjustments.adjustment_type, searchLike)
         )
-      ) as any;
+      );
     }
 
     if (params?.startDate) {
-      cond = and(cond, gte(stock_adjustments.created_at, new Date(params.startDate))) as any;
+      conditions.push(gte(stock_adjustments.created_at, new Date(params.startDate)));
     }
 
     if (params?.endDate) {
-      cond = and(cond, lte(stock_adjustments.created_at, new Date(params.endDate))) as any;
+      conditions.push(lte(stock_adjustments.created_at, new Date(params.endDate)));
     }
+
+    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
 
     const rows = await client
       .select({
@@ -98,23 +99,25 @@ export class PostgresStockAdjustmentRepository implements IStockAdjustmentReposi
         product_sku: products.sku,
       })
       .from(stock_adjustments)
-      .innerJoin(products, eq(stock_adjustments.product_id, products.id))
-      .where(cond)
+      .leftJoin(products, eq(stock_adjustments.product_id, products.id))
+      .where(whereClause)
       .orderBy(desc(stock_adjustments.id));
 
     return rows.map((r: any) => ({
       ...r,
-      created_at: r.created_at.toISOString(),
+      product_name: r.product_name || "Unknown Product",
+      product_sku: r.product_sku || "N/A",
+      created_at: r.created_at ? new Date(r.created_at).toISOString() : new Date().toISOString(),
     }));
   }
 
   async getById(id: number, tx?: any): Promise<StockAdjustment | null> {
     const client = tx || db;
     const storeId = getStoreId();
-    let cond = eq(stock_adjustments.id, id);
+    const conditions: any[] = [eq(stock_adjustments.id, id)];
 
     if (storeId !== undefined) {
-      cond = and(cond, eq(stock_adjustments.store_id, storeId)) as any;
+      conditions.push(eq(stock_adjustments.store_id, storeId));
     }
 
     const [adj] = await client
@@ -134,15 +137,17 @@ export class PostgresStockAdjustmentRepository implements IStockAdjustmentReposi
         product_sku: products.sku,
       })
       .from(stock_adjustments)
-      .innerJoin(products, eq(stock_adjustments.product_id, products.id))
-      .where(cond)
+      .leftJoin(products, eq(stock_adjustments.product_id, products.id))
+      .where(and(...conditions))
       .limit(1);
 
     if (!adj) return null;
 
     return {
       ...adj,
-      created_at: adj.created_at.toISOString(),
+      product_name: adj.product_name || "Unknown Product",
+      product_sku: adj.product_sku || "N/A",
+      created_at: adj.created_at ? new Date(adj.created_at).toISOString() : new Date().toISOString(),
     } as StockAdjustment;
   }
 }

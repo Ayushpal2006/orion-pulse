@@ -1085,3 +1085,104 @@ export function triggerProfitExport(format: "excel" | "csv" | "pdf", filters: Pr
   const params = buildProfitParams(filters);
   window.open(`${API_BASE_URL}/api/profit/export/${format}?${params}`, "_blank");
 }
+
+export async function getExpenses(params?: { categoryId?: number; startDate?: string; endDate?: string }): Promise<any[]> {
+  const p = new URLSearchParams();
+  if (params?.categoryId) p.set("categoryId", String(params.categoryId));
+  if (params?.startDate) p.set("startDate", params.startDate);
+  if (params?.endDate) p.set("endDate", params.endDate);
+
+  const res = await fetch(`${API_BASE_URL}/api/expenses?${p.toString()}`);
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || `HTTP ${res.status}`);
+  }
+  const payload = await res.json();
+  if (payload.success) return payload.data;
+  throw new Error("Invalid response from expenses API");
+}
+
+export async function getExpenseSummary(params?: { filter?: string; startDate?: string; endDate?: string }): Promise<any> {
+  const p = new URLSearchParams();
+  if (params?.filter) p.set("filter", params.filter);
+  if (params?.startDate) p.set("startDate", params.startDate);
+  if (params?.endDate) p.set("endDate", params.endDate);
+
+  const res = await fetch(`${API_BASE_URL}/api/expenses/summary?${p.toString()}`);
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || `HTTP ${res.status}`);
+  }
+  const payload = await res.json();
+  if (payload.success) return payload.data;
+  throw new Error("Invalid response from expenses summary API");
+}
+
+export async function getExpenseCategories(): Promise<any[]> {
+  const res = await fetch(`${API_BASE_URL}/api/expenses/categories`);
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || `HTTP ${res.status}`);
+  }
+  const payload = await res.json();
+  if (payload.success) return payload.data;
+  throw new Error("Invalid response from expense categories API");
+}
+
+export async function createExpenseCategory(name: string): Promise<any> {
+  const res = await fetch(`${API_BASE_URL}/api/expenses/categories`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || `HTTP ${res.status}`);
+  }
+  const payload = await res.json();
+  if (payload.success) return payload.data;
+  throw new Error("Invalid response from create category API");
+}
+
+export async function createExpense(data: any): Promise<any> {
+  const res = await fetch(`${API_BASE_URL}/api/expenses`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || `HTTP ${res.status}`);
+  }
+  const payload = await res.json();
+  if (payload.success) return payload.data;
+  throw new Error("Invalid response from create expense API");
+}
+
+export async function updateExpense(id: number, data: any): Promise<any> {
+  const res = await fetch(`${API_BASE_URL}/api/expenses/${id}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || `HTTP ${res.status}`);
+  }
+  const payload = await res.json();
+  if (payload.success) return payload.data;
+  throw new Error("Invalid response from update expense API");
+}
+
+export async function deleteExpense(id: number): Promise<any> {
+  const res = await fetch(`${API_BASE_URL}/api/expenses/${id}`, {
+    method: "DELETE",
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || `HTTP ${res.status}`);
+  }
+  const payload = await res.json();
+  if (payload.success) return payload.data;
+  throw new Error("Invalid response from delete expense API");
+}

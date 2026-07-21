@@ -111,10 +111,11 @@ export class PostgresDashboardRepository implements IDashboardRepository {
     const client = tx || db;
     const storeId = getStoreId();
 
-    let cond = sql`1=1`;
+    const conditions: any[] = [];
     if (storeId !== undefined) {
-      cond = and(cond, eq(sales.store_id, storeId)) as any;
+      conditions.push(eq(sales.store_id, storeId));
     }
+    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
 
     const rows = await client
       .select({
@@ -127,7 +128,7 @@ export class PostgresDashboardRepository implements IDashboardRepository {
       })
       .from(sales)
       .leftJoin(customers, eq(sales.customer_id, customers.id))
-      .where(cond)
+      .where(whereClause)
       .orderBy(desc(sales.id))
       .limit(10);
 

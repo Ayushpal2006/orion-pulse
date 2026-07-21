@@ -47,35 +47,36 @@ export class PostgresSupplierPaymentRepository implements ISupplierPaymentReposi
   ): Promise<SupplierPayment[]> {
     const client = tx || db;
     const storeId = getStoreId();
-    let cond = sql`1=1`;
+    const conditions: any[] = [];
 
     if (storeId !== undefined) {
-      cond = and(cond, eq(supplier_payments.store_id, storeId)) as any;
+      conditions.push(eq(supplier_payments.store_id, storeId));
     }
 
     if (params?.supplier_id) {
-      cond = and(cond, eq(supplier_payments.supplier_id, params.supplier_id)) as any;
+      conditions.push(eq(supplier_payments.supplier_id, params.supplier_id));
     }
 
     if (params?.q) {
       const searchLike = `%${params.q}%`;
-      cond = and(
-        cond,
+      conditions.push(
         or(
           like(supplier_payments.payment_number, searchLike),
           like(supplier_payments.reference_number, searchLike),
           like(suppliers.name, searchLike)
         )
-      ) as any;
+      );
     }
 
     if (params?.startDate) {
-      cond = and(cond, gte(supplier_payments.payment_date, new Date(params.startDate))) as any;
+      conditions.push(gte(supplier_payments.payment_date, new Date(params.startDate)));
     }
 
     if (params?.endDate) {
-      cond = and(cond, lte(supplier_payments.payment_date, new Date(params.endDate))) as any;
+      conditions.push(lte(supplier_payments.payment_date, new Date(params.endDate)));
     }
+
+    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
 
     const rows = await client
       .select({
@@ -93,8 +94,8 @@ export class PostgresSupplierPaymentRepository implements ISupplierPaymentReposi
         supplier_name: suppliers.name,
       })
       .from(supplier_payments)
-      .innerJoin(suppliers, eq(supplier_payments.supplier_id, suppliers.id))
-      .where(cond)
+      .leftJoin(suppliers, eq(supplier_payments.supplier_id, suppliers.id))
+      .where(whereClause)
       .orderBy(desc(supplier_payments.id));
 
     return rows.map((r: any) => ({

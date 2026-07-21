@@ -16,12 +16,17 @@ export interface ProfitSummary {
   cogs: number;              // Paise — cost of goods sold (avg cost × qty)
   grossProfit: number;       // Paise — revenue - cogs
   grossMarginPercent: number; // 0-100
+  expenses: number;          // Paise — operational expenses
+  netProfit: number;         // Paise — grossProfit - expenses
+  netMarginPercent: number;   // 0-100
   unitsSold: number;
   invoiceCount: number;
   // Convenience INR (/ 100)
   revenue_INR: number;
   cogs_INR: number;
   grossProfit_INR: number;
+  expenses_INR: number;
+  netProfit_INR: number;
 }
 
 /** Per-product P&L breakdown row */
@@ -62,6 +67,8 @@ export interface ProfitTrendPoint {
   cogs: number;
   grossProfit: number;
   grossMarginPercent: number;
+  expenses?: number;
+  netProfit?: number;
 }
 
 /** Report sections for export */

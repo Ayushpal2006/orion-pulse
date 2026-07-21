@@ -56,31 +56,32 @@ export class PostgresPurchaseRepository implements IPurchaseRepository {
   async getAll(params?: { q?: string; startDate?: string; endDate?: string }, tx?: any): Promise<PurchaseOrder[]> {
     const client = tx || db;
     const storeId = getStoreId();
-    let cond = sql`1=1`;
+    const conditions: any[] = [];
 
     if (storeId !== undefined) {
-      cond = and(cond, eq(purchase_orders.store_id, storeId)) as any;
+      conditions.push(eq(purchase_orders.store_id, storeId));
     }
 
     if (params?.q) {
       const searchLike = `%${params.q}%`;
-      cond = and(
-        cond,
+      conditions.push(
         or(
           like(purchase_orders.purchase_number, searchLike),
           like(purchase_orders.supplier_invoice_number, searchLike),
           like(suppliers.name, searchLike)
         )
-      ) as any;
+      );
     }
 
     if (params?.startDate) {
-      cond = and(cond, gte(purchase_orders.purchase_date, new Date(params.startDate))) as any;
+      conditions.push(gte(purchase_orders.purchase_date, new Date(params.startDate)));
     }
 
     if (params?.endDate) {
-      cond = and(cond, lte(purchase_orders.purchase_date, new Date(params.endDate))) as any;
+      conditions.push(lte(purchase_orders.purchase_date, new Date(params.endDate)));
     }
+
+    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
 
     const rows = await client
       .select({
@@ -102,8 +103,8 @@ export class PostgresPurchaseRepository implements IPurchaseRepository {
         supplier_name: suppliers.name,
       })
       .from(purchase_orders)
-      .innerJoin(suppliers, eq(purchase_orders.supplier_id, suppliers.id))
-      .where(cond)
+      .leftJoin(suppliers, eq(purchase_orders.supplier_id, suppliers.id))
+      .where(whereClause)
       .orderBy(desc(purchase_orders.id));
 
     return rows.map((r: any) => ({

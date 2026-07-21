@@ -133,12 +133,15 @@ app.use("/api/auth", authRoutes);
 
 // App routes configuration (All authenticated)
 app.use("/products", authenticate(), productRoutes);
+app.use("/api/products", authenticate(), productRoutes);
 app.use("/customers", authenticate(), customerRoutes);
+app.use("/api/customers", authenticate(), customerRoutes);
 app.use("/checkout", authenticate(), checkoutRoutes);
 app.use("/sales", authenticate(), salesRoutes);
 app.use("/invoices", authenticate(), salesRoutes);
 app.use("/dashboard", authenticate(), dashboardRoutes);
 app.use("/reports", authenticate(), authorize("admin", "manager"), reportsRoutes);
+app.use("/api/reports", authenticate(), authorize("admin", "manager"), reportsRoutes);
 app.use("/printer", authenticate(), printerRoutes);
 app.use("/settings", authenticate(), settingsRoutes);
 app.use("/settings/database", authenticate(), databaseRoutes);

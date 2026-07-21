@@ -1,7 +1,7 @@
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { Link, useRouterState } from "@tanstack/react-router";
 import {
-  LayoutDashboard, ShoppingCart, Package, Users, BarChart3, Search, Wifi, WifiOff, Settings, LogOut, UserCog, Truck, Receipt, Sliders, TrendingUp
+  LayoutDashboard, ShoppingCart, Package, Users, BarChart3, Search, Wifi, WifiOff, Settings, LogOut, UserCog, Truck, Receipt, Sliders, TrendingUp, History, CreditCard, Wallet, ChevronDown, ChevronRight
 } from "lucide-react";
 import { usePWA } from "@/hooks/usePWA";
 import { Button } from "@/components/ui/button";
@@ -15,16 +15,46 @@ import { ThemeToggle, useThemeInit } from "./theme-toggle";
 import { cn } from "@/lib/utils";
 import { getProducts, getCustomers, API_BASE_URL } from "@/lib/api";
 
-const nav: Array<{ to: string; label: string; icon: typeof LayoutDashboard; exact?: boolean }> = [
+export type NavItem = { to: string; label: string; icon: any; exact?: boolean; roles?: Role[] };
+export type NavGroup = { label: string; icon: any; items: NavItem[]; roles?: Role[] };
+export type NavElement = NavItem | NavGroup;
+
+function isGroup(item: NavElement): item is NavGroup {
+  return "items" in item;
+}
+
+const navTree: NavElement[] = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard, exact: true },
   { to: "/billing", label: "Billing", icon: ShoppingCart },
-  { to: "/inventory", label: "Inventory", icon: Package },
-  { to: "/customers", label: "Customers", icon: Users },
-  { to: "/suppliers", label: "Suppliers", icon: Truck },
+  {
+    label: "Inventory",
+    icon: Package,
+    items: [
+      { to: "/products", label: "Products", icon: Package },
+      { to: "/stock-adjustments", label: "Adjust Stock", icon: Sliders },
+      { to: "/inventory/history", label: "Stock History", icon: History },
+    ],
+  },
+  {
+    label: "Contacts",
+    icon: Users,
+    items: [
+      { to: "/customers", label: "Customers", icon: Users },
+      { to: "/suppliers", label: "Suppliers", icon: Truck },
+    ],
+  },
   { to: "/purchases", label: "Purchases", icon: Receipt },
-  { to: "/stock-adjustments", label: "Adjustments", icon: Sliders },
-  { to: "/profit", label: "Profit", icon: TrendingUp },
-  { to: "/reports", label: "Reports", icon: BarChart3 },
+  { to: "/reports", label: "Reports", icon: BarChart3, roles: ["Admin", "Manager"] },
+  {
+    label: "Finance",
+    icon: Wallet,
+    roles: ["Admin", "Manager"],
+    items: [
+      { to: "/profit", label: "Profit", icon: TrendingUp },
+      { to: "/expenses", label: "Expenses", icon: CreditCard },
+    ],
+  },
+  { to: "/settings", label: "Settings", icon: Settings, roles: ["Admin", "Manager"] },
 ];
 
 export function AppShell({ children }: { children: ReactNode }) {
@@ -35,6 +65,28 @@ export function AppShell({ children }: { children: ReactNode }) {
   const setProducts = useApp((s) => s.setProducts);
   const setCustomers = useApp((s) => s.setCustomers);
   const pathname = useRouterState({ select: (s) => s.location.pathname });
+
+  // Accordion open states for nav groups
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({
+    Inventory: true,
+    Contacts: true,
+    Finance: true,
+  });
+
+  const toggleGroup = (groupLabel: string) => {
+    setOpenGroups((prev) => ({ ...prev, [groupLabel]: !prev[groupLabel] }));
+  };
+
+  useEffect(() => {
+    // Auto expand group if currently on a sub-route
+    navTree.forEach((elem) => {
+      if (isGroup(elem)) {
+        if (elem.items.some((sub) => pathname === sub.to || pathname.startsWith(sub.to + "/"))) {
+          setOpenGroups((prev) => ({ ...prev, [elem.label]: true }));
+        }
+      }
+    });
+  }, [pathname]);
 
   useEffect(() => {
     // 1. Fetch products
@@ -88,6 +140,11 @@ export function AppShell({ children }: { children: ReactNode }) {
   const isActive = (to: string, exact?: boolean) =>
     exact ? pathname === to : pathname === to || pathname.startsWith(to + "/");
 
+  const hasRole = (roles?: Role[]) => {
+    if (!roles) return true;
+    return roles.includes(role);
+  };
+
   return (
     <div className="min-h-screen bg-surface text-foreground">
       {/* Desktop sidebar */}
@@ -96,24 +153,72 @@ export function AppShell({ children }: { children: ReactNode }) {
           <div className="grid size-9 place-items-center rounded-xl bg-primary text-primary-foreground font-black">O</div>
           <div className="leading-tight">
             <div className="text-sm font-semibold tracking-tight">Orion POS</div>
-            <div className="text-[11px] text-muted-foreground">Retail OS · v1.4</div>
+            <div className="text-[11px] text-muted-foreground">Retail OS · v1.5</div>
           </div>
         </div>
-        <nav className="flex-1 space-y-1 px-3">
-          {nav.map((n) => {
-            const Icon = n.icon;
-            const active = isActive(n.to, n.exact);
+        <nav className="flex-1 space-y-1.5 overflow-y-auto px-3 py-2">
+          {navTree.map((elem, idx) => {
+            if (!hasRole(elem.roles)) return null;
+
+            if (isGroup(elem)) {
+              const GroupIcon = elem.icon;
+              const isGroupActive = elem.items.some((sub) => isActive(sub.to, sub.exact));
+              const isOpen = openGroups[elem.label] ?? true;
+
+              return (
+                <div key={idx} className="space-y-1">
+                  <button
+                    onClick={() => toggleGroup(elem.label)}
+                    className={cn(
+                      "flex w-full items-center justify-between rounded-xl px-3 py-2 text-xs font-semibold uppercase tracking-wider transition-colors",
+                      isGroupActive ? "text-primary" : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                    )}
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <GroupIcon className="size-4" />
+                      <span>{elem.label}</span>
+                    </div>
+                    {isOpen ? <ChevronDown className="size-3.5" /> : <ChevronRight className="size-3.5" />}
+                  </button>
+                  {isOpen && (
+                    <div className="ml-3 space-y-1 border-l border-border/60 pl-2">
+                      {elem.items.map((sub) => {
+                        if (!hasRole(sub.roles)) return null;
+                        const SubIcon = sub.icon;
+                        const active = isActive(sub.to, sub.exact);
+                        return (
+                          <Link
+                            key={sub.to}
+                            to={sub.to}
+                            className={cn(
+                              "flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-xs font-medium transition-colors",
+                              active ? "bg-primary text-primary-foreground font-semibold" : "text-ink-soft hover:bg-muted hover:text-foreground"
+                            )}
+                          >
+                            <SubIcon className="size-3.5" />
+                            {sub.label}
+                          </Link>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            }
+
+            const Icon = elem.icon;
+            const active = isActive(elem.to, elem.exact);
             return (
               <Link
-                key={n.to}
-                to={n.to}
+                key={elem.to}
+                to={elem.to}
                 className={cn(
                   "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors",
-                  active ? "bg-primary text-primary-foreground" : "text-ink-soft hover:bg-muted hover:text-foreground",
+                  active ? "bg-primary text-primary-foreground font-semibold" : "text-ink-soft hover:bg-muted hover:text-foreground"
                 )}
               >
                 <Icon className="size-4" />
-                {n.label}
+                {elem.label}
               </Link>
             );
           })}
@@ -179,7 +284,14 @@ export function AppShell({ children }: { children: ReactNode }) {
       {/* Mobile bottom nav */}
       <nav className="fixed bottom-0 left-0 right-0 z-30 border-t border-border bg-elevated/95 backdrop-blur lg:hidden">
         <div className="grid grid-cols-5">
-          {nav.map((n) => {
+          {[
+            { to: "/", label: "Home", icon: LayoutDashboard, exact: true },
+            { to: "/billing", label: "Billing", icon: ShoppingCart },
+            { to: "/products", label: "Products", icon: Package },
+            { to: "/purchases", label: "Purchases", icon: Receipt },
+            { to: "/profit", label: "Profit", icon: TrendingUp, roles: ["Admin", "Manager"] as Role[] },
+          ].map((n) => {
+            if (!hasRole(n.roles)) return null;
             const Icon = n.icon;
             const active = isActive(n.to, n.exact);
             return (
