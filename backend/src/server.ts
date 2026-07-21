@@ -1,3 +1,4 @@
+import { env } from "./config/env";
 import express from "express";
 import cors from "cors";
 import helmet from "helmet";
@@ -36,7 +37,6 @@ import copilotRoutes from "./routes/copilot.routes";
 import databaseRoutes from "./routes/database.routes";
 import { authenticate, authorize } from "./middleware/auth.middleware";
 
-import { env } from "./config/env";
 import { initDb } from "./database/init";
 import dbProxy from "./database";
 import { errorMiddleware } from "./middleware/error.middleware";
@@ -175,10 +175,15 @@ app.get("/", (req, res) => {
 // Register Global Error Middleware (MUST be registered after all route handlers)
 app.use(errorMiddleware);
 
+process.stdout.write("--> STARTING SERVER.TS EXECUTOR\n");
+
 async function startServer(): Promise<void> {
+  process.stdout.write("--> ENTERING startServer FUNCTION\n");
   try {
     // Database initialization prints Loading database... and Connecting PostgreSQL...
+    process.stdout.write("--> CALLING initDb()\n");
     await initDb();
+    process.stdout.write("--> initDb() COMPLETED\n");
 
     console.log("Initializing repositories...");
     // Repositories initialization is static in memory
@@ -187,9 +192,10 @@ async function startServer(): Promise<void> {
     // Express routes are mounted statically
 
     console.log("Starting Express...");
-    const PORT = Number(env.PORT) || 5000;
+    const PORT = Number(env.PORT) || 8080;
     
     const server = app.listen(PORT, "0.0.0.0", () => {
+      process.stdout.write(`--> LISTEN SUCCESSFUL ON PORT ${PORT}\n`);
       console.log(`Listening on PORT ${PORT}...`);
       console.log("Startup completed.");
       logger.info(`✅ Server running on port ${PORT} (env: ${env.NODE_ENV})`);
@@ -238,4 +244,5 @@ async function startServer(): Promise<void> {
   }
 }
 
+process.stdout.write("--> CALLING startServer()\n");
 startServer();

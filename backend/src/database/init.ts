@@ -14,7 +14,12 @@ export async function initDb(): Promise<void> {
     console.log("Loading database...");
     console.log("Connecting PostgreSQL...");
     // 1. Verify connection first
-    await DatabaseProvider.verifyConnection();
+    const isConnected = await DatabaseProvider.verifyConnection();
+    if (!isConnected) {
+      logger.info("⚠️ Skipping database migrations & seeding (PostgreSQL unreachable / offline mode).");
+      return;
+    }
+
     logger.info("⏳ Running database migrations...");
 
     // 2. Programmatically apply Drizzle migrations

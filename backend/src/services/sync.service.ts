@@ -1,7 +1,15 @@
-import { google } from "googleapis";
 import { syncRepository, settingsRepository } from "../repositories";
 import { logger } from "../logger/logger";
 import { formatInTimeZone } from "date-fns-tz";
+
+// Lazy-load googleapis to avoid heavy top-level startup delay
+let googleApiCache: any = null;
+function getGoogleApi() {
+  if (!googleApiCache) {
+    googleApiCache = require("googleapis").google;
+  }
+  return googleApiCache;
+}
 
 // Singleton Sync Queue Manager
 export class SyncQueueManager {
@@ -74,17 +82,17 @@ export class SyncQueueManager {
 
   async processQueue(): Promise<void> {
     if (this.isProcessing) return;
-    
-    const enabled = (await settingsRepository.get("google_sync_enabled", "0")) === "1";
-    const sheetId = await settingsRepository.get("google_sheet_id", "");
-    
-    if (!enabled || !sheetId) {
-      return;
-    }
-
-    this.isProcessing = true;
 
     try {
+      const enabled = (await settingsRepository.get("google_sync_enabled", "0")) === "1";
+      const sheetId = await settingsRepository.get("google_sheet_id", "");
+      
+      if (!enabled || !sheetId) {
+        return;
+      }
+
+      this.isProcessing = true;
+
       // Find next pending job
       const job = await syncRepository.getPendingJob();
 
@@ -120,7 +128,6 @@ export class SyncQueueManager {
       this.isProcessing = false;
       setTimeout(() => this.processQueue(), 1000);
     } catch (err: any) {
-      logger.error("Queue processor encountered error", err);
       this.isProcessing = false;
     }
   }
@@ -155,6 +162,7 @@ export class SyncQueueManager {
     }
 
     try {
+      const google = getGoogleApi();
       const auth = new google.auth.JWT({
         email,
         key: key.replace(/\\n/g, "\n"),

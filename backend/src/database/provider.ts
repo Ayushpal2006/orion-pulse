@@ -22,7 +22,13 @@ export class DatabaseProvider {
     return this.adapterInstance;
   }
 
-  static async verifyConnection(): Promise<void> {
+  static async verifyConnection(): Promise<boolean> {
+    const connStr = databaseConfig.postgres.connectionString;
+    if (process.env.MOCK_POSTGRES === "true" || connStrIsPlaceholder(connStr)) {
+      logger.info(`PostgreSQL connection skipped (Mock / Placeholder mode: ${connStr || "none"})`);
+      return false;
+    }
+
     const adapter = this.getAdapter();
     const maxRetries = 10;
     const retryDelayMs = 3000;
@@ -32,11 +38,12 @@ export class DatabaseProvider {
         logger.info(`[Attempt ${i}/${maxRetries}] Connecting PostgreSQL...`);
         await adapter.query("SELECT 1");
         logger.info("PostgreSQL connected");
-        return;
+        return true;
       } catch (err: any) {
-        if (process.env.MOCK_POSTGRES === "true" || connStrIsPlaceholder(databaseConfig.postgres.connectionString)) {
-          logger.info("PostgreSQL connected (Mock / Placeholder mode)");
-          return;
+        const isEnotfound = err?.code === "ENOTFOUND" || (err?.message && err.message.includes("ENOTFOUND"));
+        if (isEnotfound) {
+          logger.info("PostgreSQL connection skipped (Unreachable DNS host)");
+          return false;
         }
         
         logger.warn(`⚠️ PostgreSQL connection attempt ${i} failed: ${err.message}`);
@@ -50,6 +57,7 @@ export class DatabaseProvider {
         await new Promise((resolve) => setTimeout(resolve, retryDelayMs));
       }
     }
+    return false;
   }
 
   static clearInstance(): void {
@@ -59,6 +67,12 @@ export class DatabaseProvider {
 
 function connStrIsPlaceholder(connStr?: string): boolean {
   if (!connStr) return true;
-  return connStr.includes("orion.db") || connStr.includes("placeholder") || connStr.includes("localhost:5432");
+  return (
+    connStr.includes("orion.db") ||
+    connStr.includes("placeholder") ||
+    connStr.includes("localhost:5432") ||
+    connStr.includes("railway.internal")
+  );
 }
+
 

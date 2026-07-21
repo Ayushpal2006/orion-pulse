@@ -1,7 +1,14 @@
-import PDFDocument from "pdfkit";
 import fs from "fs";
 import path from "path";
 import { settingsRepository } from "../repositories";
+
+let PDFDocumentCache: any = null;
+function getPDFDocument() {
+  if (!PDFDocumentCache) {
+    PDFDocumentCache = require("pdfkit");
+  }
+  return PDFDocumentCache;
+}
 
 export class PdfService {
   async generateInvoicePdf(receipt: any, outputPath: string): Promise<string> {
@@ -12,10 +19,11 @@ export class PdfService {
 
     return new Promise((resolve, reject) => {
       try {
+        const PDFDocument = getPDFDocument();
         const doc = new PDFDocument({ size: "A4", margin: 40, bufferPages: true });
         const stream = fs.createWriteStream(outputPath);
         doc.pipe(stream);
-        doc.on("error", (err) => {
+        doc.on("error", (err: any) => {
           reject(err);
         });
 

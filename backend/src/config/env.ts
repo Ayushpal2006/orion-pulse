@@ -1,18 +1,35 @@
 import { z } from "zod";
 import dotenv from "dotenv";
+import path from "path";
+import fs from "fs";
 
 console.log("Starting Orion Backend...");
 console.log("Loading environment...");
 
-// Load environment variables
-dotenv.config();
+// Load environment variables from cwd, backend/.env or relative to __dirname
+const candidatePaths = [
+  path.resolve(process.cwd(), ".env"),
+  path.resolve(process.cwd(), "backend/.env"),
+  path.resolve(__dirname, "../../.env"),
+  path.resolve(__dirname, "../../../backend/.env"),
+];
+
+for (const p of candidatePaths) {
+  if (fs.existsSync(p)) {
+    dotenv.config({ path: p, quiet: true } as any);
+    break;
+  }
+}
+if (!process.env.DATABASE_URL) {
+  dotenv.config({ quiet: true } as any);
+}
 
 const envSchema = z.object({
   PORT: z.coerce.number().default(8080),
   NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
   DB_TYPE: z.enum(["postgres"]).default("postgres"),
   DATABASE_PROVIDER: z.enum(["postgres"]).default("postgres"),
-  DATABASE_URL: z.string().refine(
+  DATABASE_URL: z.string().default("postgresql://postgres:postgres@localhost:5432/orion").refine(
     (val) => val.startsWith("postgres://") || val.startsWith("postgresql://"),
     { message: "DATABASE_URL must be a valid PostgreSQL connection string starting with postgres:// or postgresql://" }
   ),
