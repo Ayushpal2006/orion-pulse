@@ -112,12 +112,12 @@ export class PurchaseService {
           );
         }
 
-        // Calculate margin and markup metrics
+        // Calculate margin and markup metrics (integer percentages)
         const margin = sellingPricePaise > 0 
-          ? Math.round(((sellingPricePaise - newAverageCostPaise) / sellingPricePaise) * 10000) / 100
+          ? Math.round(((sellingPricePaise - newAverageCostPaise) / sellingPricePaise) * 100)
           : 0;
         const markup = newAverageCostPaise > 0
-          ? Math.round(((sellingPricePaise - newAverageCostPaise) / newAverageCostPaise) * 10000) / 100
+          ? Math.round(((sellingPricePaise - newAverageCostPaise) / newAverageCostPaise) * 100)
           : 0;
 
         // Record stock addition movement

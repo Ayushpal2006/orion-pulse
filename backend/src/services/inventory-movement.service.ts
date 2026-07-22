@@ -73,10 +73,10 @@ export class InventoryMovementService {
       };
 
       if (dto.costDetails) {
-        updateFields.average_cost = dto.costDetails.averageCost;
-        updateFields.last_purchase_cost = dto.costDetails.lastPurchaseCost;
-        updateFields.margin_percent = dto.costDetails.margin;
-        updateFields.markup_percent = dto.costDetails.markup;
+        updateFields.average_cost = Math.round(dto.costDetails.averageCost || 0);
+        updateFields.last_purchase_cost = Math.round(dto.costDetails.lastPurchaseCost || 0);
+        updateFields.margin_percent = Math.round(dto.costDetails.margin || 0);
+        updateFields.markup_percent = Math.round(dto.costDetails.markup || 0);
       }
 
       // Update the product record
