@@ -209,7 +209,7 @@ export function StockAdjustmentsPage() {
   const handleSave = async () => {
     setConfirmOpen(false);
     const payload = {
-      product_id: productId,
+      product_id: Number(productId),
       adjustment_type: adjType,
       quantity_change: adjType === "PHYSICAL_COUNT" ? undefined : qtyChange,
       actual_count: adjType === "PHYSICAL_COUNT" ? actualCount : undefined,
