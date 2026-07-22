@@ -12,9 +12,12 @@ export class PurchaseController {
 
   create = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
+      console.log("📥 [PurchaseController.create] Incoming request body:", JSON.stringify(req.body, null, 2));
       const parsed = CreatePurchaseSchema.safeParse(req.body);
       if (!parsed.success) {
-        throw new ValidationError(parsed.error.issues.map((e) => e.message).join(", "));
+        console.error("❌ [PurchaseController.create] Validation error details:", JSON.stringify(parsed.error.format(), null, 2));
+        const formattedMsg = parsed.error.issues.map((e) => `${e.path.join(".") || "field"}: ${e.message}`).join("; ");
+        throw new ValidationError(formattedMsg);
       }
 
       const result = await this.service.create(parsed.data);

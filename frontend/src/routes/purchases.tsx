@@ -317,8 +317,9 @@ function PurchasesPage() {
       toast.error("Operation not allowed while offline.");
       return;
     }
-    if (!supplierId) {
-      toast.error("Please select a supplier");
+    const parsedSupplierId = parseInt(String(supplierId), 10);
+    if (!parsedSupplierId || isNaN(parsedSupplierId) || parsedSupplierId <= 0) {
+      toast.error("Please select a valid supplier");
       return;
     }
     if (formItems.length === 0) {
@@ -326,28 +327,43 @@ function PurchasesPage() {
       return;
     }
 
-    // Check invalid quantities
     const invalidQty = formItems.some((item) => item.quantity <= 0);
     if (invalidQty) {
       toast.error("All item quantities must be greater than 0");
       return;
     }
 
+    const parsedDiscount = typeof discount === "number" && !isNaN(discount) ? Math.max(0, discount) : 0;
+    const parsedTax = typeof tax === "number" && !isNaN(tax) ? Math.max(0, tax) : 0;
+
     const payload = {
-      supplier_id: supplierId,
-      supplier_invoice_number: invoiceNumber || null,
-      purchase_date: new Date(purchaseDate).toISOString(),
-      discount: discount || 0,
-      tax: tax || 0,
-      payment_status: paymentStatus,
-      payment_method: paymentMethod || null,
-      notes: notes || null,
-      items: formItems.map((item) => ({
-        product_id: item.product_id,
-        quantity: item.quantity,
-        purchase_price: item.purchase_price,
-        selling_price: item.selling_price,
-      })),
+      supplier_id: parsedSupplierId,
+      po_number: invoiceNumber && invoiceNumber.trim() !== "" ? invoiceNumber.trim() : undefined,
+      invoice_number: invoiceNumber && invoiceNumber.trim() !== "" ? invoiceNumber.trim() : undefined,
+      supplier_invoice_number: invoiceNumber && invoiceNumber.trim() !== "" ? invoiceNumber.trim() : undefined,
+      purchase_date: purchaseDate ? new Date(purchaseDate).toISOString() : new Date().toISOString(),
+      invoice_date: purchaseDate ? new Date(purchaseDate).toISOString() : new Date().toISOString(),
+      discount: parsedDiscount,
+      gst: parsedTax,
+      tax: parsedTax,
+      payment_status: paymentStatus || "Paid",
+      payment_method: paymentMethod && paymentMethod.trim() !== "" ? paymentMethod.trim() : undefined,
+      notes: notes && notes.trim() !== "" ? notes.trim() : undefined,
+      items: formItems.map((item) => {
+        const prodId = parseInt(String(item.product_id), 10);
+        const qty = parseInt(String(item.quantity), 10) || 1;
+        const pPrice = parseFloat(String(item.purchase_price)) || 0;
+        const sPrice = item.selling_price !== undefined && item.selling_price !== null && String(item.selling_price).trim() !== ""
+          ? parseFloat(String(item.selling_price))
+          : undefined;
+
+        return {
+          product_id: prodId,
+          quantity: qty,
+          purchase_price: pPrice,
+          ...(sPrice !== undefined && !isNaN(sPrice) ? { selling_price: sPrice } : {}),
+        };
+      }),
     };
 
     try {
