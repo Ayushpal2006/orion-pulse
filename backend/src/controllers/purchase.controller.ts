@@ -22,7 +22,13 @@ export class PurchaseController {
 
       const result = await this.service.create(parsed.data);
       res.status(201).json({ success: true, data: result });
-    } catch (error) {
+    } catch (error: any) {
+      console.error("💥 [PurchaseController.create] EXCEPTION CAUGHT:");
+      console.error("Error Full Object:", error);
+      console.error("Error Message:", error?.message);
+      console.error("Error Stack:", error?.stack);
+      console.error("SQL Query / Cause:", error?.cause || error?.query || error?.detail);
+      console.error("Request Body:", JSON.stringify(req.body, null, 2));
       next(error);
     }
   };
