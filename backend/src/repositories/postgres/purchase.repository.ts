@@ -90,36 +90,43 @@ export class PostgresPurchaseRepository implements IPurchaseRepository {
 
     const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
 
-    const rows = await client
-      .select({
-        id: purchase_orders.id,
-        store_id: purchase_orders.store_id,
-        supplier_id: purchase_orders.supplier_id,
-        purchase_number: purchase_orders.purchase_number,
-        supplier_invoice_number: purchase_orders.supplier_invoice_number,
-        purchase_date: purchase_orders.purchase_date,
-        subtotal: purchase_orders.subtotal,
-        discount: purchase_orders.discount,
-        tax: purchase_orders.tax,
-        grand_total: purchase_orders.grand_total,
-        payment_status: purchase_orders.payment_status,
-        payment_method: purchase_orders.payment_method,
-        notes: purchase_orders.notes,
-        created_at: purchase_orders.created_at,
-        updated_at: purchase_orders.updated_at,
-        supplier_name: suppliers.company_name,
-      })
-      .from(purchase_orders)
-      .leftJoin(suppliers, eq(purchase_orders.supplier_id, suppliers.id))
-      .where(whereClause)
-      .orderBy(desc(purchase_orders.id));
+    try {
+      const rows = await client
+        .select({
+          id: purchase_orders.id,
+          store_id: purchase_orders.store_id,
+          supplier_id: purchase_orders.supplier_id,
+          purchase_number: purchase_orders.purchase_number,
+          supplier_invoice_number: purchase_orders.supplier_invoice_number,
+          purchase_date: purchase_orders.purchase_date,
+          subtotal: purchase_orders.subtotal,
+          discount: purchase_orders.discount,
+          tax: purchase_orders.tax,
+          grand_total: purchase_orders.grand_total,
+          payment_status: purchase_orders.payment_status,
+          payment_method: purchase_orders.payment_method,
+          notes: purchase_orders.notes,
+          created_at: purchase_orders.created_at,
+          updated_at: purchase_orders.updated_at,
+          supplier_name: suppliers.company_name,
+        })
+        .from(purchase_orders)
+        .leftJoin(suppliers, eq(purchase_orders.supplier_id, suppliers.id))
+        .where(whereClause)
+        .orderBy(desc(purchase_orders.id));
 
-    return rows.map((r: any) => ({
-      ...r,
-      purchase_date: toISOStringSafe(r.purchase_date),
-      created_at: toISOStringSafe(r.created_at),
-      updated_at: toISOStringSafe(r.updated_at),
-    }));
+      return rows.map((r: any) => ({
+        ...r,
+        purchase_date: toISOStringSafe(r.purchase_date),
+        created_at: toISOStringSafe(r.created_at),
+        updated_at: toISOStringSafe(r.updated_at),
+      }));
+    } catch (error: any) {
+      console.error("💥 PostgresPurchaseRepository.getAll Error:", error);
+      if (error?.cause) console.error("Error cause:", error.cause);
+      if (error?.message) console.error("Error message:", error.message);
+      throw error;
+    }
   }
 
   async getById(id: number, tx?: any): Promise<PurchaseOrder | null> {
