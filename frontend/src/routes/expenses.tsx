@@ -362,7 +362,7 @@ function ExpensesPage() {
           </div>
         ) : paginatedRows.length === 0 ? (
           <EmptyState
-            icon={CreditCard}
+            icon={<CreditCard className="size-6" />}
             title="No Expense Records Found"
             description="Start logging store expenses or clear active search and category filters."
           />

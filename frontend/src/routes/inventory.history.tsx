@@ -192,7 +192,7 @@ export function StockHistoryPage() {
           </div>
         ) : paginatedRows.length === 0 ? (
           <EmptyState
-            icon={History}
+            icon={<History className="size-6" />}
             title="No Stock History Found"
             description="No stock adjustment logs match your active filters or search criteria."
           />
