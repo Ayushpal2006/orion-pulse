@@ -5,6 +5,13 @@ import { purchase_orders, purchase_items, suppliers, products } from "../../db/s
 import { eq, and, desc, asc, like, or, sql, gte, lte } from "drizzle-orm";
 import { getStoreId } from "../../db/context";
 
+function toISOStringSafe(val: any): string {
+  if (!val) return new Date().toISOString();
+  if (val instanceof Date) return val.toISOString();
+  const d = new Date(val);
+  return isNaN(d.getTime()) ? new Date().toISOString() : d.toISOString();
+}
+
 export class PostgresPurchaseRepository implements IPurchaseRepository {
   async create(poData: any, itemsData: any[], tx?: any): Promise<PurchaseOrder> {
     const client = tx || db;
@@ -47,9 +54,9 @@ export class PostgresPurchaseRepository implements IPurchaseRepository {
 
     return {
       ...createdPo,
-      purchase_date: createdPo.purchase_date.toISOString(),
-      created_at: createdPo.created_at.toISOString(),
-      updated_at: createdPo.updated_at.toISOString(),
+      purchase_date: toISOStringSafe(createdPo.purchase_date),
+      created_at: toISOStringSafe(createdPo.created_at),
+      updated_at: toISOStringSafe(createdPo.updated_at),
     };
   }
 
@@ -109,9 +116,9 @@ export class PostgresPurchaseRepository implements IPurchaseRepository {
 
     return rows.map((r: any) => ({
       ...r,
-      purchase_date: r.purchase_date.toISOString(),
-      created_at: r.created_at.toISOString(),
-      updated_at: r.updated_at.toISOString(),
+      purchase_date: toISOStringSafe(r.purchase_date),
+      created_at: toISOStringSafe(r.created_at),
+      updated_at: toISOStringSafe(r.updated_at),
     }));
   }
 
@@ -151,9 +158,9 @@ export class PostgresPurchaseRepository implements IPurchaseRepository {
 
     return {
       ...po,
-      purchase_date: po.purchase_date.toISOString(),
-      created_at: po.created_at.toISOString(),
-      updated_at: po.updated_at.toISOString(),
+      purchase_date: toISOStringSafe(po.purchase_date),
+      created_at: toISOStringSafe(po.created_at),
+      updated_at: toISOStringSafe(po.updated_at),
     };
   }
 
@@ -209,9 +216,9 @@ export class PostgresPurchaseRepository implements IPurchaseRepository {
 
     return {
       ...updated,
-      purchase_date: updated.purchase_date.toISOString(),
-      created_at: updated.created_at.toISOString(),
-      updated_at: updated.updated_at.toISOString(),
+      purchase_date: toISOStringSafe(updated.purchase_date),
+      created_at: toISOStringSafe(updated.created_at),
+      updated_at: toISOStringSafe(updated.updated_at),
     };
   }
 
