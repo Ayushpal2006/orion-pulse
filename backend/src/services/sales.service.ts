@@ -129,11 +129,11 @@ export class SalesService {
     const items = await this.saleRepo.getSaleItems(sale.id);
 
     const shop = {
-      name: await settingsRepository.get("shop_name", "Orion Store"),
+      name: await settingsRepository.get("shop_name", "Apka Bill Store"),
       gstin: await settingsRepository.get("shop_gstin", "27AAAAA1111A1Z1"),
       phone: await settingsRepository.get("shop_phone", "8285068670"),
       address: await settingsRepository.get("shop_address", "123, POS Center, Sector V, Salt Lake, Kolkata, 700091"),
-      upiId: await settingsRepository.get("shop_upi_id", "orion@upi"),
+      upiId: await settingsRepository.get("shop_upi_id", "apkabill@upi"),
     };
 
     const formattedDate = formatToKolkataDate(sale.created_at);

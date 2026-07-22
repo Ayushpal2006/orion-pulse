@@ -29,9 +29,9 @@ import { InvoiceHistory } from "@/components/invoice-history";
 export const Route = createFileRoute("/customers")({
   head: () => ({
     meta: [
-      { title: "Customers · Orion POS" },
+      { title: "Customers · Apka Bill" },
       { name: "description", content: "Customer CRM with lifetime value, visit history and full invoice timeline — sorted by mobile." },
-      { property: "og:title", content: "Customers · Orion POS" },
+      { property: "og:title", content: "Customers · Apka Bill" },
       { property: "og:description", content: "Know every shopper's story." },
     ],
   }),

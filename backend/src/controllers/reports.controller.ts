@@ -74,7 +74,7 @@ export class ReportsController {
 
       // --- PDF Drawing ---
       // Header
-      doc.fontSize(22).font("Outfit-Bold").fillColor("#0f172a").text("Orion POS - Business Report", { align: "center" });
+      doc.fontSize(22).font("Outfit-Bold").fillColor("#0f172a").text("Apka Bill - Business Report", { align: "center" });
       doc.fontSize(9).font("Outfit").fillColor("#64748b").text(`Generated: ${kolkataTime} (Asia/Kolkata)`, { align: "center" });
       
       const periodText = filter === "custom" && startDate 
@@ -236,7 +236,7 @@ export class ReportsController {
         doc.switchToPage(i);
         doc.strokeColor("#cbd5e1").lineWidth(0.5).moveTo(50, 770).lineTo(545, 770).stroke();
         doc.fontSize(7.5).font("Outfit").fillColor("#94a3b8");
-        doc.text("End of generated report. Orion POS system · Protected by Local Database Ledger.", 50, 778, { align: "left", width: 350 });
+        doc.text("End of generated report. Apka Bill system · Protected by Local Database Ledger.", 50, 778, { align: "left", width: 350 });
         doc.text(`Page ${i + 1} of ${range.count}`, 450, 778, { align: "right", width: 95 });
       }
 

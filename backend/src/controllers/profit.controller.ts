@@ -183,7 +183,7 @@ export class ProfitController {
       }
       const Rs = hasOutfit ? "₹" : "Rs.";
 
-      doc.font("Outfit-Bold").fontSize(20).fillColor("#0f172a").text("Orion POS — Profit & Margin Report", { align: "center" });
+      doc.font("Outfit-Bold").fontSize(20).fillColor("#0f172a").text("Apka Bill — Profit & Margin Report", { align: "center" });
       doc.font("Outfit").fontSize(9).fillColor("#64748b").text(`Generated: ${new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })}`, { align: "center" });
       doc.moveDown(1.5);
 

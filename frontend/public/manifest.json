@@ -1,6 +1,6 @@
 {
-  "name": "Orion POS",
-  "short_name": "Orion",
+  "name": "Apka Bill",
+  "short_name": "Apka Bill",
   "description": "Offline-first Retail Point of Sale",
   "start_url": "/",
   "scope": "/",

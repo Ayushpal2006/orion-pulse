@@ -18,9 +18,9 @@ import { formatToKolkataDateTime } from "@/lib/datetime";
 export const Route = createFileRoute("/settings")({
   head: () => ({
     meta: [
-      { title: "Settings · Orion POS" },
+      { title: "Settings · Apka Bill" },
       { name: "description", content: "Configure your shop, GSTIN, printer and user roles." },
-      { property: "og:title", content: "Settings · Orion POS" },
+      { property: "og:title", content: "Settings · Apka Bill" },
       { property: "og:description", content: "Business, printer and role setup." },
     ],
   }),
@@ -416,7 +416,7 @@ function Settings() {
                     if (json.success) {
                       toast.success("Database restored successfully!", {
                         id: toastId,
-                        description: "Reloading Orion POS engine..."
+                        description: "Reloading Apka Bill engine..."
                       });
                       setTimeout(() => window.location.reload(), 1500);
                     } else {

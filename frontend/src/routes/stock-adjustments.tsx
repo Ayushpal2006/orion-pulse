@@ -40,7 +40,7 @@ import { useApp } from "@/lib/store";
 export const Route = createFileRoute("/stock-adjustments")({
   head: () => ({
     meta: [
-      { title: "Stock Adjustments · Orion POS" },
+      { title: "Stock Adjustments · Apka Bill" },
       { name: "description", content: "Perform manual stock checks, corrections, and physical audits with full logging." },
     ],
   }),

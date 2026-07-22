@@ -15,7 +15,7 @@ export class PdfService {
     const signature = await settingsRepository.get("signature", "Authorized Signatory");
     const exchangePolicy = await settingsRepository.get("exchange_policy", "Items can be exchanged within 7 days in original condition.");
     const theme = await settingsRepository.get("invoice_theme", "classic");
-    const website = await settingsRepository.get("business_website", "https://orionpos.in");
+    const website = await settingsRepository.get("business_website", "https://apkabill.in");
 
     return new Promise((resolve, reject) => {
       try {
@@ -178,13 +178,13 @@ export class PdfService {
         doc.font("Outfit").fillColor("#475569").text(exchangePolicy, 40, policyY + 12, { width: 250 });
         doc.text(`Visit website: ${website}`, 40, policyY + 40);
 
-        doc.font("Outfit-Bold").fillColor(primaryColor).text("FOR ORION POS", 380, policyY, { align: "center", width: 175 });
+        doc.font("Outfit-Bold").fillColor(primaryColor).text("FOR APKA BILL", 380, policyY, { align: "center", width: 175 });
         doc.font("Outfit").fontSize(8).fillColor("#64748b").text(signature, 380, policyY + 35, { align: "center", width: 175 });
         doc.strokeColor("#cbd5e1").lineWidth(0.5).moveTo(380, policyY + 32).lineTo(555, policyY + 32).stroke();
 
         // Footer note
         doc.font("Outfit-Bold").fontSize(9).fillColor(primaryColor).text(receipt.thankYouMessage, 40, 750, { align: "center", width: 515 });
-        doc.font("Outfit").fontSize(7).fillColor("#94a3b8").text("Generated automatically via Orion POS sharing ecosystem.", 40, 762, { align: "center", width: 515 });
+        doc.font("Outfit").fontSize(7).fillColor("#94a3b8").text("Generated automatically via Apka Bill sharing ecosystem.", 40, 762, { align: "center", width: 515 });
 
         // Add dynamic footer page numbers for all pages
         const range = doc.bufferedPageRange();

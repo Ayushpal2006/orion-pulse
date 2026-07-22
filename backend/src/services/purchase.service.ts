@@ -18,15 +18,15 @@ export class PurchaseService {
     const prefix = `PRCH-${todayStr}-`;
 
     const rows = await client
-      .select({ purchase_number: purchase_orders.purchase_number })
+      .select({ po_number: purchase_orders.po_number })
       .from(purchase_orders)
-      .where(and(eq(purchase_orders.store_id, storeId), like(purchase_orders.purchase_number, `${prefix}%`)))
+      .where(and(eq(purchase_orders.store_id, storeId), like(purchase_orders.po_number, `${prefix}%`)))
       .orderBy(desc(purchase_orders.id))
       .limit(1);
 
     let nextSeq = 1;
-    if (rows[0]) {
-      const parts = rows[0].purchase_number.split("-");
+    if (rows[0] && rows[0].po_number) {
+      const parts = rows[0].po_number.split("-");
       if (parts.length === 3) {
         const seqNum = parseInt(parts[2], 10);
         if (!isNaN(seqNum)) {
@@ -64,7 +64,9 @@ export class PurchaseService {
         throw new NotFoundError("Supplier not found in this store");
       }
 
-      const purchaseNumber = await this.generateNextPurchaseNumber(storeId, tx);
+      const poNumber = data.po_number || data.purchase_number || (await this.generateNextPurchaseNumber(storeId, tx));
+      const invNumber = data.invoice_number || data.supplier_invoice_number || null;
+      const invDate = data.invoice_date || data.purchase_date || new Date().toISOString();
 
       let subtotalPaise = 0;
       const itemsData: any[] = [];
@@ -90,37 +92,44 @@ export class PurchaseService {
           throw new NotFoundError(`Product ID ${item.product_id} not found in this store`);
         }
 
-        // Convert Rupees to paise
+        // Unit conversions: payload in Rupees -> converted to Paise
         const purchasePricePaise = Math.round(item.purchase_price * 100);
-        const sellingPricePaise = Math.round(item.selling_price * 100);
+        const itemSellingPrice = item.selling_price !== undefined ? item.selling_price : (product.selling_price / 100.0);
+        const sellingPricePaise = Math.round(itemSellingPrice * 100);
         const lineTotalPaise = purchasePricePaise * item.quantity;
         subtotalPaise += lineTotalPaise;
 
-        // Calculate average purchase cost
-        const beforeStock = product.stock;
-        const afterStock = beforeStock + item.quantity;
-        let averageCostPaise = product.average_cost;
-        if (averageCostPaise <= 0) {
-          averageCostPaise = product.purchase_price;
+        // Weighted Average Costing Formula:
+        // New Avg Cost = ((Current Stock * Current Avg Cost) + (Received Qty * Purchase Price)) / New Total Stock
+        const currentStock = product.stock || 0;
+        const currentAvgCost = product.average_cost || product.purchase_price || 0;
+        const newTotalStock = currentStock + item.quantity;
+        
+        let newAverageCostPaise = purchasePricePaise;
+        if (newTotalStock > 0) {
+          newAverageCostPaise = Math.round(
+            ((currentStock * currentAvgCost) + (item.quantity * purchasePricePaise)) / newTotalStock
+          );
         }
-        const totalCostBefore = beforeStock * averageCostPaise;
-        const totalCostAdded = item.quantity * purchasePricePaise;
-        const newAverageCostPaise = afterStock > 0 ? Math.round((totalCostBefore + totalCostAdded) / afterStock) : purchasePricePaise;
 
-        // margin & markup in percentage
-        const margin = sellingPricePaise > 0 ? Math.round(((sellingPricePaise - purchasePricePaise) / sellingPricePaise) * 100) : 0;
-        const markup = purchasePricePaise > 0 ? Math.round(((sellingPricePaise - purchasePricePaise) / purchasePricePaise) * 100) : 0;
+        // Calculate margin and markup metrics
+        const margin = sellingPricePaise > 0 
+          ? Math.round(((sellingPricePaise - newAverageCostPaise) / sellingPricePaise) * 10000) / 100
+          : 0;
+        const markup = newAverageCostPaise > 0
+          ? Math.round(((sellingPricePaise - newAverageCostPaise) / newAverageCostPaise) * 10000) / 100
+          : 0;
 
-        // Record stock increment & log inventory movement
+        // Record stock addition movement
         const movementResult = await this.movementService.recordMovement({
           productId: item.product_id,
           storeId,
           movementType: "PURCHASE",
           quantity: item.quantity,
           referenceType: "PURCHASE_ORDER",
-          referenceId: purchaseNumber,
+          referenceId: poNumber,
           createdBy: "System",
-          reason: `Purchase Entry: invoice ${data.supplier_invoice_number || ""}`,
+          reason: `Purchase Entry: invoice ${invNumber || ""}`,
           costDetails: {
             averageCost: newAverageCostPaise,
             lastPurchaseCost: purchasePricePaise,
@@ -154,30 +163,33 @@ export class PurchaseService {
         itemsData.push({
           product_id: item.product_id,
           quantity: item.quantity,
+          received_quantity: item.quantity,
           purchase_price: purchasePricePaise,
-          selling_price: sellingPricePaise,
           line_total: lineTotalPaise,
         });
       }
 
       // Convert header fields to paise
       const discountPaise = Math.round((data.discount || 0) * 100);
-      const taxPaise = Math.round((data.tax || 0) * 100);
+      const taxPaise = Math.round(((data.gst !== undefined ? data.gst : data.tax) || 0) * 100);
       const grandTotalPaise = subtotalPaise - discountPaise + taxPaise;
 
       // 3. Create PO via repository
       const createdPo = await purchaseRepository.create(
         {
           supplier_id: data.supplier_id,
-          purchase_number: purchaseNumber,
-          supplier_invoice_number: data.supplier_invoice_number || null,
-          purchase_date: data.purchase_date || new Date().toISOString(),
+          po_number: poNumber,
+          purchase_number: poNumber,
+          invoice_number: invNumber,
+          supplier_invoice_number: invNumber,
+          invoice_date: invDate,
+          purchase_date: invDate,
           subtotal: subtotalPaise,
           discount: discountPaise,
+          gst: taxPaise,
           tax: taxPaise,
           grand_total: grandTotalPaise,
           payment_status: data.payment_status,
-          payment_method: data.payment_method || null,
           notes: data.notes || null,
         },
         itemsData,
@@ -208,7 +220,7 @@ export class PurchaseService {
           transaction_type: "PURCHASE",
           amount: grandTotalPaise,
           balance: newBalance,
-          reference: purchaseNumber,
+          reference: poNumber,
         });
 
       // Trigger synchronization queues
@@ -278,9 +290,9 @@ export class PurchaseService {
           movementType: "PURCHASE_CANCEL", // Subtracts quantity from stock
           quantity: oldItem.quantity,
           referenceType: "PURCHASE_ORDER",
-          referenceId: oldPo.purchase_number,
+          referenceId: oldPo.po_number || oldPo.purchase_number || "",
           createdBy: "System",
-          reason: `Purchase Update Reversal: PO ${oldPo.purchase_number}`,
+          reason: `Purchase Update Reversal: PO ${oldPo.po_number || oldPo.purchase_number || ""}`,
         }, tx);
       }
 
@@ -337,7 +349,7 @@ export class PurchaseService {
           movementType: "PURCHASE",
           quantity: item.quantity,
           referenceType: "PURCHASE_ORDER",
-          referenceId: oldPo.purchase_number,
+          referenceId: oldPo.po_number || oldPo.purchase_number || "",
           createdBy: "System",
           reason: `Purchase Update Receipt: invoice ${data.supplier_invoice_number || ""}`,
           costDetails: {
@@ -424,7 +436,7 @@ export class PurchaseService {
             transaction_type: "PURCHASE_CANCEL",
             amount: oldPo.grand_total,
             balance: newOldBal,
-            reference: oldPo.purchase_number,
+            reference: oldPo.po_number || oldPo.purchase_number,
           });
         }
 
@@ -450,7 +462,7 @@ export class PurchaseService {
           transaction_type: "PURCHASE",
           amount: grandTotalPaise,
           balance: newNewBal,
-          reference: oldPo.purchase_number,
+          reference: oldPo.po_number || oldPo.purchase_number,
         });
 
         const { supplierLedgerRepository } = require("../repositories");
@@ -463,7 +475,7 @@ export class PurchaseService {
           .set({ amount: grandTotalPaise })
           .where(and(
             eq(supplier_ledger.supplier_id, data.supplier_id),
-            eq(supplier_ledger.reference, oldPo.purchase_number),
+            eq(supplier_ledger.reference, oldPo.po_number || oldPo.purchase_number || ""),
             eq(supplier_ledger.transaction_type, "PURCHASE")
           ));
 
@@ -507,9 +519,9 @@ export class PurchaseService {
           movementType: "PURCHASE_CANCEL", // Subtracts quantity from stock
           quantity: oldItem.quantity,
           referenceType: "PURCHASE_ORDER",
-          referenceId: oldPo.purchase_number,
+          referenceId: oldPo.po_number || oldPo.purchase_number || "",
           createdBy: "System",
-          reason: `Purchase Deletion: PO ${oldPo.purchase_number}`,
+          reason: `Purchase Deletion: PO ${oldPo.po_number || oldPo.purchase_number || ""}`,
         }, tx);
       }
 
@@ -535,7 +547,7 @@ export class PurchaseService {
             transaction_type: "PURCHASE_CANCEL",
             amount: oldPo.grand_total,
             balance: newBalance,
-            reference: oldPo.purchase_number,
+            reference: oldPo.po_number || oldPo.purchase_number,
           });
       }
 

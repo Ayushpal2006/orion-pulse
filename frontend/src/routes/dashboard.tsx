@@ -4,7 +4,7 @@ import { Dashboard } from "./index";
 export const Route = createFileRoute("/dashboard")({
   head: () => ({
     meta: [
-      { title: "Dashboard · Orion POS" },
+      { title: "Dashboard · Apka Bill" },
       { name: "description", content: "Real-time retail store analytics, sales overview, inventory alerts, and key performance metrics." },
     ],
   }),

@@ -274,15 +274,19 @@ export const purchase_orders = pgTable(
     id: serial("id").primaryKey(),
     store_id: integer("store_id").references(() => stores.id).notNull(),
     supplier_id: integer("supplier_id").references(() => suppliers.id).notNull(),
-    purchase_number: text("purchase_number").unique().notNull(),
-    supplier_invoice_number: text("supplier_invoice_number"),
-    purchase_date: timestamp("purchase_date").defaultNow().notNull(),
+    po_number: text("po_number").unique().notNull(),
+    status: text("status").default("COMPLETED").notNull(),
+    expected_delivery: timestamp("expected_delivery"),
     subtotal: integer("subtotal").notNull(),
     discount: integer("discount").default(0).notNull(),
-    tax: integer("tax").default(0).notNull(),
+    gst: integer("gst").default(0).notNull(),
     grand_total: integer("grand_total").notNull(),
+    invoice_number: text("invoice_number"),
+    invoice_date: timestamp("invoice_date").defaultNow(),
+    transport_charges: integer("transport_charges").default(0).notNull(),
+    other_charges: integer("other_charges").default(0).notNull(),
+    net_amount: integer("net_amount").default(0).notNull(),
     payment_status: text("payment_status").notNull(), // Pending, Paid, Partially Paid
-    payment_method: text("payment_method"),
     notes: text("notes"),
     created_at: timestamp("created_at").defaultNow().notNull(),
     updated_at: timestamp("updated_at").defaultNow().notNull(),
@@ -290,7 +294,7 @@ export const purchase_orders = pgTable(
   (table) => ({
     storeIdx: index("idx_purchase_orders_store_id").on(table.store_id),
     supplierIdx: index("idx_purchase_orders_supplier_id").on(table.supplier_id),
-    purchaseNumIdx: index("idx_purchase_orders_num").on(table.purchase_number),
+    poNumIdx: index("idx_purchase_orders_num").on(table.po_number),
   })
 );
 
@@ -303,8 +307,10 @@ export const purchase_items = pgTable(
       .notNull(),
     product_id: integer("product_id").references(() => products.id).notNull(),
     quantity: integer("quantity").notNull(),
+    received_quantity: integer("received_quantity").default(0).notNull(),
     purchase_price: integer("purchase_price").notNull(),
-    selling_price: integer("selling_price").notNull(),
+    discount: integer("discount").default(0).notNull(),
+    gst: integer("gst").default(0).notNull(),
     line_total: integer("line_total").notNull(),
   },
   (table) => ({

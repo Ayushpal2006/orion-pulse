@@ -19,9 +19,9 @@ import { InvoiceDrawer } from "@/components/invoice-drawer";
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Dashboard · Orion POS" },
+      { title: "Dashboard · Apka Bill" },
       { name: "description", content: "Offline-first retail command center — sales, orders, profit and inventory at a glance." },
-      { property: "og:title", content: "Dashboard · Orion POS" },
+      { property: "og:title", content: "Dashboard · Apka Bill" },
       { property: "og:description", content: "Offline-first retail command center — sales, orders, profit and inventory at a glance." },
     ],
   }),

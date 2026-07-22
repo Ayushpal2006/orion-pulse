@@ -15,7 +15,7 @@ export const Route = createFileRoute("/print/invoice/$id")({
   },
   head: () => ({
     meta: [
-      { title: "Print Receipt · Orion POS" },
+      { title: "Print Receipt · Apka Bill" },
       { name: "description", content: "Dedicated printable thermal receipt page." },
     ],
   }),

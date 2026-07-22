@@ -47,7 +47,7 @@ interface ExtendedSupplier {
 export const Route = createFileRoute("/suppliers")({
   head: () => ({
     meta: [
-      { title: "Suppliers · Orion POS" },
+      { title: "Suppliers · Apka Bill" },
       { name: "description", content: "Supplier CRM directory and stock procurement records." },
     ],
   }),

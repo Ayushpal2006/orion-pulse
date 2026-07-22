@@ -80,7 +80,7 @@ export class CopilotController {
           data.predictedMonthlyRevenue = predictedNextMonth;
         }
       } else {
-        answer = "👋 Hello! I am your Orion POS Assistant Copilot. I can query store analytics, alert you to low stock, predict sales patterns, or fetch customer data. Try asking: 'Is my stock low?', 'What is my total sales revenue?', or 'Predict next month sales'.";
+        answer = "👋 Hello! I am your Apka Bill Assistant Copilot. I can query store analytics, alert you to low stock, predict sales patterns, or fetch customer data. Try asking: 'Is my stock low?', 'What is my total sales revenue?', or 'Predict next month sales'.";
       }
 
       res.status(200).json({

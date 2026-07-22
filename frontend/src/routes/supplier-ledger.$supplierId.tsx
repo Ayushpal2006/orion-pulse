@@ -19,7 +19,7 @@ import { inr } from "@/lib/format";
 export const Route = createFileRoute("/supplier-ledger/$supplierId")({
   head: () => ({
     meta: [
-      { title: "Supplier Ledger · Orion POS" },
+      { title: "Supplier Ledger · Apka Bill" },
       { name: "description", content: "Vendor audit trail, purchase history, and running balance statements." },
     ],
   }),

@@ -34,7 +34,7 @@ export async function initDb(): Promise<void> {
       logger.info("🌱 Seeding default store...");
       await db.insert(stores).values({
         id: 1,
-        name: "Orion Store",
+        name: "Apka Bill Store",
         address: "123, POS Center, Sector V, Salt Lake, Kolkata, 700091",
         phone: "8285068670",
         gst_number: "27AAAAA1111A1Z1",
@@ -71,17 +71,17 @@ export async function initDb(): Promise<void> {
     if (settingsCount === 0) {
       logger.info("🌱 Seeding default settings for default store...");
       const seedSettings = [
-        ["shop_name", "Orion Store"],
+        ["shop_name", "Apka Bill Store"],
         ["shop_gstin", "27AAAAA1111A1Z1"],
         ["shop_phone", "8285068670"],
         ["shop_address", "123, POS Center, Sector V, Salt Lake, Kolkata, 700091"],
-        ["shop_upi_id", "orion@upi"],
+        ["shop_upi_id", "apkabill@upi"],
         ["whatsapp_footer", "Thank you for shopping. Visit Again."],
         ["signature", "Authorized Signatory"],
         ["exchange_policy", "Items can be exchanged within 7 days with original receipt and tags intact."],
         ["invoice_theme", "classic"],
-        ["business_website", "https://orionpos.in"],
-        ["instagram_url", "https://instagram.com/orionpos"],
+        ["business_website", "https://apkabill.in"],
+        ["instagram_url", "https://instagram.com/apkabill"],
         ["maps_url", "https://maps.google.com"],
         ["google_sheet_id", ""],
         ["google_sync_enabled", "0"],

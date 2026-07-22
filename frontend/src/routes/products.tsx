@@ -4,7 +4,7 @@ import { Inventory } from "./inventory";
 export const Route = createFileRoute("/products")({
   head: () => ({
     meta: [
-      { title: "Products & Inventory · Orion POS" },
+      { title: "Products & Inventory · Apka Bill" },
       { name: "description", content: "Manage store products, stock counts, SKUs, GST rates, and price levels." },
     ],
   }),

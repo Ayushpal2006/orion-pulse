@@ -19,7 +19,7 @@ import { getStockAdjustments } from "@/lib/api";
 export const Route = createFileRoute("/inventory/history")({
   head: () => ({
     meta: [
-      { title: "Stock History · Orion POS" },
+      { title: "Stock History · Apka Bill" },
       { name: "description", content: "Comprehensive audit trail of all inventory movements, adjustments, purchases, and sales." },
     ],
   }),

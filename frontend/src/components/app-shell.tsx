@@ -198,12 +198,10 @@ export function AppShell({ children }: { children: ReactNode }) {
     <div className="min-h-screen bg-background text-foreground antialiased">
       {/* Desktop Sidebar */}
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-60 flex-col border-r border-border bg-elevated/60 backdrop-blur lg:flex">
-        <div className="flex h-16 items-center gap-2 px-6 border-b border-border/40">
-          <div className="grid size-9 place-items-center rounded-xl bg-primary text-primary-foreground font-extrabold text-lg shadow-sm">
-            O
-          </div>
+        <div className="flex h-16 items-center gap-2.5 px-6 border-b border-border/40">
+          <img src="/logo.png" alt="Apka Bill Logo" className="size-9 rounded-xl object-cover shadow-sm border border-border/50" />
           <div className="flex flex-col">
-            <span className="font-bold tracking-tight text-base leading-tight">Orion POS</span>
+            <span className="font-bold tracking-tight text-base leading-tight">Apka Bill</span>
             <span className="text-[10px] text-muted-foreground font-medium">Store #001 · Production</span>
           </div>
         </div>
@@ -226,12 +224,10 @@ export function AppShell({ children }: { children: ReactNode }) {
               </Button>
             </SheetTrigger>
             <SheetContent side="left" className="w-72 p-0 flex flex-col">
-              <SheetHeader className="p-4 border-b border-border text-left flex flex-row items-center gap-2">
-                <div className="grid size-9 place-items-center rounded-xl bg-primary text-primary-foreground font-extrabold text-lg shadow-sm">
-                  O
-                </div>
+              <SheetHeader className="p-4 border-b border-border text-left flex flex-row items-center gap-2.5">
+                <img src="/logo.png" alt="Apka Bill Logo" className="size-9 rounded-xl object-cover shadow-sm border border-border/50" />
                 <div>
-                  <SheetTitle className="text-base font-bold">Orion POS</SheetTitle>
+                  <SheetTitle className="text-base font-bold">Apka Bill</SheetTitle>
                   <p className="text-[10px] text-muted-foreground">Store #001 · Navigation</p>
                 </div>
               </SheetHeader>

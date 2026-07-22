@@ -21,8 +21,8 @@ export class InvoiceService {
     const theme = await settingsRepository.get("invoice_theme", "classic");
     
     // Website, Instagram, Maps links from settings
-    const website = await settingsRepository.get("business_website", "https://orionpos.in");
-    const instagram = await settingsRepository.get("instagram_url", "https://instagram.com/orionpos");
+    const website = await settingsRepository.get("business_website", "https://apkabill.in");
+    const instagram = await settingsRepository.get("instagram_url", "https://instagram.com/apkabill");
     const maps = await settingsRepository.get("maps_url", "https://maps.google.com");
 
     let host = process.env.BASE_URL;

@@ -20,9 +20,9 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 export const Route = createFileRoute("/billing")({
   head: () => ({
     meta: [
-      { title: "Billing · Orion POS" },
+      { title: "Billing · Apka Bill" },
       { name: "description", content: "Sub-12s checkout — scan, add, take payment, print, and queue WhatsApp receipts." },
-      { property: "og:title", content: "Billing · Orion POS" },
+      { property: "og:title", content: "Billing · Apka Bill" },
       { property: "og:description", content: "Blazing-fast, offline-first point-of-sale checkout." },
     ],
   }),
@@ -937,7 +937,7 @@ export function SlipDialog({
       <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle className="text-center font-mono">Orion POS Receipt</DialogTitle>
+            <DialogTitle className="text-center font-mono">Apka Bill Receipt</DialogTitle>
           </DialogHeader>
 
           {/* 58mm Thermal Receipt Preview Layout */}
