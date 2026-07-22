@@ -147,13 +147,13 @@ export class SupplierPaymentService {
     const [totalPayablesRow] = await db
       .select({ sum: sql<number>`COALESCE(SUM(current_balance), 0)` })
       .from(suppliers)
-      .where(and(eq(suppliers.store_id, storeId), eq(suppliers.is_archived, 0), sql`current_balance > 0`));
+      .where(and(eq(suppliers.store_id, storeId), eq(suppliers.is_active, 1), sql`current_balance > 0`));
 
     // 2. Outstanding Suppliers (list of suppliers where current_balance > 0, ordered desc)
     const outstandingSuppliers = await db
       .select()
       .from(suppliers)
-      .where(and(eq(suppliers.store_id, storeId), eq(suppliers.is_archived, 0), sql`current_balance > 0`))
+      .where(and(eq(suppliers.store_id, storeId), eq(suppliers.is_active, 1), sql`current_balance > 0`))
       .orderBy(desc(suppliers.current_balance));
 
     // 3. Recent Payments (last 10 payment logs)
@@ -167,14 +167,14 @@ export class SupplierPaymentService {
     const topSuppliersRaw = await db
       .select({
         id: suppliers.id,
-        name: suppliers.name,
+        name: suppliers.company_name,
         phone: suppliers.phone,
         total_purchases: sql<number>`COALESCE(SUM(${purchase_orders.grand_total}), 0)`,
       })
       .from(suppliers)
       .leftJoin(purchase_orders, eq(purchase_orders.supplier_id, suppliers.id))
-      .where(and(eq(suppliers.store_id, storeId), eq(suppliers.is_archived, 0)))
-      .groupBy(suppliers.id, suppliers.name, suppliers.phone)
+      .where(and(eq(suppliers.store_id, storeId), eq(suppliers.is_active, 1)))
+      .groupBy(suppliers.id, suppliers.company_name, suppliers.phone)
       .orderBy(desc(sql`COALESCE(SUM(${purchase_orders.grand_total}), 0)`))
       .limit(10);
 

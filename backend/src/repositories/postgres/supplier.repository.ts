@@ -5,6 +5,17 @@ import { suppliers } from "../../db/schema";
 import { eq, and, desc, asc, like, or, sql } from "drizzle-orm";
 import { getStoreId } from "../../db/context";
 
+function mapSupplierRow(r: any): Supplier {
+  return {
+    ...r,
+    name: r.company_name,
+    gstin: r.gst_number,
+    is_archived: r.is_active === 0 ? 1 : 0,
+    created_at: r.created_at instanceof Date ? r.created_at.toISOString() : String(r.created_at),
+    updated_at: r.updated_at instanceof Date ? r.updated_at.toISOString() : String(r.updated_at),
+  };
+}
+
 export class PostgresSupplierRepository implements ISupplierRepository {
   async getAll(params?: { q?: string; sort?: string; includeArchived?: boolean }, tx?: any): Promise<Supplier[]> {
     const client = tx || db;
@@ -14,7 +25,7 @@ export class PostgresSupplierRepository implements ISupplierRepository {
     const includeArchived = params?.includeArchived ?? false;
 
     if (!includeArchived) {
-      conditions.push(eq(suppliers.is_archived, 0));
+      conditions.push(eq(suppliers.is_active, 1));
     }
 
     if (storeId !== undefined) {
@@ -25,9 +36,10 @@ export class PostgresSupplierRepository implements ISupplierRepository {
       const likeQuery = `%${params.q}%`;
       conditions.push(
         or(
-          like(suppliers.name, likeQuery),
+          like(suppliers.company_name, likeQuery),
           like(suppliers.phone, likeQuery),
-          like(suppliers.gstin, likeQuery)
+          like(suppliers.gst_number, likeQuery),
+          like(suppliers.supplier_code, likeQuery)
         )
       );
     }
@@ -42,18 +54,14 @@ export class PostgresSupplierRepository implements ISupplierRepository {
     } else if (sortField === "oldest") {
       query.orderBy(asc(suppliers.id));
     } else if (sortField === "alphabetical") {
-      query.orderBy(asc(suppliers.name));
+      query.orderBy(asc(suppliers.company_name));
     } else {
       query.orderBy(desc(suppliers.id));
     }
 
     const rows = await query;
 
-    return rows.map((r: any) => ({
-      ...r,
-      created_at: r.created_at.toISOString(),
-      updated_at: r.updated_at.toISOString()
-    }));
+    return rows.map(mapSupplierRow);
   }
 
   async getById(id: number, tx?: any): Promise<Supplier | null> {
@@ -71,40 +79,47 @@ export class PostgresSupplierRepository implements ISupplierRepository {
       .limit(1);
 
     if (!rows[0]) return null;
-    const r = rows[0];
-    return {
-      ...r,
-      created_at: r.created_at.toISOString(),
-      updated_at: r.updated_at.toISOString()
-    };
+    return mapSupplierRow(rows[0]);
   }
 
   async create(supplier: CreateSupplierDTO, tx?: any): Promise<Supplier> {
     const client = tx || db;
     const storeId = getStoreId() || 1;
 
+    const companyName = supplier.company_name || supplier.name || "Supplier";
+    const supplierCode = supplier.supplier_code || `SUP-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+    const gstNumber = supplier.gst_number ?? supplier.gstin ?? null;
+    const isActive = supplier.is_active ?? (supplier.is_archived ? 0 : 1);
+
     const [created] = await client
       .insert(suppliers)
       .values({
         store_id: storeId,
-        name: supplier.name,
+        supplier_code: supplierCode,
+        company_name: companyName,
+        contact_person: supplier.contact_person ?? null,
         phone: supplier.phone ?? null,
         email: supplier.email ?? null,
-        gstin: supplier.gstin ?? null,
+        gst_number: gstNumber,
+        pan_number: supplier.pan_number ?? null,
         address: supplier.address ?? null,
+        city: supplier.city ?? null,
+        state: supplier.state ?? null,
+        country: supplier.country ?? null,
+        postal_code: supplier.postal_code ?? null,
+        opening_balance: supplier.opening_balance ?? 0,
+        current_balance: supplier.current_balance ?? 0,
+        payment_terms: supplier.payment_terms ?? null,
+        credit_limit: supplier.credit_limit ?? 0,
+        is_active: isActive,
         notes: supplier.notes ?? null,
-        is_archived: supplier.is_archived ?? 0,
       })
       .returning();
 
     if (!created) {
       throw new Error("Failed to retrieve created supplier");
     }
-    return {
-      ...created,
-      created_at: created.created_at.toISOString(),
-      updated_at: created.updated_at.toISOString()
-    };
+    return mapSupplierRow(created);
   }
 
   async update(id: number, supplier: UpdateSupplierDTO, tx?: any): Promise<Supplier | null> {
@@ -112,11 +127,32 @@ export class PostgresSupplierRepository implements ISupplierRepository {
     const storeId = getStoreId();
 
     const updateData: any = {};
-    for (const [key, value] of Object.entries(supplier)) {
-      if (value !== undefined) {
-        updateData[key] = value;
-      }
+    if (supplier.company_name !== undefined || supplier.name !== undefined) {
+      updateData.company_name = supplier.company_name || supplier.name;
     }
+    if (supplier.gst_number !== undefined || supplier.gstin !== undefined) {
+      updateData.gst_number = supplier.gst_number ?? supplier.gstin;
+    }
+    if (supplier.is_active !== undefined) {
+      updateData.is_active = supplier.is_active;
+    } else if (supplier.is_archived !== undefined) {
+      updateData.is_active = supplier.is_archived ? 0 : 1;
+    }
+    if (supplier.supplier_code !== undefined) updateData.supplier_code = supplier.supplier_code;
+    if (supplier.contact_person !== undefined) updateData.contact_person = supplier.contact_person;
+    if (supplier.phone !== undefined) updateData.phone = supplier.phone;
+    if (supplier.email !== undefined) updateData.email = supplier.email;
+    if (supplier.pan_number !== undefined) updateData.pan_number = supplier.pan_number;
+    if (supplier.address !== undefined) updateData.address = supplier.address;
+    if (supplier.city !== undefined) updateData.city = supplier.city;
+    if (supplier.state !== undefined) updateData.state = supplier.state;
+    if (supplier.country !== undefined) updateData.country = supplier.country;
+    if (supplier.postal_code !== undefined) updateData.postal_code = supplier.postal_code;
+    if (supplier.opening_balance !== undefined) updateData.opening_balance = supplier.opening_balance;
+    if (supplier.current_balance !== undefined) updateData.current_balance = supplier.current_balance;
+    if (supplier.payment_terms !== undefined) updateData.payment_terms = supplier.payment_terms;
+    if (supplier.credit_limit !== undefined) updateData.credit_limit = supplier.credit_limit;
+    if (supplier.notes !== undefined) updateData.notes = supplier.notes;
 
     if (Object.keys(updateData).length === 0) {
       return this.getById(id, client);
@@ -137,11 +173,7 @@ export class PostgresSupplierRepository implements ISupplierRepository {
 
     if (!updated) return null;
 
-    return {
-      ...updated,
-      created_at: updated.created_at.toISOString(),
-      updated_at: updated.updated_at.toISOString()
-    };
+    return mapSupplierRow(updated);
   }
 
   async delete(id: number, tx?: any): Promise<boolean> {
@@ -156,7 +188,7 @@ export class PostgresSupplierRepository implements ISupplierRepository {
     const [updated] = await client
       .update(suppliers)
       .set({
-        is_archived: 1,
+        is_active: 0,
         updated_at: new Date(),
       })
       .where(cond)

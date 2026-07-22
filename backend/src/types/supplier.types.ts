@@ -1,25 +1,53 @@
 export interface Supplier {
   id: number;
   store_id: number;
-  name: string;
+  supplier_code: string;
+  company_name: string;
+  name?: string; // Virtual mapped property for compatibility
+  contact_person: string | null;
   phone: string | null;
   email: string | null;
-  gstin: string | null;
+  gst_number: string | null;
+  gstin?: string | null; // Virtual mapped property for compatibility
+  pan_number: string | null;
   address: string | null;
+  city: string | null;
+  state: string | null;
+  country: string | null;
+  postal_code: string | null;
+  opening_balance: number;
+  current_balance: number;
+  payment_terms: string | null;
+  credit_limit: number;
+  is_active: number;
+  is_archived?: number; // Virtual mapped property for compatibility (1 - is_active)
   notes: string | null;
-  is_archived: number; // 0 for active, 1 for archived
   created_at: string;
   updated_at: string;
 }
 
 export type CreateSupplierDTO = {
-  name: string;
+  supplier_code?: string;
+  company_name?: string;
+  name?: string;
+  contact_person?: string | null;
   phone?: string | null;
   email?: string | null;
+  gst_number?: string | null;
   gstin?: string | null;
+  pan_number?: string | null;
   address?: string | null;
-  notes?: string | null;
+  city?: string | null;
+  state?: string | null;
+  country?: string | null;
+  postal_code?: string | null;
+  opening_balance?: number;
+  current_balance?: number;
+  payment_terms?: string | null;
+  credit_limit?: number;
+  is_active?: number;
   is_archived?: number;
+  notes?: string | null;
 };
 
 export type UpdateSupplierDTO = Partial<CreateSupplierDTO>;

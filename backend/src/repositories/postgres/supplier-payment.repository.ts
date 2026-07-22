@@ -63,7 +63,7 @@ export class PostgresSupplierPaymentRepository implements ISupplierPaymentReposi
         or(
           like(supplier_payments.payment_number, searchLike),
           like(supplier_payments.reference_number, searchLike),
-          like(suppliers.name, searchLike)
+          like(suppliers.company_name, searchLike)
         )
       );
     }
@@ -91,7 +91,7 @@ export class PostgresSupplierPaymentRepository implements ISupplierPaymentReposi
         payment_date: supplier_payments.payment_date,
         created_by: supplier_payments.created_by,
         created_at: supplier_payments.created_at,
-        supplier_name: suppliers.name,
+        supplier_name: suppliers.company_name,
       })
       .from(supplier_payments)
       .leftJoin(suppliers, eq(supplier_payments.supplier_id, suppliers.id))
@@ -127,7 +127,7 @@ export class PostgresSupplierPaymentRepository implements ISupplierPaymentReposi
         payment_date: supplier_payments.payment_date,
         created_by: supplier_payments.created_by,
         created_at: supplier_payments.created_at,
-        supplier_name: suppliers.name,
+        supplier_name: suppliers.company_name,
       })
       .from(supplier_payments)
       .innerJoin(suppliers, eq(supplier_payments.supplier_id, suppliers.id))

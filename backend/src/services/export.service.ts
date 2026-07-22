@@ -52,15 +52,15 @@ export class ExportService {
     const rows = await db
       .select()
       .from(suppliers)
-      .where(and(eq(suppliers.is_archived, 0), eq(suppliers.store_id, storeId)))
+      .where(and(eq(suppliers.is_active, 1), eq(suppliers.store_id, storeId)))
       .orderBy(desc(suppliers.id));
 
     const sheetData = rows.map((r) => ({
       ID: r.id,
-      Name: r.name,
+      Name: r.company_name,
       Phone: r.phone || "",
       Email: r.email || "",
-      GSTIN: r.gstin || "",
+      GSTIN: r.gst_number || "",
       Address: r.address || "",
       Notes: r.notes || "",
       "Created At": r.created_at.toISOString(),

@@ -68,7 +68,7 @@ export class PostgresPurchaseRepository implements IPurchaseRepository {
         or(
           like(purchase_orders.purchase_number, searchLike),
           like(purchase_orders.supplier_invoice_number, searchLike),
-          like(suppliers.name, searchLike)
+          like(suppliers.company_name, searchLike)
         )
       );
     }
@@ -100,7 +100,7 @@ export class PostgresPurchaseRepository implements IPurchaseRepository {
         notes: purchase_orders.notes,
         created_at: purchase_orders.created_at,
         updated_at: purchase_orders.updated_at,
-        supplier_name: suppliers.name,
+        supplier_name: suppliers.company_name,
       })
       .from(purchase_orders)
       .leftJoin(suppliers, eq(purchase_orders.supplier_id, suppliers.id))
@@ -140,7 +140,7 @@ export class PostgresPurchaseRepository implements IPurchaseRepository {
         notes: purchase_orders.notes,
         created_at: purchase_orders.created_at,
         updated_at: purchase_orders.updated_at,
-        supplier_name: suppliers.name,
+        supplier_name: suppliers.company_name,
       })
       .from(purchase_orders)
       .innerJoin(suppliers, eq(purchase_orders.supplier_id, suppliers.id))
