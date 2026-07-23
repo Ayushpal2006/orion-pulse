@@ -94,8 +94,17 @@ export class PurchaseService {
 
         // Unit conversions: payload in Rupees -> converted to Paise
         const purchasePricePaise = Math.round(item.purchase_price * 100);
-        const itemSellingPrice = item.selling_price !== undefined ? item.selling_price : (product.selling_price / 100.0);
-        const sellingPricePaise = Math.round(itemSellingPrice * 100);
+        let sellingPricePaise: number;
+        if (item.selling_price !== undefined && item.selling_price !== null) {
+          if (item.selling_price === product.selling_price || item.selling_price >= 10000) {
+            sellingPricePaise = item.selling_price;
+          } else {
+            sellingPricePaise = Math.round(item.selling_price * 100);
+          }
+        } else {
+          sellingPricePaise = product.selling_price;
+        }
+
         const lineTotalPaise = purchasePricePaise * item.quantity;
         subtotalPaise += lineTotalPaise;
 
@@ -119,6 +128,13 @@ export class PurchaseService {
         const markup = newAverageCostPaise > 0
           ? Math.round(((sellingPricePaise - newAverageCostPaise) / newAverageCostPaise) * 100)
           : 0;
+
+        console.log(`🧮 [PurchaseService] Product #${item.product_id} (${product.name}) Metrics:`);
+        console.log(`   - Purchase Price: ${item.purchase_price} Rs -> ${purchasePricePaise} Paise`);
+        console.log(`   - Selling Price: ${sellingPricePaise} Paise`);
+        console.log(`   - Stock: current=${currentStock}, added=${item.quantity}, newTotal=${newTotalStock}`);
+        console.log(`   - Average Cost: current=${currentAvgCost} Paise -> newAvg=${newAverageCostPaise} Paise`);
+        console.log(`   - Calculated Margin: ${margin}% | Calculated Markup: ${markup}%`);
 
         // Record stock addition movement
         const movementResult = await this.movementService.recordMovement({

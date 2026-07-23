@@ -73,10 +73,24 @@ export class InventoryMovementService {
       };
 
       if (dto.costDetails) {
-        updateFields.average_cost = Math.round(dto.costDetails.averageCost || 0);
-        updateFields.last_purchase_cost = Math.round(dto.costDetails.lastPurchaseCost || 0);
-        updateFields.margin_percent = Math.round(dto.costDetails.margin || 0);
-        updateFields.markup_percent = Math.round(dto.costDetails.markup || 0);
+        const rawAvgCost = dto.costDetails.averageCost;
+        const rawLastCost = dto.costDetails.lastPurchaseCost;
+        const rawMargin = dto.costDetails.margin;
+        const rawMarkup = dto.costDetails.markup;
+
+        const roundedAvgCost = Math.round(rawAvgCost || 0);
+        const roundedLastCost = Math.round(rawLastCost || 0);
+        const roundedMargin = Math.round(rawMargin || 0);
+        const roundedMarkup = Math.round(rawMarkup || 0);
+
+        console.log("📊 [InventoryMovementService] Updating Product Cost & Margin Fields:");
+        console.log(`   - Raw costDetails: avgCost=${rawAvgCost}, lastCost=${rawLastCost}, margin=${rawMargin}, markup=${rawMarkup}`);
+        console.log(`   - Integer updateFields: avgCost=${roundedAvgCost}, lastCost=${roundedLastCost}, margin=${roundedMargin}, markup=${roundedMarkup}`);
+
+        updateFields.average_cost = roundedAvgCost;
+        updateFields.last_purchase_cost = roundedLastCost;
+        updateFields.margin_percent = roundedMargin;
+        updateFields.markup_percent = roundedMarkup;
       }
 
       // Update the product record
