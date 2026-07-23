@@ -45,45 +45,74 @@ export class PostgresPurchaseRepository implements IPurchaseRepository {
     const invDate = poData.invoice_date || poData.purchase_date;
     const gstAmount = poData.gst !== undefined ? poData.gst : (poData.tax || 0);
 
-    const [createdPo] = await client
-      .insert(purchase_orders)
-      .values({
-        store_id: storeId,
-        supplier_id: poData.supplier_id,
-        po_number: poNum,
-        status: poData.status || "COMPLETED",
-        expected_delivery: poData.expected_delivery ? new Date(poData.expected_delivery) : null,
-        subtotal: poData.subtotal,
-        discount: poData.discount || 0,
-        gst: gstAmount,
-        grand_total: poData.grand_total,
-        invoice_number: invNum,
-        invoice_date: invDate ? new Date(invDate) : new Date(),
-        transport_charges: poData.transport_charges || 0,
-        other_charges: poData.other_charges || 0,
-        net_amount: poData.net_amount || poData.grand_total,
-        payment_status: poData.payment_status,
-        notes: poData.notes || null,
-      })
-      .returning();
+    const poValues = {
+      store_id: storeId,
+      supplier_id: poData.supplier_id,
+      po_number: poNum,
+      status: poData.status || "COMPLETED",
+      expected_delivery: poData.expected_delivery ? new Date(poData.expected_delivery) : null,
+      subtotal: poData.subtotal,
+      discount: poData.discount || 0,
+      gst: gstAmount,
+      grand_total: poData.grand_total,
+      invoice_number: invNum,
+      invoice_date: invDate ? new Date(invDate) : new Date(),
+      transport_charges: poData.transport_charges || 0,
+      other_charges: poData.other_charges || 0,
+      net_amount: poData.net_amount || poData.grand_total,
+      payment_status: poData.payment_status,
+      notes: poData.notes || null,
+    };
+
+    let createdPo: any;
+    try {
+      [createdPo] = await client
+        .insert(purchase_orders)
+        .values(poValues)
+        .returning();
+    } catch (error: any) {
+      console.error("💥 [PurchaseRepository.create] STEP 4 INSERT purchase_orders EXCEPTION:");
+      console.error("SQL: INSERT INTO purchase_orders");
+      console.error("values:", JSON.stringify(poValues, null, 2));
+      console.error("error.code:", error?.code);
+      console.error("error.detail:", error?.detail);
+      console.error("error.constraint:", error?.constraint);
+      console.error("error.column:", error?.column);
+      console.error("error.table:", error?.table);
+      console.error("FULL ERROR OBJECT:", error);
+      throw error;
+    }
 
     if (!createdPo) {
       throw new Error("Failed to insert purchase order");
     }
 
     if (itemsData.length > 0) {
-      await client.insert(purchase_items).values(
-        itemsData.map((item) => ({
-          purchase_order_id: createdPo.id,
-          product_id: item.product_id,
-          quantity: item.quantity,
-          received_quantity: item.received_quantity || item.quantity,
-          purchase_price: item.purchase_price,
-          discount: item.discount || 0,
-          gst: item.gst || 0,
-          line_total: item.line_total,
-        }))
-      );
+      const itemsValues = itemsData.map((item) => ({
+        purchase_order_id: createdPo.id,
+        product_id: item.product_id,
+        quantity: item.quantity,
+        received_quantity: item.received_quantity || item.quantity,
+        purchase_price: item.purchase_price,
+        discount: item.discount || 0,
+        gst: item.gst || 0,
+        line_total: item.line_total,
+      }));
+
+      try {
+        await client.insert(purchase_items).values(itemsValues);
+      } catch (error: any) {
+        console.error("💥 [PurchaseRepository.create] STEP 4 INSERT purchase_items EXCEPTION:");
+        console.error("SQL: INSERT INTO purchase_items");
+        console.error("values:", JSON.stringify(itemsValues, null, 2));
+        console.error("error.code:", error?.code);
+        console.error("error.detail:", error?.detail);
+        console.error("error.constraint:", error?.constraint);
+        console.error("error.column:", error?.column);
+        console.error("error.table:", error?.table);
+        console.error("FULL ERROR OBJECT:", error);
+        throw error;
+      }
     }
 
     return mapPurchaseRow(createdPo);

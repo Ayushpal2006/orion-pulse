@@ -102,11 +102,27 @@ export class InventoryMovementService {
       console.log("   typeof last_purchase_cost:", typeof updateFields.last_purchase_cost, "val:", updateFields.last_purchase_cost);
 
       // Update the product record
-      const [updatedProduct] = await dbClient
-        .update(products)
-        .set(updateFields)
-        .where(eq(products.id, dto.productId))
-        .returning();
+      let updatedProduct: any;
+      try {
+        [updatedProduct] = await dbClient
+          .update(products)
+          .set(updateFields)
+          .where(eq(products.id, dto.productId))
+          .returning();
+      } catch (error: any) {
+        console.error("💥 [InventoryMovementService] STEP 3 DATABASE EXCEPTION:");
+        console.error("FULL ERROR OBJECT:", error);
+        console.error("message:", error?.message);
+        console.error("detail:", error?.detail);
+        console.error("hint:", error?.hint);
+        console.error("constraint:", error?.constraint);
+        console.error("table:", error?.table);
+        console.error("column:", error?.column);
+        console.error("code:", error?.code);
+        console.error("query:", error?.query);
+        console.error("parameters:", error?.parameters);
+        throw error;
+      }
 
       // 3. Log to the new inventory_movements table
       const [movement] = await dbClient

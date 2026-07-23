@@ -54,12 +54,18 @@ export class PurchaseService {
     }
 
     return db.transaction(async (tx) => {
-      // 1. Verify supplier exists in store
-      const [supplier] = await tx
-        .select()
-        .from(suppliers)
-        .where(and(eq(suppliers.id, data.supplier_id), eq(suppliers.store_id, storeId)))
-        .limit(1);
+      // Step 1: supplier lookup
+      let supplier: any;
+      try {
+        [supplier] = await tx
+          .select()
+          .from(suppliers)
+          .where(and(eq(suppliers.id, data.supplier_id), eq(suppliers.store_id, storeId)))
+          .limit(1);
+      } catch (e) {
+        console.error("FAILED STEP 1: supplier lookup", e);
+        throw e;
+      }
 
       if (!supplier) {
         throw new NotFoundError("Supplier not found in this store");
@@ -73,7 +79,7 @@ export class PurchaseService {
       const itemsData: any[] = [];
       const syncProductsList: any[] = [];
 
-      // 2. Loop items to compute line totals, update stock and costing
+      // Step 2-5: Loop items
       for (const item of data.items) {
         if (!item.product_id || !item.quantity || item.quantity <= 0) {
           throw new ValidationError("Product ID and quantity (> 0) are required for all items");
@@ -82,12 +88,18 @@ export class PurchaseService {
           throw new ValidationError("Purchase price must be greater than or equal to 0");
         }
 
-        // Fetch product details
-        const [product] = await tx
-          .select()
-          .from(products)
-          .where(and(eq(products.id, item.product_id), eq(products.store_id, storeId)))
-          .limit(1);
+        // Step 2: product lookup
+        let product: any;
+        try {
+          [product] = await tx
+            .select()
+            .from(products)
+            .where(and(eq(products.id, item.product_id), eq(products.store_id, storeId)))
+            .limit(1);
+        } catch (e) {
+          console.error("FAILED STEP 2: product lookup", e);
+          throw e;
+        }
 
         if (!product) {
           throw new NotFoundError(`Product ID ${item.product_id} not found in this store`);
@@ -109,40 +121,52 @@ export class PurchaseService {
         const lineTotalPaise = purchasePricePaise * item.quantity;
         subtotalPaise += lineTotalPaise;
 
-        // Calculate cost metrics via InventoryCostService single source of truth
-        const costResult = inventoryCostService.calculateCostAfterPurchase(
-          {
-            id: product.id,
-            name: product.name,
-            stock: product.stock || 0,
-            average_cost: product.average_cost || 0,
-            last_purchase_cost: product.last_purchase_cost || 0,
-            selling_price: sellingPricePaise,
-          },
-          {
-            quantity: item.quantity,
-            purchase_price: purchasePricePaise,
-            selling_price: sellingPricePaise,
-          }
-        );
+        // Step 3: inventoryCostService.calculateCostAfterPurchase
+        let costResult: any;
+        try {
+          costResult = inventoryCostService.calculateCostAfterPurchase(
+            {
+              id: product.id,
+              name: product.name,
+              stock: product.stock || 0,
+              average_cost: product.average_cost || 0,
+              last_purchase_cost: product.last_purchase_cost || 0,
+              selling_price: sellingPricePaise,
+            },
+            {
+              quantity: item.quantity,
+              purchase_price: purchasePricePaise,
+              selling_price: sellingPricePaise,
+            }
+          );
+        } catch (e) {
+          console.error("FAILED STEP 3: calculateCostAfterPurchase", e);
+          throw e;
+        }
 
-        // Record stock addition movement
-        const movementResult = await this.movementService.recordMovement({
-          productId: item.product_id,
-          storeId,
-          movementType: "PURCHASE",
-          quantity: item.quantity,
-          referenceType: "PURCHASE_ORDER",
-          referenceId: poNumber,
-          createdBy: "System",
-          reason: `Purchase Entry: invoice ${invNumber || ""}`,
-          costDetails: {
-            averageCost: costResult.average_cost,
-            lastPurchaseCost: costResult.last_purchase_cost,
-            margin: costResult.margin_percent,
-            markup: costResult.markup_percent,
-          }
-        }, tx);
+        // Step 4: inventoryMovementService.recordMovement
+        let movementResult: any;
+        try {
+          movementResult = await this.movementService.recordMovement({
+            productId: item.product_id,
+            storeId,
+            movementType: "PURCHASE",
+            quantity: item.quantity,
+            referenceType: "PURCHASE_ORDER",
+            referenceId: poNumber,
+            createdBy: "System",
+            reason: `Purchase Entry: invoice ${invNumber || ""}`,
+            costDetails: {
+              averageCost: costResult.average_cost,
+              lastPurchaseCost: costResult.last_purchase_cost,
+              margin: costResult.margin_percent,
+              markup: costResult.markup_percent,
+            }
+          }, tx);
+        } catch (e) {
+          console.error("FAILED STEP 4: inventoryMovementService.recordMovement", e);
+          throw e;
+        }
 
         const setObj = {
           purchase_price: purchasePricePaise,
@@ -150,16 +174,18 @@ export class PurchaseService {
           updated_at: new Date()
         };
 
-        console.log("🔍 [UPDATE EXECUTING] File: backend/src/services/purchase.service.ts:159");
-        console.log("   Target Product ID:", item.product_id);
-        console.log("   Update Object:", JSON.stringify(setObj, null, 2));
-
-        // Update product selling price & purchase price directly
-        const [updatedProduct] = await tx
-          .update(products)
-          .set(setObj)
-          .where(eq(products.id, item.product_id))
-          .returning();
+        // Step 5: product update
+        let updatedProduct: any;
+        try {
+          [updatedProduct] = await tx
+            .update(products)
+            .set(setObj)
+            .where(eq(products.id, item.product_id))
+            .returning();
+        } catch (e) {
+          console.error("FAILED STEP 5: product update", e);
+          throw e;
+        }
 
         if (updatedProduct) {
           syncProductsList.push({
@@ -169,8 +195,13 @@ export class PurchaseService {
           });
         }
 
-        // Log cost snapshot for Profit Engine (fire-and-forget, non-blocking)
-        this.profitService.logCostSnapshot(item.product_id, costResult.average_cost, tx).catch(() => {});
+        // Log cost snapshot for Profit Engine
+        try {
+          await this.profitService.logCostSnapshot(item.product_id, costResult.average_cost, tx);
+        } catch (e) {
+          console.error("FAILED PROFIT COST SNAPSHOT", e);
+          throw e;
+        }
 
         itemsData.push({
           product_id: item.product_id,
@@ -186,63 +217,76 @@ export class PurchaseService {
       const taxPaise = Math.round(((data.gst !== undefined ? data.gst : data.tax) || 0) * 100);
       const grandTotalPaise = subtotalPaise - discountPaise + taxPaise;
 
-      // 3. Create PO via repository
-      const createdPo = await purchaseRepository.create(
-        {
-          supplier_id: data.supplier_id,
-          po_number: poNumber,
-          purchase_number: poNumber,
-          invoice_number: invNumber,
-          supplier_invoice_number: invNumber,
-          invoice_date: invDate,
-          purchase_date: invDate,
-          subtotal: subtotalPaise,
-          discount: discountPaise,
-          gst: taxPaise,
-          tax: taxPaise,
-          grand_total: grandTotalPaise,
-          payment_status: data.payment_status,
-          notes: data.notes || null,
-        },
-        itemsData,
-        tx
-      );
-
-      // 4. Update supplier balance & write ledger entry
-      const [lockedSupplier] = await tx
-        .select()
-        .from(suppliers)
-        .where(and(eq(suppliers.id, data.supplier_id), eq(suppliers.store_id, storeId)))
-        .for("update");
-      if (!lockedSupplier) {
-        throw new NotFoundError("Supplier not found");
+      // Step 6: purchaseRepository.create
+      let createdPo: any;
+      try {
+        createdPo = await purchaseRepository.create(
+          {
+            supplier_id: data.supplier_id,
+            po_number: poNumber,
+            purchase_number: poNumber,
+            invoice_number: invNumber,
+            supplier_invoice_number: invNumber,
+            invoice_date: invDate,
+            purchase_date: invDate,
+            subtotal: subtotalPaise,
+            discount: discountPaise,
+            gst: taxPaise,
+            tax: taxPaise,
+            grand_total: grandTotalPaise,
+            payment_status: data.payment_status || "Pending",
+            notes: data.notes || null,
+          },
+          itemsData,
+          tx
+        );
+      } catch (e) {
+        console.error("FAILED STEP 6: purchaseRepository.create", e);
+        throw e;
       }
 
-      const newBalance = lockedSupplier.current_balance + grandTotalPaise;
-      await tx
-        .update(suppliers)
-        .set({ current_balance: newBalance })
-        .where(eq(suppliers.id, data.supplier_id));
+      // Step 7: supplier ledger
+      try {
+        const [lockedSupplier] = await tx
+          .select()
+          .from(suppliers)
+          .where(and(eq(suppliers.id, data.supplier_id), eq(suppliers.store_id, storeId)))
+          .for("update");
+        if (!lockedSupplier) {
+          throw new NotFoundError("Supplier not found");
+        }
 
-      await tx
-        .insert(supplier_ledger)
-        .values({
-          store_id: storeId,
-          supplier_id: data.supplier_id,
-          transaction_type: "PURCHASE",
-          amount: grandTotalPaise,
-          balance: newBalance,
-          reference: poNumber,
-        });
+        const newBalance = lockedSupplier.current_balance + grandTotalPaise;
+        await tx
+          .update(suppliers)
+          .set({ current_balance: newBalance })
+          .where(eq(suppliers.id, data.supplier_id));
 
-      // Trigger synchronization queues
-      if (syncProductsList.length > 0) {
-        try {
+        await tx
+          .insert(supplier_ledger)
+          .values({
+            store_id: storeId,
+            supplier_id: data.supplier_id,
+            transaction_type: "PURCHASE",
+            amount: grandTotalPaise,
+            balance: newBalance,
+            reference: poNumber,
+          });
+      } catch (e) {
+        console.error("FAILED STEP 7: supplier ledger", e);
+        throw e;
+      }
+
+      // Step 8: sync queue
+      try {
+        if (syncProductsList.length > 0) {
           const { SyncQueueManager } = require("./sync.service");
           for (const prod of syncProductsList) {
             SyncQueueManager.getInstance().enqueue("product", prod);
           }
-        } catch (e) {}
+        }
+      } catch (e) {
+        console.error("FAILED STEP 8: sync queue", e);
       }
 
       return createdPo;
