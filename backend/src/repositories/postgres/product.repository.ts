@@ -179,6 +179,16 @@ export class PostgresProductRepository implements IProductRepository {
       cond = and(cond, eq(products.store_id, storeId)) as any;
     }
 
+    console.log("🔍 [UPDATE EXECUTING] File: backend/src/repositories/postgres/product.repository.ts:183");
+    console.log("   Target Product ID:", id);
+    console.log("   Update Object:", JSON.stringify(updateData, null, 2));
+    if (updateData.margin_percent !== undefined) {
+      console.log("   typeof margin_percent:", typeof updateData.margin_percent, "val:", updateData.margin_percent);
+    }
+    if (updateData.markup_percent !== undefined) {
+      console.log("   typeof markup_percent:", typeof updateData.markup_percent, "val:", updateData.markup_percent);
+    }
+
     const [updatedProduct] = await client
       .update(products)
       .set(updateData)

@@ -93,6 +93,14 @@ export class InventoryMovementService {
         updateFields.markup_percent = roundedMarkup;
       }
 
+      console.log("🔍 [UPDATE EXECUTING] File: backend/src/services/inventory-movement.service.ts:98");
+      console.log("   Target Product ID:", dto.productId);
+      console.log("   Update Object:", JSON.stringify(updateFields, null, 2));
+      console.log("   typeof margin_percent:", typeof updateFields.margin_percent, "val:", updateFields.margin_percent);
+      console.log("   typeof markup_percent:", typeof updateFields.markup_percent, "val:", updateFields.markup_percent);
+      console.log("   typeof average_cost:", typeof updateFields.average_cost, "val:", updateFields.average_cost);
+      console.log("   typeof last_purchase_cost:", typeof updateFields.last_purchase_cost, "val:", updateFields.last_purchase_cost);
+
       // Update the product record
       const [updatedProduct] = await dbClient
         .update(products)

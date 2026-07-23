@@ -154,14 +154,20 @@ export class PurchaseService {
           }
         }, tx);
 
+        const setObj = {
+          purchase_price: purchasePricePaise,
+          selling_price: sellingPricePaise,
+          updated_at: new Date()
+        };
+
+        console.log("🔍 [UPDATE EXECUTING] File: backend/src/services/purchase.service.ts:159");
+        console.log("   Target Product ID:", item.product_id);
+        console.log("   Update Object:", JSON.stringify(setObj, null, 2));
+
         // Update product selling price & purchase price directly
         const [updatedProduct] = await tx
           .update(products)
-          .set({
-            purchase_price: purchasePricePaise,
-            selling_price: sellingPricePaise,
-            updated_at: new Date()
-          })
+          .set(setObj)
           .where(eq(products.id, item.product_id))
           .returning();
 
@@ -376,14 +382,20 @@ export class PurchaseService {
           }
         }, tx);
 
+        const updateSetObj = {
+          purchase_price: purchasePricePaise,
+          selling_price: sellingPricePaise,
+          updated_at: new Date()
+        };
+
+        console.log("🔍 [UPDATE EXECUTING] File: backend/src/services/purchase.service.ts:386");
+        console.log("   Target Product ID:", item.product_id);
+        console.log("   Update Object:", JSON.stringify(updateSetObj, null, 2));
+
         // Update product pricing direct
         const [updatedProduct] = await tx
           .update(products)
-          .set({
-            purchase_price: purchasePricePaise,
-            selling_price: sellingPricePaise,
-            updated_at: new Date()
-          })
+          .set(updateSetObj)
           .where(eq(products.id, item.product_id))
           .returning();
 
