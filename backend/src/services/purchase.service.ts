@@ -108,18 +108,31 @@ export class PurchaseService {
         const lineTotalPaise = purchasePricePaise * item.quantity;
         subtotalPaise += lineTotalPaise;
 
-        // Weighted Average Costing Formula:
-        // New Avg Cost = ((Current Stock * Current Avg Cost) + (Received Qty * Purchase Price)) / New Total Stock
+        // Weighted Average Costing Formula Trace:
         const currentStock = product.stock || 0;
         const currentAvgCost = product.average_cost || product.purchase_price || 0;
-        const newTotalStock = currentStock + item.quantity;
+        const quantityAdded = item.quantity;
+        const purchasePrice = purchasePricePaise;
+        const totalExistingCost = currentStock * currentAvgCost;
+        const totalNewCost = quantityAdded * purchasePrice;
+        const totalStock = currentStock + quantityAdded;
         
-        let newAverageCostPaise = purchasePricePaise;
-        if (newTotalStock > 0) {
-          newAverageCostPaise = Math.round(
-            ((currentStock * currentAvgCost) + (item.quantity * purchasePricePaise)) / newTotalStock
-          );
+        let calculatedAverageCost = purchasePrice;
+        if (totalStock > 0) {
+          calculatedAverageCost = Math.round((totalExistingCost + totalNewCost) / totalStock);
         }
+        const newAverageCostPaise = calculatedAverageCost;
+
+        console.log(`🔍 [AVERAGE COST TRACE] Product #${item.product_id} (${product.name}):`);
+        console.log(`   - item.purchase_price (input): ${item.purchase_price} Rs`);
+        console.log(`   - purchasePrice (in Paise): ${purchasePrice}`);
+        console.log(`   - currentStock: ${currentStock}`);
+        console.log(`   - currentAverageCost: ${currentAvgCost}`);
+        console.log(`   - quantityAdded: ${quantityAdded}`);
+        console.log(`   - totalExistingCost: ${totalExistingCost} (${currentStock} * ${currentAvgCost})`);
+        console.log(`   - totalNewCost: ${totalNewCost} (${quantityAdded} * ${purchasePrice})`);
+        console.log(`   - totalStock: ${totalStock} (${currentStock} + ${quantityAdded})`);
+        console.log(`   - calculatedAverageCost: ${calculatedAverageCost} = Math.round((${totalExistingCost} + ${totalNewCost}) / ${totalStock})`);
 
         // Calculate margin and markup metrics (integer percentages)
         const margin = sellingPricePaise > 0 
@@ -128,13 +141,6 @@ export class PurchaseService {
         const markup = newAverageCostPaise > 0
           ? Math.round(((sellingPricePaise - newAverageCostPaise) / newAverageCostPaise) * 100)
           : 0;
-
-        console.log(`🧮 [PurchaseService] Product #${item.product_id} (${product.name}) Metrics:`);
-        console.log(`   - Purchase Price: ${item.purchase_price} Rs -> ${purchasePricePaise} Paise`);
-        console.log(`   - Selling Price: ${sellingPricePaise} Paise`);
-        console.log(`   - Stock: current=${currentStock}, added=${item.quantity}, newTotal=${newTotalStock}`);
-        console.log(`   - Average Cost: current=${currentAvgCost} Paise -> newAvg=${newAverageCostPaise} Paise`);
-        console.log(`   - Calculated Margin: ${margin}% | Calculated Markup: ${markup}%`);
 
         // Record stock addition movement
         const movementResult = await this.movementService.recordMovement({
