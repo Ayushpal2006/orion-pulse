@@ -8,6 +8,7 @@ import fs from "fs";
 import { env } from "../config/env";
 import { logger } from "../logger/logger";
 import { DatabaseProvider } from "./provider";
+import { runZeroAvgCostMigration } from "../db/migrations/fix_zero_avg_cost_migration";
 
 export async function initDb(): Promise<void> {
   try {
@@ -156,11 +157,8 @@ export async function initDb(): Promise<void> {
       fs.mkdirSync(uploadsDir, { recursive: true });
     }
 
-    // Ensure storage/invoices/ directory exists
-    const storageDir = path.join(process.cwd(), "storage/invoices");
-    if (!fs.existsSync(storageDir)) {
-      fs.mkdirSync(storageDir, { recursive: true });
-    }
+    // 8. Run one-time zero average cost data repair migration
+    await runZeroAvgCostMigration();
 
     logger.info("✅ PostgreSQL database initialization completed successfully.");
   } catch (error: any) {

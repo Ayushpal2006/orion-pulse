@@ -4,6 +4,7 @@ import { db } from "../../db";
 import { products } from "../../db/schema";
 import { eq, and, desc, like, or } from "drizzle-orm";
 import { getStoreId } from "../../db/context";
+import { inventoryCostService } from "../../services/inventory-cost.service";
 
 export class PostgresProductRepository implements IProductRepository {
   async getAll(tx?: any): Promise<Product[]> {
@@ -100,15 +101,11 @@ export class PostgresProductRepository implements IProductRepository {
     const client = tx || db;
     const storeId = getStoreId() || 1; // Default to store 1 if undefined
 
-    // Calculate margin and markup based on prices if costing values are not provided
+    // Calculate margin and markup via InventoryCostService single source of truth
     const purchase = product.purchase_price;
     const selling = product.selling_price;
-    let margin = 0;
-    let markup = 0;
-    if (selling > 0) {
-      margin = Math.round(((selling - purchase) / selling) * 100);
-      markup = purchase > 0 ? Math.round(((selling - purchase) / purchase) * 100) : 0;
-    }
+    const margin = inventoryCostService.calculateMarginPercent(selling, purchase);
+    const markup = inventoryCostService.calculateMarkupPercent(selling, purchase);
 
     const [createdProduct] = await client
       .insert(products)
@@ -125,8 +122,8 @@ export class PostgresProductRepository implements IProductRepository {
         gst: product.gst ?? 18,
         is_active: product.is_active ?? 1,
         image_url: product.image_url ?? null,
-        margin_percent: Math.round(margin || 0),
-        markup_percent: Math.round(markup || 0),
+        margin_percent: margin,
+        markup_percent: markup,
         average_cost: product.purchase_price,
         last_purchase_cost: product.purchase_price,
         reorder_quantity: product.minimum_stock ? product.minimum_stock * 2 : 10,
@@ -159,16 +156,16 @@ export class PostgresProductRepository implements IProductRepository {
       return this.getById(id, client);
     }
 
-    // Update margin/markup if purchase/selling prices change
+    // Update margin/markup via InventoryCostService single source of truth if prices change
     if (updateData.purchase_price !== undefined || updateData.selling_price !== undefined) {
       const existing = await this.getById(id, client);
       if (existing) {
         const purchase = updateData.purchase_price !== undefined ? updateData.purchase_price : existing.purchase_price;
         const selling = updateData.selling_price !== undefined ? updateData.selling_price : existing.selling_price;
-        if (selling > 0) {
-          updateData.margin_percent = Math.round(((selling - purchase) / selling) * 100);
-          updateData.markup_percent = purchase > 0 ? Math.round(((selling - purchase) / purchase) * 100) : 0;
-        }
+        const existingAvgCost = (existing as any).average_cost || 0;
+        const costBase = existingAvgCost > 0 ? existingAvgCost : purchase;
+        updateData.margin_percent = inventoryCostService.calculateMarginPercent(selling, costBase);
+        updateData.markup_percent = inventoryCostService.calculateMarkupPercent(selling, costBase);
       }
     }
 

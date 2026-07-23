@@ -7,6 +7,7 @@ import { getKolkataDateString } from "../utils/datetime";
 import { InventoryMovementService } from "./inventory-movement.service";
 import { purchaseRepository } from "../repositories";
 import { ProfitService } from "./profit.service";
+import { inventoryCostService } from "./inventory-cost.service";
 
 export class PurchaseService {
   private movementService = new InventoryMovementService();
@@ -108,39 +109,22 @@ export class PurchaseService {
         const lineTotalPaise = purchasePricePaise * item.quantity;
         subtotalPaise += lineTotalPaise;
 
-        // Weighted Average Costing Formula Trace:
-        const currentStock = product.stock || 0;
-        const currentAvgCost = product.average_cost || product.purchase_price || 0;
-        const quantityAdded = item.quantity;
-        const purchasePrice = purchasePricePaise;
-        const totalExistingCost = currentStock * currentAvgCost;
-        const totalNewCost = quantityAdded * purchasePrice;
-        const totalStock = currentStock + quantityAdded;
-        
-        let calculatedAverageCost = purchasePrice;
-        if (totalStock > 0) {
-          calculatedAverageCost = Math.round((totalExistingCost + totalNewCost) / totalStock);
-        }
-        const newAverageCostPaise = calculatedAverageCost;
-
-        console.log(`🔍 [AVERAGE COST TRACE] Product #${item.product_id} (${product.name}):`);
-        console.log(`   - item.purchase_price (input): ${item.purchase_price} Rs`);
-        console.log(`   - purchasePrice (in Paise): ${purchasePrice}`);
-        console.log(`   - currentStock: ${currentStock}`);
-        console.log(`   - currentAverageCost: ${currentAvgCost}`);
-        console.log(`   - quantityAdded: ${quantityAdded}`);
-        console.log(`   - totalExistingCost: ${totalExistingCost} (${currentStock} * ${currentAvgCost})`);
-        console.log(`   - totalNewCost: ${totalNewCost} (${quantityAdded} * ${purchasePrice})`);
-        console.log(`   - totalStock: ${totalStock} (${currentStock} + ${quantityAdded})`);
-        console.log(`   - calculatedAverageCost: ${calculatedAverageCost} = Math.round((${totalExistingCost} + ${totalNewCost}) / ${totalStock})`);
-
-        // Calculate margin and markup metrics (integer percentages)
-        const margin = sellingPricePaise > 0 
-          ? Math.round(((sellingPricePaise - newAverageCostPaise) / sellingPricePaise) * 100)
-          : 0;
-        const markup = newAverageCostPaise > 0
-          ? Math.round(((sellingPricePaise - newAverageCostPaise) / newAverageCostPaise) * 100)
-          : 0;
+        // Calculate cost metrics via InventoryCostService single source of truth
+        const costResult = inventoryCostService.calculateCostAfterPurchase(
+          {
+            id: product.id,
+            name: product.name,
+            stock: product.stock || 0,
+            average_cost: product.average_cost || 0,
+            last_purchase_cost: product.last_purchase_cost || 0,
+            selling_price: sellingPricePaise,
+          },
+          {
+            quantity: item.quantity,
+            purchase_price: purchasePricePaise,
+            selling_price: sellingPricePaise,
+          }
+        );
 
         // Record stock addition movement
         const movementResult = await this.movementService.recordMovement({
@@ -153,16 +137,16 @@ export class PurchaseService {
           createdBy: "System",
           reason: `Purchase Entry: invoice ${invNumber || ""}`,
           costDetails: {
-            averageCost: newAverageCostPaise,
-            lastPurchaseCost: purchasePricePaise,
-            margin,
-            markup,
+            averageCost: costResult.average_cost,
+            lastPurchaseCost: costResult.last_purchase_cost,
+            margin: costResult.margin_percent,
+            markup: costResult.markup_percent,
           }
         }, tx);
 
         const setObj = {
           purchase_price: purchasePricePaise,
-          selling_price: sellingPricePaise,
+          selling_price: costResult.selling_price,
           updated_at: new Date()
         };
 
@@ -186,7 +170,7 @@ export class PurchaseService {
         }
 
         // Log cost snapshot for Profit Engine (fire-and-forget, non-blocking)
-        this.profitService.logCostSnapshot(item.product_id, newAverageCostPaise, tx).catch(() => {});
+        this.profitService.logCostSnapshot(item.product_id, costResult.average_cost, tx).catch(() => {});
 
         itemsData.push({
           product_id: item.product_id,
@@ -356,19 +340,22 @@ export class PurchaseService {
         const lineTotalPaise = purchasePricePaise * item.quantity;
         subtotalPaise += lineTotalPaise;
 
-        // Calculate average purchase cost (with reversed stock base)
-        const beforeStock = product.stock; // Already contains reversed (subtracted) stock
-        const afterStock = beforeStock + item.quantity;
-        let averageCostPaise = product.average_cost;
-        if (averageCostPaise <= 0) {
-          averageCostPaise = product.purchase_price;
-        }
-        const totalCostBefore = beforeStock * averageCostPaise;
-        const totalCostAdded = item.quantity * purchasePricePaise;
-        const newAverageCostPaise = afterStock > 0 ? Math.round((totalCostBefore + totalCostAdded) / afterStock) : purchasePricePaise;
-
-        const margin = sellingPricePaise > 0 ? Math.round(((sellingPricePaise - purchasePricePaise) / sellingPricePaise) * 100) : 0;
-        const markup = purchasePricePaise > 0 ? Math.round(((sellingPricePaise - purchasePricePaise) / purchasePricePaise) * 100) : 0;
+        // Calculate cost metrics via InventoryCostService single source of truth
+        const costResult = inventoryCostService.calculateCostAfterPurchase(
+          {
+            id: product.id,
+            name: product.name,
+            stock: product.stock || 0, // Contains reversed (subtracted) stock
+            average_cost: product.average_cost || 0,
+            last_purchase_cost: product.last_purchase_cost || 0,
+            selling_price: sellingPricePaise,
+          },
+          {
+            quantity: item.quantity,
+            purchase_price: purchasePricePaise,
+            selling_price: sellingPricePaise,
+          }
+        );
 
         // Record stock increment & log inventory movement
         const movementResult = await this.movementService.recordMovement({
@@ -381,10 +368,10 @@ export class PurchaseService {
           createdBy: "System",
           reason: `Purchase Update Receipt: invoice ${data.supplier_invoice_number || ""}`,
           costDetails: {
-            averageCost: newAverageCostPaise,
-            lastPurchaseCost: purchasePricePaise,
-            margin,
-            markup,
+            averageCost: costResult.average_cost,
+            lastPurchaseCost: costResult.last_purchase_cost,
+            margin: costResult.margin_percent,
+            markup: costResult.markup_percent,
           }
         }, tx);
 
