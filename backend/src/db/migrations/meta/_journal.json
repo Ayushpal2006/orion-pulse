@@ -92,6 +92,13 @@
       "when": 1784490001000,
       "tag": "0012_fix_purchase_orphaned_columns",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1784490002000,
+      "tag": "0013_ensure_product_cost_history_table",
+      "breakpoints": true
     }
   ]
 }
