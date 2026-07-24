@@ -66,12 +66,10 @@ export class DatabaseProvider {
 }
 
 function connStrIsPlaceholder(connStr?: string): boolean {
-  if (!connStr) return true;
+  if (!connStr || connStr.trim() === "") return true;
   return (
-    connStr.includes("orion.db") ||
     connStr.includes("placeholder") ||
-    connStr.includes("localhost:5432") ||
-    connStr.includes("railway.internal")
+    connStr.includes("your-database-url")
   );
 }
 
