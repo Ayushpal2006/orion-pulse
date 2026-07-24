@@ -3,7 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { inr } from "@/lib/format";
-import { downloadPurchasePdf, getPurchaseWhatsAppLink } from "@/lib/api";
+import { downloadPurchasePdf, getPurchaseWhatsAppLink, buildImageUrl } from "@/lib/api";
 import { toast } from "sonner";
 import { Printer, FileText, Share2, Building2, Calendar, CreditCard, Tag, AlertTriangle, ShieldCheck } from "lucide-react";
 
@@ -136,9 +136,25 @@ export function PurchaseDetailsDialog({ purchase, open, onOpenChange }: Purchase
                   return (
                     <div key={idx} className="px-3 py-2 grid grid-cols-12 text-xs items-center">
                       <div className="col-span-1 text-muted-foreground font-mono text-[10px]">{idx + 1}</div>
-                      <div className="col-span-5 font-semibold truncate text-foreground">
-                        {item.product_name || `Product #${item.product_id}`}
-                        {item.product_sku && <span className="text-[10px] text-muted-foreground font-mono ml-1">({item.product_sku})</span>}
+                      <div className="col-span-5 font-semibold truncate text-foreground flex items-center gap-2">
+                        <div className="size-6 rounded-md overflow-hidden bg-muted/40 border border-border/50 shrink-0 flex items-center justify-center">
+                          {item.product_image || item.image || item.image_url ? (
+                            <img
+                              src={buildImageUrl(item.product_image || item.image || item.image_url) || item.product_image || item.image || item.image_url}
+                              alt={item.product_name}
+                              className="size-full object-cover rounded-md"
+                              onError={(e) => {
+                                e.currentTarget.style.display = "none";
+                              }}
+                            />
+                          ) : (
+                            <span className="text-[10px]">🛍️</span>
+                          )}
+                        </div>
+                        <div className="truncate">
+                          <span>{item.product_name || `Product #${item.product_id}`}</span>
+                          {item.product_sku && <span className="text-[10px] text-muted-foreground font-mono ml-1">({item.product_sku})</span>}
+                        </div>
                       </div>
                       <div className="col-span-2 text-right font-mono text-muted-foreground">{inr(pPrice)}</div>
                       <div className="col-span-2 text-center font-mono font-bold text-foreground">{item.quantity}</div>

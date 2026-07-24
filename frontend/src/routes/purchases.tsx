@@ -4,7 +4,7 @@ import {
   Search, Phone, Calendar, Plus, Pencil, Trash2, Loader2, ShoppingBag, Receipt,
   Check, ArrowUpDown, ChevronLeft, ChevronRight, X, Scan, DollarSign, CalendarDays,
   Percent, FileText, Info, AlertTriangle, RefreshCw, Eye, Printer, Share2, Copy, Tag,
-  Building2, CornerDownLeft
+  Building2, CornerDownLeft, CheckCircle2, ShoppingCart, ChevronDown, ChevronUp, Sparkles
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -50,6 +50,7 @@ import {
   getSuppliers,
   getProducts,
   createSupplier,
+  buildImageUrl,
 } from "@/lib/api";
 import { inr } from "@/lib/format";
 import { useApp } from "@/lib/store";
@@ -126,6 +127,22 @@ function PurchasesPage() {
   const [cartItems, setCartItems] = useState<FormItem[]>([]);
   const [productSearch, setProductSearch] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string>("All");
+
+  // Selected Products Tray & Click Feedback States
+  const [selectedTrayCollapsed, setSelectedTrayCollapsed] = useState(false);
+  const [highlightedProductId, setHighlightedProductId] = useState<number | null>(null);
+  const [clickFeedbackMap, setClickFeedbackMap] = useState<Record<number, { text: string; id: number }>>({});
+
+  const scrollToProductCard = (productId: number) => {
+    const el = document.getElementById(`product-card-${productId}`);
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      setHighlightedProductId(productId);
+      setTimeout(() => {
+        setHighlightedProductId(null);
+      }, 850);
+    }
+  };
 
   // Debounce search
   useEffect(() => {
@@ -257,16 +274,37 @@ function PurchasesPage() {
     return found ? found.name : "Select Supplier";
   }, [supplierId, suppliersList]);
 
-  // Add Product to Purchase Cart
+  // Add Product to Purchase Cart with Click Animation Feedback
   const handleAddProductToCart = (prod: any) => {
-    const existingIdx = cartItems.findIndex((item) => item.product_id === prod.id);
+    const pId = Number(prod.id);
+    const existingIdx = cartItems.findIndex((item) => item.product_id === pId);
+
+    // Trigger floating click feedback badge
+    const feedbackId = Date.now();
+    const newQty = existingIdx !== -1 ? cartItems[existingIdx].quantity + 1 : 1;
+    setClickFeedbackMap((prev) => ({
+      ...prev,
+      [pId]: { text: `+1 Added (Qty ${newQty})`, id: feedbackId },
+    }));
+
+    setTimeout(() => {
+      setClickFeedbackMap((prev) => {
+        if (prev[pId]?.id === feedbackId) {
+          const next = { ...prev };
+          delete next[pId];
+          return next;
+        }
+        return prev;
+      });
+    }, 450);
+
     if (existingIdx !== -1) {
       const newItems = [...cartItems];
       newItems[existingIdx].quantity += 1;
       setCartItems(newItems);
-      toast.info(`Increased "${prod.name}" quantity`);
+      toast.info(`Increased "${prod.name}" quantity to ${newQty}`);
     } else {
-      // Extract Purchase Cost from Inventory product (prod.purchase is already in Rupees from mapBackendProductToFrontend)
+      // Extract Purchase Cost from Inventory product
       const initialPurchaseCost =
         typeof prod.purchase === "number" && !isNaN(prod.purchase)
           ? prod.purchase
@@ -284,7 +322,7 @@ function PurchasesPage() {
       setCartItems([
         ...cartItems,
         {
-          product_id: Number(prod.id),
+          product_id: pId,
           name: prod.name,
           sku: prod.sku || "",
           barcode: prod.barcode || "",
@@ -293,6 +331,7 @@ function PurchasesPage() {
           selling_price: initialSellingPrice,
           gst: prod.gst || 0,
           discount: 0,
+          image: prod.image || prod.image_url || buildImageUrl(prod.image_url),
         },
       ]);
       toast.success(`Added "${prod.name}" to cart`);
@@ -777,10 +816,11 @@ function PurchasesPage() {
                   <button
                     key={cat}
                     onClick={() => setSelectedCategory(cat)}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-colors ${selectedCategory === cat
+                    className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-colors ${
+                      selectedCategory === cat
                         ? "bg-primary text-primary-foreground shadow-sm"
                         : "bg-muted/40 text-muted-foreground hover:bg-muted/80"
-                      }`}
+                    }`}
                   >
                     {cat}
                   </button>
@@ -788,11 +828,61 @@ function PurchasesPage() {
               </div>
             </div>
 
+            {/* Selected Products Tray (Collapsible Tray above Product Grid) */}
+            {cartItems.length > 0 && (
+              <div className="card-soft p-3 space-y-2 border-emerald-500/40 bg-emerald-500/5 animate-in fade-in slide-in-from-top-2">
+                <div className="flex items-center justify-between">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedTrayCollapsed(!selectedTrayCollapsed)}
+                    className="flex items-center gap-2 text-xs font-bold text-emerald-800 dark:text-emerald-300 hover:text-emerald-600 transition-colors cursor-pointer"
+                  >
+                    <Sparkles className="size-3.5 text-emerald-500" />
+                    <span>Selected Products ({cartItems.length})</span>
+                    {selectedTrayCollapsed ? <ChevronDown className="size-3.5" /> : <ChevronUp className="size-3.5" />}
+                  </button>
+                  <span className="text-[10px] font-mono text-muted-foreground">Click item to smart-scroll to card</span>
+                </div>
+
+                {!selectedTrayCollapsed && (
+                  <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none pt-1">
+                    {cartItems.map((item) => (
+                      <button
+                        key={item.product_id}
+                        type="button"
+                        onClick={() => scrollToProductCard(item.product_id)}
+                        className="shrink-0 flex items-center gap-2 p-1.5 rounded-xl bg-background border border-emerald-500/30 hover:border-emerald-500 text-left transition-all shadow-2xs group cursor-pointer"
+                        title={`Click to scroll to ${item.name}`}
+                      >
+                        <div className="size-7 rounded-lg overflow-hidden bg-muted/40 border border-border/50 shrink-0 flex items-center justify-center">
+                          {item.image ? (
+                            <img src={buildImageUrl(item.image) || item.image} alt={item.name} className="size-full object-cover" />
+                          ) : (
+                            <span className="text-xs">🛍️</span>
+                          )}
+                        </div>
+                        <div className="min-w-0 pr-1">
+                          <div className="text-[11px] font-bold text-foreground truncate max-w-[100px] group-hover:text-emerald-600">
+                            {item.name}
+                          </div>
+                          <div className="flex items-center gap-1.5 text-[9px] font-mono text-muted-foreground">
+                            <span className="text-emerald-600 font-bold">Qty: {item.quantity}</span>
+                            <span>•</span>
+                            <span>{inr(item.purchase_price)}</span>
+                          </div>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Product Cards Grid */}
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 max-h-[620px] overflow-y-auto pr-1">
               {filteredProducts.length === 0 ? (
                 <div className="col-span-full card-soft p-8 text-center text-xs text-muted-foreground">
-                  No products found matching "{productSearch}"
+                  No products found matching &ldquo;{productSearch}&rdquo;
                 </div>
               ) : (
                 filteredProducts.map((prod: any) => {
@@ -808,32 +898,66 @@ function PurchasesPage() {
                   return (
                     <div
                       key={prod.id}
+                      id={`product-card-${prod.id}`}
                       onClick={() => handleAddProductToCart(prod)}
-                      className={`card-soft p-3 cursor-pointer transition-all hover:shadow-md group flex flex-col justify-between relative ${isSelected
-                          ? "border-primary bg-primary/10 ring-2 ring-primary/30 shadow-md"
+                      className={`card-soft p-3 cursor-pointer transition-all duration-200 ease-in-out hover:shadow-md group flex flex-col justify-between relative rounded-2xl ${
+                        highlightedProductId === prod.id
+                          ? "ring-4 ring-emerald-500 scale-[1.02] shadow-xl bg-emerald-500/20 border-emerald-500 animate-pulse"
+                          : isSelected
+                          ? "border-emerald-500/80 bg-emerald-500/10 ring-2 ring-emerald-500/30 shadow-md dark:bg-emerald-950/20"
                           : "hover:border-primary/50"
-                        }`}
+                      }`}
                     >
+                      {/* Floating Click Feedback Badge (+1 Added) */}
+                      {clickFeedbackMap[prod.id] && (
+                        <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-emerald-600 text-white font-bold text-[10px] px-2 py-0.5 rounded-full shadow-lg z-30 animate-in fade-in slide-in-from-bottom-2 duration-200 flex items-center gap-1">
+                          <Check className="size-3 stroke-[3]" /> {clickFeedbackMap[prod.id].text}
+                        </div>
+                      )}
+
                       <div>
-                        <div className="flex justify-between items-start gap-1">
-                          <span className="text-xl">🛍️</span>
+                        <div className="flex justify-between items-start gap-2">
+                          <div className="relative size-11 rounded-xl overflow-hidden bg-muted/40 border border-border/60 shrink-0 flex items-center justify-center shadow-2xs">
+                            {prod.image || prod.image_url ? (
+                              <img
+                                src={buildImageUrl(prod.image || prod.image_url) || prod.image || prod.image_url}
+                                alt={prod.name}
+                                className="size-full object-cover rounded-xl transition-transform duration-300 group-hover:scale-105"
+                                onError={(e) => {
+                                  e.currentTarget.style.display = "none";
+                                }}
+                              />
+                            ) : (
+                              <span className="text-xl">🛍️</span>
+                            )}
+                            {isSelected && (
+                              <span className="absolute -top-1 -right-1 bg-emerald-500 text-white rounded-full p-0.5 shadow-2xs animate-in zoom-in-50 z-10">
+                                <ShoppingCart className="size-2.5" />
+                              </span>
+                            )}
+                          </div>
                           <div className="flex flex-col items-end gap-1">
                             <Badge variant="outline" className="text-[9px] font-mono">Stock: {prod.stock}</Badge>
                             {isSelected && (
-                              <Badge className="bg-primary text-primary-foreground font-black text-[9px] px-1.5 py-0.5 animate-pulse">
-                                ✓ Qty {cartItem.quantity}
-                              </Badge>
+                              <div className="flex items-center gap-1 animate-in fade-in zoom-in-95">
+                                <Badge className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[9px] px-1.5 py-0.5 shadow-2xs flex items-center gap-0.5">
+                                  <Check className="size-2.5 stroke-[3]" /> Selected
+                                </Badge>
+                                <Badge variant="outline" className="border-emerald-500/50 text-emerald-700 dark:text-emerald-300 bg-emerald-500/20 font-mono font-bold text-[9px] px-1.5 py-0.5">
+                                  Qty: {cartItem.quantity}
+                                </Badge>
+                              </div>
                             )}
                           </div>
                         </div>
-                        <div className="font-bold text-xs text-foreground mt-2 line-clamp-2 group-hover:text-primary transition-colors">
+                        <div className={`font-bold text-xs mt-2 line-clamp-2 transition-colors ${isSelected ? "text-emerald-950 dark:text-emerald-200 font-extrabold" : "text-foreground group-hover:text-primary"}`}>
                           {prod.name}
                         </div>
                         {prod.sku && <div className="text-[10px] text-muted-foreground font-mono">{prod.sku}</div>}
                       </div>
-                      <div className="mt-3 pt-2 border-t border-border/40 flex items-center justify-between">
+                      <div className={`mt-3 pt-2 border-t flex items-center justify-between transition-colors ${isSelected ? "border-emerald-500/30" : "border-border/40"}`}>
                         <span className="text-[10px] text-muted-foreground uppercase font-semibold">Purchase Cost</span>
-                        <span className="font-mono font-black text-xs text-foreground">{inr(costRupees)}</span>
+                        <span className={`font-mono font-black text-xs ${isSelected ? "text-emerald-700 dark:text-emerald-300" : "text-foreground"}`}>{inr(costRupees)}</span>
                       </div>
                     </div>
                   );
@@ -844,6 +968,32 @@ function PurchasesPage() {
 
           {/* RIGHT: Purchase Cart & Checkout Panel (5 Cols) */}
           <div className="lg:col-span-5 space-y-4">
+            {/* Quick Summary Bar */}
+            <div className="card-soft p-3.5 bg-muted/20 border border-border/60 rounded-2xl space-y-2">
+              <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground flex items-center justify-between">
+                <span>Purchase Quick Summary</span>
+                <span className="font-mono text-emerald-600 font-bold">Live Updates</span>
+              </div>
+              <div className="grid grid-cols-2 gap-2 text-xs font-mono">
+                <div className="p-2 rounded-xl bg-background border border-border/50">
+                  <div className="text-[10px] text-muted-foreground font-sans">Selected Products</div>
+                  <div className="font-bold text-foreground text-sm">{cartItems.length}</div>
+                </div>
+                <div className="p-2 rounded-xl bg-background border border-border/50">
+                  <div className="text-[10px] text-muted-foreground font-sans">Total Quantity</div>
+                  <div className="font-bold text-foreground text-sm">{cartItems.reduce((sum, i) => sum + i.quantity, 0)} Pcs</div>
+                </div>
+                <div className="p-2 rounded-xl bg-background border border-border/50">
+                  <div className="text-[10px] text-muted-foreground font-sans">Estimated Amount</div>
+                  <div className="font-bold text-emerald-600 text-sm">{inr(cartItems.reduce((sum, i) => sum + (i.purchase_price * i.quantity), 0))}</div>
+                </div>
+                <div className="p-2 rounded-xl bg-background border border-border/50">
+                  <div className="text-[10px] text-muted-foreground font-sans">Supplier</div>
+                  <div className="font-bold text-foreground text-xs truncate">{selectedSupplierName}</div>
+                </div>
+              </div>
+            </div>
+
             <div className="card-soft p-4 space-y-4">
               <div className="flex items-center justify-between border-b border-border pb-3">
                 <div className="flex items-center gap-2">
@@ -856,15 +1006,39 @@ function PurchasesPage() {
               {/* Cart Items List */}
               <div className="divide-y divide-border/60 max-h-56 overflow-y-auto pr-1">
                 {cartItems.length === 0 ? (
-                  <div className="p-8 text-center text-xs text-muted-foreground space-y-1">
-                    <div>Cart is empty</div>
-                    <div className="text-[10px]">Click any product from catalog to add to purchase</div>
+                  <div className="p-8 text-center text-xs text-muted-foreground space-y-3 flex flex-col items-center justify-center border-2 border-dashed border-border/60 rounded-2xl bg-muted/10 my-1">
+                    <div className="size-12 rounded-2xl bg-primary/10 text-primary flex items-center justify-center text-2xl">
+                      🛒
+                    </div>
+                    <div className="space-y-1">
+                      <h4 className="font-bold text-sm text-foreground">Purchase Cart Empty</h4>
+                      <p className="text-xs text-muted-foreground max-w-xs leading-relaxed">
+                        No products selected yet. Click any product card to start creating a purchase order.
+                      </p>
+                    </div>
+                    <Badge variant="outline" className="text-[10px] font-mono text-emerald-600 border-emerald-500/30 bg-emerald-500/10">
+                      Selected products will automatically be highlighted
+                    </Badge>
                   </div>
                 ) : (
                   cartItems.map((item, idx) => (
                     <div key={idx} className="py-2.5 space-y-1.5 text-xs">
-                      <div className="flex items-start justify-between">
-                        <div className="min-w-0 flex-1 pr-2">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="size-8 rounded-lg overflow-hidden bg-muted/40 border border-border/50 shrink-0 flex items-center justify-center">
+                          {item.image ? (
+                            <img
+                              src={buildImageUrl(item.image) || item.image}
+                              alt={item.name}
+                              className="size-full object-cover rounded-lg"
+                              onError={(e) => {
+                                e.currentTarget.style.display = "none";
+                              }}
+                            />
+                          ) : (
+                            <span className="text-xs">🛍️</span>
+                          )}
+                        </div>
+                        <div className="min-w-0 flex-1">
                           <div className="font-bold text-foreground truncate">{item.name}</div>
                           {item.sku && <div className="text-[10px] text-muted-foreground font-mono">{item.sku}</div>}
                         </div>
@@ -872,7 +1046,7 @@ function PurchasesPage() {
                           variant="ghost"
                           size="icon"
                           onClick={() => handleRemoveCartItem(idx)}
-                          className="size-6 text-rose-500 hover:text-rose-600 hover:bg-rose-500/10 rounded-md"
+                          className="size-6 text-rose-500 hover:text-rose-600 hover:bg-rose-500/10 rounded-md shrink-0"
                         >
                           <Trash2 className="size-3.5" />
                         </Button>
