@@ -3,6 +3,7 @@ import { ReportsService } from "../services/reports.service";
 import { productRepository, customerRepository, saleRepository } from "../repositories";
 import PDFDocument from "pdfkit";
 import * as XLSX from "xlsx";
+import { configurePdfFonts, formatInrPdf } from "../services/pdf-font.helper";
 
 export class ReportsController {
   private service: ReportsService;
@@ -53,23 +54,7 @@ export class ReportsController {
       const doc = new PDFDocument({ margin: 50, size: "A4", bufferPages: true });
       doc.pipe(res);
 
-      const path = require("path");
-      const fs = require("fs");
-      const regularFontPath = path.join(__dirname, "../assets/fonts/Outfit-Regular.ttf");
-      const boldFontPath = path.join(__dirname, "../assets/fonts/Outfit-Bold.ttf");
-
-      const hasOutfit = fs.existsSync(regularFontPath) && fs.existsSync(boldFontPath);
-      if (hasOutfit) {
-        doc.registerFont("Outfit", regularFontPath);
-        doc.registerFont("Outfit-Bold", boldFontPath);
-        doc.font("Outfit");
-      } else {
-        doc.registerFont("Outfit", "Helvetica");
-        doc.registerFont("Outfit-Bold", "Helvetica-Bold");
-        doc.font("Outfit");
-      }
-
-      const currencySymbol = hasOutfit ? "₹" : "Rs.";
+      configurePdfFonts(doc);
       const kolkataTime = new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" });
 
       // --- PDF Drawing ---
@@ -93,10 +78,10 @@ export class ReportsController {
       const cardGap = 11;
 
       const cards = [
-        { label: "TOTAL REVENUE", value: `${currencySymbol} ${data.revenue.toFixed(2)}` },
+        { label: "TOTAL REVENUE", value: formatInrPdf(data.revenue) },
         { label: "TOTAL ORDERS", value: `${data.orders}` },
-        { label: "GROSS PROFIT", value: `${currencySymbol} ${data.profit.toFixed(2)}` },
-        { label: "AVERAGE TICKET", value: `${currencySymbol} ${data.averageOrderValue.toFixed(2)}` }
+        { label: "GROSS PROFIT", value: formatInrPdf(data.profit) },
+        { label: "AVERAGE TICKET", value: formatInrPdf(data.averageOrderValue) }
       ];
 
       cards.forEach((c, idx) => {
@@ -150,7 +135,7 @@ export class ReportsController {
           doc.fillColor("#334155").font("Outfit").fontSize(9);
           doc.text(p.name, 58, currentY + 5);
           doc.text(String(p.unitsSold), 320, currentY + 5, { width: 80, align: "right" });
-          doc.text(`${currencySymbol} ${p.revenue.toFixed(2)}`, 430, currentY + 5, { width: 100, align: "right" });
+          doc.text(formatInrPdf(p.revenue), 430, currentY + 5, { width: 100, align: "right" });
           currentY += 20;
         });
         currentY += 8;
@@ -181,7 +166,7 @@ export class ReportsController {
           doc.text(c.name, 58, currentY + 5);
           doc.text(c.phone, 220, currentY + 5);
           doc.text(String(c.orders), 320, currentY + 5, { width: 80, align: "right" });
-          doc.text(`${currencySymbol} ${c.spend.toFixed(2)}`, 430, currentY + 5, { width: 100, align: "right" });
+          doc.text(formatInrPdf(c.spend), 430, currentY + 5, { width: 100, align: "right" });
           currentY += 20;
         });
         currentY += 8;
@@ -215,8 +200,8 @@ export class ReportsController {
           }
           doc.fillColor("#334155").font("Outfit").fontSize(9);
           doc.text(`GST ${g.slab}`, 58, currentY + 5);
-          doc.text(`${currencySymbol} ${g.taxable.toFixed(2)}`, 220, currentY + 5, { width: 140, align: "right" });
-          doc.text(`${currencySymbol} ${g.tax.toFixed(2)}`, 390, currentY + 5, { width: 140, align: "right" });
+          doc.text(formatInrPdf(g.taxable), 220, currentY + 5, { width: 140, align: "right" });
+          doc.text(formatInrPdf(g.tax), 390, currentY + 5, { width: 140, align: "right" });
           currentY += 20;
         });
 
@@ -225,8 +210,8 @@ export class ReportsController {
         doc.rect(50, currentY, 495, 20).fillColor("#f1f5f9").fill();
         doc.fillColor("#0f172a").font("Outfit-Bold").fontSize(9);
         doc.text("Total", 58, currentY + 5);
-        doc.text(`${currencySymbol} ${totalTaxable.toFixed(2)}`, 220, currentY + 5, { width: 140, align: "right" });
-        doc.text(`${currencySymbol} ${totalTax.toFixed(2)}`, 390, currentY + 5, { width: 140, align: "right" });
+        doc.text(formatInrPdf(totalTaxable), 220, currentY + 5, { width: 140, align: "right" });
+        doc.text(formatInrPdf(totalTax), 390, currentY + 5, { width: 140, align: "right" });
         currentY += 20;
       }
 

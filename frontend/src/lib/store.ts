@@ -57,6 +57,19 @@ type State = {
   whatsappFooter: string;
   requireCustomerBeforeCheckout: boolean;
   receiptTemplate: "Classic" | "Retail" | "Premium" | "Compact";
+  // branding extended properties
+  tagline?: string;
+  website?: string;
+  invoiceHeader?: string;
+  invoiceFooter?: string;
+  thankYouMessage?: string;
+  termsAndConditions?: string;
+  returnPolicy?: string;
+  whatsappSignature?: string;
+  upiQrUrl?: string;
+  accountHolderName?: string;
+  bankDetails?: string;
+  primaryColor?: string;
 };
 
 type Actions = {
@@ -110,6 +123,18 @@ type Actions = {
   setWhatsappFooter: (s: string) => void;
   setRequireCustomerBeforeCheckout: (v: boolean) => void;
   setReceiptTemplate: (t: "Classic" | "Retail" | "Premium" | "Compact") => void;
+  setTagline?: (s: string) => void;
+  setWebsite?: (s: string) => void;
+  setInvoiceHeader?: (s: string) => void;
+  setInvoiceFooter?: (s: string) => void;
+  setThankYouMessage?: (s: string) => void;
+  setTermsAndConditions?: (s: string) => void;
+  setReturnPolicy?: (s: string) => void;
+  setWhatsappSignature?: (s: string) => void;
+  setUpiQrUrl?: (s: string) => void;
+  setAccountHolderName?: (s: string) => void;
+  setBankDetails?: (s: string) => void;
+  setPrimaryColor?: (s: string) => void;
 };
 
 export const useApp = create<State & Actions>((set, get) => ({
@@ -278,6 +303,18 @@ export const useApp = create<State & Actions>((set, get) => ({
   setWhatsappFooter: (whatsappFooter) => set({ whatsappFooter }),
   setRequireCustomerBeforeCheckout: (requireCustomerBeforeCheckout) => set({ requireCustomerBeforeCheckout }),
   setReceiptTemplate: (receiptTemplate) => set({ receiptTemplate }),
+  setTagline: (tagline) => set({ tagline }),
+  setWebsite: (website) => set({ website }),
+  setInvoiceHeader: (invoiceHeader) => set({ invoiceHeader }),
+  setInvoiceFooter: (invoiceFooter) => set({ invoiceFooter }),
+  setThankYouMessage: (thankYouMessage) => set({ thankYouMessage }),
+  setTermsAndConditions: (termsAndConditions) => set({ termsAndConditions }),
+  setReturnPolicy: (returnPolicy) => set({ returnPolicy }),
+  setWhatsappSignature: (whatsappSignature) => set({ whatsappSignature }),
+  setUpiQrUrl: (upiQrUrl) => set({ upiQrUrl }),
+  setAccountHolderName: (accountHolderName) => set({ accountHolderName }),
+  setBankDetails: (bankDetails) => set({ bankDetails }),
+  setPrimaryColor: (primaryColor) => set({ primaryColor }),
 }));
 
 export const cartTotals = (cart: CartLine[]) => {

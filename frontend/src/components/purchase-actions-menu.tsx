@@ -169,13 +169,6 @@ export function PurchaseActionsMenu({
             <RotateCcw className="size-4 text-rose-500" /> Void Purchase
           </Button>
         )}
-
-        {/* Soft Delete */}
-        {role === "Admin" && !isDeleted && (
-          <Button variant="outline" size="sm" onClick={() => setDeleteDialogOpen(true)} className="h-10 rounded-xl justify-start gap-2 text-xs font-semibold text-rose-700 border-rose-700/20 hover:bg-rose-700/10">
-            <Trash2 className="size-4 text-rose-700" /> Delete Order
-          </Button>
-        )}
       </div>
 
       {/* Void Confirmation Dialog */}

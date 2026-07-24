@@ -246,7 +246,7 @@ export function InvoiceActionsMenu({
         </div>
 
         {receipt.status !== "VOID" && receipt.status !== "DELETED" && (
-          <div className="border-t border-border pt-3 grid grid-cols-1 sm:grid-cols-2 gap-2">
+          <div className="border-t border-border pt-3">
             <Button
               variant="destructive"
               size="sm"
@@ -257,20 +257,10 @@ export function InvoiceActionsMenu({
                 }
                 setVoidDialogOpen(true);
               }}
-              className="h-10 rounded-xl font-bold bg-rose-600 hover:bg-rose-700 text-white flex items-center justify-center gap-2 text-xs"
+              className="h-10 w-full rounded-xl font-bold bg-rose-600 hover:bg-rose-700 text-white flex items-center justify-center gap-2 text-xs"
             >
               <Trash2 className="size-4" /> Void Invoice
             </Button>
-            {canDelete && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setDeleteDialogOpen(true)}
-                className="h-10 rounded-xl font-bold text-rose-600 border-rose-500/30 hover:bg-rose-500/10 flex items-center justify-center gap-2 text-xs"
-              >
-                <Trash2 className="size-4 text-rose-600" /> Delete (Admin)
-              </Button>
-            )}
           </div>
         )}
       </div>

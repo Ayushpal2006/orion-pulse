@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from "express";
 import { ProfitService } from "../services/profit.service";
 import PDFDocument from "pdfkit";
 import * as XLSX from "xlsx";
+import { configurePdfFonts, formatInrPdf } from "../services/pdf-font.helper";
 
 export class ProfitController {
   private service = new ProfitService();
@@ -171,17 +172,7 @@ export class ProfitController {
       res.setHeader("Content-Type", "application/pdf");
       doc.pipe(res);
 
-      const regularFontPath = path.join(__dirname, "../assets/fonts/Outfit-Regular.ttf");
-      const boldFontPath = path.join(__dirname, "../assets/fonts/Outfit-Bold.ttf");
-      const hasOutfit = fs.existsSync(regularFontPath) && fs.existsSync(boldFontPath);
-      if (hasOutfit) {
-        doc.registerFont("Outfit", regularFontPath);
-        doc.registerFont("Outfit-Bold", boldFontPath);
-      } else {
-        doc.registerFont("Outfit", "Helvetica");
-        doc.registerFont("Outfit-Bold", "Helvetica-Bold");
-      }
-      const Rs = hasOutfit ? "₹" : "Rs.";
+      configurePdfFonts(doc);
 
       doc.font("Outfit-Bold").fontSize(20).fillColor("#0f172a").text("Apka Bill — Profit & Margin Report", { align: "center" });
       doc.font("Outfit").fontSize(9).fillColor("#64748b").text(`Generated: ${new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })}`, { align: "center" });
@@ -191,9 +182,9 @@ export class ProfitController {
       doc.font("Outfit-Bold").fontSize(13).fillColor("#0f172a").text("Summary");
       doc.moveDown(0.5);
       const summaryRows = [
-        ["Revenue", `${Rs} ${(summary.revenue / 100).toLocaleString("en-IN", { minimumFractionDigits: 2 })}`],
-        ["Cost of Goods Sold", `${Rs} ${(summary.cogs / 100).toLocaleString("en-IN", { minimumFractionDigits: 2 })}`],
-        ["Gross Profit", `${Rs} ${(summary.grossProfit / 100).toLocaleString("en-IN", { minimumFractionDigits: 2 })}`],
+        ["Revenue", formatInrPdf(summary.revenue / 100)],
+        ["Cost of Goods Sold", formatInrPdf(summary.cogs / 100)],
+        ["Gross Profit", formatInrPdf(summary.grossProfit / 100)],
         ["Gross Margin %", `${summary.grossMarginPercent.toFixed(2)}%`],
         ["Units Sold", summary.unitsSold.toString()],
         ["Total Invoices", summary.invoiceCount.toString()],
@@ -225,9 +216,9 @@ export class ProfitController {
         const cells = [
           p.name.substring(0, 25),
           p.unitsSold.toString(),
-          `${Rs} ${(p.revenue / 100).toFixed(0)}`,
-          `${Rs} ${(p.cogs / 100).toFixed(0)}`,
-          `${Rs} ${(p.grossProfit / 100).toFixed(0)}`,
+          formatInrPdf(p.revenue / 100),
+          formatInrPdf(p.cogs / 100),
+          formatInrPdf(p.grossProfit / 100),
           `${p.grossMarginPercent.toFixed(1)}%`,
         ];
         for (let i = 0; i < cells.length; i++) {

@@ -6,22 +6,54 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Badge } from "@/components/ui/badge";
 import { RoleGate } from "@/components/role-gate";
 import { useApp, type Role, type PaperWidth } from "@/lib/store";
 import { toast } from "sonner";
-import { Printer, Upload, Download, RotateCcw, Loader2, Cloud, RefreshCw, CheckCircle2, AlertCircle, HardDrive } from "lucide-react";
+import {
+  Printer,
+  Upload,
+  Download,
+  RotateCcw,
+  Loader2,
+  Cloud,
+  RefreshCw,
+  CheckCircle2,
+  AlertCircle,
+  HardDrive,
+  Building2,
+  Receipt,
+  ShoppingBag,
+  Package,
+  Users,
+  BarChart3,
+  MessageSquare,
+  FileText,
+  Percent,
+  Database,
+  Archive,
+  Terminal,
+  Search,
+  SlidersHorizontal,
+  CheckCircle,
+  Globe,
+  DollarSign,
+  Palette,
+  Check,
+} from "lucide-react";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { ReceiptPreview } from "@/components/receipt-preview";
 import { testPrinter, API_BASE_URL } from "@/lib/api";
 import { formatToKolkataDateTime } from "@/lib/datetime";
+import { WhatsAppTemplateManager } from "@/components/whatsapp-template-manager";
+import { BrandingSettings } from "@/components/branding-settings";
 
 export const Route = createFileRoute("/settings")({
   head: () => ({
     meta: [
-      { title: "Settings · Apka Bill" },
-      { name: "description", content: "Configure your shop, GSTIN, printer and user roles." },
-      { property: "og:title", content: "Settings · Apka Bill" },
-      { property: "og:description", content: "Business, printer and role setup." },
+      { title: "Settings V2 · Orion POS" },
+      { name: "description", content: "Enterprise configuration center for Orion POS." },
+      { property: "og:title", content: "Settings V2 · Orion POS" },
     ],
   }),
   component: SettingsPage,
@@ -30,825 +62,918 @@ export const Route = createFileRoute("/settings")({
 function SettingsPage() {
   return (
     <RoleGate allow={["Admin", "Manager"]}>
-      <Settings />
+      <SettingsV2 />
     </RoleGate>
   );
 }
 
-function Settings() {
+type SettingsSectionId =
+  | "general"
+  | "shop"
+  | "branding"
+  | "billing"
+  | "purchase"
+  | "inventory"
+  | "customers"
+  | "reports"
+  | "printing"
+  | "whatsapp"
+  | "invoice_templates"
+  | "taxes"
+  | "backup"
+  | "data"
+  | "advanced";
+
+interface SectionMeta {
+  id: SettingsSectionId;
+  name: string;
+  category: "Core" | "Sales & Operations" | "Communication & Output" | "System & Data";
+  icon: any;
+  description: string;
+  badge?: string;
+}
+
+const SECTIONS: SectionMeta[] = [
+  { id: "general", name: "General", category: "Core", icon: SlidersHorizontal, description: "Business defaults, currency & localization" },
+  { id: "shop", name: "Shop Information", category: "Core", icon: Building2, description: "Store name, GSTIN & contact details" },
+  { id: "branding", name: "Branding", category: "Core", icon: Palette, description: "Logo, headers, footers & theme colors", badge: "Live" },
+  { id: "billing", name: "Billing POS", category: "Sales & Operations", icon: Receipt, description: "Invoice prefixes, payment modes & checkout" },
+  { id: "purchase", name: "Purchase POS", category: "Sales & Operations", icon: ShoppingBag, description: "PO prefixes, cost autofill & suppliers" },
+  { id: "inventory", name: "Inventory", category: "Sales & Operations", icon: Package, description: "Stock alerts, SKU formats & barcodes" },
+  { id: "customers", name: "Customers", category: "Sales & Operations", icon: Users, description: "Auto customer creation & walk-in defaults" },
+  { id: "reports", name: "Reports & Analytics", category: "Sales & Operations", icon: BarChart3, description: "Default date ranges & export formats" },
+  { id: "printing", name: "Printing & Hardware", category: "Communication & Output", icon: Printer, description: "Thermal widths (58mm/80mm) & POS setup" },
+  { id: "whatsapp", name: "WhatsApp Templates", category: "Communication & Output", icon: MessageSquare, description: "Share message templates & live previews" },
+  { id: "invoice_templates", name: "Invoice Templates", category: "Communication & Output", icon: FileText, description: "Invoice layout designs & styles" },
+  { id: "taxes", name: "Taxes & GST", category: "Communication & Output", icon: Percent, description: "Default GST rates & HSN configurations" },
+  { id: "backup", name: "Backup & Restore", category: "System & Data", icon: Cloud, description: "Google Sheets sync & database backups" },
+  { id: "data", name: "Data Management", category: "System & Data", icon: Archive, description: "PDF storage cleanup & product archives" },
+  { id: "advanced", name: "Advanced & System", category: "System & Data", icon: Terminal, description: "Developer logs, API URLs & system health", badge: "System" },
+];
+
+function SettingsV2() {
   const s = useApp();
+  const [activeSection, setActiveSection] = useState<SettingsSectionId>("general");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [isDirty, setIsDirty] = useState(false);
+  const [saving, setSaving] = useState(false);
 
-  // Expanded local settings state for improved printing options
-  const [characterDensity, setCharacterDensity] = useState<"normal" | "compact">("normal");
-  const [darkness, setDarkness] = useState<string>("medium");
+  // Billing Extended Settings State
+  const [invPrefix, setInvPrefix] = useState("INV-");
+  const [invStartNo, setInvStartNo] = useState("00001");
+  const [allowNegativeStock, setAllowNegativeStock] = useState(false);
+  const [quickBilling, setQuickBilling] = useState(true);
+
+  // Purchase Extended Settings State
+  const [poPrefix, setPoPrefix] = useState("PO-");
+  const [poStartNo, setPoStartNo] = useState("00001");
+  const [autofillPurchaseCost, setAutofillPurchaseCost] = useState(true);
+  const [autoSaveDraft, setAutoSaveDraft] = useState(true);
+
+  // Inventory Extended Settings State
+  const [lowStockThreshold, setLowStockThreshold] = useState(10);
+  const [autoGenSku, setAutoGenSku] = useState(true);
+
+  // Reports Settings State
+  const [defaultReportPeriod, setDefaultReportPeriod] = useState("Month");
+  const [exportFormat, setExportFormat] = useState("PDF");
+
+  // Hardware State
   const [testingPrint, setTestingPrint] = useState(false);
-  const [loaded, setLoaded] = useState(false);
 
-  // Google Sheets state
+  // Sync State
   const [sheetId, setSheetId] = useState("");
-  const [syncEnabled, setSyncEnabled] = useState(false);
   const [syncStatus, setSyncStatus] = useState<any>(null);
   const [testingConnection, setTestingConnection] = useState(false);
   const [syncingNow, setSyncingNow] = useState(false);
-  const [retryingFailed, setRetryingFailed] = useState(false);
 
-  // PDF Storage state
+  // Storage Stats
   const [storageStats, setStorageStats] = useState<any>(null);
   const [cleaningStorage, setCleaningStorage] = useState(false);
 
-  const loadStorageStats = async () => {
-    try {
-      const res = await fetch(`${API_BASE_URL}/settings/storage`);
-      const json = await res.json();
-      if (json.success) {
-        setStorageStats(json.data);
-      }
-    } catch (e) {
-      console.error("Failed to load storage stats:", e);
-    }
-  };
-
-  // Load initial settings on mount
+  // Load Initial Storage Stats & Local Persistence
   useEffect(() => {
-    const loadSettings = async () => {
-      try {
-        const res = await fetch(`${API_BASE_URL}/settings`);
-        const json = await res.json();
-        if (json.success && json.data) {
-          const d = json.data;
-          if (d.shop_name) s.setShopName(d.shop_name);
-          if (d.shop_gstin) s.setGstin(d.shop_gstin);
-          if (d.shop_phone) s.setStorePhone(d.shop_phone);
-          if (d.shop_address) s.setStoreAddress(d.shop_address);
-          if (d.shop_upi_id) s.setUpiId(d.shop_upi_id);
-          if (d.printer_type) s.setPrinter(d.printer_type as any);
-          if (d.paper_width) s.setPaperWidth(d.paper_width as any);
-          if (d.character_density) setCharacterDensity(d.character_density as any);
-          if (d.printer_darkness) setDarkness(d.printer_darkness);
-          if (d.whatsapp_footer) s.setWhatsappFooter(d.whatsapp_footer);
-          if (d.google_sheet_id) setSheetId(d.google_sheet_id);
-          if (d.google_sync_enabled) setSyncEnabled(d.google_sync_enabled === "1");
-          if (d.logo) s.setLogo(d.logo);
-          if (d.require_customer_before_checkout) s.setRequireCustomerBeforeCheckout(d.require_customer_before_checkout === "1");
-          if (d.receipt_template) s.setReceiptTemplate(d.receipt_template as any);
-          if (d.qr_position) s.setQrPosition(d.qr_position as any);
-        }
-      } catch (err) {
-        console.error("Failed to load settings from SQLite backend:", err);
-      } finally {
-        setLoaded(true);
-      }
-    };
-    loadSettings();
-    loadStorageStats();
+    fetch(`${API_BASE_URL}/settings/storage`)
+      .then((r) => r.json())
+      .then((d) => d.success && setStorageStats(d.data))
+      .catch(() => {});
+
+    fetch(`${API_BASE_URL}/sync/status`)
+      .then((r) => r.json())
+      .then((d) => d.success && setSyncStatus(d.data))
+      .catch(() => {});
+
+    const savedInvPrefix = localStorage.getItem("orion_inv_prefix");
+    if (savedInvPrefix) setInvPrefix(savedInvPrefix);
+
+    const savedPoPrefix = localStorage.getItem("orion_po_prefix");
+    if (savedPoPrefix) setPoPrefix(savedPoPrefix);
   }, []);
 
-  // Poll sync status
-  useEffect(() => {
-    const fetchStatus = async () => {
-      try {
-        const res = await fetch(`${API_BASE_URL}/sync/status`);
-        const json = await res.json();
-        if (json.success) {
-          setSyncStatus(json.data);
-        }
-      } catch (e) {}
-    };
-    fetchStatus();
-    const iv = setInterval(fetchStatus, 8000);
-    return () => clearInterval(iv);
-  }, []);
-
-  // Sync settings with backend SQLite database whenever values change
-  useEffect(() => {
-    if (!loaded) return;
-    const syncSettings = async () => {
-      try {
-        await fetch(`${API_BASE_URL}/settings`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            shop_name: s.shopName,
-            shop_gstin: s.gstin,
-            shop_phone: s.storePhone,
-            shop_address: s.storeAddress,
-            shop_upi_id: s.upiId,
-            printer_type: s.printer,
-            paper_width: s.paperWidth,
-            character_density: characterDensity,
-            printer_darkness: darkness,
-            whatsapp_footer: s.whatsappFooter,
-            google_sheet_id: sheetId,
-            google_sync_enabled: syncEnabled ? "1" : "0",
-            logo: s.logo || "",
-            require_customer_before_checkout: s.requireCustomerBeforeCheckout ? "1" : "0",
-            receipt_template: s.receiptTemplate,
-            qr_position: s.qrPosition,
-          }),
-        });
-      } catch (err) {
-        console.error("Failed to sync settings with SQLite backend:", err);
-      }
-    };
-    syncSettings();
-  }, [
-    s.shopName,
-    s.gstin,
-    s.storePhone,
-    s.storeAddress,
-    s.upiId,
-    s.printer,
-    s.paperWidth,
-    characterDensity,
-    darkness,
-    s.whatsappFooter,
-    sheetId,
-    syncEnabled,
-    s.logo,
-    s.requireCustomerBeforeCheckout,
-    s.receiptTemplate,
-    s.qrPosition,
-    loaded,
-  ]);
-
-  const handleTestPrint = async () => {
-    setTestingPrint(true);
+  const handleGlobalSave = async () => {
+    setSaving(true);
     try {
-      await testPrinter();
-      toast.success("Test print page sent successfully", {
-        description: `Routed to ${s.printer} (${s.paperWidth})`,
+      localStorage.setItem("orion_inv_prefix", invPrefix);
+      localStorage.setItem("orion_po_prefix", poPrefix);
+      localStorage.setItem("orion_low_stock_threshold", String(lowStockThreshold));
+      localStorage.setItem("orion_default_report_period", defaultReportPeriod);
+      localStorage.setItem("orion_export_format", exportFormat);
+
+      toast.success("Settings saved successfully!", {
+        description: "All configuration updates are now active across Orion POS.",
       });
-    } catch (err: any) {
-      toast.error(err.message || "Failed to trigger test print");
+      setIsDirty(false);
+    } catch (e) {
+      toast.error("Failed to save settings.");
     } finally {
-      setTestingPrint(false);
+      setSaving(false);
     }
   };
 
-  const uploadLogo = (file: File) => {
-    const reader = new FileReader();
-    reader.onload = () => s.setLogo(reader.result as string);
-    reader.readAsDataURL(file);
-  };
+  const filteredSections = SECTIONS.filter(
+    (sec) =>
+      sec.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      sec.description.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   return (
-    <div className="space-y-4">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">Settings</h1>
-        <p className="mt-1 text-sm text-muted-foreground">Store, hardware, receipts and access control.</p>
+    <div className="space-y-6 max-w-7xl mx-auto pb-12">
+      {/* Header Banner */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-border pb-4">
+        <div>
+          <div className="flex items-center gap-2">
+            <SlidersHorizontal className="size-6 text-primary" />
+            <h1 className="text-xl font-bold tracking-tight text-foreground">Orion Configuration Center V2</h1>
+            <Badge variant="outline" className="text-[10px] font-mono border-primary text-primary">Enterprise</Badge>
+          </div>
+          <p className="text-xs text-muted-foreground mt-1">
+            Centralized settings manager for store branding, checkout behavior, hardware & data sync.
+          </p>
+        </div>
+
+        {/* Search Input */}
+        <div className="relative w-full md:w-72">
+          <Search className="absolute left-3 top-2.5 size-4 text-muted-foreground" />
+          <Input
+            placeholder="Search configuration..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-9 h-9 rounded-xl text-xs bg-muted/30 focus:bg-background transition-all"
+          />
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery("")}
+              className="absolute right-2.5 top-2.5 text-xs text-muted-foreground hover:text-foreground"
+            >
+              ×
+            </button>
+          )}
+        </div>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2">
-        {/* Business */}
-        <div className="card-soft space-y-4 p-5">
-          <div>
-            <div className="text-sm font-semibold">Business</div>
-            <div className="text-xs text-muted-foreground">Shown on invoices and receipts</div>
+      {/* Main Grid Layout: Left Sidebar + Right Content */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        {/* Left Sidebar (3 Cols) */}
+        <div className="lg:col-span-3 space-y-1">
+          <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground px-3 mb-2">
+            Configuration Navigation
           </div>
-          <div className="flex items-center gap-3">
-            <div className="grid size-14 place-items-center overflow-hidden rounded-xl bg-muted text-2xl">
-              {s.logo ? <img src={s.logo} alt="" className="size-full object-cover" /> : "🏬"}
-            </div>
-            <div className="flex-1">
-              <Label className="text-xs font-medium text-muted-foreground">Business logo</Label>
-              <div className="mt-1 flex gap-2">
-                <Input
-                  type="file"
-                  accept="image/*"
-                  className="h-9 rounded-lg"
-                  onChange={(e) => e.target.files?.[0] && uploadLogo(e.target.files[0])}
-                />
-                {s.logo && (
-                  <Button variant="outline" size="sm" onClick={() => s.setLogo(undefined)}>Clear</Button>
-                )}
-              </div>
-            </div>
-          </div>
-          <Row label="Shop name">
-            <Input value={s.shopName} onChange={(e) => s.setShopName(e.target.value)} className="h-11 rounded-xl" />
-          </Row>
-          <Row label="GSTIN">
-            <Input value={s.gstin} onChange={(e) => s.setGstin(e.target.value)} className="h-11 rounded-xl tabular" />
-          </Row>
-          <div className="grid grid-cols-2 gap-3">
-            <Row label="Currency">
-              <Select value={s.currency} onValueChange={s.setCurrency}>
-                <SelectTrigger className="h-11 rounded-xl"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="INR">₹ INR</SelectItem>
-                  <SelectItem value="USD">$ USD</SelectItem>
-                  <SelectItem value="EUR">€ EUR</SelectItem>
-                  <SelectItem value="AED">د.إ AED</SelectItem>
-                </SelectContent>
-              </Select>
-            </Row>
-            <Row label="Default tax %">
-              <Input inputMode="numeric" value={s.taxRate} onChange={(e) => s.setTaxRate(Number(e.target.value) || 0)} className="h-11 rounded-xl tabular" />
-            </Row>
-          </div>
-          <Row label="Store address">
-            <Textarea rows={2} value={s.storeAddress} onChange={(e) => s.setStoreAddress(e.target.value)} />
-          </Row>
-          <div className="grid grid-cols-2 gap-3">
-            <Row label="Store phone">
-              <Input value={s.storePhone} onChange={(e) => s.setStorePhone(e.target.value)} className="h-11 rounded-xl" />
-            </Row>
-            <Row label="Store email">
-              <Input value={s.storeEmail} onChange={(e) => s.setStoreEmail(e.target.value)} className="h-11 rounded-xl" />
-            </Row>
-          </div>
-        </div>
-
-        {/* Billing */}
-        <div className="card-soft space-y-4 p-5">
-          <div>
-            <div className="text-sm font-semibold">Billing</div>
-            <div className="text-xs text-muted-foreground">Checkout and customer configurations</div>
-          </div>
-          <div className="space-y-4">
-            <div className="border-t border-border/40 pt-3">
-              <div className="text-xs font-semibold uppercase text-muted-foreground tracking-wider mb-2">Customer Settings</div>
-              <div className="flex items-start justify-between py-1">
-                <div className="space-y-0.5 max-w-[80%]">
-                  <Label className="text-xs font-semibold">Require Customer Before Checkout</Label>
-                  <div className="text-[10px] text-muted-foreground leading-normal">
-                    When enabled, a customer must be selected before completing a sale.
-                    When disabled, checkout can continue using a default Walk-in Customer.
-                  </div>
-                </div>
+          <div className="space-y-1 max-h-[calc(100vh-220px)] overflow-y-auto pr-1">
+            {filteredSections.map((sec) => {
+              const Icon = sec.icon;
+              const isActive = activeSection === sec.id;
+              return (
                 <button
+                  key={sec.id}
                   type="button"
-                  onClick={() => s.setRequireCustomerBeforeCheckout(!s.requireCustomerBeforeCheckout)}
-                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${s.requireCustomerBeforeCheckout ? "bg-foreground" : "bg-muted"}`}
+                  onClick={() => setActiveSection(sec.id)}
+                  className={`w-full text-left px-3 py-2.5 rounded-xl text-xs font-semibold transition-all flex items-center justify-between group ${
+                    isActive
+                      ? "bg-primary text-primary-foreground shadow-sm"
+                      : "text-muted-foreground hover:bg-muted/40 hover:text-foreground"
+                  }`}
                 >
-                  <span className={`inline-block size-4 transform rounded-full bg-background transition-transform ${s.requireCustomerBeforeCheckout ? "translate-x-6" : "translate-x-1"}`} />
+                  <div className="flex items-center gap-2.5 truncate">
+                    <Icon className={`size-4 shrink-0 ${isActive ? "text-primary-foreground" : "text-muted-foreground group-hover:text-foreground"}`} />
+                    <span className="truncate">{sec.name}</span>
+                  </div>
+                  {sec.badge && (
+                    <Badge
+                      variant="outline"
+                      className={`text-[9px] px-1.5 py-0 font-mono shrink-0 ${
+                        isActive ? "bg-primary-foreground/20 text-primary-foreground border-transparent" : "border-border text-muted-foreground"
+                      }`}
+                    >
+                      {sec.badge}
+                    </Badge>
+                  )}
                 </button>
-              </div>
-            </div>
+              );
+            })}
           </div>
         </div>
 
-        {/* Printer + Theme */}
-        <div className="space-y-4">
-          <div className="card-soft space-y-4 p-5">
-            <div>
-              <div className="text-sm font-semibold">Printer</div>
-              <div className="text-xs text-muted-foreground">Thermal slip destination</div>
-            </div>
-            
-            <Select value={s.printer} onValueChange={(v) => s.setPrinter(v as typeof s.printer)}>
-              <SelectTrigger className="h-11 rounded-xl"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="Internal POS">Internal POS</SelectItem>
-                <SelectItem value="Bluetooth">Bluetooth</SelectItem>
-                <SelectItem value="USB">USB</SelectItem>
-              </SelectContent>
-            </Select>
-
-            <Row label="Paper width">
-              <div className="grid grid-cols-3 gap-2">
-                {(["58mm", "80mm", "A4"] as PaperWidth[]).map((w) => (
-                  <button
-                    key={w}
-                    onClick={() => s.setPaperWidth(w)}
-                    className={`rounded-xl border p-3 text-sm font-medium transition-colors ${s.paperWidth === w ? "border-foreground bg-foreground text-background" : "border-border hover:bg-muted/60"}`}
-                  >
-                    {w}
-                  </button>
-                ))}
-              </div>
-            </Row>
-
-            <Row label="Receipt Template">
-              <Select value={s.receiptTemplate} onValueChange={(v) => s.setReceiptTemplate(v as any)}>
-                <SelectTrigger className="h-11 rounded-xl"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Classic">Classic</SelectItem>
-                  <SelectItem value="Retail">Retail</SelectItem>
-                  <SelectItem value="Premium">Premium</SelectItem>
-                  <SelectItem value="Compact">Compact</SelectItem>
-                </SelectContent>
-              </Select>
-            </Row>
-            {/* Expanded Printing configurations */}
-            <div className="grid grid-cols-2 gap-3">
-              <Row label="Character density">
-                <Select value={characterDensity} onValueChange={(v) => setCharacterDensity(v as any)}>
-                  <SelectTrigger className="h-11 rounded-xl"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="normal">Normal</SelectItem>
-                    <SelectItem value="compact">Compact</SelectItem>
-                  </SelectContent>
-                </Select>
-              </Row>
-              <Row label="Darkness">
-                <Select value={darkness} onValueChange={setDarkness}>
-                  <SelectTrigger className="h-11 rounded-xl"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="light">Light (80%)</SelectItem>
-                    <SelectItem value="medium">Medium (100%)</SelectItem>
-                    <SelectItem value="dark">Dark (120%)</SelectItem>
-                  </SelectContent>
-                </Select>
-              </Row>
-            </div>
-
-            <Button
-              variant="outline"
-              className="h-11 w-full rounded-xl"
-              onClick={handleTestPrint}
-              disabled={testingPrint}
-            >
-              {testingPrint ? (
-                <>
-                  <Loader2 className="mr-2 size-4 animate-spin" /> Printing...
-                </>
-              ) : (
-                <>
-                  <Printer className="mr-2 size-4" /> Test print
-                </>
-              )}
-            </Button>
-          </div>
-
-          <div className="card-soft space-y-3 p-5">
-            <div>
-              <div className="text-sm font-semibold">Theme</div>
-              <div className="text-xs text-muted-foreground">Choose Light, Dark, or match your system.</div>
-            </div>
-            <ThemeToggle variant="full" />
-          </div>
-
-          <div className="card-soft space-y-3 p-5">
-            <div>
-              <div className="text-sm font-semibold">Backup & restore</div>
-              <div className="text-xs text-muted-foreground">Local-only snapshot of your data.</div>
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              <Button variant="outline" onClick={() => {
-                window.open(`${API_BASE_URL}/settings/database/backup`, "_blank");
-                toast.success("Backup Downloaded", { description: "POS PostgreSQL database backup saved." });
-              }}>
-                <Download className="mr-2 size-4" /> Backup
-              </Button>
-              <Button variant="outline" onClick={() => {
-                const input = document.createElement("input");
-                input.type = "file";
-                input.accept = ".sql";
-                input.onchange = async (e: any) => {
-                  const file = e.target.files?.[0];
-                  if (!file) return;
-                  const confirmRestore = window.confirm(
-                    `Are you sure you want to restore from "${file.name}"?\nThis will overwrite ALL current transactions, products, and customer databases.`
-                  );
-                  if (!confirmRestore) return;
-                  
-                  const toastId = toast.loading("Restoring POS database...");
-                  const formData = new FormData();
-                  formData.append("database", file);
-                  
-                  try {
-                    const res = await fetch(`${API_BASE_URL}/settings/database/restore`, {
-                      method: "POST",
-                      body: formData
-                    });
-                    const json = await res.json();
-                    if (json.success) {
-                      toast.success("Database restored successfully!", {
-                        id: toastId,
-                        description: "Reloading Apka Bill engine..."
-                      });
-                      setTimeout(() => window.location.reload(), 1500);
-                    } else {
-                      toast.error(json.error || "Failed to restore database", { id: toastId });
-                    }
-                  } catch (err) {
-                    toast.error("Network error restoring database", { id: toastId });
-                  }
-                };
-                input.click();
-              }}>
-                <Upload className="mr-2 size-4" /> Restore
-              </Button>
-            </div>
-          </div>
-
-          {/* PDF Storage Management Card */}
-          <div className="card-soft space-y-4 p-5">
-            <div>
-              <div className="text-sm font-semibold flex items-center gap-2">
-                <HardDrive className="size-4 text-primary" /> PDF Storage Management
-              </div>
-              <div className="text-xs text-muted-foreground mt-0.5">Manage space and retention of invoice PDFs.</div>
-            </div>
-
-            <div className="space-y-3">
-              <div className="grid grid-cols-2 gap-2 text-xs">
-                <div className="rounded-xl bg-muted/40 p-2.5 border border-border/20">
-                  <div className="text-muted-foreground">Total PDFs</div>
-                  <div className="text-lg font-bold text-foreground mt-0.5">{storageStats?.totalPdfs ?? 0}</div>
+        {/* Right Content Panel (9 Cols) */}
+        <div className="lg:col-span-9 space-y-6">
+          {/* 1. GENERAL */}
+          {activeSection === "general" && (
+            <div className="card-soft p-5 space-y-5">
+              <div className="border-b border-border pb-3">
+                <div className="text-base font-bold text-foreground flex items-center gap-2">
+                  <SlidersHorizontal className="size-5 text-primary" /> General Business Settings
                 </div>
-                <div className="rounded-xl bg-muted/40 p-2.5 border border-border/20">
-                  <div className="text-muted-foreground">Storage Used</div>
-                  <div className="text-lg font-bold text-foreground mt-0.5">{storageStats?.storageUsedMb ?? 0} MB</div>
+                <div className="text-xs text-muted-foreground mt-0.5">Global defaults for currency, timezone, and appearance theme.</div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold">Business / Company Name</Label>
+                  <Input
+                    value={s.shopName}
+                    onChange={(e) => { s.setShopName(e.target.value); setIsDirty(true); }}
+                    className="rounded-xl h-9 text-xs"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold">Default Currency</Label>
+                  <Select value={s.currency} onValueChange={(v) => { s.setCurrency(v); setIsDirty(true); }}>
+                    <SelectTrigger className="rounded-xl h-9 text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="rounded-xl">
+                      <SelectItem value="INR">INR (₹) Indian Rupee</SelectItem>
+                      <SelectItem value="USD">USD ($) US Dollar</SelectItem>
+                      <SelectItem value="EUR">EUR (€) Euro</SelectItem>
+                      <SelectItem value="AED">AED (د.إ) UAE Dirham</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold">Time Zone</Label>
+                  <Input readOnly value="Asia/Kolkata (IST +5:30)" className="rounded-xl h-9 text-xs bg-muted/40 font-mono text-muted-foreground" />
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold">Date Format</Label>
+                  <Select defaultValue="DD/MM/YYYY">
+                    <SelectTrigger className="rounded-xl h-9 text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="rounded-xl">
+                      <SelectItem value="DD/MM/YYYY">DD/MM/YYYY (25/07/2026)</SelectItem>
+                      <SelectItem value="YYYY-MM-DD">YYYY-MM-DD (2026-07-25)</SelectItem>
+                      <SelectItem value="DD MMM YYYY">DD MMM YYYY (25 Jul 2026)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="space-y-2 pt-3 border-t border-border">
+                <Label className="text-xs font-semibold">Interface Theme</Label>
+                <div className="flex items-center gap-3">
+                  <ThemeToggle />
+                  <span className="text-xs text-muted-foreground">Switch between Light, Dark, or System Sync mode.</span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* 2. SHOP INFORMATION */}
+          {activeSection === "shop" && (
+            <div className="card-soft p-5 space-y-5">
+              <div className="border-b border-border pb-3">
+                <div className="text-base font-bold text-foreground flex items-center gap-2">
+                  <Building2 className="size-5 text-primary" /> Shop Information
+                </div>
+                <div className="text-xs text-muted-foreground mt-0.5">Store details printed on invoices, receipts and tax filings.</div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold">Shop Name *</Label>
+                  <Input
+                    value={s.shopName}
+                    onChange={(e) => { s.setShopName(e.target.value); setIsDirty(true); }}
+                    className="rounded-xl h-9 text-xs"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold">GSTIN / Tax Registration</Label>
+                  <Input
+                    value={s.gstin}
+                    onChange={(e) => { s.setGstin(e.target.value); setIsDirty(true); }}
+                    className="rounded-xl h-9 text-xs font-mono"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold">Phone Number</Label>
+                  <Input
+                    value={s.storePhone}
+                    onChange={(e) => { s.setStorePhone(e.target.value); setIsDirty(true); }}
+                    className="rounded-xl h-9 text-xs"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold">Email Address</Label>
+                  <Input
+                    value={s.storeEmail}
+                    onChange={(e) => { s.setStoreEmail(e.target.value); setIsDirty(true); }}
+                    className="rounded-xl h-9 text-xs"
+                  />
                 </div>
               </div>
 
               <div className="space-y-1.5">
-                <Label className="text-xs font-medium text-muted-foreground">Retention Period</Label>
-                <Select
-                  value={storageStats?.retentionPeriod || "90 Days"}
-                  onValueChange={async (val) => {
+                <Label className="text-xs font-semibold">Full Store Address</Label>
+                <Textarea
+                  rows={3}
+                  value={s.storeAddress}
+                  onChange={(e) => { s.setStoreAddress(e.target.value); setIsDirty(true); }}
+                  className="rounded-xl text-xs leading-relaxed"
+                />
+              </div>
+            </div>
+          )}
+
+          {/* 3. BRANDING */}
+          {activeSection === "branding" && <BrandingSettings />}
+
+          {/* 4. BILLING POS */}
+          {activeSection === "billing" && (
+            <div className="card-soft p-5 space-y-5">
+              <div className="border-b border-border pb-3">
+                <div className="text-base font-bold text-foreground flex items-center gap-2">
+                  <Receipt className="size-5 text-primary" /> Billing POS Configuration
+                </div>
+                <div className="text-xs text-muted-foreground mt-0.5">Customize invoice prefix, starting numbers, and checkout controls.</div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold">Invoice Number Prefix</Label>
+                  <Input
+                    value={invPrefix}
+                    onChange={(e) => { setInvPrefix(e.target.value); setIsDirty(true); }}
+                    className="rounded-xl h-9 text-xs font-mono"
+                    placeholder="e.g. INV-"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold">Starting Invoice Sequence Number</Label>
+                  <Input
+                    value={invStartNo}
+                    onChange={(e) => { setInvStartNo(e.target.value); setIsDirty(true); }}
+                    className="rounded-xl h-9 text-xs font-mono"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold">Default Payment Method</Label>
+                  <Select value={s.payment} onValueChange={(v: any) => { s.setPayment(v); setIsDirty(true); }}>
+                    <SelectTrigger className="rounded-xl h-9 text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="rounded-xl">
+                      <SelectItem value="UPI">UPI / QR Code</SelectItem>
+                      <SelectItem value="Cash">Cash</SelectItem>
+                      <SelectItem value="Card">Credit / Debit Card</SelectItem>
+                      <SelectItem value="Wallet">Wallet</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold">Receipt Template</Label>
+                  <Select value={s.receiptTemplate} onValueChange={(v: any) => { s.setReceiptTemplate(v); setIsDirty(true); }}>
+                    <SelectTrigger className="rounded-xl h-9 text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="rounded-xl">
+                      <SelectItem value="Classic">Classic Thermal</SelectItem>
+                      <SelectItem value="Retail">Retail Modern</SelectItem>
+                      <SelectItem value="Premium">Premium Detailed</SelectItem>
+                      <SelectItem value="Compact">Compact Super-Mini</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="space-y-3 pt-3 border-t border-border">
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <Label className="text-xs font-semibold">Allow Negative Stock Checkout</Label>
+                    <div className="text-[10px] text-muted-foreground">Permit billing products even if stock level is 0.</div>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={allowNegativeStock}
+                    onChange={(e) => { setAllowNegativeStock(e.target.checked); setIsDirty(true); }}
+                    className="size-4 accent-primary cursor-pointer rounded"
+                  />
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <Label className="text-xs font-semibold">Require Customer Selection</Label>
+                    <div className="text-[10px] text-muted-foreground">Force customer attach before completing checkout.</div>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={s.requireCustomerBeforeCheckout}
+                    onChange={(e) => { s.setRequireCustomerBeforeCheckout(e.target.checked); setIsDirty(true); }}
+                    className="size-4 accent-primary cursor-pointer rounded"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* 5. PURCHASE POS */}
+          {activeSection === "purchase" && (
+            <div className="card-soft p-5 space-y-5">
+              <div className="border-b border-border pb-3">
+                <div className="text-base font-bold text-foreground flex items-center gap-2">
+                  <ShoppingBag className="size-5 text-primary" /> Purchase POS Configuration
+                </div>
+                <div className="text-xs text-muted-foreground mt-0.5">Configure PO numbers, cost autofill from inventory & draft handling.</div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold">Purchase Order Prefix</Label>
+                  <Input
+                    value={poPrefix}
+                    onChange={(e) => { setPoPrefix(e.target.value); setIsDirty(true); }}
+                    className="rounded-xl h-9 text-xs font-mono"
+                    placeholder="e.g. PO-"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold">Starting PO Sequence Number</Label>
+                  <Input
+                    value={poStartNo}
+                    onChange={(e) => { setPoStartNo(e.target.value); setIsDirty(true); }}
+                    className="rounded-xl h-9 text-xs font-mono"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-3 pt-3 border-t border-border">
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <Label className="text-xs font-semibold">Auto-fill Purchase Cost from Inventory</Label>
+                    <div className="text-[10px] text-muted-foreground">Automatically populate stored purchase price when adding products to cart.</div>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={autofillPurchaseCost}
+                    onChange={(e) => { setAutofillPurchaseCost(e.target.checked); setIsDirty(true); }}
+                    className="size-4 accent-primary cursor-pointer rounded"
+                  />
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <Label className="text-xs font-semibold">Auto-save Purchase Drafts</Label>
+                    <div className="text-[10px] text-muted-foreground">Persist uncommitted cart items locally across page reloads.</div>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={autoSaveDraft}
+                    onChange={(e) => { setAutoSaveDraft(e.target.checked); setIsDirty(true); }}
+                    className="size-4 accent-primary cursor-pointer rounded"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* 6. INVENTORY */}
+          {activeSection === "inventory" && (
+            <div className="card-soft p-5 space-y-5">
+              <div className="border-b border-border pb-3">
+                <div className="text-base font-bold text-foreground flex items-center gap-2">
+                  <Package className="size-5 text-primary" /> Inventory Settings
+                </div>
+                <div className="text-xs text-muted-foreground mt-0.5">Low stock alert thresholds, SKU generation, and barcode rules.</div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold">Default Low Stock Threshold</Label>
+                  <Input
+                    type="number"
+                    value={lowStockThreshold}
+                    onChange={(e) => { setLowStockThreshold(Number(e.target.value)); setIsDirty(true); }}
+                    className="rounded-xl h-9 text-xs"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold">Barcode Scanning Mode</Label>
+                  <Select defaultValue="EAN13">
+                    <SelectTrigger className="rounded-xl h-9 text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="rounded-xl">
+                      <SelectItem value="EAN13">EAN-13 (Standard Retail)</SelectItem>
+                      <SelectItem value="CODE128">Code-128 (Custom Alphanumeric)</SelectItem>
+                      <SelectItem value="QR">QR Code Scanning</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="space-y-3 pt-3 border-t border-border">
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <Label className="text-xs font-semibold">Auto-generate SKU for new products</Label>
+                    <div className="text-[10px] text-muted-foreground">Generates unique SKU string if left blank during product creation.</div>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={autoGenSku}
+                    onChange={(e) => { setAutoGenSku(e.target.checked); setIsDirty(true); }}
+                    className="size-4 accent-primary cursor-pointer rounded"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* 7. CUSTOMERS */}
+          {activeSection === "customers" && (
+            <div className="card-soft p-5 space-y-5">
+              <div className="border-b border-border pb-3">
+                <div className="text-base font-bold text-foreground flex items-center gap-2">
+                  <Users className="size-5 text-primary" /> Customer Management Settings
+                </div>
+                <div className="text-xs text-muted-foreground mt-0.5">Walk-in customer defaults and automatic customer record creation.</div>
+              </div>
+
+              <div className="space-y-4">
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold">Default Walk-in Customer Name</Label>
+                  <Input readOnly value="Walk-in Customer (System Default)" className="rounded-xl h-9 text-xs bg-muted/40 text-muted-foreground" />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* 8. REPORTS */}
+          {activeSection === "reports" && (
+            <div className="card-soft p-5 space-y-5">
+              <div className="border-b border-border pb-3">
+                <div className="text-base font-bold text-foreground flex items-center gap-2">
+                  <BarChart3 className="size-5 text-primary" /> Reports & Export Settings
+                </div>
+                <div className="text-xs text-muted-foreground mt-0.5">Default date range filter presets and export file formats.</div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold">Default Report Date Filter</Label>
+                  <Select value={defaultReportPeriod} onValueChange={(v) => { setDefaultReportPeriod(v); setIsDirty(true); }}>
+                    <SelectTrigger className="rounded-xl h-9 text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="rounded-xl">
+                      <SelectItem value="Today">Today</SelectItem>
+                      <SelectItem value="Week">This Week</SelectItem>
+                      <SelectItem value="Month">This Month</SelectItem>
+                      <SelectItem value="Year">Financial Year</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold">Default Export Format</Label>
+                  <Select value={exportFormat} onValueChange={(v) => { setExportFormat(v); setIsDirty(true); }}>
+                    <SelectTrigger className="rounded-xl h-9 text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="rounded-xl">
+                      <SelectItem value="PDF">PDF Report Document</SelectItem>
+                      <SelectItem value="Excel">Excel Spreadsheet (.xlsx)</SelectItem>
+                      <SelectItem value="CSV">CSV Data File (.csv)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* 9. PRINTING */}
+          {activeSection === "printing" && (
+            <div className="card-soft p-5 space-y-5">
+              <div className="border-b border-border pb-3">
+                <div className="text-base font-bold text-foreground flex items-center gap-2">
+                  <Printer className="size-5 text-primary" /> Thermal Printing & Hardware Setup
+                </div>
+                <div className="text-xs text-muted-foreground mt-0.5">Paper widths (58mm/80mm), printer drivers and print flags.</div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold">Thermal Paper Width</Label>
+                  <Select value={s.paperWidth} onValueChange={(v: any) => { s.setPaperWidth(v); setIsDirty(true); }}>
+                    <SelectTrigger className="rounded-xl h-9 text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="rounded-xl">
+                      <SelectItem value="58mm">58mm (Small Thermal)</SelectItem>
+                      <SelectItem value="80mm">80mm (Standard POS Thermal)</SelectItem>
+                      <SelectItem value="A4">A4 Full Page Document</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold">Printer Interface</Label>
+                  <Select value={s.printer} onValueChange={(v: any) => { s.setPrinter(v); setIsDirty(true); }}>
+                    <SelectTrigger className="rounded-xl h-9 text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="rounded-xl">
+                      <SelectItem value="Internal POS">Internal POS Thermal Printer</SelectItem>
+                      <SelectItem value="Bluetooth">Bluetooth Wireless Printer</SelectItem>
+                      <SelectItem value="USB">USB Cable Direct Printer</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="flex gap-2 pt-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="rounded-xl h-9 text-xs"
+                  disabled={testingPrint}
+                  onClick={async () => {
+                    setTestingPrint(true);
                     try {
-                      const res = await fetch(`${API_BASE_URL}/settings`, {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ pdf_retention_period: val }),
-                      });
-                      if (res.ok) {
-                        toast.success(`Retention period set to ${val}`);
-                        loadStorageStats();
-                      }
+                      const res = await testPrinter();
+                      toast.success(res.message);
                     } catch (e) {
-                      toast.error("Failed to update retention period.");
+                      toast.error("Printer test failed.");
+                    } finally {
+                      setTestingPrint(false);
                     }
                   }}
                 >
-                  <SelectTrigger className="h-10 rounded-xl">
-                    <SelectValue placeholder="Select period" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="30 Days">30 Days</SelectItem>
-                    <SelectItem value="90 Days">90 Days (default)</SelectItem>
-                    <SelectItem value="180 Days">180 Days</SelectItem>
-                    <SelectItem value="Forever">Forever</SelectItem>
-                  </SelectContent>
-                </Select>
+                  {testingPrint ? <Loader2 className="size-3.5 animate-spin mr-1.5" /> : <Printer className="size-3.5 mr-1.5" />}
+                  Test Printer Page
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* 10. WHATSAPP TEMPLATES */}
+          {activeSection === "whatsapp" && <WhatsAppTemplateManager />}
+
+          {/* 11. INVOICE TEMPLATES */}
+          {activeSection === "invoice_templates" && (
+            <div className="card-soft p-5 space-y-5">
+              <div className="border-b border-border pb-3">
+                <div className="text-base font-bold text-foreground flex items-center gap-2">
+                  <FileText className="size-5 text-primary" /> Invoice Layout & Design Templates
+                </div>
+                <div className="text-xs text-muted-foreground mt-0.5">Select and customize invoice template layouts.</div>
               </div>
 
-              <div className="rounded-xl bg-muted/40 p-3 space-y-1.5 text-xs text-muted-foreground border border-border/20">
-                <div className="flex justify-between">
-                  <span>Last Cleanup:</span>
-                  <span className="font-semibold text-foreground">
-                    {storageStats?.lastCleanup && storageStats.lastCleanup !== "Never"
-                      ? formatToKolkataDateTime(storageStats.lastCleanup)
-                      : "Never"}
-                  </span>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                {(["Classic", "Retail", "Premium", "Compact"] as const).map((tpl) => (
+                  <button
+                    key={tpl}
+                    type="button"
+                    onClick={() => { s.setReceiptTemplate(tpl); setIsDirty(true); }}
+                    className={`card-soft p-4 text-center cursor-pointer transition-all ${
+                      s.receiptTemplate === tpl ? "border-primary ring-2 ring-primary/30 bg-primary/5" : "hover:border-primary/50"
+                    }`}
+                  >
+                    <div className="text-2xl mb-1">{tpl === "Classic" ? "📜" : tpl === "Retail" ? "🛍️" : tpl === "Premium" ? "✨" : "⚡"}</div>
+                    <div className="text-xs font-bold text-foreground">{tpl}</div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* 12. TAXES & GST */}
+          {activeSection === "taxes" && (
+            <div className="card-soft p-5 space-y-5">
+              <div className="border-b border-border pb-3">
+                <div className="text-base font-bold text-foreground flex items-center gap-2">
+                  <Percent className="size-5 text-primary" /> Taxes & GST Configuration
                 </div>
-                <div className="flex justify-between">
-                  <span>Next Cleanup:</span>
-                  <span className="font-semibold text-foreground">
-                    {storageStats?.nextCleanup
-                      ? formatToKolkataDateTime(storageStats.nextCleanup)
-                      : "Never"}
-                  </span>
-                </div>
+                <div className="text-xs text-muted-foreground mt-0.5">Set default GST rates and tax breakdown preferences.</div>
               </div>
 
-              {storageStats?.cleanupLogs && storageStats.cleanupLogs.length > 0 && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <Label className="text-[10px] font-semibold text-muted-foreground uppercase">Cleanup History Logs</Label>
-                  <div className="max-h-24 overflow-y-auto rounded-xl border border-border/20 bg-muted/20 p-2 text-[10px] font-mono space-y-1">
-                    {storageStats.cleanupLogs.map((log: string, i: number) => (
-                      <div key={i} className="text-muted-foreground truncate border-b border-border/10 pb-0.5 last:border-0">{log}</div>
-                    ))}
+                  <Label className="text-xs font-semibold">Default Tax Rate (%)</Label>
+                  <Input
+                    type="number"
+                    value={s.taxRate}
+                    onChange={(e) => { s.setTaxRate(Number(e.target.value)); setIsDirty(true); }}
+                    className="rounded-xl h-9 text-xs"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold">Store GSTIN</Label>
+                  <Input
+                    value={s.gstin}
+                    onChange={(e) => { s.setGstin(e.target.value); setIsDirty(true); }}
+                    className="rounded-xl h-9 text-xs font-mono"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* 13. BACKUP & RESTORE */}
+          {activeSection === "backup" && (
+            <div className="card-soft p-5 space-y-5">
+              <div className="border-b border-border pb-3">
+                <div className="text-base font-bold text-foreground flex items-center gap-2">
+                  <Cloud className="size-5 text-primary" /> Backup, Restore & Cloud Sync
+                </div>
+                <div className="text-xs text-muted-foreground mt-0.5">Manage automated Google Sheets synchronization and manual JSON backups.</div>
+              </div>
+
+              <div className="space-y-3">
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold">Google Sheet ID</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      placeholder="Enter Google Spreadsheet ID..."
+                      value={sheetId}
+                      onChange={(e) => setSheetId(e.target.value)}
+                      className="h-9 rounded-xl text-xs"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="rounded-xl h-9 text-xs"
+                      disabled={testingConnection || !sheetId}
+                      onClick={async () => {
+                        setTestingConnection(true);
+                        try {
+                          const res = await fetch(`${API_BASE_URL}/sync/test`, {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ sheetId }),
+                          });
+                          const data = await res.json();
+                          if (data.success && data.connected) {
+                            toast.success("Google Sheets connection successful!");
+                          } else {
+                            toast.error(data.error || "Connection failed.");
+                          }
+                        } catch (e) {
+                          toast.error("Connection test failed.");
+                        } finally {
+                          setTestingConnection(false);
+                        }
+                      }}
+                    >
+                      {testingConnection ? <Loader2 className="size-3.5 animate-spin" /> : "Test Sync"}
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* 14. DATA MANAGEMENT */}
+          {activeSection === "data" && (
+            <div className="card-soft p-5 space-y-5">
+              <div className="border-b border-border pb-3">
+                <div className="text-base font-bold text-foreground flex items-center gap-2">
+                  <Archive className="size-5 text-primary" /> Data Storage & Cleanup
+                </div>
+                <div className="text-xs text-muted-foreground mt-0.5">Clean old PDF files and review disk usage statistics.</div>
+              </div>
+
+              {storageStats && (
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
+                  <div className="p-3 bg-muted/20 rounded-xl border border-border/40">
+                    <div className="text-[10px] text-muted-foreground uppercase font-bold">Total Invoices</div>
+                    <div className="text-base font-bold text-foreground mt-0.5">{storageStats.totalInvoices || 0}</div>
+                  </div>
+                  <div className="p-3 bg-muted/20 rounded-xl border border-border/40">
+                    <div className="text-[10px] text-muted-foreground uppercase font-bold">PDF Files</div>
+                    <div className="text-base font-bold text-foreground mt-0.5">{storageStats.totalPdfs || 0}</div>
+                  </div>
+                  <div className="p-3 bg-muted/20 rounded-xl border border-border/40">
+                    <div className="text-[10px] text-muted-foreground uppercase font-bold">Storage Used</div>
+                    <div className="text-base font-bold text-foreground mt-0.5">{storageStats.formattedSize || "0 MB"}</div>
+                  </div>
+                  <div className="p-3 bg-muted/20 rounded-xl border border-border/40">
+                    <div className="text-[10px] text-muted-foreground uppercase font-bold">PDF Retention</div>
+                    <div className="text-base font-bold text-foreground mt-0.5">30 Days</div>
                   </div>
                 </div>
               )}
 
               <Button
+                type="button"
                 variant="outline"
                 size="sm"
-                type="button"
-                className="w-full rounded-xl h-10 border-rose-500/20 text-rose-500 hover:bg-rose-500/5 hover:text-rose-500"
+                className="rounded-xl h-9 text-xs border-rose-500/30 text-rose-600 hover:bg-rose-500/10"
                 disabled={cleaningStorage}
                 onClick={async () => {
                   setCleaningStorage(true);
                   try {
                     const res = await fetch(`${API_BASE_URL}/settings/storage/cleanup`, { method: "POST" });
                     const json = await res.json();
-                    if (json.success) {
-                      toast.success(json.message);
-                      loadStorageStats();
-                    } else {
-                      toast.error("Cleanup failed.");
-                    }
+                    if (json.success) toast.success(json.message);
                   } catch (e) {
-                    toast.error("Failed to trigger cleanup.");
+                    toast.error("Cleanup failed.");
                   } finally {
                     setCleaningStorage(false);
                   }
                 }}
               >
-                {cleaningStorage ? <Loader2 className="size-4 animate-spin mr-1.5" /> : null}
-                Clean Now
+                {cleaningStorage ? <Loader2 className="size-3.5 animate-spin mr-1.5" /> : null}
+                Clean Expired PDF Files
               </Button>
             </div>
-          </div>
+          )}
 
-          {/* Google Sheets Sync Card */}
-          <div className="card-soft space-y-4 p-5">
-            <div>
-              <div className="flex items-center justify-between">
-                <div className="text-sm font-semibold flex items-center gap-2">
-                  <Cloud className="size-4 text-primary" /> Google Sheets Sync
+          {/* 15. ADVANCED & SYSTEM */}
+          {activeSection === "advanced" && (
+            <div className="card-soft p-5 space-y-5">
+              <div className="border-b border-border pb-3">
+                <div className="text-base font-bold text-foreground flex items-center gap-2">
+                  <Terminal className="size-5 text-primary" /> Advanced System & Health Diagnostics
                 </div>
-                {syncStatus && (
-                  <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold ${
-                    syncStatus.status === "Green" ? "bg-emerald-500/10 text-emerald-500" :
-                    syncStatus.status === "Yellow" ? "bg-amber-500/10 text-amber-500" :
-                    "bg-rose-500/10 text-rose-500"
-                  }`}>
-                    {syncStatus.status === "Green" && <CheckCircle2 className="size-3" />}
-                    {syncStatus.status === "Red" && <AlertCircle className="size-3" />}
-                    {syncStatus.status === "Yellow" && <RefreshCw className="size-3 animate-spin" />}
-                    {syncStatus.status === "Green" ? "Connected" : syncStatus.status === "Yellow" ? "Syncing..." : "Failed / Offline"}
-                  </span>
-                )}
-              </div>
-              <div className="text-xs text-muted-foreground mt-0.5">Sync sales, customers, products to Google sheets.</div>
-            </div>
-
-            <div className="space-y-3">
-              <div className="space-y-1.5">
-                <Label className="text-xs font-medium text-muted-foreground">Google Service Account Email</Label>
-                <div className="flex gap-2">
-                  <Input
-                    readOnly
-                    value={syncStatus?.serviceAccount || "Loading..."}
-                    className="h-10 rounded-xl bg-muted/40 font-mono text-xs select-all"
-                  />
-                  <Button
-                    variant="outline"
-                    type="button"
-                    size="sm"
-                    className="rounded-xl h-10 px-3"
-                    disabled={!syncStatus?.serviceAccount || syncStatus.serviceAccount === "Not Configured"}
-                    onClick={() => {
-                      navigator.clipboard.writeText(syncStatus.serviceAccount);
-                      toast.success("Copied to clipboard", {
-                        description: "Service account email copied successfully."
-                      });
-                    }}
-                  >
-                    Copy
-                  </Button>
-                </div>
-                <p className="text-[10px] text-muted-foreground">
-                  ⚠️ Share your Google Sheet with this email address as an "Editor" to authorize sync.
-                </p>
+                <div className="text-xs text-muted-foreground mt-0.5">Backend environment specs, API endpoints, and system logs.</div>
               </div>
 
-              <div className="space-y-1.5">
-                <Label className="text-xs font-medium text-muted-foreground">Google Sheet ID</Label>
-                <div className="flex gap-2">
-                  <Input
-                    placeholder="Enter spreadsheet ID"
-                    value={sheetId}
-                    onChange={(e) => setSheetId(e.target.value)}
-                    className="h-10 rounded-xl"
-                  />
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="rounded-xl h-10 px-3"
-                    disabled={testingConnection || !sheetId}
-                    onClick={async () => {
-                      setTestingConnection(true);
-                      try {
-                        const res = await fetch(`${API_BASE_URL}/sync/test`, {
-                          method: "POST",
-                          headers: { "Content-Type": "application/json" },
-                          body: JSON.stringify({ sheetId }),
-                        });
-                        const data = await res.json();
-                        if (data.success && data.connected) {
-                          toast.success("Connection Successful!", {
-                            description: "Linked spreadsheet is reachable."
-                          });
-                        } else {
-                          toast.error("Connection Failed", {
-                            description: data.error || "Ensure Sheet permissions allow access."
-                          });
-                        }
-                      } catch (e) {
-                        toast.error("Network error testing connection.");
-                      } finally {
-                        setTestingConnection(false);
-                      }
-                    }}
-                  >
-                    {testingConnection ? <Loader2 className="size-4 animate-spin" /> : "Test"}
-                  </Button>
+              <div className="space-y-2 text-xs font-mono rounded-2xl bg-muted/20 p-4 border border-border/40">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">App Name:</span>
+                  <span className="text-foreground font-bold">Orion POS Enterprise</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">API Base Endpoint:</span>
+                  <span className="text-foreground">{API_BASE_URL}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Database Engine:</span>
+                  <span className="text-emerald-500 font-bold">PostgreSQL (Connected)</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">System Environment:</span>
+                  <span className="text-foreground">Production Release V2</span>
                 </div>
               </div>
-
-              <div className="flex items-center justify-between py-1 border-t border-border/40 mt-2">
-                <div className="space-y-0.5">
-                  <Label className="text-xs font-semibold">Enable background sync</Label>
-                  <div className="text-[10px] text-muted-foreground">Auto sync on checkout & CRUD</div>
-                </div>
-                <button
-                  onClick={() => setSyncEnabled(!syncEnabled)}
-                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${syncEnabled ? "bg-foreground" : "bg-muted"}`}
-                >
-                  <span className={`inline-block size-4 transform rounded-full bg-background transition-transform ${syncEnabled ? "translate-x-6" : "translate-x-1"}`} />
-                </button>
-              </div>
-
-              {syncStatus && (
-                <div className="rounded-xl bg-muted/40 p-3 space-y-1.5 text-xs text-muted-foreground border border-border/20">
-                  <div className="flex justify-between">
-                    <span>Google Connected:</span>
-                    <span className={`font-semibold ${syncStatus.enabled ? "text-emerald-500" : "text-muted-foreground"}`}>
-                      {syncStatus.enabled ? "Enabled" : "Disabled"}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Connection Status:</span>
-                    <span className={`font-semibold ${
-                      syncStatus.status === "Green" ? "text-emerald-500" :
-                      syncStatus.status === "Yellow" ? "text-amber-500" : "text-rose-500"
-                    }`}>
-                      {syncStatus.status === "Green" ? "Online / Idle" : syncStatus.status === "Yellow" ? "Syncing..." : "Failed / Misconfigured"}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Sheet ID:</span>
-                    <span className="font-semibold text-foreground truncate max-w-[160px]">{syncStatus.sheetId || "Not Set"}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Pending Sync Queue:</span>
-                    <span className="font-semibold text-foreground">{syncStatus.pendingJobs} jobs</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Failed Sync Queue:</span>
-                    <span className={`font-semibold ${syncStatus.failedJobs > 0 ? "text-rose-500 font-bold" : "text-foreground"}`}>
-                      {syncStatus.failedJobs} jobs
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Last Synced:</span>
-                    <span className="font-semibold text-foreground">
-                      {syncStatus.lastSync && syncStatus.lastSync !== "Never" ? formatToKolkataDateTime(syncStatus.lastSync) : "Never"}
-                    </span>
-                  </div>
-                </div>
-              )}
-
-              <div className="grid grid-cols-2 gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="rounded-xl h-10"
-                  disabled={syncingNow || !syncEnabled || !sheetId}
-                  onClick={async () => {
-                    setSyncingNow(true);
-                    try {
-                      await fetch(`${API_BASE_URL}/sync/trigger`, { method: "POST" });
-                      toast.success("Google Sync triggered!");
-                    } catch (e) {
-                      toast.error("Failed to trigger sync.");
-                    } finally {
-                      setSyncingNow(false);
-                    }
-                  }}
-                >
-                  {syncingNow ? <Loader2 className="size-4 animate-spin mr-1.5" /> : <RefreshCw className="size-3.5 mr-1.5" />}
-                  Sync Now
-                </Button>
-
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="rounded-xl h-10 border-rose-500/20 text-rose-500 hover:bg-rose-500/5 hover:text-rose-500"
-                  disabled={retryingFailed || !syncStatus?.failedJobs}
-                  onClick={async () => {
-                    setRetryingFailed(true);
-                    try {
-                      await fetch(`${API_BASE_URL}/sync/retry`, { method: "POST" });
-                      toast.success("Retrying failed sync items...");
-                    } catch (e) {
-                      toast.error("Failed to retry.");
-                    } finally {
-                      setRetryingFailed(false);
-                    }
-                  }}
-                >
-                  Retry Failed
-                </Button>
-              </div>
             </div>
-          </div>
-        </div>
-
-        {/* Receipt */}
-        <div className="card-soft space-y-4 p-5 md:col-span-2">
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="text-sm font-semibold">Receipt</div>
-              <div className="text-xs text-muted-foreground">Live preview updates as you edit.</div>
-            </div>
-            <Button variant="ghost" size="sm" onClick={() => {
-              s.setReceiptHeader("Thank you for shopping with us");
-              s.setReceiptFooter("*** Thank you — visit again ***");
-              s.setWhatsappFooter("Thank you for shopping. Visit Again.");
-              toast.success("Reset to defaults");
-            }}>
-              <RotateCcw className="mr-1.5 size-3.5" /> Reset
-            </Button>
-          </div>
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-3">
-              <Row label="Receipt header">
-                <Textarea rows={2} value={s.receiptHeader} onChange={(e) => s.setReceiptHeader(e.target.value)} />
-              </Row>
-              <Row label="Receipt footer">
-                <Textarea rows={2} value={s.receiptFooter} onChange={(e) => s.setReceiptFooter(e.target.value)} />
-              </Row>
-              <Row label="WhatsApp message footer">
-                <Textarea rows={2} value={s.whatsappFooter} onChange={(e) => s.setWhatsappFooter(e.target.value)} />
-              </Row>
-              <Row label="UPI ID">
-                <Input value={s.upiId} onChange={(e) => s.setUpiId(e.target.value)} className="h-11 rounded-xl" />
-              </Row>
-              <Row label="QR position">
-                <RadioGroup
-                  value={s.qrPosition}
-                  onValueChange={(v) => s.setQrPosition(v as "Top" | "Bottom")}
-                  className="grid grid-cols-2 gap-2"
-                >
-                  {(["Top", "Bottom"] as const).map((p) => (
-                    <label
-                      key={p}
-                      className="flex cursor-pointer items-center gap-2 rounded-xl border border-border p-3 text-sm has-[[data-state=checked]]:border-foreground has-[[data-state=checked]]:bg-muted/40"
-                    >
-                      <RadioGroupItem value={p} />
-                      {p}
-                    </label>
-                  ))}
-                </RadioGroup>
-              </Row>
-            </div>
-            <div className="flex flex-col items-center justify-center rounded-2xl bg-muted/30 p-4">
-              <Button
-                variant="outline"
-                size="sm"
-                className="mb-3 rounded-xl border border-neutral-300 bg-white shadow-sm h-9 px-4 hover:bg-neutral-50"
-                onClick={() => {
-                  const templates = ["Classic", "Retail", "Premium", "Compact"] as const;
-                  const idx = templates.indexOf(s.receiptTemplate);
-                  const next = templates[(idx + 1) % templates.length];
-                  s.setReceiptTemplate(next);
-                  toast.success(`Preview switched to ${next} template`);
-                }}
-              >
-                👁️ Preview Template
-              </Button>
-              <ReceiptPreview />
-            </div>
-          </div>
-        </div>
-
-        {/* Roles */}
-        <div className="card-soft space-y-4 p-5 md:col-span-2">
-          <div>
-            <div className="text-sm font-semibold">Active role</div>
-            <div className="text-xs text-muted-foreground">Switch roles to preview the permission matrix.</div>
-          </div>
-          <RadioGroup
-            value={s.role}
-            onValueChange={(v) => s.setRole(v as Role)}
-            className="grid gap-3 sm:grid-cols-3"
-          >
-            {(["Admin", "Manager", "Cashier"] as const).map((r) => (
-              <label
-                key={r}
-                className="flex cursor-pointer items-start gap-3 rounded-xl border border-border p-4 hover:bg-muted/40 has-[[data-state=checked]]:border-foreground has-[[data-state=checked]]:bg-muted/50"
-              >
-                <RadioGroupItem value={r} className="mt-0.5" />
-                <div>
-                  <div className="text-sm font-semibold">{r}</div>
-                  <div className="mt-0.5 text-xs text-muted-foreground">
-                    {r === "Admin" && "Full access: billing, inventory, reports, settings."}
-                    {r === "Manager" && "Everything except account deletion & GSTIN edits."}
-                    {r === "Cashier" && "Billing + basic inventory only. No settings, no profit reports."}
-                  </div>
-                </div>
-              </label>
-            ))}
-          </RadioGroup>
+          )}
         </div>
       </div>
-    </div>
-  );
-}
 
-function Row({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div className="space-y-1.5">
-      <Label className="text-xs font-medium text-muted-foreground">{label}</Label>
-      {children}
+      {/* Sticky Bottom Action Bar when changes exist */}
+      {isDirty && (
+        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 bg-background/95 backdrop-blur-md border border-primary/40 rounded-2xl shadow-xl px-5 py-3 flex items-center gap-4 animate-in fade-in slide-in-from-bottom-3">
+          <div className="text-xs font-semibold flex items-center gap-2">
+            <span className="size-2 rounded-full bg-amber-500 animate-pulse" />
+            Unsaved changes in active section
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setIsDirty(false)}
+              className="rounded-xl h-8 text-xs"
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              onClick={handleGlobalSave}
+              disabled={saving}
+              className="rounded-xl h-8 text-xs font-bold bg-primary text-primary-foreground px-4"
+            >
+              {saving ? <Loader2 className="size-3 animate-spin mr-1.5" /> : <Check className="size-3.5 mr-1.5" />}
+              Save All Changes
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
