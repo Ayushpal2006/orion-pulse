@@ -10,6 +10,29 @@ import { logger } from "../logger/logger";
 import { DatabaseProvider } from "./provider";
 import { runZeroAvgCostMigration } from "../db/migrations/fix_zero_avg_cost_migration";
 
+function resolveMigrationsFolder(): string {
+  const candidates = [
+    path.join(__dirname, "../db/migrations"),
+    path.join(__dirname, "../../src/db/migrations"),
+    path.join(__dirname, "../../backend/src/db/migrations"),
+    path.join(process.cwd(), "backend/src/db/migrations"),
+    path.join(process.cwd(), "src/db/migrations"),
+    path.join(process.cwd(), "backend/dist/db/migrations"),
+    path.join(process.cwd(), "dist/db/migrations"),
+  ];
+
+  for (const candidate of candidates) {
+    const journalPath = path.join(candidate, "meta", "_journal.json");
+    if (fs.existsSync(journalPath)) {
+      logger.info(`📍 Found Drizzle migrations at: ${candidate}`);
+      return candidate;
+    }
+  }
+
+  logger.warn(`⚠️ Could not find meta/_journal.json in candidates. Using fallback: ${path.join(process.cwd(), "src/db/migrations")}`);
+  return path.join(process.cwd(), "src/db/migrations");
+}
+
 export async function initDb(): Promise<void> {
   try {
     console.log("Loading database...");
@@ -24,9 +47,7 @@ export async function initDb(): Promise<void> {
     logger.info("⏳ Running database migrations...");
 
     // 2. Programmatically apply Drizzle migrations
-    const migrationsFolder = fs.existsSync(path.join(__dirname, "../db/migrations"))
-      ? path.join(__dirname, "../db/migrations")
-      : path.join(process.cwd(), "src/db/migrations");
+    const migrationsFolder = resolveMigrationsFolder();
     await migrate(db, { migrationsFolder });
     logger.info("✅ Drizzle migrations applied successfully.");
 
