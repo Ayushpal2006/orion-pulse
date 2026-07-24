@@ -27,6 +27,59 @@ export class InvoiceController {
     }
   }
 
+  private async getOrGenerateInvoicePdf(receipt: any): Promise<{ pdfPath: string; pdfFilename: string }> {
+    const pdfFilename = `${receipt.invoiceNumber}.pdf`;
+
+    // 1. Check if pdfUrl is saved in database and file exists on disk
+    if (receipt.pdfUrl) {
+      const existingPath = path.join(process.cwd(), receipt.pdfUrl.replace(/^\//, ""));
+      if (fs.existsSync(existingPath)) {
+        return { pdfPath: existingPath, pdfFilename };
+      }
+    }
+
+    // 2. Check legacy uploads/invoices directory
+    const legacyPath = path.join(process.cwd(), "uploads/invoices", pdfFilename);
+    if (fs.existsSync(legacyPath)) {
+      return { pdfPath: legacyPath, pdfFilename };
+    }
+
+    // 3. Reuse exact dashboard storage resolution logic (storage/invoices/YYYY/MM)
+    const now = new Date();
+    const year = String(now.getFullYear());
+    const month = String(now.getMonth() + 1).padStart(2, "0");
+
+    const subFolder = path.join(process.cwd(), "storage/invoices", year, month);
+    if (!fs.existsSync(subFolder)) {
+      fs.mkdirSync(subFolder, { recursive: true });
+    }
+
+    const pdfPath = path.join(subFolder, pdfFilename);
+    const pdfUrl = `/storage/invoices/${year}/${month}/${pdfFilename}`;
+
+    if (!fs.existsSync(pdfPath)) {
+      try {
+        await this.pdfService.generateInvoicePdf(receipt, pdfPath);
+        try {
+          await this.saleRepo.updatePdfUrlByInvoice(receipt.invoiceNumber, pdfUrl);
+        } catch (e) {
+          console.error("Failed to update sales pdf_url:", e);
+        }
+      } catch (genError) {
+        if (fs.existsSync(pdfPath)) {
+          try {
+            fs.unlinkSync(pdfPath);
+          } catch (unlinkErr) {
+            console.error("Failed to clean up incomplete PDF file:", unlinkErr);
+          }
+        }
+        throw genError;
+      }
+    }
+
+    return { pdfPath, pdfFilename };
+  }
+
   renderPublicInvoice = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const token = req.params.token as string;
@@ -42,29 +95,7 @@ export class InvoiceController {
       }
 
       const receipt = await this.salesService.getReceipt(invoiceNumber);
-      const pdfFilename = `${receipt.invoiceNumber}.pdf`;
-      const pdfPath = path.join(__dirname, "../../uploads/invoices", pdfFilename);
-
-      // Generate A4 PDF if missing
-      if (!fs.existsSync(pdfPath)) {
-        try {
-          await this.pdfService.generateInvoicePdf(receipt, pdfPath);
-          try {
-            await this.saleRepo.updatePdfUrlByInvoice(receipt.invoiceNumber, `/uploads/invoices/${pdfFilename}`);
-          } catch (e) {
-            console.error("Failed to update pdf_url:", e);
-          }
-        } catch (genError) {
-          if (fs.existsSync(pdfPath)) {
-            try {
-              fs.unlinkSync(pdfPath);
-            } catch (unlinkErr) {
-              console.error("Failed to clean up incomplete PDF file:", unlinkErr);
-            }
-          }
-          throw genError;
-        }
-      }
+      const { pdfPath } = await this.getOrGenerateInvoicePdf(receipt);
 
       res.setHeader("Content-Type", "application/pdf");
       res.setHeader("Content-Disposition", "inline");
@@ -89,32 +120,7 @@ export class InvoiceController {
       }
 
       const receipt = await this.salesService.getReceipt(invoiceNumber);
-      const pdfFilename = `${receipt.invoiceNumber}.pdf`;
-      const pdfPath = path.join(__dirname, "../../uploads/invoices", pdfFilename);
-
-      // Generate A4 PDF if missing
-      if (!fs.existsSync(pdfPath)) {
-        try {
-          await this.pdfService.generateInvoicePdf(receipt, pdfPath);
-          
-          // Save PDF path in db
-          try {
-            await this.saleRepo.updatePdfUrlByInvoice(receipt.invoiceNumber, `/uploads/invoices/${pdfFilename}`);
-          } catch (e) {
-            console.error("Failed to update pdf_url:", e);
-          }
-        } catch (genError) {
-          // Clean up incomplete/partially written files to prevent sending corrupted files next time
-          if (fs.existsSync(pdfPath)) {
-            try {
-              fs.unlinkSync(pdfPath);
-            } catch (unlinkErr) {
-              console.error("Failed to clean up incomplete PDF file:", unlinkErr);
-            }
-          }
-          throw genError;
-        }
-      }
+      const { pdfPath, pdfFilename } = await this.getOrGenerateInvoicePdf(receipt);
 
       res.download(pdfPath, pdfFilename, (err) => {
         if (err) {
