@@ -21,7 +21,11 @@ export class PurchaseService {
     return purchaseV2Service.update(id, data);
   }
 
-  async delete(id: number): Promise<boolean> {
-    return purchaseV2Service.delete(id);
+  async delete(id: number, deletedBy?: string): Promise<boolean> {
+    return purchaseV2Service.delete(id, deletedBy);
+  }
+
+  async voidPurchase(id: number, reason: string, voidedBy?: string): Promise<any> {
+    return purchaseV2Service.voidPurchase(id, reason, voidedBy);
   }
 }

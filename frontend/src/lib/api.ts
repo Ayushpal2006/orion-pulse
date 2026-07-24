@@ -1219,3 +1219,44 @@ export async function deleteExpense(id: number): Promise<any> {
   if (payload.success) return payload.data;
   throw new Error("Invalid response from delete expense API");
 }
+
+export async function voidPurchase(id: number, reason: string): Promise<any> {
+  const res = await fetch(`${API_BASE_URL}/api/purchases/${id}/void`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${localStorage.getItem("token") || ""}`,
+    },
+    body: JSON.stringify({ reason }),
+  });
+  const json = await res.json();
+  if (!res.ok || !json.success) {
+    throw new Error(json.error || json.message || "Failed to void purchase");
+  }
+  return json.data;
+}
+
+export async function downloadPurchasePdf(id: number): Promise<Blob> {
+  const res = await fetch(`${API_BASE_URL}/api/purchases/${id}/pdf`, {
+    headers: {
+      Authorization: `Bearer ${localStorage.getItem("token") || ""}`,
+    },
+  });
+  if (!res.ok) {
+    throw new Error(`Failed to download purchase PDF (HTTP ${res.status})`);
+  }
+  return res.blob();
+}
+
+export async function getPurchaseWhatsAppLink(id: number): Promise<string> {
+  const res = await fetch(`${API_BASE_URL}/api/purchases/${id}/share/whatsapp`, {
+    headers: {
+      Authorization: `Bearer ${localStorage.getItem("token") || ""}`,
+    },
+  });
+  const json = await res.json();
+  if (!res.ok || !json.success) {
+    throw new Error(json.error || "Failed to generate WhatsApp share link");
+  }
+  return json.url;
+}

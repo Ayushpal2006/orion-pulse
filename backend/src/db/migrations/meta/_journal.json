@@ -99,6 +99,13 @@
       "when": 1784490002000,
       "tag": "0013_ensure_product_cost_history_table",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1784490003000,
+      "tag": "0014_purchase_orders_enhancements",
+      "breakpoints": true
     }
   ]
 }

@@ -287,6 +287,11 @@ export const purchase_orders = pgTable(
     other_charges: integer("other_charges").default(0).notNull(),
     net_amount: integer("net_amount").default(0).notNull(),
     payment_status: text("payment_status").notNull(), // Pending, Paid, Partially Paid
+    payment_method: text("payment_method").default("Cash"),
+    void_reason: text("void_reason"),
+    voided_by: text("voided_by"),
+    voided_at: timestamp("voided_at"),
+    created_by: text("created_by").default("System"),
     notes: text("notes"),
     created_at: timestamp("created_at").defaultNow().notNull(),
     updated_at: timestamp("updated_at").defaultNow().notNull(),

@@ -59,4 +59,30 @@ export class ShareService {
 
     return `https://wa.me/${phone}?text=${encoded}`;
   }
+
+  generateSupplierWhatsAppLink(purchase: any): string {
+    const poNum = purchase.po_number || purchase.purchase_number;
+    const supplierInv = purchase.invoice_number || purchase.supplier_invoice_number || "N/A";
+    const amount = purchase.grand_total ? (purchase.grand_total / 100).toFixed(2) : "0.00";
+    const supplierName = purchase.supplier_name || "Supplier";
+
+    const lines: string[] = [
+      `Namaste ${supplierName} 🙏`,
+      "",
+      `*Purchase Order:* ${poNum}`,
+      `*Supplier Invoice:* ${supplierInv}`,
+      `*Total Amount:* ₹${amount}`,
+      "",
+      `Thank you for your business!`
+    ];
+
+    const encoded = encodeURIComponent(lines.join("\n"));
+    let phone = purchase.supplier_phone || "";
+    phone = phone.replace(/[^0-9]/g, "");
+    if (phone.length === 10) {
+      phone = "91" + phone;
+    }
+
+    return `https://wa.me/${phone}?text=${encoded}`;
+  }
 }

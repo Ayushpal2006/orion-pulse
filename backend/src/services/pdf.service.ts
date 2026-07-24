@@ -217,4 +217,135 @@ export class PdfService {
       }
     });
   }
+
+  async generatePurchasePdf(purchase: any, outputPath: string): Promise<string> {
+    const signature = await settingsRepository.get("signature", "Authorized Signatory");
+
+    return new Promise((resolve, reject) => {
+      try {
+        const PDFDocument = getPDFDocument();
+        const doc = new PDFDocument({ size: "A4", margin: 40, bufferPages: true });
+        const stream = fs.createWriteStream(outputPath);
+        doc.pipe(stream);
+        doc.on("error", (err: any) => reject(err));
+
+        const regularFontPath = path.join(__dirname, "../assets/fonts/Outfit-Regular.ttf");
+        const boldFontPath = path.join(__dirname, "../assets/fonts/Outfit-Bold.ttf");
+
+        const hasOutfit = fs.existsSync(regularFontPath) && fs.existsSync(boldFontPath);
+        if (hasOutfit) {
+          doc.registerFont("Outfit", regularFontPath);
+          doc.registerFont("Outfit-Bold", boldFontPath);
+          doc.font("Outfit");
+        } else {
+          doc.registerFont("Outfit", "Helvetica");
+          doc.registerFont("Outfit-Bold", "Helvetica-Bold");
+          doc.font("Outfit");
+        }
+
+        const currencySymbol = hasOutfit ? "₹" : "Rs.";
+        const primaryColor = "#0f172a";
+
+        // Title Block
+        doc.font("Outfit-Bold").fontSize(22).fillColor(primaryColor).text(purchase.shop?.name || "ORION POS STORE", 40, 40, { width: 400 });
+        doc.font("Outfit").fontSize(9).fillColor("#475569");
+        if (purchase.shop?.address) doc.text(purchase.shop.address, { width: 400 });
+        doc.text(`Phone: ${purchase.shop?.phone || "-"} | GSTIN: ${purchase.shop?.gstin || "-"}`, { width: 400 });
+
+        doc.moveDown(1.5);
+        doc.strokeColor("#cbd5e1").lineWidth(1).moveTo(40, doc.y).lineTo(555, doc.y).stroke();
+        doc.moveDown(1.5);
+
+        // Metadata
+        const metaY = doc.y;
+        doc.font("Outfit-Bold").fontSize(10).fillColor(primaryColor).text("SUPPLIER DETAILS:", 40, metaY);
+        doc.font("Outfit").fillColor("#000000").text(purchase.supplier_name || "N/A", 40, metaY + 14);
+        if (purchase.supplier_phone) doc.text(`Phone: ${purchase.supplier_phone}`, 40, metaY + 26);
+        if (purchase.supplier_gstin) doc.text(`GSTIN: ${purchase.supplier_gstin}`, 40, metaY + 38);
+
+        doc.font("Outfit-Bold").fillColor(primaryColor).text("PURCHASE ORDER DETAILS:", 330, metaY);
+        doc.font("Outfit").fillColor("#000000").text(`PO Number: ${purchase.po_number}`, 330, metaY + 14);
+        doc.text(`Supplier Invoice #: ${purchase.invoice_number || purchase.supplier_invoice_number || "N/A"}`, 330, metaY + 26);
+        doc.text(`Date: ${new Date(purchase.purchase_date || purchase.created_at).toLocaleDateString("en-IN")}`, 330, metaY + 38);
+        doc.text(`Payment Status: ${purchase.payment_status || "Paid"} (${purchase.payment_method || "Cash"})`, 330, metaY + 50);
+
+        if (purchase.status === "VOID" || purchase.status === "DELETED") {
+          doc.font("Outfit-Bold").fillColor("#ef4444").text(`STATUS: ${purchase.status}`, 330, metaY + 62);
+        }
+
+        doc.y = metaY + 80;
+        doc.moveDown(1);
+
+        // Table Header
+        const tableTop = doc.y;
+        doc.rect(40, tableTop, 515, 20).fill("#f1f5f9");
+        doc.font("Outfit-Bold").fontSize(8).fillColor(primaryColor);
+        doc.text("#", 45, tableTop + 5, { width: 20 });
+        doc.text("PRODUCT / ITEM", 70, tableTop + 5, { width: 220 });
+        doc.text("QTY", 290, tableTop + 5, { width: 50, align: "right" });
+        doc.text("PRICE", 350, tableTop + 5, { width: 80, align: "right" });
+        doc.text("TOTAL", 440, tableTop + 5, { width: 105, align: "right" });
+
+        let y = tableTop + 25;
+        doc.font("Outfit").fontSize(8).fillColor("#000000");
+
+        const items = purchase.items || [];
+        items.forEach((item: any, idx: number) => {
+          const price = item.purchase_price ? item.purchase_price / 100 : 0;
+          const total = item.line_total ? item.line_total / 100 : price * item.quantity;
+
+          doc.text(String(idx + 1), 45, y, { width: 20 });
+          doc.text(item.product_name || `Product #${item.product_id}`, 70, y, { width: 220 });
+          doc.text(String(item.quantity), 290, y, { width: 50, align: "right" });
+          doc.text(`${currencySymbol} ${price.toFixed(2)}`, 350, y, { width: 80, align: "right" });
+          doc.text(`${currencySymbol} ${total.toFixed(2)}`, 440, y, { width: 105, align: "right" });
+
+          y += 18;
+        });
+
+        doc.strokeColor("#e2e8f0").lineWidth(0.5).moveTo(40, y).lineTo(555, y).stroke();
+        y += 10;
+
+        // Totals
+        const grandTotal = purchase.grand_total ? purchase.grand_total / 100 : 0;
+        const subtotal = purchase.subtotal ? purchase.subtotal / 100 : grandTotal;
+        const discount = purchase.discount ? purchase.discount / 100 : 0;
+        const gst = purchase.gst ? purchase.gst / 100 : 0;
+
+        doc.font("Outfit").fontSize(9);
+        doc.text("Subtotal:", 350, y);
+        doc.text(`${currencySymbol} ${subtotal.toFixed(2)}`, 440, y, { align: "right", width: 105 });
+        y += 14;
+
+        if (discount > 0) {
+          doc.text("Discount:", 350, y);
+          doc.text(`-${currencySymbol} ${discount.toFixed(2)}`, 440, y, { align: "right", width: 105 });
+          y += 14;
+        }
+
+        if (gst > 0) {
+          doc.text("GST Tax:", 350, y);
+          doc.text(`+${currencySymbol} ${gst.toFixed(2)}`, 440, y, { align: "right", width: 105 });
+          y += 14;
+        }
+
+        doc.font("Outfit-Bold").fontSize(11).fillColor(primaryColor).text("Grand Total:", 350, y);
+        doc.text(`${currencySymbol} ${grandTotal.toFixed(2)}`, 440, y, { align: "right", width: 105 });
+
+        // Signature & Footer
+        const footerY = 720;
+        doc.font("Outfit-Bold").fontSize(8).fillColor(primaryColor).text("FOR STORE", 380, footerY, { align: "center", width: 175 });
+        doc.font("Outfit").fontSize(8).fillColor("#64748b").text(signature, 380, footerY + 35, { align: "center", width: 175 });
+        doc.strokeColor("#cbd5e1").lineWidth(0.5).moveTo(380, footerY + 32).lineTo(555, footerY + 32).stroke();
+
+        doc.font("Outfit-Bold").fontSize(9).fillColor(primaryColor).text("Thank you for your business!", 40, 750, { align: "center", width: 515 });
+
+        doc.end();
+        stream.on("finish", () => resolve(outputPath));
+        stream.on("error", (err) => reject(err));
+      } catch (err) {
+        reject(err);
+      }
+    });
+  }
 }

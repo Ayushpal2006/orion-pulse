@@ -26,6 +26,7 @@ function mapPurchaseRow(r: any): any {
     supplier_invoice_number: invNum, // Frontend backward compatibility
     invoice_date: invoiceDateStr,
     purchase_date: invoiceDateStr, // Frontend backward compatibility
+    payment_method: r.payment_method || "Cash",
     gst: gstVal,
     tax: gstVal, // Frontend backward compatibility
     created_at: createdAtStr,
@@ -61,6 +62,8 @@ export class PostgresPurchaseV2Repository {
         other_charges: poData.other_charges || 0,
         net_amount: poData.net_amount || poData.grand_total,
         payment_status: poData.payment_status || "Pending",
+        payment_method: poData.payment_method || "Cash",
+        created_by: poData.created_by || "System",
         notes: poData.notes || null,
       })
       .returning();
@@ -102,7 +105,8 @@ export class PostgresPurchaseV2Repository {
         or(
           like(purchase_orders.po_number, searchLike),
           like(purchase_orders.invoice_number, searchLike),
-          like(suppliers.company_name, searchLike)
+          like(suppliers.company_name, searchLike),
+          like(suppliers.phone, searchLike)
         )
       );
     }
@@ -135,10 +139,18 @@ export class PostgresPurchaseV2Repository {
         other_charges: purchase_orders.other_charges,
         net_amount: purchase_orders.net_amount,
         payment_status: purchase_orders.payment_status,
+        payment_method: purchase_orders.payment_method,
+        void_reason: purchase_orders.void_reason,
+        voided_by: purchase_orders.voided_by,
+        voided_at: purchase_orders.voided_at,
+        created_by: purchase_orders.created_by,
         notes: purchase_orders.notes,
         created_at: purchase_orders.created_at,
         updated_at: purchase_orders.updated_at,
         supplier_name: suppliers.company_name,
+        supplier_phone: suppliers.phone,
+        supplier_gstin: suppliers.gst_number,
+        supplier_address: suppliers.address,
       })
       .from(purchase_orders)
       .leftJoin(suppliers, eq(purchase_orders.supplier_id, suppliers.id))
@@ -174,10 +186,18 @@ export class PostgresPurchaseV2Repository {
         other_charges: purchase_orders.other_charges,
         net_amount: purchase_orders.net_amount,
         payment_status: purchase_orders.payment_status,
+        payment_method: purchase_orders.payment_method,
+        void_reason: purchase_orders.void_reason,
+        voided_by: purchase_orders.voided_by,
+        voided_at: purchase_orders.voided_at,
+        created_by: purchase_orders.created_by,
         notes: purchase_orders.notes,
         created_at: purchase_orders.created_at,
         updated_at: purchase_orders.updated_at,
         supplier_name: suppliers.company_name,
+        supplier_phone: suppliers.phone,
+        supplier_gstin: suppliers.gst_number,
+        supplier_address: suppliers.address,
       })
       .from(purchase_orders)
       .leftJoin(suppliers, eq(purchase_orders.supplier_id, suppliers.id))
@@ -233,6 +253,7 @@ export class PostgresPurchaseV2Repository {
       .set({
         supplier_id: poData.supplier_id,
         po_number: poData.po_number || poData.purchase_number || undefined,
+        status: poData.status !== undefined ? poData.status : undefined,
         invoice_number: invNum !== undefined ? invNum : undefined,
         invoice_date: invDate ? new Date(invDate) : undefined,
         subtotal: poData.subtotal,
@@ -240,6 +261,10 @@ export class PostgresPurchaseV2Repository {
         gst: gstAmount !== undefined ? gstAmount : undefined,
         grand_total: poData.grand_total,
         payment_status: poData.payment_status || "Pending",
+        payment_method: poData.payment_method !== undefined ? poData.payment_method : undefined,
+        void_reason: poData.void_reason !== undefined ? poData.void_reason : undefined,
+        voided_by: poData.voided_by !== undefined ? poData.voided_by : undefined,
+        voided_at: poData.voided_at !== undefined ? poData.voided_at : undefined,
         notes: poData.notes !== undefined ? poData.notes : undefined,
         updated_at: new Date(),
       })

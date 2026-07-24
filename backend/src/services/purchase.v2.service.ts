@@ -495,7 +495,7 @@ export class PurchaseV2Service {
     });
   }
 
-  async delete(id: number): Promise<boolean> {
+  async voidPurchase(id: number, reason: string, voidedBy = "Admin"): Promise<any> {
     const storeId = getStoreId();
     if (storeId === undefined) {
       throw new ValidationError("Store context is required");
@@ -507,9 +507,17 @@ export class PurchaseV2Service {
         throw new NotFoundError("Purchase order not found");
       }
 
+      if (oldPo.status === "VOID") {
+        throw new ValidationError("Purchase order is already voided");
+      }
+
+      if (oldPo.status === "DELETED") {
+        throw new ValidationError("Cannot void a deleted purchase order");
+      }
+
       const oldItems = await this.repository.getItems(id, tx);
 
-      // REVERSAL PHASE: Subtract stock adjustments
+      // Revert stock adjustments
       for (const oldItem of oldItems) {
         const [product] = await tx
           .select()
@@ -535,8 +543,8 @@ export class PurchaseV2Service {
             new_stock: newStock,
             reference_type: "PURCHASE_ORDER",
             reference_id: oldPo.po_number,
-            reason: `Purchase Deletion: PO ${oldPo.po_number}`,
-            created_by: "System",
+            reason: `Purchase Void: ${reason}`,
+            created_by: voidedBy,
           });
 
           await tx.insert(inventory_logs).values({
@@ -551,7 +559,7 @@ export class PurchaseV2Service {
         }
       }
 
-      // Update supplier balance and append cancel entry
+      // Revert supplier balance
       const [supplier] = await tx
         .select()
         .from(suppliers)
@@ -575,8 +583,106 @@ export class PurchaseV2Service {
         });
       }
 
-      // Delete PO
-      return this.repository.delete(id, tx);
+      // Mark PO as VOID
+      const updatedPo = await this.repository.update(
+        id,
+        {
+          status: "VOID",
+          void_reason: reason,
+          voided_by: voidedBy,
+          voided_at: new Date(),
+        },
+        tx
+      );
+
+      return updatedPo;
+    });
+  }
+
+  async delete(id: number, deletedBy = "Admin"): Promise<boolean> {
+    const storeId = getStoreId();
+    if (storeId === undefined) {
+      throw new ValidationError("Store context is required");
+    }
+
+    return db.transaction(async (tx) => {
+      const oldPo = await this.repository.getById(id, tx);
+      if (!oldPo) {
+        throw new NotFoundError("Purchase order not found");
+      }
+
+      // If active (not already VOID or DELETED), perform reversal
+      if (oldPo.status !== "VOID" && oldPo.status !== "DELETED") {
+        const oldItems = await this.repository.getItems(id, tx);
+
+        for (const oldItem of oldItems) {
+          const [product] = await tx
+            .select()
+            .from(products)
+            .where(and(eq(products.id, oldItem.product_id), eq(products.store_id, storeId)))
+            .for("update");
+
+          if (product) {
+            const currentStock = product.stock;
+            const newStock = currentStock - oldItem.quantity;
+
+            await tx
+              .update(products)
+              .set({ stock: newStock, updated_at: new Date() })
+              .where(eq(products.id, oldItem.product_id));
+
+            await tx.insert(inventory_movements).values({
+              store_id: storeId,
+              movement_type: "PURCHASE_CANCEL",
+              product_id: oldItem.product_id,
+              quantity: oldItem.quantity,
+              previous_stock: currentStock,
+              new_stock: newStock,
+              reference_type: "PURCHASE_ORDER",
+              reference_id: oldPo.po_number,
+              reason: `Purchase Soft Delete by ${deletedBy}`,
+              created_by: deletedBy,
+            });
+
+            await tx.insert(inventory_logs).values({
+              product_id: oldItem.product_id,
+              store_id: storeId,
+              type: "PURCHASE_CANCEL",
+              quantity: oldItem.quantity,
+              before_stock: currentStock,
+              after_stock: newStock,
+              reference: oldPo.po_number,
+            });
+          }
+        }
+
+        const [supplier] = await tx
+          .select()
+          .from(suppliers)
+          .where(and(eq(suppliers.id, oldPo.supplier_id), eq(suppliers.store_id, storeId)))
+          .for("update");
+
+        if (supplier) {
+          const newBalance = supplier.current_balance - oldPo.grand_total;
+          await tx
+            .update(suppliers)
+            .set({ current_balance: newBalance })
+            .where(eq(suppliers.id, oldPo.supplier_id));
+
+          await tx.insert(supplier_ledger).values({
+            store_id: storeId,
+            supplier_id: oldPo.supplier_id,
+            transaction_type: "PURCHASE_CANCEL",
+            amount: oldPo.grand_total,
+            balance: newBalance,
+            reference: oldPo.po_number,
+          });
+        }
+      }
+
+      // Soft delete: status = 'DELETED'
+      await this.repository.update(id, { status: "DELETED" }, tx);
+      return true;
     });
   }
 }
