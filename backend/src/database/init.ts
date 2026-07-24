@@ -24,7 +24,9 @@ export async function initDb(): Promise<void> {
     logger.info("⏳ Running database migrations...");
 
     // 2. Programmatically apply Drizzle migrations
-    const migrationsFolder = path.join(process.cwd(), "src/db/migrations");
+    const migrationsFolder = fs.existsSync(path.join(__dirname, "../db/migrations"))
+      ? path.join(__dirname, "../db/migrations")
+      : path.join(process.cwd(), "src/db/migrations");
     await migrate(db, { migrationsFolder });
     logger.info("✅ Drizzle migrations applied successfully.");
 
