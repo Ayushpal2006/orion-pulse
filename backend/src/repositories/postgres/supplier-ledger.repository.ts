@@ -65,10 +65,12 @@ export class PostgresSupplierLedgerRepository implements ISupplierLedgerReposito
       .select()
       .from(supplier_ledger)
       .where(cond)
-      .orderBy(asc(supplier_ledger.created_at), asc(supplier_ledger.id));
+      .orderBy(desc(supplier_ledger.created_at), desc(supplier_ledger.id));
 
     return rows.map((r: any) => ({
       ...r,
+      amount: Number(r.amount || 0) / 100.0,
+      balance: Number(r.balance || 0) / 100.0,
       created_at: r.created_at.toISOString(),
     }));
   }
@@ -104,9 +106,9 @@ export class PostgresSupplierLedgerRepository implements ISupplierLedgerReposito
     // 2. Loop and compute running balance
     let runningBalance = 0;
     for (const row of rows) {
-      if (row.transaction_type === "PURCHASE") {
+      if (row.transaction_type === "PURCHASE" || row.transaction_type === "PURCHASE_EDIT" || row.transaction_type === "OUTSTANDING_CHANGE") {
         runningBalance += row.amount;
-      } else if (row.transaction_type === "PAYMENT" || row.transaction_type === "PURCHASE_CANCEL") {
+      } else if (row.transaction_type === "PAYMENT" || row.transaction_type === "PURCHASE_CANCEL" || row.transaction_type === "PURCHASE_VOID") {
         runningBalance -= row.amount;
       }
 

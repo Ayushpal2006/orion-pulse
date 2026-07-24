@@ -192,10 +192,14 @@ function SupplierLedgerPage() {
               <SelectValue placeholder="Transaction Type" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All Transactions</SelectItem>
+              <SelectItem value="all">All Activities</SelectItem>
               <SelectItem value="PURCHASE">Purchases</SelectItem>
               <SelectItem value="PAYMENT">Payments</SelectItem>
-              <SelectItem value="PURCHASE_CANCEL">Cancellations</SelectItem>
+              <SelectItem value="PURCHASE_EDIT">Edits</SelectItem>
+              <SelectItem value="PURCHASE_VOID">Voids</SelectItem>
+              <SelectItem value="PURCHASE_CANCEL">Soft Delete / Cancellations</SelectItem>
+              <SelectItem value="PURCHASE_DUPLICATE">Duplicates</SelectItem>
+              <SelectItem value="OUTSTANDING_CHANGE">Outstanding Changes</SelectItem>
             </SelectContent>
           </Select>
 
@@ -225,7 +229,7 @@ function SupplierLedgerPage() {
         </div>
       </div>
 
-      {/* Ledger Table */}
+      {/* Ledger Activity Timeline Table (Newest First) */}
       {isError ? (
         <div className="flex h-32 flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-border bg-muted/20 p-6 text-center print:hidden">
           <div className="text-sm font-semibold text-foreground">Ledger records could not be loaded</div>
@@ -235,39 +239,52 @@ function SupplierLedgerPage() {
         </div>
       ) : filteredLedger.length === 0 ? (
         <div className="card-soft p-12 text-center text-sm text-muted-foreground">
-          No ledger transactions logged matching the filter constraints.
+          No activity logs found matching the selected filter constraints.
         </div>
       ) : (
         <div className="card-soft overflow-hidden">
           <table className="w-full text-sm text-left border-collapse">
             <thead>
               <tr className="border-b border-border bg-muted/30 text-xs font-semibold text-muted-foreground uppercase">
-                <th className="p-4">Date</th>
-                <th className="p-4">Type</th>
+                <th className="p-4">Date & Time</th>
+                <th className="p-4">Activity Badge</th>
                 <th className="p-4">Reference</th>
-                <th className="p-4 text-right">Debit (Payment)</th>
-                <th className="p-4 text-right">Credit (Purchase)</th>
+                <th className="p-4 text-right">Debit (Payment/Void)</th>
+                <th className="p-4 text-right">Credit (Purchase/Edit)</th>
                 <th className="p-4 text-right">Running Balance</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
               {filteredLedger.map((row: any) => {
-                const isDebit = row.transaction_type === "PAYMENT" || row.transaction_type === "PURCHASE_CANCEL";
-                const isCredit = row.transaction_type === "PURCHASE";
+                const isDebit = row.transaction_type === "PAYMENT" || row.transaction_type === "PURCHASE_CANCEL" || row.transaction_type === "PURCHASE_VOID";
+                const isCredit = row.transaction_type === "PURCHASE" || row.transaction_type === "PURCHASE_EDIT" || row.transaction_type === "OUTSTANDING_CHANGE";
+
+                const getBadge = () => {
+                  switch (row.transaction_type) {
+                    case "PURCHASE":
+                      return <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-[9px] font-bold bg-rose-500/10 text-rose-500">Purchase</span>;
+                    case "PAYMENT":
+                      return <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-[9px] font-bold bg-emerald-500/10 text-emerald-500">Payment Out</span>;
+                    case "PURCHASE_EDIT":
+                      return <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-[9px] font-bold bg-amber-500/10 text-amber-500">PO Edit</span>;
+                    case "PURCHASE_VOID":
+                      return <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-[9px] font-bold bg-rose-600 text-white font-black">PO Voided</span>;
+                    case "PURCHASE_CANCEL":
+                      return <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-[9px] font-bold bg-red-900 text-white font-black">Soft Delete Reversal</span>;
+                    case "PURCHASE_DUPLICATE":
+                      return <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-[9px] font-bold bg-purple-500/10 text-purple-500">Draft Duplicated</span>;
+                    case "OUTSTANDING_CHANGE":
+                      return <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-[9px] font-bold bg-blue-500/10 text-blue-500">Balance Adjustment</span>;
+                    default:
+                      return <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-[9px] font-bold bg-muted text-muted-foreground">{row.transaction_type}</span>;
+                  }
+                };
 
                 return (
                   <tr key={row.id} className="hover:bg-muted/10 transition-colors print:hover:bg-transparent">
-                    <td className="p-4 text-xs text-muted-foreground">{formatLocalDate(row.created_at)}</td>
-                    <td className="p-4">
-                      <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[9px] font-bold ${
-                        row.transaction_type === "PURCHASE" ? "bg-rose-500/10 text-rose-500"
-                        : row.transaction_type === "PAYMENT" ? "bg-emerald-500/10 text-emerald-500"
-                        : "bg-amber-500/10 text-amber-500"
-                      }`}>
-                        {row.transaction_type === "PURCHASE" ? "Purchase" : row.transaction_type === "PAYMENT" ? "Payment" : "Cancelled Purchase"}
-                      </span>
-                    </td>
-                    <td className="p-4 font-mono text-xs text-foreground font-medium">{row.reference}</td>
+                    <td className="p-4 text-xs text-muted-foreground font-mono">{formatLocalDate(row.created_at)}</td>
+                    <td className="p-4">{getBadge()}</td>
+                    <td className="p-4 font-mono text-xs text-foreground font-medium">{row.reference || "—"}</td>
                     <td className="p-4 text-right font-medium tabular-nums text-emerald-600 dark:text-emerald-400">
                       {isDebit ? inr(row.amount) : "—"}
                     </td>

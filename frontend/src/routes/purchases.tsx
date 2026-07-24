@@ -54,6 +54,7 @@ import {
 import { inr } from "@/lib/format";
 import { useApp } from "@/lib/store";
 import { PurchaseDetailsDialog } from "@/components/purchase-details-dialog";
+import { PurchaseDrawer } from "@/components/purchase-drawer";
 
 export const Route = createFileRoute("/purchases")({
   head: () => ({
@@ -94,6 +95,8 @@ function PurchasesPage() {
   const [editId, setEditId] = useState<number | null>(null);
   const [selectedPurchase, setSelectedPurchase] = useState<any | null>(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
+  const [selectedPoId, setSelectedPoId] = useState<number | null>(null);
+  const [drawerOpen, setDrawerOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<any | null>(null);
   const [voidTarget, setVoidTarget] = useState<any | null>(null);
   const [voidReason, setVoidReason] = useState("");
@@ -667,7 +670,11 @@ function PurchasesPage() {
                     </thead>
                     <tbody className="divide-y divide-border">
                       {paginatedPurchases.map((p: any) => (
-                        <tr key={p.id} className="hover:bg-muted/10 transition-colors">
+                        <tr
+                          key={p.id}
+                          onClick={() => { setSelectedPoId(p.id); setDrawerOpen(true); }}
+                          className="hover:bg-muted/30 transition-colors cursor-pointer"
+                        >
                           <td className="p-4 font-mono text-xs font-semibold text-primary">{p.po_number || p.purchase_number}</td>
                           <td className="p-4 font-medium">
                             <div>{p.supplier_name || "N/A"}</div>
@@ -682,79 +689,15 @@ function PurchasesPage() {
                             </div>
                           </td>
                           <td className="p-4 text-right font-mono font-bold text-foreground">{inr((p.grand_total || 0) / 100.0)}</td>
-                          <td className="p-4 text-right">
-                            <div className="flex justify-end gap-1 flex-wrap">
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className="h-8 text-xs rounded-lg"
-                                onClick={() => { setSelectedPurchase(p); setDetailsOpen(true); }}
-                              >
-                                <Eye className="size-3.5 mr-1" /> View
-                              </Button>
-                              {p.status !== "VOID" && p.status !== "DELETED" && (
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  className="h-8 text-xs rounded-lg"
-                                  onClick={() => handleTriggerEdit(p.id)}
-                                >
-                                  <Pencil className="size-3.5" />
-                                </Button>
-                              )}
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className="h-8 text-xs rounded-lg"
-                                onClick={() => handleDuplicate(p.id)}
-                              >
-                                <Copy className="size-3.5 text-purple-500" />
-                              </Button>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className="h-8 text-xs rounded-lg"
-                                onClick={() => window.open(`/print/purchase/${p.id}`, "_blank")}
-                              >
-                                <Printer className="size-3.5" />
-                              </Button>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className="h-8 text-xs rounded-lg"
-                                onClick={() => handleDownloadPdf(p.id, p.po_number)}
-                              >
-                                <FileText className="size-3.5 text-blue-500" />
-                              </Button>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className="h-8 text-xs rounded-lg text-green-600"
-                                onClick={() => handleWhatsApp(p.id)}
-                              >
-                                <Share2 className="size-3.5" />
-                              </Button>
-                              {p.status !== "VOID" && p.status !== "DELETED" && (
-                                <Button
-                                  variant="destructive"
-                                  size="sm"
-                                  className="h-8 text-xs rounded-lg bg-rose-600 hover:bg-rose-700"
-                                  onClick={() => setVoidTarget(p)}
-                                >
-                                  Void
-                                </Button>
-                              )}
-                              {userRole === "Admin" && p.status !== "DELETED" && (
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  className="h-8 text-xs rounded-lg text-rose-500 border-rose-500/20 hover:bg-rose-500/10"
-                                  onClick={() => setDeleteTarget(p)}
-                                >
-                                  <Trash2 className="size-3.5" />
-                                </Button>
-                              )}
-                            </div>
+                          <td className="p-4 text-right" onClick={(e) => e.stopPropagation()}>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-8 text-xs rounded-xl font-semibold hover:bg-primary/10"
+                              onClick={() => { setSelectedPoId(p.id); setDrawerOpen(true); }}
+                            >
+                              <Eye className="size-3.5 mr-1.5 text-primary" /> View Details
+                            </Button>
                           </td>
                         </tr>
                       ))}
@@ -1254,6 +1197,15 @@ function PurchasesPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Right Drawer for Purchase Details & Actions */}
+      <PurchaseDrawer
+        purchaseId={selectedPoId}
+        open={drawerOpen}
+        onOpenChange={setDrawerOpen}
+        onEdit={handleTriggerEdit}
+        onDuplicate={handleDuplicate}
+      />
     </div>
   );
 }

@@ -14,7 +14,7 @@ import {
 } from "@/lib/api";
 import { getPrintAdapter } from "@/lib/print-adapter";
 import { EditInvoiceDialog } from "@/components/edit-invoice-dialog";
-import { Eye, Printer, FileText, Share2, Link, Copy, Trash2, Edit3, AlertTriangle } from "lucide-react";
+import { Eye, Printer, FileText, Share2, Link, Copy, Trash2, Edit3, AlertTriangle, RefreshCw, Mail } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 
