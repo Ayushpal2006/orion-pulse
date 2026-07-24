@@ -8,14 +8,19 @@ const controller = new OrganizationController();
 // Public invitation acceptance
 router.post("/invitations/accept", controller.acceptInvitation);
 
-// Authenticated organization endpoints
-router.post("/", authenticate(), authorize("admin"), controller.create);
-router.post("/invitations", authenticate(), authorize("admin", "manager"), controller.inviteUser);
+// Authenticated organization administration endpoints
+router.get("/current", authenticate(), controller.getCurrent);
+router.put("/current", authenticate(), authorize("Owner", "Admin", "owner", "admin"), controller.updateCurrent);
+router.get("/dashboard", authenticate(), controller.getDashboard);
+router.get("/stats", authenticate(), controller.getStats);
+
+router.post("/", authenticate(), authorize("Owner", "Admin", "owner", "admin"), controller.create);
+router.post("/invitations", authenticate(), authorize("Owner", "Admin", "owner", "admin", "Manager", "manager"), controller.inviteUser);
 
 // API Keys endpoints
-router.post("/keys", authenticate(), authorize("admin"), controller.createApiKey);
-router.get("/keys", authenticate(), authorize("admin"), controller.listApiKeys);
-router.delete("/keys/:id", authenticate(), authorize("admin"), controller.deleteApiKey);
+router.post("/keys", authenticate(), authorize("Owner", "Admin", "owner", "admin"), controller.createApiKey);
+router.get("/keys", authenticate(), authorize("Owner", "Admin", "owner", "admin"), controller.listApiKeys);
+router.delete("/keys/:id", authenticate(), authorize("Owner", "Admin", "owner", "admin"), controller.deleteApiKey);
 
 // Support tickets endpoints
 router.post("/tickets", authenticate(), controller.createTicket);

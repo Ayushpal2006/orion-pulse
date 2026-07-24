@@ -9,9 +9,21 @@ export interface AuthenticatedRequest extends Request {
     id: number;
     email: string;
     role: string;
+    organization_id?: number;
     store_id: number;
     name: string;
   };
+}
+
+function resolveStoreId(req: Request, fallbackStoreId: number): number {
+  const headerVal = req.headers["x-store-id"] || req.headers["X-Store-Id"];
+  if (headerVal) {
+    const parsed = parseInt(String(headerVal), 10);
+    if (!isNaN(parsed) && parsed > 0) {
+      return parsed;
+    }
+  }
+  return fallbackStoreId;
 }
 
 export function authenticate() {
@@ -19,16 +31,18 @@ export function authenticate() {
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
       // In V1, default to the seeded admin user context so frontend operations bypass login
+      const storeId = resolveStoreId(req, 1);
       const defaultUser = {
         id: 1,
         email: "admin@orion.com",
         role: "admin",
-        store_id: 1,
+        organization_id: 1,
+        store_id: storeId,
         name: "Default Admin",
       };
       req.user = defaultUser;
       return storeStorage.run(
-        { storeId: defaultUser.store_id, userId: defaultUser.id, role: defaultUser.role },
+        { organizationId: defaultUser.organization_id, currentStoreId: defaultUser.store_id, userId: defaultUser.id, role: defaultUser.role },
         () => {
           next();
         }
@@ -38,32 +52,38 @@ export function authenticate() {
     const token = authHeader.split(" ")[1];
     try {
       const decoded = jwt.verify(token, env.JWT_SECRET) as any;
+      const baseStoreId = decoded.store_id || 1;
+      const storeId = resolveStoreId(req, baseStoreId);
+
       req.user = {
         id: decoded.id,
         email: decoded.email,
         role: decoded.role,
-        store_id: decoded.store_id,
+        organization_id: decoded.organization_id || 1,
+        store_id: storeId,
         name: decoded.name,
       };
 
       storeStorage.run(
-        { storeId: decoded.store_id, userId: decoded.id, role: decoded.role },
+        { organizationId: req.user.organization_id, currentStoreId: req.user.store_id, userId: decoded.id, role: decoded.role },
         () => {
           next();
         }
       );
     } catch (err: any) {
       logger.warn("Authentication token verification failed, falling back to default admin context for V1: " + (err instanceof Error ? err.message : String(err)));
+      const storeId = resolveStoreId(req, 1);
       const defaultUser = {
         id: 1,
         email: "admin@orion.com",
         role: "admin",
-        store_id: 1,
+        organization_id: 1,
+        store_id: storeId,
         name: "Default Admin",
       };
       req.user = defaultUser;
       return storeStorage.run(
-        { storeId: defaultUser.store_id, userId: defaultUser.id, role: defaultUser.role },
+        { organizationId: defaultUser.organization_id, currentStoreId: defaultUser.store_id, userId: defaultUser.id, role: defaultUser.role },
         () => {
           next();
         }
@@ -74,8 +94,46 @@ export function authenticate() {
 
 export function authorize(...roles: string[]) {
   return (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
-    if (!req.user || !roles.includes(req.user.role)) {
+    if (!req.user) {
+      return res.status(401).json({ success: false, error: "Unauthorized" });
+    }
+
+    const userRole = (req.user.role || "").toLowerCase();
+    const normalizedRoles = roles.map((r) => r.toLowerCase());
+
+    // Alias mapping: "owner" and "admin" are treated as equivalent
+    if (normalizedRoles.includes("owner") && !normalizedRoles.includes("admin")) {
+      normalizedRoles.push("admin");
+    }
+    if (normalizedRoles.includes("admin") && !normalizedRoles.includes("owner")) {
+      normalizedRoles.push("owner");
+    }
+
+    if (!normalizedRoles.includes(userRole)) {
       return res.status(403).json({ success: false, error: "Forbidden: insufficient permissions" });
+    }
+
+    // Viewer read-only enforcement
+    if (userRole === "viewer" && !["GET", "HEAD", "OPTIONS"].includes(req.method)) {
+      return res.status(403).json({
+        success: false,
+        error: "Forbidden: Read-only access. Viewers cannot create, edit, or delete records.",
+      });
+    }
+
+    next();
+  };
+}
+
+export function enforceReadOnlyViewer() {
+  return (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    if (req.user && (req.user.role || "").toLowerCase() === "viewer") {
+      if (!["GET", "HEAD", "OPTIONS"].includes(req.method)) {
+        return res.status(403).json({
+          success: false,
+          error: "Forbidden: Read-only access. Viewers cannot modify data.",
+        });
+      }
     }
     next();
   };

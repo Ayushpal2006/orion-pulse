@@ -2,16 +2,16 @@ import { ISettingsRepository } from "../interfaces/ISettingsRepository";
 import { db } from "../../db";
 import { settings } from "../../db/schema";
 import { eq, and } from "drizzle-orm";
-import { getStoreId } from "../../db/context";
+import { getTenantContext } from "../../db/context";
 
 export class PostgresSettingsRepository implements ISettingsRepository {
   async getAll(tx?: any): Promise<Record<string, string>> {
     const client = tx || db;
-    const storeId = getStoreId() || 1;
+    const { currentStoreId } = getTenantContext();
     const rows = await client
       .select()
       .from(settings)
-      .where(eq(settings.store_id, storeId));
+      .where(eq(settings.store_id, currentStoreId));
 
     const settingsObj: Record<string, string> = {};
     for (const row of rows) {
@@ -22,11 +22,11 @@ export class PostgresSettingsRepository implements ISettingsRepository {
 
   async get(key: string, fallback = "", tx?: any): Promise<string> {
     const client = tx || db;
-    const storeId = getStoreId() || 1;
+    const { currentStoreId } = getTenantContext();
     const rows = await client
       .select({ value: settings.value })
       .from(settings)
-      .where(and(eq(settings.store_id, storeId), eq(settings.key, key)))
+      .where(and(eq(settings.store_id, currentStoreId), eq(settings.key, key)))
       .limit(1);
 
     return rows[0]?.value ?? fallback;
@@ -34,10 +34,10 @@ export class PostgresSettingsRepository implements ISettingsRepository {
 
   async set(key: string, value: string, tx?: any): Promise<void> {
     const client = tx || db;
-    const storeId = getStoreId() || 1;
+    const { currentStoreId } = getTenantContext();
     await client
       .insert(settings)
-      .values({ store_id: storeId, key, value })
+      .values({ store_id: currentStoreId, key, value })
       .onConflictDoUpdate({
         target: [settings.store_id, settings.key],
         set: { value },
@@ -46,12 +46,12 @@ export class PostgresSettingsRepository implements ISettingsRepository {
 
   async setMany(settingsObj: Record<string, string>, tx?: any): Promise<void> {
     const client = tx || db;
-    const storeId = getStoreId() || 1;
+    const { currentStoreId } = getTenantContext();
     await client.transaction(async (txClient: any) => {
       for (const [key, value] of Object.entries(settingsObj)) {
         await txClient
           .insert(settings)
-          .values({ store_id: storeId, key, value: String(value ?? "") })
+          .values({ store_id: currentStoreId, key, value: String(value ?? "") })
           .onConflictDoUpdate({
             target: [settings.store_id, settings.key],
             set: { value: String(value ?? "") },

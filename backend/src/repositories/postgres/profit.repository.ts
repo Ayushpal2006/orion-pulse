@@ -10,6 +10,7 @@ import type {
   SaleProfitRow,
   ProfitTrendPoint,
 } from "../../types/profit.types";
+import { getTenantContext } from "../../db/context";
 
 /**
  * PostgresProfitRepository
@@ -29,12 +30,14 @@ export class PostgresProfitRepository implements IProfitRepository {
   }
 
   private buildWhere(storeId: number, filters: ProfitFilters) {
+    const { organizationId } = getTenantContext();
     const dateCond = this.getDateCondition(
       filters.filter || "last30",
       filters.startDate,
       filters.endDate
     );
     return and(
+      eq(sales.organization_id, organizationId),
       eq(sales.store_id, storeId),
       eq(sales.status, "COMPLETED"),
       dateCond
@@ -44,6 +47,7 @@ export class PostgresProfitRepository implements IProfitRepository {
   // ─── getSummary ─────────────────────────────────────────────────────────────
 
   async getSummary(filters: ProfitFilters & { storeId: number }): Promise<ProfitSummary> {
+    const { organizationId } = getTenantContext();
     const where = this.buildWhere(filters.storeId, filters);
 
     // Single join query: revenue + cogs + counts — no N+1
@@ -70,7 +74,7 @@ export class PostgresProfitRepository implements IProfitRepository {
     const [expRow] = await db
       .select({ total: sql<string>`COALESCE(SUM(${expenses.amount}), 0)` })
       .from(expenses)
-      .where(and(eq(expenses.store_id, filters.storeId), gte(expenses.date, start), lte(expenses.date, end)));
+      .where(and(eq(expenses.organization_id, organizationId), eq(expenses.store_id, filters.storeId), gte(expenses.date, start), lte(expenses.date, end)));
 
     const expensesAmount = Number(expRow?.total || 0);
     const netProfit = grossProfit - expensesAmount;
@@ -193,6 +197,7 @@ export class PostgresProfitRepository implements IProfitRepository {
   // ─── getDailyTrend ──────────────────────────────────────────────────────────
 
   async getDailyTrend(filters: ProfitFilters & { storeId: number }): Promise<ProfitTrendPoint[]> {
+    const { organizationId } = getTenantContext();
     const { start, end } = getUtcBoundariesForFilter(
       filters.filter || "last30",
       filters.startDate,
@@ -211,6 +216,7 @@ export class PostgresProfitRepository implements IProfitRepository {
       .innerJoin(products, eq(sale_items.product_id, products.id))
       .where(
         and(
+          eq(sales.organization_id, organizationId),
           eq(sales.store_id, filters.storeId),
           eq(sales.status, "COMPLETED"),
           gte(sales.created_at, start),
@@ -232,6 +238,7 @@ export class PostgresProfitRepository implements IProfitRepository {
   // ─── getMonthlyTrend ────────────────────────────────────────────────────────
 
   async getMonthlyTrend(filters: ProfitFilters & { storeId: number }): Promise<ProfitTrendPoint[]> {
+    const { organizationId } = getTenantContext();
     const rows = await db
       .select({
         month: sql<string>`to_char(timezone('Asia/Kolkata', timezone('UTC', ${sales.created_at})), 'Mon YYYY')`,
@@ -242,7 +249,7 @@ export class PostgresProfitRepository implements IProfitRepository {
       .from(sale_items)
       .innerJoin(sales, eq(sale_items.sale_id, sales.id))
       .innerJoin(products, eq(sale_items.product_id, products.id))
-      .where(and(eq(sales.store_id, filters.storeId), eq(sales.status, "COMPLETED")))
+      .where(and(eq(sales.organization_id, organizationId), eq(sales.store_id, filters.storeId), eq(sales.status, "COMPLETED")))
       .groupBy(
         sql`to_char(timezone('Asia/Kolkata', timezone('UTC', ${sales.created_at})), 'Mon YYYY')`,
         sql`to_char(timezone('Asia/Kolkata', timezone('UTC', ${sales.created_at})), 'YYYY-MM')`
@@ -267,8 +274,10 @@ export class PostgresProfitRepository implements IProfitRepository {
     averageCost: number,
     tx?: any
   ): Promise<void> {
+    const { organizationId } = getTenantContext();
     const executor = tx || db;
     await executor.insert(product_cost_history).values({
+      organization_id: organizationId,
       store_id: storeId,
       product_id: productId,
       average_cost: averageCost,

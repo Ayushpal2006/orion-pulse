@@ -3,17 +3,18 @@ import { Sale, SaleItem } from "../../types/checkout.types";
 import { db } from "../../db";
 import { sales, sale_items } from "../../db/schema";
 import crypto from "crypto";
-import { getStoreId } from "../../db/context";
+import { getTenantContext } from "../../db/context";
 
 export class PostgresCheckoutRepository implements ICheckoutRepository {
   async createSale(sale: Omit<Sale, "id" | "created_at">, tx?: any): Promise<number> {
     const client = tx || db;
-    const storeId = getStoreId() || 1;
+    const { organizationId, currentStoreId } = getTenantContext();
     const publicToken = crypto.randomBytes(9).toString("base64url").substring(0, 12);
     const [created] = await client
       .insert(sales)
       .values({
-        store_id: storeId,
+        organization_id: organizationId,
+        store_id: currentStoreId,
         invoice_number: sale.invoice_number,
         customer_id: sale.customer_id,
         cashier_name: sale.cashier_name,
@@ -37,9 +38,12 @@ export class PostgresCheckoutRepository implements ICheckoutRepository {
 
   async createSaleItem(item: Omit<SaleItem, "id">, tx?: any): Promise<void> {
     const client = tx || db;
+    const { organizationId, currentStoreId } = getTenantContext();
     await client
       .insert(sale_items)
       .values({
+        organization_id: organizationId,
+        store_id: currentStoreId,
         sale_id: item.sale_id,
         product_id: item.product_id,
         quantity: item.quantity,

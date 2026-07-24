@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { Link, useRouterState } from "@tanstack/react-router";
 import {
-  LayoutDashboard, ShoppingCart, Package, Users, BarChart3, Search, Wifi, WifiOff, Settings, LogOut, UserCog, Truck, Receipt, Sliders, TrendingUp, History, CreditCard, Wallet, ChevronDown, ChevronRight, Menu, X
+  LayoutDashboard, ShoppingCart, Package, Users, BarChart3, Search, Wifi, WifiOff, Settings, LogOut, UserCog, Truck, Receipt, Sliders, TrendingUp, History, CreditCard, Wallet, ChevronDown, ChevronRight, Menu, X, Store, Check
 } from "lucide-react";
 import { usePWA } from "@/hooks/usePWA";
 import { Button } from "@/components/ui/button";
@@ -16,7 +16,8 @@ import { useApp, type Role } from "@/lib/store";
 import { CommandPalette } from "./command-palette";
 import { ThemeToggle, useThemeInit } from "./theme-toggle";
 import { cn } from "@/lib/utils";
-import { getProducts, getCustomers } from "@/lib/api";
+import { getProducts, getCustomers, getStores, switchStore } from "@/lib/api";
+import { toast } from "sonner";
 
 export type NavItem = { to: string; label: string; icon: any; exact?: boolean; roles?: Role[] };
 export type NavGroup = { label: string; icon: any; items: NavItem[]; roles?: Role[] };
@@ -24,6 +25,83 @@ export type NavElement = NavItem | NavGroup;
 
 function isGroup(item: NavElement): item is NavGroup {
   return "items" in item;
+}
+
+function StoreSwitcher() {
+  const activeStoreId = useApp((s) => s.activeStoreId);
+  const activeStoreName = useApp((s) => s.activeStoreName);
+  const storesList = useApp((s) => s.storesList);
+  const setActiveStoreId = useApp((s) => s.setActiveStoreId);
+  const setActiveStoreName = useApp((s) => s.setActiveStoreName);
+  const setProducts = useApp((s) => s.setProducts);
+  const setCustomers = useApp((s) => s.setCustomers);
+
+  const handleSwitch = async (store: any) => {
+    if (store.id === activeStoreId) return;
+    try {
+      await switchStore(store.id);
+      setActiveStoreId(store.id);
+      setActiveStoreName(store.name);
+      toast.success(`Switched to store: ${store.name}`);
+      // Refetch data for newly selected store
+      const [prods, custs] = await Promise.all([getProducts(), getCustomers()]);
+      setProducts(prods);
+      setCustomers(
+        custs.map((c: any) => ({
+          ...c,
+          loyaltyPoints: c.loyalty_points ?? c.loyaltyPoints ?? 0,
+          totalSpent: c.total_spent ?? c.totalSpent ?? 0,
+        }))
+      );
+    } catch (err: any) {
+      toast.error(err.message || "Failed to switch store");
+    }
+  };
+
+  if (storesList.length <= 1) {
+    return (
+      <div className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-muted/60 border border-border/50 text-xs font-medium text-muted-foreground">
+        <Store className="size-3.5 text-primary shrink-0" />
+        <span className="truncate max-w-[120px] sm:max-w-[150px] font-semibold text-foreground">
+          {activeStoreName || "Main Store"}
+        </span>
+      </div>
+    );
+  }
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="outline" size="sm" className="h-9 gap-2 rounded-xl text-xs font-medium border-border/60 bg-background/50 hover:bg-accent">
+          <Store className="size-3.5 text-primary shrink-0" />
+          <span className="truncate max-w-[110px] sm:max-w-[140px] font-semibold">{activeStoreName}</span>
+          <ChevronDown className="size-3 opacity-60 ml-auto" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" className="w-56 rounded-xl">
+        <DropdownMenuLabel className="text-xs text-muted-foreground font-normal">Switch Active Store</DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        {storesList.map((s) => (
+          <DropdownMenuItem
+            key={s.id}
+            onClick={() => handleSwitch(s)}
+            disabled={s.status === "disabled"}
+            className="flex items-center justify-between cursor-pointer rounded-lg text-xs"
+          >
+            <div className="flex flex-col">
+              <span className={cn("font-medium", s.id === activeStoreId ? "text-primary font-bold" : "")}>
+                {s.name}
+              </span>
+              <span className="text-[10px] text-muted-foreground">
+                {s.code ? `Code: ${s.code}` : `ID: #${s.id}`} {s.status === "disabled" ? "(Disabled)" : ""}
+              </span>
+            </div>
+            {s.id === activeStoreId && <Check className="size-4 text-primary" />}
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
 }
 
 const navTree: NavElement[] = [
@@ -68,6 +146,9 @@ export function AppShell({ children }: { children: ReactNode }) {
   const setRole = useApp((s) => s.setRole);
   const setProducts = useApp((s) => s.setProducts);
   const setCustomers = useApp((s) => s.setCustomers);
+  const setActiveStoreId = useApp((s) => s.setActiveStoreId);
+  const setActiveStoreName = useApp((s) => s.setActiveStoreName);
+  const setStoresList = useApp((s) => s.setStoresList);
   const pathname = useRouterState({ select: (s) => s.location.pathname });
 
   // Mobile menu drawer state
@@ -96,12 +177,32 @@ export function AppShell({ children }: { children: ReactNode }) {
   }, [pathname]);
 
   useEffect(() => {
-    // 1. Fetch products
+    // 1. Fetch stores
+    getStores()
+      .then((stores) => {
+        setStoresList(stores);
+        if (stores && stores.length > 0) {
+          const savedStoreIdRaw = localStorage.getItem("currentStoreId");
+          const savedStoreId = savedStoreIdRaw ? parseInt(savedStoreIdRaw, 10) : null;
+          const found =
+            stores.find((st: any) => st.id === savedStoreId) ||
+            stores.find((st: any) => st.is_default === 1) ||
+            stores[0];
+          if (found) {
+            setActiveStoreId(found.id);
+            setActiveStoreName(found.name);
+            localStorage.setItem("currentStoreId", String(found.id));
+          }
+        }
+      })
+      .catch((err) => console.error("AppShell stores fetch failed:", err));
+
+    // 2. Fetch products
     getProducts()
       .then(setProducts)
       .catch((err) => console.error("AppShell products fetch failed:", err));
 
-    // 2. Fetch customers
+    // 3. Fetch customers
     getCustomers()
       .then((data) => {
         const mapped = data.map((c: any) => ({
@@ -112,7 +213,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         setCustomers(mapped);
       })
       .catch((err) => console.error("AppShell customers fetch failed:", err));
-  }, [setProducts, setCustomers]);
+  }, [setProducts, setCustomers, setActiveStoreId, setActiveStoreName, setStoresList]);
 
   const hasRole = (roles?: Role[]) => {
     if (!roles || roles.length === 0) return true;
@@ -198,12 +299,12 @@ export function AppShell({ children }: { children: ReactNode }) {
     <div className="min-h-screen bg-background text-foreground antialiased">
       {/* Desktop Sidebar */}
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-60 flex-col border-r border-border bg-elevated/60 backdrop-blur lg:flex">
-        <div className="flex h-16 items-center gap-2.5 px-6 border-b border-border/40">
-          <img src="/logo.png" alt="Apka Bill Logo" className="size-9 rounded-xl object-cover shadow-sm border border-border/50" />
-          <div className="flex flex-col">
+        <div className="flex h-16 items-center gap-2.5 px-4 border-b border-border/40 justify-between">
+          <div className="flex items-center gap-2">
+            <img src="/logo.png" alt="Apka Bill Logo" className="size-8 rounded-xl object-cover shadow-sm border border-border/50" />
             <span className="font-bold tracking-tight text-base leading-tight">Apka Bill</span>
-            <span className="text-[10px] text-muted-foreground font-medium">Store #001 · Production</span>
           </div>
+          <StoreSwitcher />
         </div>
         <nav className="flex-1 space-y-1.5 p-3 overflow-y-auto">
           {renderNavItems()}
@@ -224,12 +325,12 @@ export function AppShell({ children }: { children: ReactNode }) {
               </Button>
             </SheetTrigger>
             <SheetContent side="left" className="w-72 p-0 flex flex-col">
-              <SheetHeader className="p-4 border-b border-border text-left flex flex-row items-center gap-2.5">
-                <img src="/logo.png" alt="Apka Bill Logo" className="size-9 rounded-xl object-cover shadow-sm border border-border/50" />
-                <div>
+              <SheetHeader className="p-4 border-b border-border text-left flex flex-row items-center justify-between gap-2.5">
+                <div className="flex items-center gap-2">
+                  <img src="/logo.png" alt="Apka Bill Logo" className="size-8 rounded-xl object-cover shadow-sm border border-border/50" />
                   <SheetTitle className="text-base font-bold">Apka Bill</SheetTitle>
-                  <p className="text-[10px] text-muted-foreground">Store #001 · Navigation</p>
                 </div>
+                <StoreSwitcher />
               </SheetHeader>
               <nav className="flex-1 p-3 overflow-y-auto space-y-1.5">
                 {renderNavItems(() => setMobileMenuOpen(false))}
@@ -248,6 +349,10 @@ export function AppShell({ children }: { children: ReactNode }) {
             <span className="truncate">Search products, customers, invoices…</span>
             <kbd className="ml-auto hidden rounded-md border border-border bg-elevated px-1.5 py-0.5 text-[10px] font-medium sm:inline-block">⌘K</kbd>
           </button>
+
+          <div className="hidden sm:block">
+            <StoreSwitcher />
+          </div>
 
           <div className="hidden lg:block">
             <OfflineBadge />

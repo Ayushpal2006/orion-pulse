@@ -1302,3 +1302,271 @@ export async function voidSaleInvoice(invoiceNumber: string, reason: string): Pr
   }
   return json.data;
 }
+
+// ─── STORE MANAGEMENT & SWITCHING APIS ───────────────────────────────────────
+
+export function getStoreHeaders(): Record<string, string> {
+  const currentStoreId = typeof window !== "undefined" ? localStorage.getItem("currentStoreId") : null;
+  const headers: Record<string, string> = {
+    Authorization: `Bearer ${typeof window !== "undefined" ? localStorage.getItem("token") || "" : ""}`,
+  };
+  if (currentStoreId) {
+    headers["x-store-id"] = currentStoreId;
+  }
+  return headers;
+}
+
+export async function getStores(): Promise<any[]> {
+  const res = await fetch(`${API_BASE_URL}/api/stores`, {
+    headers: getStoreHeaders(),
+  });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok || !json.success) {
+    throw new Error(json.error || "Failed to fetch stores");
+  }
+  return json.data || [];
+}
+
+export async function getCurrentStore(): Promise<any> {
+  const res = await fetch(`${API_BASE_URL}/api/stores/current`, {
+    headers: getStoreHeaders(),
+  });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok || !json.success) {
+    throw new Error(json.error || "Failed to fetch current store");
+  }
+  return json.data;
+}
+
+export async function createStore(storeData: {
+  name: string;
+  code?: string;
+  address?: string;
+  city?: string;
+  state?: string;
+  country?: string;
+  gstNumber?: string;
+  phone?: string;
+  currency?: string;
+  timezone?: string;
+}): Promise<any> {
+  const res = await fetch(`${API_BASE_URL}/api/stores`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...getStoreHeaders(),
+    },
+    body: JSON.stringify(storeData),
+  });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok || !json.success) {
+    throw new Error(json.error || "Failed to create store");
+  }
+  return json.data;
+}
+
+export async function updateStore(id: number, storeData: any): Promise<any> {
+  const res = await fetch(`${API_BASE_URL}/api/stores/${id}`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+      ...getStoreHeaders(),
+    },
+    body: JSON.stringify(storeData),
+  });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok || !json.success) {
+    throw new Error(json.error || "Failed to update store");
+  }
+  return json.data;
+}
+
+export async function disableStore(id: number): Promise<any> {
+  const res = await fetch(`${API_BASE_URL}/api/stores/${id}/disable`, {
+    method: "PATCH",
+    headers: getStoreHeaders(),
+  });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok || !json.success) {
+    throw new Error(json.error || "Failed to disable store");
+  }
+  return json.data;
+}
+
+export async function switchStore(storeId: number): Promise<{ store: any; token?: string }> {
+  const res = await fetch(`${API_BASE_URL}/api/stores/switch`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...getStoreHeaders(),
+    },
+    body: JSON.stringify({ storeId }),
+  });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok || !json.success) {
+    throw new Error(json.error || "Failed to switch store");
+  }
+  if (typeof window !== "undefined") {
+    localStorage.setItem("currentStoreId", String(storeId));
+    if (json.data?.token) {
+      localStorage.setItem("token", json.data.token);
+    }
+  }
+  return json.data;
+}
+
+// ─── USER MANAGEMENT APIS ───────────────────────────────────────────────────
+
+export async function getUsers(): Promise<any[]> {
+  const res = await fetch(`${API_BASE_URL}/api/users`, {
+    headers: getStoreHeaders(),
+  });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok || !json.success) {
+    throw new Error(json.error || "Failed to fetch users");
+  }
+  return json.data || [];
+}
+
+export async function getUser(id: number): Promise<any> {
+  const res = await fetch(`${API_BASE_URL}/api/users/${id}`, {
+    headers: getStoreHeaders(),
+  });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok || !json.success) {
+    throw new Error(json.error || "Failed to fetch user");
+  }
+  return json.data;
+}
+
+export async function createUser(userData: {
+  name: string;
+  email: string;
+  phone?: string;
+  password: string;
+  role?: string;
+  storeId?: number;
+  storeIds?: number[];
+}): Promise<any> {
+  const res = await fetch(`${API_BASE_URL}/api/users`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...getStoreHeaders(),
+    },
+    body: JSON.stringify(userData),
+  });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok || !json.success) {
+    throw new Error(json.error || "Failed to create user");
+  }
+  return json.data;
+}
+
+export async function updateUser(id: number, userData: any): Promise<any> {
+  const res = await fetch(`${API_BASE_URL}/api/users/${id}`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+      ...getStoreHeaders(),
+    },
+    body: JSON.stringify(userData),
+  });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok || !json.success) {
+    throw new Error(json.error || "Failed to update user");
+  }
+  return json.data;
+}
+
+export async function disableUser(id: number): Promise<any> {
+  const res = await fetch(`${API_BASE_URL}/api/users/${id}/disable`, {
+    method: "PATCH",
+    headers: getStoreHeaders(),
+  });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok || !json.success) {
+    throw new Error(json.error || "Failed to disable user");
+  }
+  return json.data;
+}
+
+export async function assignUserStores(id: number, storeIds: number[]): Promise<any> {
+  const res = await fetch(`${API_BASE_URL}/api/users/${id}/stores`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...getStoreHeaders(),
+    },
+    body: JSON.stringify({ storeIds }),
+  });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok || !json.success) {
+    throw new Error(json.error || "Failed to assign stores to user");
+  }
+  return json.data;
+}
+
+// ─── ORGANIZATION ADMINISTRATION APIS ────────────────────────────────────────
+
+export async function getOrganizationCurrent(): Promise<any> {
+  const res = await fetch(`${API_BASE_URL}/api/organizations/current`, {
+    headers: getStoreHeaders(),
+  });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok || !json.success) {
+    throw new Error(json.error || "Failed to fetch organization details");
+  }
+  return json.data;
+}
+
+export async function updateOrganizationCurrent(orgData: {
+  name?: string;
+  phone?: string;
+  email?: string;
+  gstNumber?: string;
+  panNumber?: string;
+  address?: string;
+  logoUrl?: string;
+  currency?: string;
+  timezone?: string;
+  invoicePrefix?: string;
+  financialYear?: string;
+  receiptInfo?: string;
+}): Promise<any> {
+  const res = await fetch(`${API_BASE_URL}/api/organizations/current`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+      ...getStoreHeaders(),
+    },
+    body: JSON.stringify(orgData),
+  });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok || !json.success) {
+    throw new Error(json.error || "Failed to update organization details");
+  }
+  return json.data;
+}
+
+export async function getOrganizationDashboard(): Promise<any> {
+  const res = await fetch(`${API_BASE_URL}/api/organizations/dashboard`, {
+    headers: getStoreHeaders(),
+  });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok || !json.success) {
+    throw new Error(json.error || "Failed to fetch organization dashboard data");
+  }
+  return json.data;
+}
+
+export async function getOrganizationStats(): Promise<any> {
+  const res = await fetch(`${API_BASE_URL}/api/organizations/stats`, {
+    headers: getStoreHeaders(),
+  });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok || !json.success) {
+    throw new Error(json.error || "Failed to fetch organization stats");
+  }
+  return json.data;
+}

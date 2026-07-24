@@ -1,7 +1,7 @@
 import { db } from "../../db";
 import { purchase_orders, purchase_items, suppliers, products } from "../../db/schema";
 import { eq, and, desc, or, like, gte, lte } from "drizzle-orm";
-import { getStoreId } from "../../db/context";
+import { getTenantContext } from "../../db/context";
 
 function toISOStringSafe(val: any): string {
   if (!val) return new Date().toISOString();
@@ -37,7 +37,7 @@ function mapPurchaseRow(r: any): any {
 export class PostgresPurchaseV2Repository {
   async create(poData: any, itemsData: any[], tx?: any): Promise<any> {
     const client = tx || db;
-    const storeId = getStoreId() || 1;
+    const { organizationId, currentStoreId } = getTenantContext();
 
     const poNum = poData.po_number || poData.purchase_number;
     const invNum = poData.invoice_number || poData.supplier_invoice_number || null;
@@ -47,7 +47,8 @@ export class PostgresPurchaseV2Repository {
     const [createdPo] = await client
       .insert(purchase_orders)
       .values({
-        store_id: storeId,
+        organization_id: organizationId,
+        store_id: currentStoreId,
         supplier_id: poData.supplier_id,
         po_number: poNum,
         status: poData.status || "COMPLETED",
@@ -75,6 +76,8 @@ export class PostgresPurchaseV2Repository {
     if (itemsData.length > 0) {
       await client.insert(purchase_items).values(
         itemsData.map((item) => ({
+          organization_id: organizationId,
+          store_id: currentStoreId,
           purchase_order_id: createdPo.id,
           product_id: item.product_id,
           quantity: item.quantity,
@@ -92,12 +95,11 @@ export class PostgresPurchaseV2Repository {
 
   async getAll(params?: { q?: string; startDate?: string; endDate?: string }, tx?: any): Promise<any[]> {
     const client = tx || db;
-    const storeId = getStoreId();
-    const conditions: any[] = [];
-
-    if (storeId !== undefined) {
-      conditions.push(eq(purchase_orders.store_id, storeId));
-    }
+    const { organizationId, currentStoreId } = getTenantContext();
+    const conditions: any[] = [
+      eq(purchase_orders.organization_id, organizationId),
+      eq(purchase_orders.store_id, currentStoreId)
+    ];
 
     if (params?.q) {
       const searchLike = `%${params.q}%`;
@@ -119,7 +121,7 @@ export class PostgresPurchaseV2Repository {
       conditions.push(lte(purchase_orders.invoice_date, new Date(params.endDate)));
     }
 
-    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+    const whereClause = and(...conditions);
 
     const rows = await client
       .select({
@@ -162,11 +164,12 @@ export class PostgresPurchaseV2Repository {
 
   async getById(id: number, tx?: any): Promise<any | null> {
     const client = tx || db;
-    const storeId = getStoreId();
-    let cond = eq(purchase_orders.id, id);
-    if (storeId !== undefined) {
-      cond = and(cond, eq(purchase_orders.store_id, storeId)) as any;
-    }
+    const { organizationId, currentStoreId } = getTenantContext();
+    let cond = and(
+      eq(purchase_orders.id, id),
+      eq(purchase_orders.organization_id, organizationId),
+      eq(purchase_orders.store_id, currentStoreId)
+    );
 
     const [po] = await client
       .select({
@@ -211,6 +214,7 @@ export class PostgresPurchaseV2Repository {
 
   async getItems(purchaseOrderId: number, tx?: any): Promise<any[]> {
     const client = tx || db;
+    const { organizationId, currentStoreId } = getTenantContext();
     const rows = await client
       .select({
         id: purchase_items.id,
@@ -227,7 +231,7 @@ export class PostgresPurchaseV2Repository {
       })
       .from(purchase_items)
       .innerJoin(products, eq(purchase_items.product_id, products.id))
-      .where(eq(purchase_items.purchase_order_id, purchaseOrderId));
+      .where(and(eq(purchase_items.purchase_order_id, purchaseOrderId)));
 
     return rows.map((r: any) => ({
       ...r,
@@ -237,12 +241,13 @@ export class PostgresPurchaseV2Repository {
 
   async update(id: number, poData: any, tx?: any): Promise<any | null> {
     const client = tx || db;
-    const storeId = getStoreId();
+    const { organizationId, currentStoreId } = getTenantContext();
 
-    let cond = eq(purchase_orders.id, id);
-    if (storeId !== undefined) {
-      cond = and(cond, eq(purchase_orders.store_id, storeId)) as any;
-    }
+    let cond = and(
+      eq(purchase_orders.id, id),
+      eq(purchase_orders.organization_id, organizationId),
+      eq(purchase_orders.store_id, currentStoreId)
+    );
 
     const invNum = poData.invoice_number || poData.supplier_invoice_number || undefined;
     const invDate = poData.invoice_date || poData.purchase_date;
@@ -278,12 +283,13 @@ export class PostgresPurchaseV2Repository {
 
   async delete(id: number, tx?: any): Promise<boolean> {
     const client = tx || db;
-    const storeId = getStoreId();
+    const { organizationId, currentStoreId } = getTenantContext();
 
-    let cond = eq(purchase_orders.id, id);
-    if (storeId !== undefined) {
-      cond = and(cond, eq(purchase_orders.store_id, storeId)) as any;
-    }
+    let cond = and(
+      eq(purchase_orders.id, id),
+      eq(purchase_orders.organization_id, organizationId),
+      eq(purchase_orders.store_id, currentStoreId)
+    );
 
     const [deleted] = await client
       .delete(purchase_orders)
@@ -300,9 +306,12 @@ export class PostgresPurchaseV2Repository {
 
   async insertItems(items: any[], tx?: any): Promise<void> {
     const client = tx || db;
+    const { organizationId, currentStoreId } = getTenantContext();
     if (items.length > 0) {
       await client.insert(purchase_items).values(
         items.map((item) => ({
+          organization_id: organizationId,
+          store_id: currentStoreId,
           purchase_order_id: item.purchase_order_id,
           product_id: item.product_id,
           quantity: item.quantity,

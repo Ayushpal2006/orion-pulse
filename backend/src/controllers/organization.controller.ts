@@ -1,13 +1,235 @@
 import { Request, Response, NextFunction } from "express";
 import { db } from "../db";
-import { organizations, organization_invitations, users, stores, api_keys, support_tickets } from "../db/schema";
-import { eq, and } from "drizzle-orm";
-import { getStoreId } from "../db/context";
-import { ValidationError, NotFoundError } from "../utils/errors";
+import { organizations, organization_invitations, users, stores, api_keys, support_tickets, sales, products, audit_logs } from "../db/schema";
+import { eq, and, gte, sql } from "drizzle-orm";
+import { getTenantContext, getStoreId } from "../db/context";
+import { ValidationError, NotFoundError, ForbiddenError } from "../utils/errors";
 import crypto from "crypto";
 import bcrypt from "bcryptjs";
 
 export class OrganizationController {
+  getCurrent = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const { organizationId } = getTenantContext();
+
+      const [org] = await db
+        .select()
+        .from(organizations)
+        .where(eq(organizations.id, organizationId))
+        .limit(1);
+
+      if (!org) {
+        throw new NotFoundError("Organization not found");
+      }
+
+      const userRows = await db
+        .select({ id: users.id, is_active: users.is_active, status: users.status })
+        .from(users)
+        .where(eq(users.organization_id, organizationId));
+
+      const storeRows = await db
+        .select({ id: stores.id, status: stores.status })
+        .from(stores)
+        .where(eq(stores.organization_id, organizationId));
+
+      const totalUsers = userRows.length;
+      const activeUsers = userRows.filter((u) => u.is_active === 1 && u.status === "active").length;
+      const disabledUsers = totalUsers - activeUsers;
+
+      const totalStores = storeRows.length;
+      const activeStores = storeRows.filter((s) => s.status === "active").length;
+
+      res.status(200).json({
+        success: true,
+        data: {
+          ...org,
+          stats: {
+            totalUsers,
+            activeUsers,
+            disabledUsers,
+            totalStores,
+            activeStores,
+          },
+        },
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  updateCurrent = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const { userId, organizationId, role } = getTenantContext();
+      const isOwnerOrAdmin = ["owner", "admin"].includes((role || "").toLowerCase());
+
+      if (!isOwnerOrAdmin) {
+        throw new ForbiddenError("Only Organization Owners or Admins can modify organization settings");
+      }
+
+      const {
+        name,
+        phone,
+        email,
+        gstNumber,
+        panNumber,
+        address,
+        logoUrl,
+        currency,
+        timezone,
+        invoicePrefix,
+        financialYear,
+        receiptInfo,
+      } = req.body;
+
+      const updateData: any = { updated_at: new Date() };
+      if (name !== undefined) updateData.name = name.trim();
+      if (phone !== undefined) updateData.phone = phone ? phone.trim() : null;
+      if (email !== undefined) updateData.email = email ? email.trim() : null;
+      if (gstNumber !== undefined) updateData.gst_number = gstNumber ? gstNumber.trim() : null;
+      if (panNumber !== undefined) updateData.pan_number = panNumber ? panNumber.trim() : null;
+      if (address !== undefined) updateData.address = address ? address.trim() : null;
+      if (logoUrl !== undefined) updateData.logo_url = logoUrl ? logoUrl.trim() : null;
+      if (currency !== undefined) updateData.currency = currency;
+      if (timezone !== undefined) updateData.timezone = timezone;
+      if (invoicePrefix !== undefined) updateData.invoice_prefix = invoicePrefix;
+      if (financialYear !== undefined) updateData.financial_year = financialYear;
+      if (receiptInfo !== undefined) updateData.receipt_info = receiptInfo;
+
+      const [updated] = await db
+        .update(organizations)
+        .set(updateData)
+        .where(eq(organizations.id, organizationId))
+        .returning();
+
+      // Record Audit Entry
+      try {
+        await db.insert(audit_logs).values({
+          organization_id: organizationId,
+          store_id: getTenantContext().currentStoreId || 1,
+          user_id: userId,
+          action: "ORGANIZATION_UPDATED",
+          details: `Organization updated by User #${userId}: ${Object.keys(updateData).filter((k) => k !== "updated_at").join(", ")}`,
+        });
+      } catch (auditErr) {
+        // non-blocking audit write failure
+      }
+
+      res.status(200).json({
+        success: true,
+        message: "Organization details updated successfully",
+        data: updated,
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  getDashboard = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const { organizationId } = getTenantContext();
+
+      const [org] = await db
+        .select()
+        .from(organizations)
+        .where(eq(organizations.id, organizationId))
+        .limit(1);
+
+      const storeRows = await db
+        .select({ id: stores.id })
+        .from(stores)
+        .where(and(eq(stores.organization_id, organizationId), eq(stores.status, "active")));
+
+      const userRows = await db
+        .select({ id: users.id })
+        .from(users)
+        .where(and(eq(users.organization_id, organizationId), eq(users.status, "active")));
+
+      // Today's Sales
+      const todayStart = new Date();
+      todayStart.setHours(0, 0, 0, 0);
+
+      const [todayResult] = await db
+        .select({ total: sql<string>`COALESCE(SUM(total_amount), 0)` })
+        .from(sales)
+        .where(and(eq(sales.organization_id, organizationId), gte(sales.created_at, todayStart)));
+
+      // Monthly Sales
+      const monthStart = new Date();
+      monthStart.setDate(1);
+      monthStart.setHours(0, 0, 0, 0);
+
+      const [monthResult] = await db
+        .select({ total: sql<string>`COALESCE(SUM(total_amount), 0)` })
+        .from(sales)
+        .where(and(eq(sales.organization_id, organizationId), gte(sales.created_at, monthStart)));
+
+      // Inventory Value
+      const [invResult] = await db
+        .select({ value: sql<string>`COALESCE(SUM(stock * purchase_price), 0)` })
+        .from(products)
+        .where(and(eq(products.organization_id, organizationId), eq(products.is_active, 1)));
+
+      // Recent Audit Logs
+      const recentAudit = await db
+        .select()
+        .from(audit_logs)
+        .where(eq(audit_logs.organization_id, organizationId))
+        .orderBy(sql`${audit_logs.id} DESC`)
+        .limit(10);
+
+      res.status(200).json({
+        success: true,
+        data: {
+          organizationName: org ? org.name : "Apka Bill Organization",
+          activeStores: storeRows.length,
+          activeUsers: userRows.length,
+          todaySales: Number(todayResult?.total || 0),
+          monthlySales: Number(monthResult?.total || 0),
+          inventoryValue: Number(invResult?.value || 0),
+          auditLogs: recentAudit,
+        },
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  getStats = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const { organizationId } = getTenantContext();
+
+      const userRows = await db
+        .select({ id: users.id, is_active: users.is_active, status: users.status })
+        .from(users)
+        .where(eq(users.organization_id, organizationId));
+
+      const storeRows = await db
+        .select({ id: stores.id, status: stores.status })
+        .from(stores)
+        .where(eq(stores.organization_id, organizationId));
+
+      const totalUsers = userRows.length;
+      const activeUsers = userRows.filter((u) => u.is_active === 1 && u.status === "active").length;
+      const disabledUsers = totalUsers - activeUsers;
+
+      const totalStores = storeRows.length;
+      const activeStores = storeRows.filter((s) => s.status === "active").length;
+
+      res.status(200).json({
+        success: true,
+        data: {
+          totalUsers,
+          activeUsers,
+          disabledUsers,
+          totalStores,
+          activeStores,
+        },
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
+
   create = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const { name, billingPlan } = req.body;
@@ -37,16 +259,16 @@ export class OrganizationController {
         throw new ValidationError("Invite email is required");
       }
 
-      // Hardcoded or fetched context org
-      const storeId = getStoreId() || 1;
       const token = crypto.randomBytes(32).toString("hex");
       const expiresAt = new Date();
-      expiresAt.setHours(expiresAt.getHours() + 48); // 48 hours expiry
+      expiresAt.setHours(expiresAt.getHours() + 48);
+
+      const { organizationId } = getTenantContext();
 
       const [invitation] = await db
         .insert(organization_invitations)
         .values({
-          organization_id: 1, // default organization context
+          organization_id: organizationId,
           email,
           role: role || "Manager",
           token,
@@ -96,21 +318,19 @@ export class OrganizationController {
         throw new ValidationError("Invitation token has expired");
       }
 
-      // Password hashing
       const passwordHash = await bcrypt.hash(password, 10);
 
       await db.transaction(async (tx) => {
-        // Create user
         await tx.insert(users).values({
+          organization_id: invite.organization_id,
           name,
           email: invite.email,
           password_hash: passwordHash,
           role: invite.role,
-          store_id: 1, // bind to default store
+          store_id: 1,
           is_active: 1,
         });
 
-        // Mark invite accepted
         await tx
           .update(organization_invitations)
           .set({ status: "accepted" })
@@ -125,7 +345,7 @@ export class OrganizationController {
 
   createApiKey = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const storeId = getStoreId() || 1;
+      const { organizationId, currentStoreId } = getTenantContext();
       const { name, scopes } = req.body;
       if (!name) {
         throw new ValidationError("API Key name is required");
@@ -138,8 +358,8 @@ export class OrganizationController {
       const [apiKey] = await db
         .insert(api_keys)
         .values({
-          organization_id: 1,
-          store_id: storeId,
+          organization_id: organizationId,
+          store_id: currentStoreId,
           name,
           key_hash: keyHash,
           prefix,
@@ -155,7 +375,7 @@ export class OrganizationController {
           name: apiKey.name,
           prefix: apiKey.prefix,
           scopes: apiKey.scopes,
-          apiKey: rawKey, // only visible once
+          apiKey: rawKey,
           createdAt: apiKey.created_at.toISOString(),
         },
       });
@@ -166,11 +386,11 @@ export class OrganizationController {
 
   listApiKeys = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const storeId = getStoreId() || 1;
+      const { currentStoreId } = getTenantContext();
       const keys = await db
         .select()
         .from(api_keys)
-        .where(and(eq(api_keys.store_id, storeId), eq(api_keys.is_active, 1)));
+        .where(and(eq(api_keys.store_id, currentStoreId), eq(api_keys.is_active, 1)));
 
       res.status(200).json({ success: true, data: keys });
     } catch (error) {
@@ -181,7 +401,7 @@ export class OrganizationController {
   deleteApiKey = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const id = parseInt(req.params.id as string, 10);
-      const storeId = getStoreId() || 1;
+      const { currentStoreId } = getTenantContext();
       if (isNaN(id)) {
         throw new ValidationError("Invalid API Key ID");
       }
@@ -189,7 +409,7 @@ export class OrganizationController {
       await db
         .update(api_keys)
         .set({ is_active: 0 })
-        .where(and(eq(api_keys.id, id), eq(api_keys.store_id, storeId)));
+        .where(and(eq(api_keys.id, id), eq(api_keys.store_id, currentStoreId)));
 
       res.status(200).json({ success: true, message: "API key deactivated successfully" });
     } catch (error) {
@@ -199,7 +419,7 @@ export class OrganizationController {
 
   createTicket = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const storeId = getStoreId() || 1;
+      const { organizationId, currentStoreId } = getTenantContext();
       const { subject, description, priority } = req.body;
       if (!subject || !description) {
         throw new ValidationError("Subject and description are required for support tickets");
@@ -208,8 +428,8 @@ export class OrganizationController {
       const [ticket] = await db
         .insert(support_tickets)
         .values({
-          organization_id: 1,
-          store_id: storeId,
+          organization_id: organizationId,
+          store_id: currentStoreId,
           subject,
           description,
           status: "Open",
@@ -225,11 +445,11 @@ export class OrganizationController {
 
   listTickets = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const storeId = getStoreId() || 1;
+      const { currentStoreId } = getTenantContext();
       const tickets = await db
         .select()
         .from(support_tickets)
-        .where(eq(support_tickets.store_id, storeId));
+        .where(eq(support_tickets.store_id, currentStoreId));
 
       res.status(200).json({ success: true, data: tickets });
     } catch (error) {

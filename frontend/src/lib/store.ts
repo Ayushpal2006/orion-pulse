@@ -69,10 +69,16 @@ type State = {
   upiQrUrl?: string;
   accountHolderName?: string;
   bankDetails?: string;
-  primaryColor?: string;
+  // store management & switcher
+  activeStoreId: number;
+  activeStoreName: string;
+  storesList: any[];
 };
 
 type Actions = {
+  setActiveStoreId: (id: number) => void;
+  setActiveStoreName: (name: string) => void;
+  setStoresList: (list: any[]) => void;
   setRole: (r: Role) => void;
   setPaletteOpen: (v: boolean) => void;
   addToCart: (p: Product) => void;
@@ -138,6 +144,9 @@ type Actions = {
 };
 
 export const useApp = create<State & Actions>((set, get) => ({
+  activeStoreId: 1,
+  activeStoreName: "Main Store",
+  storesList: [],
   role: "Admin",
   paletteOpen: false,
   cart: [],
@@ -166,6 +175,9 @@ export const useApp = create<State & Actions>((set, get) => ({
   requireCustomerBeforeCheckout: false,
   receiptTemplate: "Classic",
 
+  setActiveStoreId: (activeStoreId) => set({ activeStoreId }),
+  setActiveStoreName: (activeStoreName) => set({ activeStoreName }),
+  setStoresList: (storesList) => set({ storesList }),
   setRole: (role) => set({ role }),
   setPaletteOpen: (paletteOpen) => set({ paletteOpen }),
 

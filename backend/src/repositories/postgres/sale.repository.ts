@@ -3,19 +3,19 @@ import { Sale } from "../../types/checkout.types";
 import { db } from "../../db";
 import { sales, sale_items, products, customers } from "../../db/schema";
 import { eq, and, desc, sql, like, gte, lte, ne, or } from "drizzle-orm";
-import { getStoreId } from "../../db/context";
+import { getTenantContext } from "../../db/context";
 import { getUtcBoundariesForFilter } from "../../utils/datetime";
 
 export class PostgresSaleRepository implements ISaleRepository {
   async getAll(tx?: any): Promise<Sale[]> {
     const client = tx || db;
-    const storeId = getStoreId();
-    const conditions: any[] = [];
-    if (storeId !== undefined) {
-      conditions.push(eq(sales.store_id, storeId));
-    }
+    const { organizationId, currentStoreId } = getTenantContext();
+    const conditions: any[] = [
+      eq(sales.organization_id, organizationId),
+      eq(sales.store_id, currentStoreId)
+    ];
 
-    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+    const whereClause = and(...conditions);
 
     const rows = await client
       .select()
@@ -35,11 +35,12 @@ export class PostgresSaleRepository implements ISaleRepository {
 
   async getById(id: number, tx?: any): Promise<Sale | null> {
     const client = tx || db;
-    const storeId = getStoreId();
-    const conditions: any[] = [eq(sales.id, id)];
-    if (storeId !== undefined) {
-      conditions.push(eq(sales.store_id, storeId));
-    }
+    const { organizationId, currentStoreId } = getTenantContext();
+    const conditions: any[] = [
+      eq(sales.id, id),
+      eq(sales.organization_id, organizationId),
+      eq(sales.store_id, currentStoreId)
+    ];
 
     const [sale] = await client
       .select()
@@ -65,11 +66,12 @@ export class PostgresSaleRepository implements ISaleRepository {
 
   async getByInvoiceNumber(invoiceNumber: string, tx?: any): Promise<Sale | null> {
     const client = tx || db;
-    const storeId = getStoreId();
-    const conditions: any[] = [eq(sales.invoice_number, invoiceNumber)];
-    if (storeId !== undefined) {
-      conditions.push(eq(sales.store_id, storeId));
-    }
+    const { organizationId, currentStoreId } = getTenantContext();
+    const conditions: any[] = [
+      eq(sales.invoice_number, invoiceNumber),
+      eq(sales.organization_id, organizationId),
+      eq(sales.store_id, currentStoreId)
+    ];
 
     const [sale] = await client
       .select()
@@ -91,12 +93,14 @@ export class PostgresSaleRepository implements ISaleRepository {
 
   async getTodaySales(tx?: any): Promise<Sale[]> {
     const client = tx || db;
-    const storeId = getStoreId();
+    const { organizationId, currentStoreId } = getTenantContext();
     const { start, end } = getUtcBoundariesForFilter("today");
-    const conditions: any[] = [gte(sales.created_at, start), lte(sales.created_at, end)];
-    if (storeId !== undefined) {
-      conditions.push(eq(sales.store_id, storeId));
-    }
+    const conditions: any[] = [
+      gte(sales.created_at, start),
+      lte(sales.created_at, end),
+      eq(sales.organization_id, organizationId),
+      eq(sales.store_id, currentStoreId)
+    ];
 
     const rows = await client
       .select()
@@ -116,11 +120,12 @@ export class PostgresSaleRepository implements ISaleRepository {
 
   async getByCustomerPhone(phone: string, tx?: any): Promise<Sale[]> {
     const client = tx || db;
-    const storeId = getStoreId();
-    const conditions: any[] = [like(customers.phone, `%${phone}%`)];
-    if (storeId !== undefined) {
-      conditions.push(eq(sales.store_id, storeId));
-    }
+    const { organizationId, currentStoreId } = getTenantContext();
+    const conditions: any[] = [
+      like(customers.phone, `%${phone}%`),
+      eq(sales.organization_id, organizationId),
+      eq(sales.store_id, currentStoreId)
+    ];
 
     const rows = await client
       .select({
@@ -182,12 +187,13 @@ export class PostgresSaleRepository implements ISaleRepository {
 
   async create(saleData: any, items: any[], tx?: any): Promise<Sale> {
     const client = tx || db;
-    const storeId = getStoreId() || 1;
+    const { organizationId, currentStoreId } = getTenantContext();
 
     const [createdSale] = await client
       .insert(sales)
       .values({
-        store_id: storeId,
+        organization_id: organizationId,
+        store_id: currentStoreId,
         invoice_number: saleData.invoice_number,
         customer_id: saleData.customer_id || null,
         cashier_name: saleData.cashier_name || "Admin",
@@ -210,6 +216,8 @@ export class PostgresSaleRepository implements ISaleRepository {
 
     if (items && items.length > 0) {
       const itemsToInsert = items.map((item) => ({
+        organization_id: organizationId,
+        store_id: currentStoreId,
         sale_id: createdSale.id,
         product_id: item.product_id,
         quantity: item.quantity,
@@ -258,13 +266,13 @@ export class PostgresSaleRepository implements ISaleRepository {
 
   async getLastInvoiceNumber(tx?: any): Promise<string | null> {
     const client = tx || db;
-    const storeId = getStoreId();
-    const conditions: any[] = [];
-    if (storeId !== undefined) {
-      conditions.push(eq(sales.store_id, storeId));
-    }
+    const { organizationId, currentStoreId } = getTenantContext();
+    const conditions: any[] = [
+      eq(sales.organization_id, organizationId),
+      eq(sales.store_id, currentStoreId)
+    ];
 
-    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+    const whereClause = and(...conditions);
 
     const rows = await client
       .select({ invoice_number: sales.invoice_number })
@@ -278,11 +286,12 @@ export class PostgresSaleRepository implements ISaleRepository {
 
   async updatePdfUrlByInvoice(invoiceNumber: string, pdfUrl: string, tx?: any): Promise<boolean> {
     const client = tx || db;
-    const storeId = getStoreId();
-    const conditions: any[] = [eq(sales.invoice_number, invoiceNumber)];
-    if (storeId !== undefined) {
-      conditions.push(eq(sales.store_id, storeId));
-    }
+    const { organizationId, currentStoreId } = getTenantContext();
+    const conditions: any[] = [
+      eq(sales.invoice_number, invoiceNumber),
+      eq(sales.organization_id, organizationId),
+      eq(sales.store_id, currentStoreId)
+    ];
 
     const [updated] = await client
       .update(sales)
@@ -306,11 +315,12 @@ export class PostgresSaleRepository implements ISaleRepository {
 
   async voidSale(id: number, reason: string, voidedBy: string, tx?: any): Promise<Sale> {
     const client = tx || db;
-    const storeId = getStoreId();
-    const conditions: any[] = [eq(sales.id, id)];
-    if (storeId !== undefined) {
-      conditions.push(eq(sales.store_id, storeId));
-    }
+    const { organizationId, currentStoreId } = getTenantContext();
+    const conditions: any[] = [
+      eq(sales.id, id),
+      eq(sales.organization_id, organizationId),
+      eq(sales.store_id, currentStoreId)
+    ];
 
     const [updated] = await client
       .update(sales)
@@ -351,12 +361,11 @@ export class PostgresSaleRepository implements ISaleRepository {
     tx?: any
   ): Promise<any[]> {
     const client = tx || db;
-    const storeId = getStoreId();
-    const conditions: any[] = [];
-
-    if (storeId !== undefined) {
-      conditions.push(eq(sales.store_id, storeId));
-    }
+    const { organizationId, currentStoreId } = getTenantContext();
+    const conditions: any[] = [
+      eq(sales.organization_id, organizationId),
+      eq(sales.store_id, currentStoreId)
+    ];
 
     if (params.invoiceNumber) {
       conditions.push(like(sales.invoice_number, `%${params.invoiceNumber}%`));
@@ -384,7 +393,7 @@ export class PostgresSaleRepository implements ISaleRepository {
       conditions.push(like(customers.phone, `%${params.phone}%`));
     }
 
-    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+    const whereClause = and(...conditions);
 
     const rows = await client
       .select({
@@ -438,12 +447,11 @@ export class PostgresSaleRepository implements ISaleRepository {
     tx?: any
   ): Promise<{ sales: any[]; totalCount: number }> {
     const client = tx || db;
-    const storeId = getStoreId();
-    const conditions: any[] = [];
-
-    if (storeId !== undefined) {
-      conditions.push(eq(sales.store_id, storeId));
-    }
+    const { organizationId, currentStoreId } = getTenantContext();
+    const conditions: any[] = [
+      eq(sales.organization_id, organizationId),
+      eq(sales.store_id, currentStoreId)
+    ];
 
     if (params.invoiceNumber) {
       conditions.push(like(sales.invoice_number, `%${params.invoiceNumber}%`));
@@ -487,7 +495,7 @@ export class PostgresSaleRepository implements ISaleRepository {
       conditions.push(like(customers.phone, `%${params.phone}%`));
     }
 
-    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+    const whereClause = and(...conditions);
 
     // 1. Total count
     const [countResult] = await client
@@ -555,11 +563,11 @@ export class PostgresSaleRepository implements ISaleRepository {
     tx?: any
   ): Promise<any[]> {
     const client = tx || db;
-    const storeId = getStoreId();
-    const conditions: any[] = [];
-    if (storeId !== undefined) {
-      conditions.push(eq(sales.store_id, storeId));
-    }
+    const { organizationId, currentStoreId } = getTenantContext();
+    const conditions: any[] = [
+      eq(sales.organization_id, organizationId),
+      eq(sales.store_id, currentStoreId)
+    ];
 
     const { start, end } = getUtcBoundariesForFilter(filter, startDate, endDate);
     conditions.push(gte(sales.created_at, start), lte(sales.created_at, end));
@@ -568,7 +576,7 @@ export class PostgresSaleRepository implements ISaleRepository {
       conditions.push(ne(sales.status, "VOID"));
     }
 
-    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+    const whereClause = and(...conditions);
 
     const rows = await client
       .select()

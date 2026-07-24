@@ -27,6 +27,8 @@ import inventoryRoutes from "./routes/inventory.routes";
 import expenseRoutes from "./routes/expense.routes";
 import analyticsRoutes from "./routes/analytics.routes";
 import stockAdjustmentRoutes from "./routes/stock-adjustment.routes";
+import storeRoutes from "./routes/store.routes";
+import userRoutes from "./routes/user.routes";
 import exportRoutes from "./routes/export.routes";
 import backupRoutes from "./routes/backup.routes";
 import deviceRoutes from "./routes/device.routes";
@@ -150,6 +152,10 @@ app.use("/sync", authenticate(), syncRoutes);
 app.use("/api/admin", authenticate(), authorize("admin"), adminRoutes);
 
 // New Modules
+app.use("/api/users", userRoutes);
+app.use("/users", userRoutes);
+app.use("/api/stores", storeRoutes);
+app.use("/stores", storeRoutes);
 app.use("/api/suppliers", authenticate(), supplierRoutes);
 app.use("/api/supplier-payments", authenticate(), supplierPaymentRoutes);
 app.use("/api/profit", authenticate(), profitRoutes);

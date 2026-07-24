@@ -2,7 +2,7 @@ import { IReportsRepository } from "../interfaces/IReportsRepository";
 import { db } from "../../db";
 import { sales, sale_items, products, customers } from "../../db/schema";
 import { eq, and, desc, sql, gte, lte, ne } from "drizzle-orm";
-import { getStoreId } from "../../db/context";
+import { getTenantContext } from "../../db/context";
 import { getUtcBoundariesForFilter } from "../../utils/datetime";
 
 export class PostgresReportsRepository implements IReportsRepository {
@@ -11,11 +11,12 @@ export class PostgresReportsRepository implements IReportsRepository {
   }
 
   private getReportCondition(column: any, filter: string, startDate?: string, endDate?: string, showVoid: boolean = false) {
+    const { organizationId, currentStoreId } = getTenantContext();
     const { start, end } = getUtcBoundariesForFilter(filter, startDate, endDate);
     if (showVoid) {
-      return and(gte(column, start), lte(column, end));
+      return and(gte(column, start), lte(column, end), eq(sales.organization_id, organizationId), eq(sales.store_id, currentStoreId));
     }
-    return and(gte(column, start), lte(column, end), ne(sales.status, "VOID"));
+    return and(gte(column, start), lte(column, end), ne(sales.status, "VOID"), eq(sales.organization_id, organizationId), eq(sales.store_id, currentStoreId));
   }
 
   async getSummary(
@@ -31,11 +32,7 @@ export class PostgresReportsRepository implements IReportsRepository {
     averageOrderValue: number;
   }> {
     const client = tx || db;
-    const storeId = getStoreId();
     let cond = this.getDateCondition(sales.created_at, filter, startDate, endDate, showVoid);
-    if (storeId !== undefined) {
-      cond = and(cond, eq(sales.store_id, storeId)) as any;
-    }
 
     // 1. Revenue
     const [revRow] = await client
@@ -76,11 +73,7 @@ export class PostgresReportsRepository implements IReportsRepository {
     tx?: any
   ): Promise<any[]> {
     const client = tx || db;
-    const storeId = getStoreId();
     let cond = this.getDateCondition(sales.created_at, filter, startDate, endDate, showVoid);
-    if (storeId !== undefined) {
-      cond = and(cond, eq(sales.store_id, storeId)) as any;
-    }
 
     const rows = await client
       .select({
@@ -116,11 +109,7 @@ export class PostgresReportsRepository implements IReportsRepository {
     tx?: any
   ): Promise<any[]> {
     const client = tx || db;
-    const storeId = getStoreId();
     let cond = this.getDateCondition(sales.created_at, filter, startDate, endDate, showVoid);
-    if (storeId !== undefined) {
-      cond = and(cond, eq(sales.store_id, storeId)) as any;
-    }
 
     const rows = await client
       .select({
@@ -150,11 +139,7 @@ export class PostgresReportsRepository implements IReportsRepository {
     tx?: any
   ): Promise<Record<string, number>> {
     const client = tx || db;
-    const storeId = getStoreId();
     let cond = this.getDateCondition(sales.created_at, filter, startDate, endDate, showVoid);
-    if (storeId !== undefined) {
-      cond = and(cond, eq(sales.store_id, storeId)) as any;
-    }
 
     const rows = await client
       .select({
@@ -180,11 +165,7 @@ export class PostgresReportsRepository implements IReportsRepository {
     tx?: any
   ): Promise<any[]> {
     const client = tx || db;
-    const storeId = getStoreId();
     let cond = this.getDateCondition(sales.created_at, filter, startDate, endDate, showVoid);
-    if (storeId !== undefined) {
-      cond = and(cond, eq(sales.store_id, storeId)) as any;
-    }
 
     if (filter === "today" || filter === "yesterday") {
       const rows = await client
@@ -349,11 +330,7 @@ export class PostgresReportsRepository implements IReportsRepository {
     tx?: any
   ): Promise<any[]> {
     const client = tx || db;
-    const storeId = getStoreId();
     let cond = this.getReportCondition(sales.created_at, filter, startDate, endDate, showVoid);
-    if (storeId !== undefined) {
-      cond = and(cond, eq(sales.store_id, storeId)) as any;
-    }
 
     const rows = await client
       .select({
@@ -388,11 +365,7 @@ export class PostgresReportsRepository implements IReportsRepository {
     tx?: any
   ): Promise<any[]> {
     const client = tx || db;
-    const storeId = getStoreId();
     let cond = this.getDateCondition(sales.created_at, filter, startDate, endDate, showVoid);
-    if (storeId !== undefined) {
-      cond = and(cond, eq(sales.store_id, storeId)) as any;
-    }
 
     const rows = await client
       .select({
@@ -419,14 +392,13 @@ export class PostgresReportsRepository implements IReportsRepository {
 
   async getLowStockCount(tx?: any): Promise<number> {
     const client = tx || db;
-    const storeId = getStoreId();
+    const { organizationId, currentStoreId } = getTenantContext();
     let cond = and(
       eq(products.is_active, 1),
-      sql`${products.stock} <= ${products.minimum_stock}`
+      sql`${products.stock} <= ${products.minimum_stock}`,
+      eq(products.organization_id, organizationId),
+      eq(products.store_id, currentStoreId)
     );
-    if (storeId !== undefined) {
-      cond = and(cond, eq(products.store_id, storeId)) as any;
-    }
 
     const [row] = await client
       .select({ count: sql<string>`COUNT(*)` })
@@ -448,11 +420,7 @@ export class PostgresReportsRepository implements IReportsRepository {
     uniqueProductsSold: number;
   }> {
     const client = tx || db;
-    const storeId = getStoreId();
     let cond = this.getDateCondition(sales.created_at, filter, startDate, endDate, showVoid);
-    if (storeId !== undefined) {
-      cond = and(cond, eq(sales.store_id, storeId)) as any;
-    }
 
     const [row] = await client
       .select({

@@ -3,17 +3,18 @@ import { SupplierPayment } from "../../types/supplier-payment.types";
 import { db } from "../../db";
 import { supplier_payments, suppliers } from "../../db/schema";
 import { eq, and, desc, or, sql, gte, lte, like } from "drizzle-orm";
-import { getStoreId } from "../../db/context";
+import { getTenantContext } from "../../db/context";
 
 export class PostgresSupplierPaymentRepository implements ISupplierPaymentRepository {
   async create(paymentData: any, tx?: any): Promise<SupplierPayment> {
     const client = tx || db;
-    const storeId = getStoreId() || 1;
+    const { organizationId, currentStoreId } = getTenantContext();
 
     const [created] = await client
       .insert(supplier_payments)
       .values({
-        store_id: storeId,
+        organization_id: organizationId,
+        store_id: currentStoreId,
         supplier_id: paymentData.supplier_id,
         payment_number: paymentData.payment_number,
         amount: paymentData.amount,
@@ -46,12 +47,11 @@ export class PostgresSupplierPaymentRepository implements ISupplierPaymentReposi
     tx?: any
   ): Promise<SupplierPayment[]> {
     const client = tx || db;
-    const storeId = getStoreId();
-    const conditions: any[] = [];
-
-    if (storeId !== undefined) {
-      conditions.push(eq(supplier_payments.store_id, storeId));
-    }
+    const { organizationId, currentStoreId } = getTenantContext();
+    const conditions: any[] = [
+      eq(supplier_payments.organization_id, organizationId),
+      eq(supplier_payments.store_id, currentStoreId)
+    ];
 
     if (params?.supplier_id) {
       conditions.push(eq(supplier_payments.supplier_id, params.supplier_id));
@@ -76,7 +76,7 @@ export class PostgresSupplierPaymentRepository implements ISupplierPaymentReposi
       conditions.push(lte(supplier_payments.payment_date, new Date(params.endDate)));
     }
 
-    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+    const whereClause = and(...conditions);
 
     const rows = await client
       .select({
@@ -107,12 +107,12 @@ export class PostgresSupplierPaymentRepository implements ISupplierPaymentReposi
 
   async getById(id: number, tx?: any): Promise<SupplierPayment | null> {
     const client = tx || db;
-    const storeId = getStoreId();
-    let cond = eq(supplier_payments.id, id);
-
-    if (storeId !== undefined) {
-      cond = and(cond, eq(supplier_payments.store_id, storeId)) as any;
-    }
+    const { organizationId, currentStoreId } = getTenantContext();
+    let cond = and(
+      eq(supplier_payments.id, id),
+      eq(supplier_payments.organization_id, organizationId),
+      eq(supplier_payments.store_id, currentStoreId)
+    );
 
     const [payment] = await client
       .select({

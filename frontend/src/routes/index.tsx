@@ -15,6 +15,7 @@ import { stockLevel } from "@/components/stock-badge";
 import { getDashboardData, getReportsData, getProducts, getStockAdjustments } from "@/lib/api";
 import { formatToKolkataDateTime, formatToKolkataDate, parseDbTimestamp } from "@/lib/datetime";
 import { InvoiceDrawer } from "@/components/invoice-drawer";
+import { OrganizationDashboardCard } from "@/components/organization-dashboard-card";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -133,10 +134,13 @@ export function Dashboard() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">Good morning, Manager 👋</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Here's what's happening at your store today.</p>
+          <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">Good morning 👋</h1>
+          <p className="mt-1 text-sm text-muted-foreground">Here's what's happening across your organization today.</p>
         </div>
       </div>
+
+      {/* Organization Executive Dashboard Card */}
+      <OrganizationDashboardCard />
 
       {/* 1. KPI cards — 5-column grid on large screens */}
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 md:gap-4">

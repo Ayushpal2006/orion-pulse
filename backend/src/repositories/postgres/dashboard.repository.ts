@@ -2,7 +2,7 @@ import { IDashboardRepository } from "../interfaces/IDashboardRepository";
 import { db } from "../../db";
 import { sales, sale_items, products, customers } from "../../db/schema";
 import { eq, and, desc, sql, gte, lte, ne } from "drizzle-orm";
-import { getStoreId } from "../../db/context";
+import { getTenantContext } from "../../db/context";
 import { getUtcBoundariesForFilter } from "../../utils/datetime";
 
 export class PostgresDashboardRepository implements IDashboardRepository {
@@ -14,16 +14,21 @@ export class PostgresDashboardRepository implements IDashboardRepository {
     lowStockCount: number;
   }> {
     const client = tx || db;
-    const storeId = getStoreId();
+    const { organizationId, currentStoreId } = getTenantContext();
 
     const { start, end } = getUtcBoundariesForFilter("today");
-    let salesCond = and(gte(sales.created_at, start), lte(sales.created_at, end), ne(sales.status, "VOID")) as any;
-    let productsCond = eq(products.is_active, 1);
-
-    if (storeId !== undefined) {
-      salesCond = and(salesCond, eq(sales.store_id, storeId)) as any;
-      productsCond = and(productsCond, eq(products.store_id, storeId)) as any;
-    }
+    let salesCond = and(
+      gte(sales.created_at, start),
+      lte(sales.created_at, end),
+      ne(sales.status, "VOID"),
+      eq(sales.organization_id, organizationId),
+      eq(sales.store_id, currentStoreId)
+    );
+    let productsCond = and(
+      eq(products.is_active, 1),
+      eq(products.organization_id, organizationId),
+      eq(products.store_id, currentStoreId)
+    );
 
     // 1. Revenue Today
     const [revRow] = await client
@@ -40,10 +45,13 @@ export class PostgresDashboardRepository implements IDashboardRepository {
     const orders = Number(orderRow?.count || 0);
 
     // 3. Profit Today
-    let profitCond = and(gte(sales.created_at, start), lte(sales.created_at, end), ne(sales.status, "VOID")) as any;
-    if (storeId !== undefined) {
-      profitCond = and(profitCond, eq(sales.store_id, storeId)) as any;
-    }
+    let profitCond = and(
+      gte(sales.created_at, start),
+      lte(sales.created_at, end),
+      ne(sales.status, "VOID"),
+      eq(sales.organization_id, organizationId),
+      eq(sales.store_id, currentStoreId)
+    );
     const [profitRow] = await client
       .select({ profit: sql<string>`COALESCE(SUM(${sale_items.line_total} - (${products.purchase_price} * ${sale_items.quantity})), 0)` })
       .from(sale_items)
@@ -78,12 +86,14 @@ export class PostgresDashboardRepository implements IDashboardRepository {
 
   async getTopProducts(tx?: any): Promise<any[]> {
     const client = tx || db;
-    const storeId = getStoreId();
+    const { organizationId, currentStoreId } = getTenantContext();
 
-    let cond = and(eq(products.is_active, 1), ne(sales.status, "VOID")) as any;
-    if (storeId !== undefined) {
-      cond = and(cond, eq(products.store_id, storeId)) as any;
-    }
+    let cond = and(
+      eq(products.is_active, 1),
+      ne(sales.status, "VOID"),
+      eq(products.organization_id, organizationId),
+      eq(products.store_id, currentStoreId)
+    );
 
     const rows = await client
       .select({
@@ -109,13 +119,13 @@ export class PostgresDashboardRepository implements IDashboardRepository {
 
   async getRecentSales(tx?: any): Promise<any[]> {
     const client = tx || db;
-    const storeId = getStoreId();
+    const { organizationId, currentStoreId } = getTenantContext();
 
-    const conditions: any[] = [];
-    if (storeId !== undefined) {
-      conditions.push(eq(sales.store_id, storeId));
-    }
-    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+    const conditions: any[] = [
+      eq(sales.organization_id, organizationId),
+      eq(sales.store_id, currentStoreId)
+    ];
+    const whereClause = and(...conditions);
 
     const rows = await client
       .select({

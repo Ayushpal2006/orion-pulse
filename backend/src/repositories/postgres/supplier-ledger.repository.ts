@@ -3,17 +3,18 @@ import { SupplierLedgerEntry } from "../../types/supplier-payment.types";
 import { db } from "../../db";
 import { supplier_ledger, suppliers } from "../../db/schema";
 import { eq, and, asc, desc, gte, lte, sql } from "drizzle-orm";
-import { getStoreId } from "../../db/context";
+import { getTenantContext } from "../../db/context";
 
 export class PostgresSupplierLedgerRepository implements ISupplierLedgerRepository {
   async create(ledgerData: any, tx?: any): Promise<SupplierLedgerEntry> {
     const client = tx || db;
-    const storeId = getStoreId() || 1;
+    const { organizationId, currentStoreId } = getTenantContext();
 
     const [created] = await client
       .insert(supplier_ledger)
       .values({
-        store_id: storeId,
+        organization_id: organizationId,
+        store_id: currentStoreId,
         supplier_id: ledgerData.supplier_id,
         transaction_type: ledgerData.transaction_type,
         amount: ledgerData.amount,
@@ -42,12 +43,12 @@ export class PostgresSupplierLedgerRepository implements ISupplierLedgerReposito
     tx?: any
   ): Promise<SupplierLedgerEntry[]> {
     const client = tx || db;
-    const storeId = getStoreId();
-    let cond = eq(supplier_ledger.supplier_id, supplierId);
-
-    if (storeId !== undefined) {
-      cond = and(cond, eq(supplier_ledger.store_id, storeId)) as any;
-    }
+    const { organizationId, currentStoreId } = getTenantContext();
+    let cond = and(
+      eq(supplier_ledger.supplier_id, supplierId),
+      eq(supplier_ledger.organization_id, organizationId),
+      eq(supplier_ledger.store_id, currentStoreId)
+    );
 
     if (params?.transaction_type) {
       cond = and(cond, eq(supplier_ledger.transaction_type, params.transaction_type)) as any;
@@ -81,21 +82,23 @@ export class PostgresSupplierLedgerRepository implements ISupplierLedgerReposito
     tx?: any
   ): Promise<void> {
     const client = tx || db;
+    const { organizationId, currentStoreId } = getTenantContext();
     await client
       .update(supplier_ledger)
       .set({ amount: newAmount })
-      .where(eq(supplier_ledger.reference, reference));
+      .where(and(eq(supplier_ledger.reference, reference), eq(supplier_ledger.organization_id, organizationId), eq(supplier_ledger.store_id, currentStoreId)));
   }
 
   async recalculateBalances(supplierId: number, tx?: any): Promise<void> {
     const client = tx || db;
-    const storeId = getStoreId();
+    const { organizationId, currentStoreId } = getTenantContext();
 
     // 1. Fetch all ledger rows in sequential order
-    let cond = eq(supplier_ledger.supplier_id, supplierId);
-    if (storeId !== undefined) {
-      cond = and(cond, eq(supplier_ledger.store_id, storeId)) as any;
-    }
+    let cond = and(
+      eq(supplier_ledger.supplier_id, supplierId),
+      eq(supplier_ledger.organization_id, organizationId),
+      eq(supplier_ledger.store_id, currentStoreId)
+    );
 
     const rows = await client
       .select()
@@ -122,6 +125,6 @@ export class PostgresSupplierLedgerRepository implements ISupplierLedgerReposito
     await client
       .update(suppliers)
       .set({ current_balance: runningBalance })
-      .where(eq(suppliers.id, supplierId));
+      .where(and(eq(suppliers.id, supplierId), eq(suppliers.organization_id, organizationId), eq(suppliers.store_id, currentStoreId)));
   }
 }

@@ -2,18 +2,27 @@ import { pgTable, serial, text, integer, timestamp, index, uniqueIndex, primaryK
 
 export const stores = pgTable("stores", {
   id: serial("id").primaryKey(),
+  organization_id: integer("organization_id").references(() => organizations.id),
   name: text("name").notNull(),
+  code: text("code"),
   address: text("address"),
-  phone: text("phone"),
+  city: text("city"),
+  state: text("state"),
+  country: text("country"),
   gst_number: text("gst_number"),
+  phone: text("phone"),
   logo_url: text("logo_url"),
   currency: text("currency").default("INR").notNull(),
   timezone: text("timezone").default("Asia/Kolkata").notNull(),
+  is_default: integer("is_default").default(0).notNull(),
+  status: text("status").default("active").notNull(),
   created_at: timestamp("created_at").defaultNow().notNull(),
+  updated_at: timestamp("updated_at").defaultNow().notNull(),
 });
 
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
+  organization_id: integer("organization_id").references(() => organizations.id),
   name: text("name").notNull(),
   email: text("email").unique().notNull(),
   phone: text("phone"),
@@ -21,6 +30,7 @@ export const users = pgTable("users", {
   role: text("role").notNull(), // Admin, Manager, Cashier
   store_id: integer("store_id").references(() => stores.id).notNull(),
   is_active: integer("is_active").default(1).notNull(),
+  status: text("status").default("active").notNull(),
   created_at: timestamp("created_at").defaultNow().notNull(),
   updated_at: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -29,6 +39,7 @@ export const products = pgTable(
   "products",
   {
     id: serial("id").primaryKey(),
+    organization_id: integer("organization_id").references(() => organizations.id),
     store_id: integer("store_id").references(() => stores.id).notNull(),
     name: text("name").notNull(),
     sku: text("sku").notNull(),
@@ -52,6 +63,7 @@ export const products = pgTable(
     updated_at: timestamp("updated_at").defaultNow().notNull(),
   },
   (table) => ({
+    orgIdx: index("idx_products_organization_id").on(table.organization_id),
     skuIdx: index("idx_products_sku").on(table.store_id, table.sku),
     barcodeIdx: index("idx_products_barcode").on(table.store_id, table.barcode),
     nameIdx: index("idx_products_name").on(table.name),
@@ -63,6 +75,7 @@ export const customers = pgTable(
   "customers",
   {
     id: serial("id").primaryKey(),
+    organization_id: integer("organization_id").references(() => organizations.id),
     store_id: integer("store_id").references(() => stores.id).notNull(),
     name: text("name").notNull(),
     phone: text("phone").notNull(),
@@ -77,6 +90,7 @@ export const customers = pgTable(
     updated_at: timestamp("updated_at").defaultNow().notNull(),
   },
   (table) => ({
+    orgIdx: index("idx_customers_organization_id").on(table.organization_id),
     phoneIdx: index("idx_customers_phone").on(table.store_id, table.phone),
     nameIdx: index("idx_customers_name").on(table.name),
   })
@@ -86,6 +100,7 @@ export const sales = pgTable(
   "sales",
   {
     id: serial("id").primaryKey(),
+    organization_id: integer("organization_id").references(() => organizations.id),
     store_id: integer("store_id").references(() => stores.id).notNull(),
     invoice_number: text("invoice_number").notNull(),
     customer_id: integer("customer_id").references(() => customers.id),
@@ -108,6 +123,7 @@ export const sales = pgTable(
     voided_at: timestamp("voided_at"),
   },
   (table) => ({
+    orgIdx: index("idx_sales_organization_id").on(table.organization_id),
     invoiceIdx: index("idx_sales_invoice_number").on(table.store_id, table.invoice_number),
     publicTokenIdx: uniqueIndex("idx_sales_public_token").on(table.public_token),
     createdIdx: index("idx_sales_created_at").on(table.created_at),
@@ -119,6 +135,8 @@ export const sale_items = pgTable(
   "sale_items",
   {
     id: serial("id").primaryKey(),
+    organization_id: integer("organization_id").references(() => organizations.id),
+    store_id: integer("store_id").references(() => stores.id),
     sale_id: integer("sale_id")
       .notNull()
       .references(() => sales.id, { onDelete: "cascade" }),
@@ -131,6 +149,8 @@ export const sale_items = pgTable(
     line_total: integer("line_total").notNull(),
   },
   (table) => ({
+    orgIdx: index("idx_sale_items_organization_id").on(table.organization_id),
+    storeIdx: index("idx_sale_items_store_id").on(table.store_id),
     saleIdx: index("idx_sale_items_sale_id").on(table.sale_id),
     productIdx: index("idx_sale_items_product_id").on(table.product_id),
   })
@@ -140,6 +160,7 @@ export const returns = pgTable(
   "returns",
   {
     id: serial("id").primaryKey(),
+    organization_id: integer("organization_id").references(() => organizations.id),
     store_id: integer("store_id").references(() => stores.id).notNull(),
     original_sale_id: integer("original_sale_id").references(() => sales.id).notNull(),
     return_invoice_number: text("return_invoice_number").notNull(),
@@ -150,6 +171,7 @@ export const returns = pgTable(
     created_at: timestamp("created_at").defaultNow().notNull(),
   },
   (table) => ({
+    orgIdx: index("idx_returns_organization_id").on(table.organization_id),
     returnInvoiceIdx: index("idx_returns_invoice_number").on(table.store_id, table.return_invoice_number),
   })
 );
@@ -158,18 +180,25 @@ export const return_items = pgTable(
   "return_items",
   {
     id: serial("id").primaryKey(),
+    organization_id: integer("organization_id").references(() => organizations.id),
+    store_id: integer("store_id").references(() => stores.id),
     return_id: integer("return_id").references(() => returns.id, { onDelete: "cascade" }).notNull(),
     product_id: integer("product_id").references(() => products.id).notNull(),
     quantity: integer("quantity").notNull(),
     selling_price: integer("selling_price").notNull(),
     refund_amount: integer("refund_amount").notNull(),
-  }
+  },
+  (table) => ({
+    orgIdx: index("idx_return_items_organization_id").on(table.organization_id),
+    storeIdx: index("idx_return_items_store_id").on(table.store_id),
+  })
 );
 
 export const inventory_logs = pgTable(
   "inventory_logs",
   {
     id: serial("id").primaryKey(),
+    organization_id: integer("organization_id").references(() => organizations.id),
     product_id: integer("product_id").references(() => products.id).notNull(),
     store_id: integer("store_id").references(() => stores.id).notNull(),
     type: text("type").notNull(), // SALE, RETURN, PURCHASE, ADJUSTMENT
@@ -180,6 +209,7 @@ export const inventory_logs = pgTable(
     created_at: timestamp("created_at").defaultNow().notNull(),
   },
   (table) => ({
+    orgIdx: index("idx_inv_logs_organization_id").on(table.organization_id),
     productIdx: index("idx_inv_logs_product").on(table.product_id),
     storeIdx: index("idx_inv_logs_store").on(table.store_id),
   })
@@ -189,6 +219,7 @@ export const inventory_movements = pgTable(
   "inventory_movements",
   {
     id: serial("id").primaryKey(),
+    organization_id: integer("organization_id").references(() => organizations.id),
     store_id: integer("store_id").references(() => stores.id).notNull(),
     movement_type: text("movement_type").notNull(),
     product_id: integer("product_id").references(() => products.id).notNull(),
@@ -202,6 +233,7 @@ export const inventory_movements = pgTable(
     created_at: timestamp("created_at").defaultNow().notNull(),
   },
   (table) => ({
+    orgIdx: index("idx_inv_mov_organization_id").on(table.organization_id),
     productIdx: index("idx_inv_mov_product").on(table.product_id),
     storeIdx: index("idx_inv_mov_store").on(table.store_id),
     createdIdx: index("idx_inv_mov_created").on(table.created_at),
@@ -238,6 +270,7 @@ export const suppliers = pgTable(
   "suppliers",
   {
     id: serial("id").primaryKey(),
+    organization_id: integer("organization_id").references(() => organizations.id),
     store_id: integer("store_id").references(() => stores.id).notNull(),
     supplier_code: text("supplier_code").notNull(),
     company_name: text("company_name").notNull(),
@@ -261,6 +294,7 @@ export const suppliers = pgTable(
     updated_at: timestamp("updated_at").defaultNow().notNull(),
   },
   (table) => ({
+    orgIdx: index("idx_suppliers_organization_id").on(table.organization_id),
     storeIdx: index("idx_suppliers_store_id").on(table.store_id),
     companyNameIdx: index("idx_suppliers_company_name").on(table.company_name),
     phoneIdx: index("idx_suppliers_phone").on(table.store_id, table.phone),
@@ -272,6 +306,7 @@ export const purchase_orders = pgTable(
   "purchase_orders",
   {
     id: serial("id").primaryKey(),
+    organization_id: integer("organization_id").references(() => organizations.id),
     store_id: integer("store_id").references(() => stores.id).notNull(),
     supplier_id: integer("supplier_id").references(() => suppliers.id).notNull(),
     po_number: text("po_number").unique().notNull(),
@@ -297,6 +332,7 @@ export const purchase_orders = pgTable(
     updated_at: timestamp("updated_at").defaultNow().notNull(),
   },
   (table) => ({
+    orgIdx: index("idx_purchase_orders_organization_id").on(table.organization_id),
     storeIdx: index("idx_purchase_orders_store_id").on(table.store_id),
     supplierIdx: index("idx_purchase_orders_supplier_id").on(table.supplier_id),
     poNumIdx: index("idx_purchase_orders_num").on(table.po_number),
@@ -307,6 +343,8 @@ export const purchase_items = pgTable(
   "purchase_items",
   {
     id: serial("id").primaryKey(),
+    organization_id: integer("organization_id").references(() => organizations.id),
+    store_id: integer("store_id").references(() => stores.id),
     purchase_order_id: integer("purchase_order_id")
       .references(() => purchase_orders.id, { onDelete: "cascade" })
       .notNull(),
@@ -319,6 +357,8 @@ export const purchase_items = pgTable(
     line_total: integer("line_total").notNull(),
   },
   (table) => ({
+    orgIdx: index("idx_purchase_items_organization_id").on(table.organization_id),
+    storeIdx: index("idx_purchase_items_store_id").on(table.store_id),
     poIdx: index("idx_purchase_items_po_id").on(table.purchase_order_id),
     prodIdx: index("idx_purchase_items_prod_id").on(table.product_id),
   })
@@ -328,6 +368,7 @@ export const supplier_payments = pgTable(
   "supplier_payments",
   {
     id: serial("id").primaryKey(),
+    organization_id: integer("organization_id").references(() => organizations.id),
     store_id: integer("store_id").references(() => stores.id).notNull(),
     supplier_id: integer("supplier_id").references(() => suppliers.id).notNull(),
     payment_number: text("payment_number").unique().notNull(),
@@ -340,6 +381,7 @@ export const supplier_payments = pgTable(
     created_at: timestamp("created_at").defaultNow().notNull(),
   },
   (table) => ({
+    orgIdx: index("idx_supplier_payments_organization_id").on(table.organization_id),
     storeIdx: index("idx_supplier_payments_store_id").on(table.store_id),
     supplierIdx: index("idx_supplier_payments_supplier_id").on(table.supplier_id),
     numIdx: index("idx_supplier_payments_number").on(table.payment_number),
@@ -350,6 +392,7 @@ export const supplier_ledger = pgTable(
   "supplier_ledger",
   {
     id: serial("id").primaryKey(),
+    organization_id: integer("organization_id").references(() => organizations.id),
     store_id: integer("store_id").references(() => stores.id).notNull(),
     supplier_id: integer("supplier_id").references(() => suppliers.id).notNull(),
     transaction_type: text("transaction_type").notNull(), // PURCHASE, PAYMENT, PURCHASE_CANCEL
@@ -359,6 +402,7 @@ export const supplier_ledger = pgTable(
     created_at: timestamp("created_at").defaultNow().notNull(),
   },
   (table) => ({
+    orgIdx: index("idx_supplier_ledger_organization_id").on(table.organization_id),
     storeIdx: index("idx_supplier_ledger_store_id").on(table.store_id),
     supplierIdx: index("idx_supplier_ledger_supplier_id").on(table.supplier_id),
   })
@@ -366,6 +410,7 @@ export const supplier_ledger = pgTable(
 
 export const inventory_adjustments = pgTable("inventory_adjustments", {
   id: serial("id").primaryKey(),
+  organization_id: integer("organization_id").references(() => organizations.id),
   store_id: integer("store_id").references(() => stores.id).notNull(),
   product_id: integer("product_id").references(() => products.id).notNull(),
   type: text("type").notNull(), // ADD, REMOVE
@@ -374,18 +419,24 @@ export const inventory_adjustments = pgTable("inventory_adjustments", {
   before_stock: integer("before_stock").notNull(),
   after_stock: integer("after_stock").notNull(),
   created_at: timestamp("created_at").defaultNow().notNull(),
-});
+}, (table) => ({
+  orgIdx: index("idx_inv_adj_organization_id").on(table.organization_id),
+}));
 
 // Expenses Module (Phase 6)
 export const expense_categories = pgTable("expense_categories", {
   id: serial("id").primaryKey(),
+  organization_id: integer("organization_id").references(() => organizations.id),
   store_id: integer("store_id").references(() => stores.id).notNull(),
   name: text("name").notNull(),
   created_at: timestamp("created_at").defaultNow().notNull(),
-});
+}, (table) => ({
+  orgIdx: index("idx_expense_categories_organization_id").on(table.organization_id),
+}));
 
 export const expenses = pgTable("expenses", {
   id: serial("id").primaryKey(),
+  organization_id: integer("organization_id").references(() => organizations.id),
   store_id: integer("store_id").references(() => stores.id).notNull(),
   category_id: integer("category_id").references(() => expense_categories.id).notNull(),
   amount: integer("amount").notNull(),
@@ -396,11 +447,14 @@ export const expenses = pgTable("expenses", {
   receipt_image_url: text("receipt_image_url"),
   created_at: timestamp("created_at").defaultNow().notNull(),
   updated_at: timestamp("updated_at").defaultNow().notNull(),
-});
+}, (table) => ({
+  orgIdx: index("idx_expenses_organization_id").on(table.organization_id),
+}));
 
 // Offline-First Sync & Hardware profiles (Phase 7)
 export const device_settings = pgTable("device_settings", {
   id: serial("id").primaryKey(),
+  organization_id: integer("organization_id").references(() => organizations.id),
   store_id: integer("store_id").references(() => stores.id).notNull(),
   device_id: text("device_id").unique().notNull(),
   printer_profile: text("printer_profile"), // JSON config
@@ -411,6 +465,7 @@ export const device_settings = pgTable("device_settings", {
 
 export const backup_history = pgTable("backup_history", {
   id: serial("id").primaryKey(),
+  organization_id: integer("organization_id").references(() => organizations.id),
   store_id: integer("store_id").references(() => stores.id).notNull(),
   filename: text("filename").notNull(),
   file_size: integer("file_size").notNull(),
@@ -421,6 +476,7 @@ export const backup_history = pgTable("backup_history", {
 
 export const audit_logs = pgTable("audit_logs", {
   id: serial("id").primaryKey(),
+  organization_id: integer("organization_id").references(() => organizations.id),
   store_id: integer("store_id").references(() => stores.id).notNull(),
   user_id: integer("user_id").references(() => users.id),
   action: text("action").notNull(), // LOGIN, SALE, RETURN, INVENTORY_CHANGE, SYNC_EVENT, SETTINGS_CHANGE, BACKUP
@@ -430,6 +486,7 @@ export const audit_logs = pgTable("audit_logs", {
 
 export const sync_history = pgTable("sync_history", {
   id: serial("id").primaryKey(),
+  organization_id: integer("organization_id").references(() => organizations.id),
   store_id: integer("store_id").references(() => stores.id).notNull(),
   started_at: timestamp("started_at").defaultNow().notNull(),
   completed_at: timestamp("completed_at"),
@@ -439,14 +496,49 @@ export const sync_history = pgTable("sync_history", {
 });
 
 // SaaS Multi-Tenancy Expansion (Phases 6 & 8)
-export const organizations = pgTable("organizations", {
-  id: serial("id").primaryKey(),
-  name: text("name").notNull(),
-  billing_plan: text("billing_plan").default("Basic").notNull(), // Basic, Professional, Enterprise
-  subscription_status: text("subscription_status").default("active").notNull(),
-  razorpay_subscription_id: text("razorpay_subscription_id"),
-  created_at: timestamp("created_at").defaultNow().notNull(),
-});
+export const organizations = pgTable(
+  "organizations",
+  {
+    id: serial("id").primaryKey(),
+    name: text("name").notNull(),
+    slug: text("slug").unique(),
+    phone: text("phone"),
+    email: text("email"),
+    gst_number: text("gst_number"),
+    pan_number: text("pan_number"),
+    address: text("address"),
+    logo_url: text("logo_url"),
+    currency: text("currency").default("INR"),
+    timezone: text("timezone").default("Asia/Kolkata"),
+    invoice_prefix: text("invoice_prefix").default("INV-"),
+    financial_year: text("financial_year").default("2026-2027"),
+    receipt_info: text("receipt_info"),
+    status: text("status").default("active").notNull(),
+    billing_plan: text("billing_plan").default("Basic").notNull(), // Basic, Professional, Enterprise
+    subscription_status: text("subscription_status").default("active").notNull(),
+    razorpay_subscription_id: text("razorpay_subscription_id"),
+    created_at: timestamp("created_at").defaultNow().notNull(),
+    updated_at: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    slugIdx: uniqueIndex("idx_organizations_slug").on(table.slug),
+  })
+);
+
+export const user_store_access = pgTable(
+  "user_store_access",
+  {
+    id: serial("id").primaryKey(),
+    user_id: integer("user_id").references(() => users.id).notNull(),
+    store_id: integer("store_id").references(() => stores.id).notNull(),
+    created_at: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    userStoreIdx: uniqueIndex("idx_user_store_access_user_store").on(table.user_id, table.store_id),
+    userIdx: index("idx_user_store_access_user_id").on(table.user_id),
+    storeIdx: index("idx_user_store_access_store_id").on(table.store_id),
+  })
+);
 
 export const organization_invitations = pgTable("organization_invitations", {
   id: serial("id").primaryKey(),
@@ -489,6 +581,7 @@ export const product_cost_history = pgTable(
   "product_cost_history",
   {
     id: serial("id").primaryKey(),
+    organization_id: integer("organization_id").references(() => organizations.id),
     store_id: integer("store_id").references(() => stores.id).notNull(),
     product_id: integer("product_id").references(() => products.id).notNull(),
     average_cost: integer("average_cost").notNull(), // Paise
@@ -496,6 +589,7 @@ export const product_cost_history = pgTable(
     created_at: timestamp("created_at").defaultNow().notNull(),
   },
   (table) => ({
+    orgIdx: index("idx_pch_organization_id").on(table.organization_id),
     storeIdx: index("idx_pch_store_id").on(table.store_id),
     productIdx: index("idx_pch_product_id").on(table.product_id),
     dateIdx: index("idx_pch_effective_date").on(table.effective_date),

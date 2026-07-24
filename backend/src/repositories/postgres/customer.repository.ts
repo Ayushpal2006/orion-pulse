@@ -3,16 +3,17 @@ import { Customer, CreateCustomerDTO, UpdateCustomerDTO } from "../../types/cust
 import { db } from "../../db";
 import { customers, sales } from "../../db/schema";
 import { eq, and, desc, like, or, sql } from "drizzle-orm";
-import { getStoreId } from "../../db/context";
+import { getTenantContext } from "../../db/context";
 
 export class PostgresCustomerRepository implements ICustomerRepository {
   async getAll(tx?: any): Promise<Customer[]> {
     const client = tx || db;
-    const storeId = getStoreId();
-    let cond = eq(customers.is_active, 1);
-    if (storeId !== undefined) {
-      cond = and(cond, eq(customers.store_id, storeId)) as any;
-    }
+    const { organizationId, currentStoreId } = getTenantContext();
+    let cond = and(
+      eq(customers.is_active, 1),
+      eq(customers.organization_id, organizationId),
+      eq(customers.store_id, currentStoreId)
+    );
 
     const rows = await client
       .select()
@@ -30,11 +31,12 @@ export class PostgresCustomerRepository implements ICustomerRepository {
 
   async getById(id: number, tx?: any): Promise<Customer | null> {
     const client = tx || db;
-    const storeId = getStoreId();
-    let cond = eq(customers.id, id);
-    if (storeId !== undefined) {
-      cond = and(cond, eq(customers.store_id, storeId)) as any;
-    }
+    const { organizationId, currentStoreId } = getTenantContext();
+    let cond = and(
+      eq(customers.id, id),
+      eq(customers.organization_id, organizationId),
+      eq(customers.store_id, currentStoreId)
+    );
 
     const rows = await client
       .select()
@@ -54,13 +56,19 @@ export class PostgresCustomerRepository implements ICustomerRepository {
 
   async getByPhone(phone: string, includeInactive = false, tx?: any): Promise<Customer | null> {
     const client = tx || db;
-    const storeId = getStoreId();
+    const { organizationId, currentStoreId } = getTenantContext();
     let cond = includeInactive
-      ? eq(customers.phone, phone)
-      : and(eq(customers.phone, phone), eq(customers.is_active, 1));
-    if (storeId !== undefined) {
-      cond = and(cond, eq(customers.store_id, storeId)) as any;
-    }
+      ? and(
+          eq(customers.phone, phone),
+          eq(customers.organization_id, organizationId),
+          eq(customers.store_id, currentStoreId)
+        )
+      : and(
+          eq(customers.phone, phone),
+          eq(customers.is_active, 1),
+          eq(customers.organization_id, organizationId),
+          eq(customers.store_id, currentStoreId)
+        );
 
     const rows = await client
       .select()
@@ -80,12 +88,13 @@ export class PostgresCustomerRepository implements ICustomerRepository {
 
   async create(customer: CreateCustomerDTO, tx?: any): Promise<Customer> {
     const client = tx || db;
-    const storeId = getStoreId() || 1;
+    const { organizationId, currentStoreId } = getTenantContext();
 
     const [created] = await client
       .insert(customers)
       .values({
-        store_id: storeId,
+        organization_id: organizationId,
+        store_id: currentStoreId,
         name: customer.name,
         phone: customer.phone,
         email: customer.email ?? null,
@@ -111,7 +120,7 @@ export class PostgresCustomerRepository implements ICustomerRepository {
 
   async update(id: number, customer: UpdateCustomerDTO, tx?: any): Promise<Customer | null> {
     const client = tx || db;
-    const storeId = getStoreId();
+    const { organizationId, currentStoreId } = getTenantContext();
 
     const updateData: any = {};
     for (const [key, value] of Object.entries(customer)) {
@@ -130,10 +139,11 @@ export class PostgresCustomerRepository implements ICustomerRepository {
 
     updateData.updated_at = new Date();
 
-    let cond = eq(customers.id, id);
-    if (storeId !== undefined) {
-      cond = and(cond, eq(customers.store_id, storeId)) as any;
-    }
+    let cond = and(
+      eq(customers.id, id),
+      eq(customers.organization_id, organizationId),
+      eq(customers.store_id, currentStoreId)
+    );
 
     const [updated] = await client
       .update(customers)
@@ -153,12 +163,13 @@ export class PostgresCustomerRepository implements ICustomerRepository {
 
   async delete(id: number, tx?: any): Promise<boolean> {
     const client = tx || db;
-    const storeId = getStoreId();
+    const { organizationId, currentStoreId } = getTenantContext();
 
-    let cond = eq(customers.id, id);
-    if (storeId !== undefined) {
-      cond = and(cond, eq(customers.store_id, storeId)) as any;
-    }
+    let cond = and(
+      eq(customers.id, id),
+      eq(customers.organization_id, organizationId),
+      eq(customers.store_id, currentStoreId)
+    );
 
     const [updated] = await client
       .update(customers)
@@ -174,20 +185,19 @@ export class PostgresCustomerRepository implements ICustomerRepository {
 
   async search(query: string, tx?: any): Promise<Customer[]> {
     const client = tx || db;
-    const storeId = getStoreId();
+    const { organizationId, currentStoreId } = getTenantContext();
     const likeQuery = `%${query}%`;
 
     let cond = and(
       eq(customers.is_active, 1),
+      eq(customers.organization_id, organizationId),
+      eq(customers.store_id, currentStoreId),
       or(
         like(customers.name, likeQuery),
         like(customers.phone, likeQuery),
         like(sales.invoice_number, likeQuery)
       )
     );
-    if (storeId !== undefined) {
-      cond = and(cond, eq(customers.store_id, storeId)) as any;
-    }
 
     const rows = await client
       .select({
@@ -236,12 +246,13 @@ export class PostgresCustomerRepository implements ICustomerRepository {
 
   async getCustomerInvoices(customerId: number, tx?: any): Promise<any[]> {
     const client = tx || db;
-    const storeId = getStoreId();
+    const { organizationId, currentStoreId } = getTenantContext();
 
-    let cond = eq(sales.customer_id, customerId);
-    if (storeId !== undefined) {
-      cond = and(cond, eq(sales.store_id, storeId)) as any;
-    }
+    let cond = and(
+      eq(sales.customer_id, customerId),
+      eq(sales.organization_id, organizationId),
+      eq(sales.store_id, currentStoreId)
+    );
 
     const rows = await client
       .select()
@@ -253,12 +264,13 @@ export class PostgresCustomerRepository implements ICustomerRepository {
 
   async getCustomersExport(tx?: any): Promise<any[]> {
     const client = tx || db;
-    const storeId = getStoreId();
+    const { organizationId, currentStoreId } = getTenantContext();
 
-    let cond = eq(customers.is_active, 1);
-    if (storeId !== undefined) {
-      cond = and(cond, eq(customers.store_id, storeId)) as any;
-    }
+    let cond = and(
+      eq(customers.is_active, 1),
+      eq(customers.organization_id, organizationId),
+      eq(customers.store_id, currentStoreId)
+    );
 
     const rows = await client
       .select()

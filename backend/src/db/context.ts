@@ -1,21 +1,61 @@
 import { AsyncLocalStorage } from "async_hooks";
 
-export interface StoreContext {
-  storeId: number;
+export interface TenantContext {
   userId: number;
+  organizationId: number;
+  currentStoreId: number;
   role: string;
 }
 
-export const storeStorage = new AsyncLocalStorage<StoreContext>();
-
-export function getStoreId(): number | undefined {
-  return storeStorage.getStore()?.storeId;
+export interface StoreContext extends TenantContext {
+  storeId: number;
 }
 
-export function getUserId(): number | undefined {
-  return storeStorage.getStore()?.userId;
+export const tenantStorage = new AsyncLocalStorage<TenantContext>();
+
+// Backward compatibility alias for storeStorage
+export const storeStorage = {
+  run: <R>(context: { storeId?: number; currentStoreId?: number; organizationId?: number; userId: number; role: string }, callback: () => R): R => {
+    const tenantCtx: TenantContext = {
+      userId: context.userId,
+      organizationId: context.organizationId ?? 1,
+      currentStoreId: context.currentStoreId ?? context.storeId ?? 1,
+      role: context.role,
+    };
+    return tenantStorage.run(tenantCtx, callback);
+  },
+  getStore: (): StoreContext | undefined => {
+    const store = tenantStorage.getStore();
+    if (!store) return undefined;
+    return {
+      ...store,
+      storeId: store.currentStoreId,
+    };
+  },
+};
+
+export function getTenantContext(): TenantContext {
+  const store = tenantStorage.getStore();
+  return {
+    userId: store?.userId ?? 1,
+    organizationId: store?.organizationId ?? 1,
+    currentStoreId: store?.currentStoreId ?? 1,
+    role: store?.role ?? "admin",
+  };
 }
 
-export function getRole(): string | undefined {
-  return storeStorage.getStore()?.role;
+export function getOrganizationId(): number {
+  return getTenantContext().organizationId;
+}
+
+export function getStoreId(): number {
+  return getTenantContext().currentStoreId;
+}
+
+export function getUserId(): number {
+  return getTenantContext().userId;
+}
+
+export function getRole(): string {
+  return getTenantContext().role;
 }

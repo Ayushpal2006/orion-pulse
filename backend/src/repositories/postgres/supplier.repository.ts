@@ -3,7 +3,7 @@ import { Supplier, CreateSupplierDTO, UpdateSupplierDTO } from "../../types/supp
 import { db } from "../../db";
 import { suppliers } from "../../db/schema";
 import { eq, and, desc, asc, like, or, sql } from "drizzle-orm";
-import { getStoreId } from "../../db/context";
+import { getTenantContext } from "../../db/context";
 
 function mapSupplierRow(r: any): Supplier {
   return {
@@ -19,17 +19,16 @@ function mapSupplierRow(r: any): Supplier {
 export class PostgresSupplierRepository implements ISupplierRepository {
   async getAll(params?: { q?: string; sort?: string; includeArchived?: boolean }, tx?: any): Promise<Supplier[]> {
     const client = tx || db;
-    const storeId = getStoreId();
+    const { organizationId, currentStoreId } = getTenantContext();
     
-    const conditions: any[] = [];
+    const conditions: any[] = [
+      eq(suppliers.organization_id, organizationId),
+      eq(suppliers.store_id, currentStoreId)
+    ];
     const includeArchived = params?.includeArchived ?? false;
 
     if (!includeArchived) {
       conditions.push(eq(suppliers.is_active, 1));
-    }
-
-    if (storeId !== undefined) {
-      conditions.push(eq(suppliers.store_id, storeId));
     }
 
     if (params?.q) {
@@ -44,7 +43,7 @@ export class PostgresSupplierRepository implements ISupplierRepository {
       );
     }
 
-    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+    const whereClause = and(...conditions);
     const query = client.select().from(suppliers).where(whereClause);
 
     // Apply sorting
@@ -66,11 +65,12 @@ export class PostgresSupplierRepository implements ISupplierRepository {
 
   async getById(id: number, tx?: any): Promise<Supplier | null> {
     const client = tx || db;
-    const storeId = getStoreId();
-    let cond = eq(suppliers.id, id);
-    if (storeId !== undefined) {
-      cond = and(cond, eq(suppliers.store_id, storeId)) as any;
-    }
+    const { organizationId, currentStoreId } = getTenantContext();
+    let cond = and(
+      eq(suppliers.id, id),
+      eq(suppliers.organization_id, organizationId),
+      eq(suppliers.store_id, currentStoreId)
+    );
 
     const rows = await client
       .select()
@@ -84,7 +84,7 @@ export class PostgresSupplierRepository implements ISupplierRepository {
 
   async create(supplier: CreateSupplierDTO, tx?: any): Promise<Supplier> {
     const client = tx || db;
-    const storeId = getStoreId() || 1;
+    const { organizationId, currentStoreId } = getTenantContext();
 
     const companyName = supplier.company_name || supplier.name || "Supplier";
     const supplierCode = supplier.supplier_code || `SUP-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
@@ -94,7 +94,8 @@ export class PostgresSupplierRepository implements ISupplierRepository {
     const [created] = await client
       .insert(suppliers)
       .values({
-        store_id: storeId,
+        organization_id: organizationId,
+        store_id: currentStoreId,
         supplier_code: supplierCode,
         company_name: companyName,
         contact_person: supplier.contact_person ?? null,
@@ -124,7 +125,7 @@ export class PostgresSupplierRepository implements ISupplierRepository {
 
   async update(id: number, supplier: UpdateSupplierDTO, tx?: any): Promise<Supplier | null> {
     const client = tx || db;
-    const storeId = getStoreId();
+    const { organizationId, currentStoreId } = getTenantContext();
 
     const updateData: any = {};
     if (supplier.company_name !== undefined || supplier.name !== undefined) {
@@ -160,10 +161,11 @@ export class PostgresSupplierRepository implements ISupplierRepository {
 
     updateData.updated_at = new Date();
 
-    let cond = eq(suppliers.id, id);
-    if (storeId !== undefined) {
-      cond = and(cond, eq(suppliers.store_id, storeId)) as any;
-    }
+    let cond = and(
+      eq(suppliers.id, id),
+      eq(suppliers.organization_id, organizationId),
+      eq(suppliers.store_id, currentStoreId)
+    );
 
     const [updated] = await client
       .update(suppliers)
@@ -178,12 +180,13 @@ export class PostgresSupplierRepository implements ISupplierRepository {
 
   async delete(id: number, tx?: any): Promise<boolean> {
     const client = tx || db;
-    const storeId = getStoreId();
+    const { organizationId, currentStoreId } = getTenantContext();
 
-    let cond = eq(suppliers.id, id);
-    if (storeId !== undefined) {
-      cond = and(cond, eq(suppliers.store_id, storeId)) as any;
-    }
+    let cond = and(
+      eq(suppliers.id, id),
+      eq(suppliers.organization_id, organizationId),
+      eq(suppliers.store_id, currentStoreId)
+    );
 
     const [updated] = await client
       .update(suppliers)

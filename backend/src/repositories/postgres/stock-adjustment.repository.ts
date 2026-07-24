@@ -3,17 +3,18 @@ import { StockAdjustment } from "../../types/stock-adjustment.types";
 import { db } from "../../db";
 import { inventory_adjustments, products } from "../../db/schema";
 import { eq, and, desc, like, or, gte, lte } from "drizzle-orm";
-import { getStoreId } from "../../db/context";
+import { getTenantContext } from "../../db/context";
 
 export class PostgresStockAdjustmentRepository implements IStockAdjustmentRepository {
   async create(adjData: any, tx?: any): Promise<StockAdjustment> {
     const client = tx || db;
-    const storeId = getStoreId() || 1;
+    const { organizationId, currentStoreId } = getTenantContext();
 
     const [created] = await client
       .insert(inventory_adjustments)
       .values({
-        store_id: storeId,
+        organization_id: organizationId,
+        store_id: currentStoreId,
         product_id: adjData.product_id,
         type: adjData.adjustment_type,
         quantity: adjData.quantity_change,
@@ -53,12 +54,11 @@ export class PostgresStockAdjustmentRepository implements IStockAdjustmentReposi
     tx?: any
   ): Promise<StockAdjustment[]> {
     const client = tx || db;
-    const storeId = getStoreId();
-    const conditions: any[] = [];
-
-    if (storeId !== undefined) {
-      conditions.push(eq(inventory_adjustments.store_id, storeId));
-    }
+    const { organizationId, currentStoreId } = getTenantContext();
+    const conditions: any[] = [
+      eq(inventory_adjustments.organization_id, organizationId),
+      eq(inventory_adjustments.store_id, currentStoreId)
+    ];
 
     if (params?.product_id) {
       conditions.push(eq(inventory_adjustments.product_id, params.product_id));
@@ -87,7 +87,7 @@ export class PostgresStockAdjustmentRepository implements IStockAdjustmentReposi
       conditions.push(lte(inventory_adjustments.created_at, new Date(params.endDate)));
     }
 
-    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+    const whereClause = and(...conditions);
 
     const rows = await client
       .select({
@@ -127,12 +127,12 @@ export class PostgresStockAdjustmentRepository implements IStockAdjustmentReposi
 
   async getById(id: number, tx?: any): Promise<StockAdjustment | null> {
     const client = tx || db;
-    const storeId = getStoreId();
-    const conditions: any[] = [eq(inventory_adjustments.id, id)];
-
-    if (storeId !== undefined) {
-      conditions.push(eq(inventory_adjustments.store_id, storeId));
-    }
+    const { organizationId, currentStoreId } = getTenantContext();
+    const conditions: any[] = [
+      eq(inventory_adjustments.id, id),
+      eq(inventory_adjustments.organization_id, organizationId),
+      eq(inventory_adjustments.store_id, currentStoreId)
+    ];
 
     const [adj] = await client
       .select({

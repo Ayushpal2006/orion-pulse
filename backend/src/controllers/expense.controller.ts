@@ -2,18 +2,14 @@ import { Request, Response, NextFunction } from "express";
 import { db } from "../db";
 import { expenses, expense_categories } from "../db/schema";
 import { eq, and, desc, sql, gte, lte } from "drizzle-orm";
-import { getStoreId } from "../db/context";
+import { getTenantContext } from "../db/context";
 import { getUtcBoundariesForFilter } from "../utils/datetime";
 import { ValidationError, NotFoundError } from "../utils/errors";
 
 export class ExpenseController {
   createCategory = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const storeId = getStoreId();
-      if (storeId === undefined) {
-        res.status(400).json({ success: false, error: "Store context is required" });
-        return;
-      }
+      const { organizationId, currentStoreId } = getTenantContext();
 
       const { name } = req.body;
       if (!name) {
@@ -24,7 +20,7 @@ export class ExpenseController {
       const [existing] = await db
         .select()
         .from(expense_categories)
-        .where(and(eq(expense_categories.name, name), eq(expense_categories.store_id, storeId)))
+        .where(and(eq(expense_categories.name, name), eq(expense_categories.organization_id, organizationId), eq(expense_categories.store_id, currentStoreId)))
         .limit(1);
 
       if (existing) {
@@ -34,7 +30,8 @@ export class ExpenseController {
       const [created] = await db
         .insert(expense_categories)
         .values({
-          store_id: storeId,
+          organization_id: organizationId,
+          store_id: currentStoreId,
           name,
         })
         .returning();
@@ -47,27 +44,23 @@ export class ExpenseController {
 
   getCategories = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const storeId = getStoreId();
-      if (storeId === undefined) {
-        res.status(400).json({ success: false, error: "Store context is required" });
-        return;
-      }
+      const { organizationId, currentStoreId } = getTenantContext();
 
       let rows = await db
         .select()
         .from(expense_categories)
-        .where(eq(expense_categories.store_id, storeId))
+        .where(and(eq(expense_categories.organization_id, organizationId), eq(expense_categories.store_id, currentStoreId)))
         .orderBy(expense_categories.name);
 
       if (rows.length === 0) {
         const defaultNames = ["Rent", "Electricity", "Salary", "Transport", "Maintenance", "Marketing", "Miscellaneous"];
         await db.insert(expense_categories).values(
-          defaultNames.map((name) => ({ store_id: storeId, name }))
+          defaultNames.map((name) => ({ organization_id: organizationId, store_id: currentStoreId, name }))
         );
         rows = await db
           .select()
           .from(expense_categories)
-          .where(eq(expense_categories.store_id, storeId))
+          .where(and(eq(expense_categories.organization_id, organizationId), eq(expense_categories.store_id, currentStoreId)))
           .orderBy(expense_categories.name);
       }
 
@@ -79,11 +72,7 @@ export class ExpenseController {
 
   createExpense = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const storeId = getStoreId();
-      if (storeId === undefined) {
-        res.status(400).json({ success: false, error: "Store context is required" });
-        return;
-      }
+      const { organizationId, currentStoreId } = getTenantContext();
 
       const { categoryId, amount, paymentMethod, vendor, description, date, receiptImageUrl } = req.body;
       if (!categoryId || !amount || amount <= 0 || !paymentMethod) {
@@ -94,7 +83,7 @@ export class ExpenseController {
       const [category] = await db
         .select()
         .from(expense_categories)
-        .where(and(eq(expense_categories.id, categoryId), eq(expense_categories.store_id, storeId)))
+        .where(and(eq(expense_categories.id, categoryId), eq(expense_categories.organization_id, organizationId), eq(expense_categories.store_id, currentStoreId)))
         .limit(1);
 
       if (!category) {
@@ -104,7 +93,8 @@ export class ExpenseController {
       const [created] = await db
         .insert(expenses)
         .values({
-          store_id: storeId,
+          organization_id: organizationId,
+          store_id: currentStoreId,
           category_id: categoryId,
           amount,
           payment_method: paymentMethod,
@@ -123,15 +113,11 @@ export class ExpenseController {
 
   getAll = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const storeId = getStoreId();
-      if (storeId === undefined) {
-        res.status(400).json({ success: false, error: "Store context is required" });
-        return;
-      }
+      const { organizationId, currentStoreId } = getTenantContext();
 
       const { categoryId, startDate, endDate } = req.query;
 
-      let cond = eq(expenses.store_id, storeId);
+      let cond = and(eq(expenses.organization_id, organizationId), eq(expenses.store_id, currentStoreId));
       if (categoryId) {
         cond = and(cond, eq(expenses.category_id, parseInt(categoryId as string, 10))) as any;
       }
@@ -165,15 +151,11 @@ export class ExpenseController {
 
   getSummary = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const storeId = getStoreId();
-      if (storeId === undefined) {
-        res.status(400).json({ success: false, error: "Store context is required" });
-        return;
-      }
+      const { organizationId, currentStoreId } = getTenantContext();
 
       const { filter, startDate, endDate } = req.query;
 
-      let cond = eq(expenses.store_id, storeId);
+      let cond = and(eq(expenses.organization_id, organizationId), eq(expenses.store_id, currentStoreId));
 
       // Date range filtering helper
       if (filter || startDate) {
@@ -239,8 +221,8 @@ export class ExpenseController {
   updateExpense = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const id = parseInt(req.params.id as string, 10);
-      const storeId = getStoreId();
-      if (isNaN(id) || storeId === undefined) {
+      const { organizationId, currentStoreId } = getTenantContext();
+      if (isNaN(id)) {
         res.status(400).json({ success: false, error: "Invalid parameters" });
         return;
       }
@@ -260,7 +242,7 @@ export class ExpenseController {
       const [updated] = await db
         .update(expenses)
         .set(updateData)
-        .where(and(eq(expenses.id, id), eq(expenses.store_id, storeId)))
+        .where(and(eq(expenses.id, id), eq(expenses.organization_id, organizationId), eq(expenses.store_id, currentStoreId)))
         .returning();
 
       if (!updated) {
@@ -276,15 +258,15 @@ export class ExpenseController {
   delete = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const id = parseInt(req.params.id as string, 10);
-      const storeId = getStoreId();
-      if (isNaN(id) || storeId === undefined) {
+      const { organizationId, currentStoreId } = getTenantContext();
+      if (isNaN(id)) {
         res.status(400).json({ success: false, error: "Invalid parameters" });
         return;
       }
 
       const [deleted] = await db
         .delete(expenses)
-        .where(and(eq(expenses.id, id), eq(expenses.store_id, storeId)))
+        .where(and(eq(expenses.id, id), eq(expenses.organization_id, organizationId), eq(expenses.store_id, currentStoreId)))
         .returning();
 
       if (!deleted) {

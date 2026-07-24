@@ -49,12 +49,16 @@ import {
   FileUp,
   FileDown,
   SearchX,
+  Store,
 } from "lucide-react";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { testPrinter, API_BASE_URL } from "@/lib/api";
 import { formatToKolkataDateTime } from "@/lib/datetime";
 import { WhatsAppTemplateManager } from "@/components/whatsapp-template-manager";
 import { BrandingSettings } from "@/components/branding-settings";
+import { StoresManagementSection } from "@/components/stores-management-section";
+import { UsersManagementSection } from "@/components/users-management-section";
+import { OrganizationSettingsSection } from "@/components/organization-settings-section";
 
 export const Route = createFileRoute("/settings")({
   head: () => ({
@@ -77,7 +81,10 @@ function SettingsPage() {
 
 type SettingsSectionId =
   | "general"
+  | "organization"
   | "shop"
+  | "stores"
+  | "users"
   | "branding"
   | "billing"
   | "purchase"
@@ -104,7 +111,10 @@ interface SectionMeta {
 
 const SECTIONS: SectionMeta[] = [
   { id: "general", name: "General", category: "Core", icon: SlidersHorizontal, description: "Business defaults, currency & localization", keywords: ["general", "currency", "timezone", "language", "theme", "color"] },
+  { id: "organization", name: "Organization Profile", category: "Core", icon: Building2, description: "Business profile, GST/PAN, logo & SaaS parameters", badge: "Owner", keywords: ["organization", "profile", "business", "gst", "pan", "logo", "address", "saas", "owner"] },
   { id: "shop", name: "Shop Information", category: "Core", icon: Building2, description: "Store name, GSTIN & contact details", keywords: ["shop", "store", "address", "phone", "email", "mobile", "contact", "identity"] },
+  { id: "stores", name: "Stores Management", category: "Core", icon: Store, description: "Multi-store outlets, branches & switching", badge: "New", keywords: ["stores", "store", "multi-store", "branches", "outlets", "locations", "switching"] },
+  { id: "users", name: "Users & Roles", category: "Core", icon: Users, description: "Team accounts, roles & store permissions", badge: "Roles", keywords: ["users", "user", "role", "permissions", "access", "manager", "cashier", "viewer", "team"] },
   { id: "branding", name: "Branding", category: "Core", icon: Palette, description: "Logo, headers, footers & theme colors", badge: "Live", keywords: ["logo", "branding", "color", "palette", "header", "footer", "tagline", "brand", "accent"] },
   { id: "billing", name: "Billing POS", category: "Sales & Operations", icon: Receipt, description: "Invoice prefixes, payment modes & checkout", keywords: ["billing", "invoice", "prefix", "sequence", "pos", "checkout", "payment", "inv-"] },
   { id: "purchase", name: "Purchase POS", category: "Sales & Operations", icon: ShoppingBag, description: "PO prefixes, cost autofill & suppliers", keywords: ["purchase", "po", "supplier", "cost", "autofill", "vendor", "po-", "void"] },
@@ -1023,6 +1033,15 @@ function SettingsV2() {
               </div>
             </div>
           )}
+
+          {/* ORGANIZATION PROFILE & ADMIN */}
+          {activeSection === "organization" && <OrganizationSettingsSection />}
+
+          {/* STORES MANAGEMENT */}
+          {activeSection === "stores" && <StoresManagementSection />}
+
+          {/* USERS MANAGEMENT */}
+          {activeSection === "users" && <UsersManagementSection />}
 
           {/* 2. SHOP INFORMATION */}
           {activeSection === "shop" && (
