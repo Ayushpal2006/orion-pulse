@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useQueryClient } from "@tanstack/react-query";
 import { useApp } from "@/lib/store";
 import { toast } from "sonner";
@@ -30,6 +31,7 @@ export function PurchaseActionsMenu({
 
   const [voidDialogOpen, setVoidDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [selectedReason, setSelectedReason] = useState("");
   const [voidReason, setVoidReason] = useState("");
   const [confirmPoNum, setConfirmPoNum] = useState("");
   const [voiding, setVoiding] = useState(false);
@@ -83,8 +85,9 @@ export function PurchaseActionsMenu({
   };
 
   const handleConfirmVoid = async () => {
-    if (!voidReason.trim()) {
-      toast.error("Please enter a reason for voiding");
+    const finalReason = selectedReason === "Other" ? voidReason.trim() : selectedReason;
+    if (!finalReason) {
+      toast.error("Please select or enter a reason for voiding");
       return;
     }
     const last4 = (poNumber || "").slice(-4);
@@ -95,9 +98,12 @@ export function PurchaseActionsMenu({
 
     setVoiding(true);
     try {
-      await voidPurchase(purchase.id, voidReason.trim());
+      await voidPurchase(purchase.id, finalReason);
       toast.success(`Purchase ${poNumber} voided and stock reversed`);
       setVoidDialogOpen(false);
+      setSelectedReason("");
+      setVoidReason("");
+      setConfirmPoNum("");
       onCloseDrawer?.();
       queryClient.invalidateQueries({ queryKey: ["purchases"] });
     } catch (err: any) {
@@ -172,7 +178,17 @@ export function PurchaseActionsMenu({
       </div>
 
       {/* Void Confirmation Dialog */}
-      <Dialog open={voidDialogOpen} onOpenChange={setVoidDialogOpen}>
+      <Dialog
+        open={voidDialogOpen}
+        onOpenChange={(v) => {
+          setVoidDialogOpen(v);
+          if (!v) {
+            setSelectedReason("");
+            setVoidReason("");
+            setConfirmPoNum("");
+          }
+        }}
+      >
         <DialogContent className="sm:max-w-md rounded-2xl">
           <DialogHeader>
             <DialogTitle className="text-rose-600 font-bold flex items-center gap-2">
@@ -190,8 +206,11 @@ export function PurchaseActionsMenu({
                 value={selectedReason}
                 onValueChange={(val) => {
                   setSelectedReason(val);
-                  if (val !== "Other") setVoidReason(val);
-                  else setVoidReason("");
+                  if (val !== "Other") {
+                    setVoidReason(val);
+                  } else {
+                    setVoidReason("");
+                  }
                 }}
               >
                 <SelectTrigger className="rounded-xl h-9 text-xs">
@@ -199,30 +218,30 @@ export function PurchaseActionsMenu({
                 </SelectTrigger>
                 <SelectContent className="rounded-xl">
                   <SelectItem value="Wrong Entry">Wrong Entry</SelectItem>
-                  <SelectItem value="Supplier Returned Goods">Supplier Returned Goods</SelectItem>
                   <SelectItem value="Duplicate Purchase">Duplicate Purchase</SelectItem>
-                  <SelectItem value="Incorrect Quantity">Incorrect Quantity</SelectItem>
                   <SelectItem value="Wrong Supplier">Wrong Supplier</SelectItem>
+                  <SelectItem value="Wrong Quantity">Wrong Quantity</SelectItem>
                   <SelectItem value="Wrong Price">Wrong Price</SelectItem>
                   <SelectItem value="Stock Entry Mistake">Stock Entry Mistake</SelectItem>
+                  <SelectItem value="Supplier Returned Goods">Supplier Returned Goods</SelectItem>
                   <SelectItem value="Test Entry">Test Entry</SelectItem>
                   <SelectItem value="Cancelled Purchase">Cancelled Purchase</SelectItem>
-                  <SelectItem value="Other">Other (Custom Reason)</SelectItem>
+                  <SelectItem value="Other">Other</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
-            <div className="space-y-1">
-              <label className="text-xs font-semibold">
-                Reason Details {selectedReason === "Other" ? "*" : "(Editable)"}
-              </label>
-              <Textarea
-                placeholder="Enter or edit void reason..."
-                value={voidReason}
-                onChange={(e) => setVoidReason(e.target.value)}
-                className="rounded-xl min-h-[60px] text-xs"
-              />
-            </div>
+            {selectedReason === "Other" && (
+              <div className="space-y-1 animate-in fade-in duration-150">
+                <label className="text-xs font-semibold">Custom Reason *</label>
+                <Textarea
+                  placeholder="Enter custom void reason..."
+                  value={voidReason}
+                  onChange={(e) => setVoidReason(e.target.value)}
+                  className="rounded-xl min-h-[60px] text-xs"
+                />
+              </div>
+            )}
 
             <div className="space-y-1">
               <label className="text-xs font-semibold">
@@ -239,11 +258,27 @@ export function PurchaseActionsMenu({
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setVoidDialogOpen(false)} className="rounded-xl h-9 text-xs">Cancel</Button>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setVoidDialogOpen(false);
+                setSelectedReason("");
+                setVoidReason("");
+                setConfirmPoNum("");
+              }}
+              className="rounded-xl h-9 text-xs"
+            >
+              Cancel
+            </Button>
             <Button
               variant="destructive"
               onClick={handleConfirmVoid}
-              disabled={voiding || !voidReason.trim() || confirmPoNum.trim() !== (poNumber || "").slice(-4)}
+              disabled={
+                voiding ||
+                !selectedReason ||
+                (selectedReason === "Other" && !voidReason.trim()) ||
+                confirmPoNum.trim() !== (poNumber || "").slice(-4)
+              }
               className="rounded-xl h-9 text-xs font-bold"
             >
               {voiding ? "Voiding..." : "Confirm Void"}

@@ -5,6 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import {
   Building2,
@@ -20,11 +21,15 @@ import {
   Mail,
   Receipt,
   FileCode,
+  Trash2,
+  Printer,
+  Share2,
 } from "lucide-react";
 
 export function BrandingSettings() {
   const s = useApp();
   const [activePreviewTab, setActivePreviewTab] = useState<"invoice" | "receipt" | "whatsapp" | "pdf">("invoice");
+  const [logoPreviewOpen, setLogoPreviewOpen] = useState(false);
 
   const handleSaveBranding = () => {
     // Save to localStorage for instant local persistence
@@ -85,71 +90,92 @@ export function BrandingSettings() {
             </div>
 
             {/* Logo Upload Box */}
-            <div className="space-y-2 rounded-xl border border-border/50 bg-background p-3">
+            <div className="space-y-3 rounded-xl border border-border/50 bg-background p-4 shadow-sm">
               <Label className="text-xs font-semibold flex items-center justify-between">
                 <span>Shop Brand Logo</span>
                 {s.logo ? (
                   <span className="text-[10px] text-emerald-600 font-bold flex items-center gap-1">
-                    <CheckCircle className="size-3" /> Active Logo Loaded
+                    <CheckCircle className="size-3" /> Active Logo Configured
                   </span>
                 ) : (
                   <span className="text-[10px] text-muted-foreground">No Logo Uploaded</span>
                 )}
               </Label>
-              <div className="flex items-center gap-3">
+              <div className="flex flex-col sm:flex-row sm:items-center gap-4">
                 {s.logo ? (
-                  <div className="relative group size-16 rounded-xl border border-border bg-background p-1 flex items-center justify-center overflow-hidden shrink-0 shadow-sm">
-                    <img src={s.logo} alt="Shop Logo" className="max-h-full max-w-full object-contain" />
+                  <div className="relative group size-20 rounded-xl border border-border bg-muted/10 p-1.5 flex items-center justify-center overflow-hidden shrink-0 shadow-sm">
+                    <img src={s.logo} alt="Shop Logo Preview" className="max-h-full max-w-full object-contain" />
                   </div>
                 ) : (
-                  <div className="size-16 rounded-xl border border-dashed border-border bg-muted/20 flex flex-col items-center justify-center text-muted-foreground text-[10px] shrink-0">
-                    <Upload className="size-5 mb-0.5" /> Logo
+                  <div className="size-20 rounded-xl border-2 border-dashed border-border bg-muted/20 flex flex-col items-center justify-center text-muted-foreground text-[10px] shrink-0">
+                    <Upload className="size-6 mb-1 text-primary/70" /> No Logo
                   </div>
                 )}
-                <div className="flex flex-wrap items-center gap-2">
-                  <label className="cursor-pointer">
-                    <input
-                      type="file"
-                      accept="image/*"
-                      className="hidden"
-                      onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        if (file) {
-                          const reader = new FileReader();
-                          reader.onload = (evt) => {
-                            const base64 = evt.target?.result as string;
-                            if (base64) {
-                              s.setLogo(base64);
-                              localStorage.setItem("orion_logo", base64);
-                              toast.success("Brand logo uploaded successfully!", {
-                                description: "Logo will automatically appear on all future Invoices, Receipts, and PDFs.",
-                              });
-                            }
-                          };
-                          reader.readAsDataURL(file);
-                        }
-                      }}
-                    />
-                    <span className="inline-flex items-center justify-center rounded-xl text-xs font-semibold h-8 px-3 border border-border bg-background hover:bg-accent hover:text-accent-foreground shadow-sm transition-all cursor-pointer">
-                      <Upload className="size-3.5 mr-1.5" /> {s.logo ? "Replace Logo" : "Upload Logo"}
-                    </span>
-                  </label>
 
-                  {s.logo && (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        s.setLogo("");
-                        localStorage.removeItem("orion_logo");
-                        toast.info("Brand logo deleted.");
-                      }}
-                      className="rounded-xl h-8 text-xs text-rose-600 border-rose-500/20 hover:bg-rose-500/10"
-                    >
-                      Delete Logo
-                    </Button>
-                  )}
+                <div className="space-y-2 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    {/* Upload / Replace Button */}
+                    <label className="cursor-pointer">
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            const reader = new FileReader();
+                            reader.onload = (evt) => {
+                              const base64 = evt.target?.result as string;
+                              if (base64) {
+                                s.setLogo(base64);
+                                localStorage.setItem("orion_logo", base64);
+                                toast.success("Brand logo updated successfully!", {
+                                  description: "Logo will automatically appear on all future Invoices, Thermal Receipts, PDFs, and Shared Links.",
+                                });
+                              }
+                            };
+                            reader.readAsDataURL(file);
+                          }
+                        }}
+                      />
+                      <span className="inline-flex items-center justify-center rounded-xl text-xs font-bold h-9 px-3.5 border border-primary/30 text-primary bg-primary/5 hover:bg-primary/10 shadow-sm transition-all cursor-pointer">
+                        <Upload className="size-3.5 mr-1.5" /> {s.logo ? "Replace Logo" : "Upload Logo"}
+                      </span>
+                    </label>
+
+                    {/* Preview Logo Button */}
+                    {s.logo && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setLogoPreviewOpen(true)}
+                        className="rounded-xl h-9 text-xs font-semibold"
+                      >
+                        <Eye className="size-3.5 mr-1.5 text-blue-500" /> Preview Logo
+                      </Button>
+                    )}
+
+                    {/* Delete Logo Button */}
+                    {s.logo && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          s.setLogo("");
+                          localStorage.removeItem("orion_logo");
+                          toast.info("Brand logo deleted.");
+                        }}
+                        className="rounded-xl h-9 text-xs text-rose-600 border-rose-500/20 hover:bg-rose-500/10 font-semibold"
+                      >
+                        <Trash2 className="size-3.5 mr-1.5" /> Delete Logo
+                      </Button>
+                    )}
+                  </div>
+                  <div className="text-[11px] text-muted-foreground leading-relaxed">
+                    Supports PNG, JPG, WebP, or SVG. Uploaded logo automatically cascades to Web Invoices, Thermal Receipts, Server PDFs, and WhatsApp Shared Invoices.
+                  </div>
                 </div>
               </div>
             </div>
@@ -542,6 +568,52 @@ export function BrandingSettings() {
           </div>
         </div>
       </div>
+
+      {/* High-Resolution Logo Preview Modal */}
+      <Dialog open={logoPreviewOpen} onOpenChange={setLogoPreviewOpen}>
+        <DialogContent className="sm:max-w-lg rounded-2xl p-6">
+          <DialogHeader>
+            <DialogTitle className="text-base font-bold flex items-center gap-2">
+              <Eye className="size-5 text-blue-500" /> Shop Brand Logo High-Res Preview
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              Inspection view showing active logo rendering and target document cascading rules.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2">
+            {/* Checkerboard Pattern Background for Transparency Check */}
+            <div className="relative rounded-2xl border border-border p-8 flex items-center justify-center bg-[radial-gradient(#e5e7eb_1px,transparent_1px)] dark:bg-[radial-gradient(#374151_1px,transparent_1px)] [background-size:16px_16px] bg-muted/30 min-h-[180px]">
+              {s.logo ? (
+                <img src={s.logo} alt="Brand Logo High Res" className="max-h-36 max-w-full object-contain drop-shadow-md" />
+              ) : (
+                <div className="text-xs text-muted-foreground italic">No Logo Configured</div>
+              )}
+            </div>
+
+            {/* Target Cascading Checklist */}
+            <div className="space-y-2 rounded-xl bg-muted/20 p-3.5 border border-border/50 text-xs">
+              <div className="font-bold text-foreground text-[11px] uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
+                <CheckCircle className="size-4 text-emerald-500" /> Automatic Logo Cascading Destinations
+              </div>
+              <div className="grid grid-cols-2 gap-2 text-[11px]">
+                <div className="flex items-center gap-1.5 text-foreground">
+                  <span className="size-1.5 rounded-full bg-emerald-500" /> Web & Printable Invoices
+                </div>
+                <div className="flex items-center gap-1.5 text-foreground">
+                  <span className="size-1.5 rounded-full bg-emerald-500" /> 58mm/80mm Thermal Receipts
+                </div>
+                <div className="flex items-center gap-1.5 text-foreground">
+                  <span className="size-1.5 rounded-full bg-emerald-500" /> Server PDF Export Engine
+                </div>
+                <div className="flex items-center gap-1.5 text-foreground">
+                  <span className="size-1.5 rounded-full bg-emerald-500" /> WhatsApp Shared Online Link
+                </div>
+              </div>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
