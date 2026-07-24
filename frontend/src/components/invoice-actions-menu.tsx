@@ -9,12 +9,12 @@ import {
   getWhatsAppShareLink,
   downloadSalePdf,
   getSalePublicLink,
-  printSaleReceipt,
   logSaleAudit,
-  API_BASE_URL,
+  deleteInvoice,
 } from "@/lib/api";
 import { getPrintAdapter } from "@/lib/print-adapter";
-import { Eye, Printer, FileText, Share2, Link, Copy, Trash2, Mail, RefreshCw, Send, AlertTriangle } from "lucide-react";
+import { EditInvoiceDialog } from "@/components/edit-invoice-dialog";
+import { Eye, Printer, FileText, Share2, Link, Copy, Trash2, Edit3, AlertTriangle } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 
@@ -27,20 +27,23 @@ export function InvoiceActionsMenu({
 }) {
   const queryClient = useQueryClient();
   const role = useApp((s) => s.role);
-  const user = useApp((s) => s.role); // Role used as local identifier if username is unavailable
 
   const [printing, setPrinting] = useState(false);
   const [downloadingPdf, setDownloadingPdf] = useState(false);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [voidDialogOpen, setVoidDialogOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [voidReason, setVoidReason] = useState("");
   const [selectedReason, setSelectedReason] = useState("");
   const [confirmInvoiceNumber, setConfirmInvoiceNumber] = useState("");
   const [voiding, setVoiding] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   if (!receipt) return null;
 
   const invoiceNumber = receipt.invoiceNumber;
   const canVoid = role === "Admin" || role === "Manager";
+  const canDelete = role === "Admin";
 
   const handleViewReceipt = () => {
     logSaleAudit(invoiceNumber, "INVOICE_VIEW", `${role} viewed receipt HTML`);
@@ -125,7 +128,7 @@ export function InvoiceActionsMenu({
           price: item.price,
           gst: item.gst,
           qty: item.qty,
-          discount: Math.round(item.discount * 100),
+          discount: Math.round((item.discount || 0) * 100),
           emoji: matchingProd?.emoji || "🛍️",
         };
       });
@@ -138,56 +141,31 @@ export function InvoiceActionsMenu({
       });
 
       await logSaleAudit(invoiceNumber, "INVOICE_DUPLICATE", `${role} duplicated Invoice ${invoiceNumber}`);
-      toast.success("Invoice items and customer copied to checkout cart");
+      toast.success("Draft bill created in checkout cart");
       if (onCloseDrawer) onCloseDrawer();
+      window.location.href = "/billing";
     } catch (err: any) {
       toast.error("Failed to duplicate invoice: " + err.message);
     }
   };
 
-  const handleVoidInvoice = async () => {
-    const finalReason = selectedReason === "Other" ? voidReason : selectedReason;
-    if (!finalReason) {
-      toast.error("Please select or enter a reason to void the invoice");
-      return;
-    }
-    const invoiceLast4 = invoiceNumber ? invoiceNumber.slice(-4) : "";
-    if (confirmInvoiceNumber.trim() !== invoiceLast4) {
-      toast.error("The last 4 digits of the invoice number do not match");
-      return;
-    }
-    setVoiding(true);
+  const handleDeleteInvoiceAction = async () => {
+    setDeleting(true);
     try {
-      const res = await fetch(`${API_BASE_URL}/invoices/${invoiceNumber}/void`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${localStorage.getItem("token") || ""}`,
-        },
-        body: JSON.stringify({ reason: finalReason }),
-      });
-      const data = await res.json();
-      if (!res.ok || !data.success) {
-        throw new Error(data.error || "Failed to void invoice");
-      }
-      toast.success("Invoice voided successfully");
-      setVoidDialogOpen(false);
-      setConfirmInvoiceNumber("");
-      setVoidReason("");
-      setSelectedReason("");
+      await deleteInvoice(invoiceNumber);
+      toast.success("Invoice soft-deleted successfully");
+      setDeleteDialogOpen(false);
 
-      // Invalidate queries to refresh UI lists and charts
       queryClient.invalidateQueries({ queryKey: ["receipt", invoiceNumber] });
       queryClient.invalidateQueries({ queryKey: ["reports"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard"] });
-      queryClient.invalidateQueries({ queryKey: ["customer-invoices"] });
       queryClient.invalidateQueries({ queryKey: ["sales-paginated"] });
 
       if (onCloseDrawer) onCloseDrawer();
     } catch (err: any) {
-      toast.error(err.message || "Failed to void invoice");
+      toast.error(err.message || "Failed to delete invoice");
     } finally {
-      setVoiding(false);
+      setDeleting(false);
     }
   };
 
@@ -202,8 +180,16 @@ export function InvoiceActionsMenu({
             <Button variant="outline" size="sm" onClick={handleViewReceipt} className="h-10 rounded-xl justify-start font-medium text-xs">
               <Eye className="mr-2 size-3.5 text-muted-foreground" /> View Receipt
             </Button>
+            {receipt.status !== "VOID" && receipt.status !== "DELETED" && (
+              <Button variant="outline" size="sm" onClick={() => setEditDialogOpen(true)} className="h-10 rounded-xl justify-start font-medium text-xs">
+                <Edit3 className="mr-2 size-3.5 text-blue-500" /> Edit Bill
+              </Button>
+            )}
+            <Button variant="outline" size="sm" onClick={handleDuplicateInvoice} className="h-10 rounded-xl justify-start font-medium text-xs">
+              <Copy className="mr-2 size-3.5 text-purple-500" /> Duplicate POS
+            </Button>
             <Button variant="outline" size="sm" onClick={handlePrint} disabled={printing} className="h-10 rounded-xl justify-start font-medium text-xs">
-              <Printer className="mr-2 size-3.5 text-muted-foreground animate-pulse" />
+              <Printer className="mr-2 size-3.5 text-muted-foreground" />
               {printing ? "Printing..." : "Print"}
             </Button>
             <Button variant="outline" size="sm" onClick={handleDownloadPdf} disabled={downloadingPdf} className="h-10 rounded-xl justify-start font-medium text-xs">
@@ -219,17 +205,11 @@ export function InvoiceActionsMenu({
             >
               <Share2 className="mr-2 size-3.5 text-green-500" /> WhatsApp
             </Button>
-            <Button variant="outline" size="sm" onClick={handleCopyLink} className="h-10 rounded-xl justify-start font-medium text-xs">
-              <Link className="mr-2 size-3.5 text-blue-500" /> Copy Link
-            </Button>
-            <Button variant="outline" size="sm" onClick={handleDuplicateInvoice} className="h-10 rounded-xl justify-start font-medium text-xs">
-              <Copy className="mr-2 size-3.5 text-purple-500" /> Duplicate POS
-            </Button>
           </div>
         </div>
 
-        {receipt.status !== "VOID" && (
-          <div className="border-t border-border pt-3">
+        {receipt.status !== "VOID" && receipt.status !== "DELETED" && (
+          <div className="border-t border-border pt-3 grid grid-cols-1 sm:grid-cols-2 gap-2">
             <Button
               variant="destructive"
               size="sm"
@@ -240,12 +220,23 @@ export function InvoiceActionsMenu({
                 }
                 setVoidDialogOpen(true);
               }}
-              className="w-full h-10 rounded-xl font-bold bg-rose-600 hover:bg-rose-700 text-white flex items-center justify-center gap-2 text-xs"
+              className="h-10 rounded-xl font-bold bg-rose-600 hover:bg-rose-700 text-white flex items-center justify-center gap-2 text-xs"
             >
               <Trash2 className="size-4" /> Void Invoice
             </Button>
+            {canDelete && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setDeleteDialogOpen(true)}
+                className="h-10 rounded-xl font-bold text-rose-600 border-rose-500/30 hover:bg-rose-500/10 flex items-center justify-center gap-2 text-xs"
+              >
+                <Trash2 className="size-4 text-rose-600" /> Delete (Admin)
+              </Button>
+            )}
           </div>
         )}
+      </div>
 
         {/* Future Placeholders */}
         <div className="border-t border-border/60 pt-3">
@@ -259,12 +250,8 @@ export function InvoiceActionsMenu({
             <Button variant="ghost" disabled className="h-8 rounded-lg text-[10px] opacity-40 cursor-not-allowed justify-center font-normal">
               <Mail className="mr-1 size-3" /> Email
             </Button>
-            <Button variant="ghost" disabled className="h-8 rounded-lg text-[10px] opacity-40 cursor-not-allowed justify-center font-normal">
-              <Send className="mr-1 size-3" /> Export ERP
-            </Button>
           </div>
         </div>
-      </div>
 
       {/* Void Confirmation Dialog */}
       <Dialog open={voidDialogOpen} onOpenChange={(v) => {
@@ -368,6 +355,57 @@ export function InvoiceActionsMenu({
               className="rounded-xl h-9 text-xs font-bold shadow-sm"
             >
               {voiding ? "Voiding..." : "Confirm Void"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Invoice Modal */}
+      <EditInvoiceDialog
+        receipt={receipt}
+        open={editDialogOpen}
+        onOpenChange={setEditDialogOpen}
+      />
+
+      {/* Admin Delete Confirmation Dialog */}
+      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <DialogContent className="sm:max-w-md rounded-2xl gap-4 p-5">
+          <DialogHeader className="space-y-1">
+            <DialogTitle className="text-rose-600 font-bold flex items-center gap-2 text-lg">
+              <Trash2 className="size-5" /> Soft Delete Invoice (Admin Only)
+            </DialogTitle>
+            <DialogDescription className="text-xs font-mono bg-muted/50 px-2.5 py-1 rounded-md border border-border w-fit text-foreground font-medium">
+              Invoice #{invoiceNumber}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="rounded-xl border border-rose-500/20 bg-rose-500/[0.05] p-3 text-xs text-rose-700 flex gap-2.5 shadow-sm">
+            <AlertTriangle className="size-5 shrink-0 mt-0.5 text-rose-500" />
+            <div className="space-y-1">
+              <div className="font-bold text-rose-800">Admin Action Warning</div>
+              <div className="leading-relaxed opacity-90">
+                This will soft-delete invoice #{invoiceNumber}, reverse customer totals, restore stock if applicable, and exclude this sale from Reports and Dashboard metrics. Audit records will be preserved.
+              </div>
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-2 border-t border-border pt-3">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setDeleteDialogOpen(false)}
+              className="rounded-xl h-9 text-xs"
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={handleDeleteInvoiceAction}
+              disabled={deleting}
+              className="rounded-xl h-9 text-xs font-bold shadow-sm bg-rose-600 hover:bg-rose-700 text-white"
+            >
+              {deleting ? "Deleting..." : "Confirm Soft Delete"}
             </Button>
           </div>
         </DialogContent>

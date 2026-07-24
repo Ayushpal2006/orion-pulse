@@ -673,8 +673,41 @@ export async function logSaleAudit(invoiceNumber: string, action: string, detail
       console.error("Failed to log audit event:", res.statusText);
     }
   } catch (error) {
-    console.error("Failed to call audit endpoint:", error);
+    console.error("Failed to log audit event:", error);
   }
+}
+
+/** Edit an existing bill. */
+export async function editInvoice(idOrInvoice: string | number, data: any): Promise<any> {
+  const res = await fetch(`${API_BASE_URL}/sales/${encodeURIComponent(idOrInvoice)}`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${localStorage.getItem("token") || ""}`,
+    },
+    body: JSON.stringify(data),
+  });
+  const json = await res.json();
+  if (!res.ok || !json.success) {
+    throw new Error(json.error || json.message || "Failed to edit invoice");
+  }
+  return json.data;
+}
+
+/** Soft delete an invoice (Admin only). */
+export async function deleteInvoice(idOrInvoice: string | number): Promise<any> {
+  const res = await fetch(`${API_BASE_URL}/sales/${encodeURIComponent(idOrInvoice)}`, {
+    method: "DELETE",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${localStorage.getItem("token") || ""}`,
+    },
+  });
+  const json = await res.json();
+  if (!res.ok || !json.success) {
+    throw new Error(json.error || json.message || "Failed to delete invoice");
+  }
+  return json.data;
 }
 
 export async function getSalesPaginated(params: {

@@ -363,4 +363,72 @@ export class SalesController {
       next(error);
     }
   };
+
+  editInvoice = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const id = req.params.id as string;
+      const authenticatedReq = req as any;
+      const actingUser = {
+        userId: authenticatedReq.user?.id || 1,
+        role: authenticatedReq.user?.role || "Admin",
+        name: authenticatedReq.user?.name || "Admin",
+      };
+
+      if (!id) {
+        res.status(400).json({ success: false, error: "Sale ID is required" });
+        return;
+      }
+
+      let saleId: number;
+      const numericId = parseInt(id, 10);
+      if (!isNaN(numericId) && String(numericId) === id) {
+        saleId = numericId;
+      } else {
+        const sale = await this.service.getByInvoice(id);
+        saleId = sale.sale.id;
+      }
+
+      const updatedSale = await this.service.editInvoice(saleId, req.body, actingUser);
+      const updatedReceipt = await this.service.getReceipt(String(saleId));
+
+      res.status(200).json({
+        success: true,
+        data: updatedReceipt,
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  deleteInvoice = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const id = req.params.id as string;
+      const authenticatedReq = req as any;
+      const deletedBy = authenticatedReq.user?.name || "Admin";
+      const userId = authenticatedReq.user?.id || 1;
+
+      if (!id) {
+        res.status(400).json({ success: false, error: "Sale ID is required" });
+        return;
+      }
+
+      let saleId: number;
+      const numericId = parseInt(id, 10);
+      if (!isNaN(numericId) && String(numericId) === id) {
+        saleId = numericId;
+      } else {
+        const sale = await this.service.getByInvoice(id);
+        saleId = sale.sale.id;
+      }
+
+      const deletedSale = await this.service.deleteInvoice(saleId, deletedBy, userId);
+
+      res.status(200).json({
+        success: true,
+        data: deletedSale,
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
 }

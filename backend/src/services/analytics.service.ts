@@ -18,7 +18,7 @@ export class AnalyticsService {
     }
 
     let cond = this.getDateCondition(sales.created_at, filter, startDate, endDate);
-    cond = and(cond, eq(sales.store_id, storeId)) as any;
+    cond = and(cond, eq(sales.store_id, storeId), eq(sales.status, "COMPLETED")) as any;
 
     const [salesStats] = await db
       .select({
@@ -60,7 +60,7 @@ export class AnalyticsService {
     }
 
     let cond = this.getDateCondition(sales.created_at, filter, startDate, endDate);
-    cond = and(cond, eq(sales.store_id, storeId)) as any;
+    cond = and(cond, eq(sales.store_id, storeId), eq(sales.status, "COMPLETED")) as any;
 
     // Gross Revenue
     const [revRow] = await db

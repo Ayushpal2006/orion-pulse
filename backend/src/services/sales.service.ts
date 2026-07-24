@@ -370,4 +370,305 @@ export class SalesService {
       details,
     });
   }
+
+  async editInvoice(
+    saleId: number,
+    data: {
+      items: { productId: number; quantity: number; discount?: number }[];
+      customerPhone?: string;
+      customerName?: string;
+      paymentMethod?: string;
+      discountAmount?: number;
+      taxAmount?: number;
+    },
+    actingUser: { userId: number; role: string; name?: string }
+  ): Promise<any> {
+    return db.transaction(async (tx) => {
+      // 1. Lock existing sale
+      const [oldSale] = await tx
+        .select()
+        .from(sales)
+        .where(eq(sales.id, saleId))
+        .for("update");
+
+      if (!oldSale) {
+        throw new NotFoundError(`Sale with ID ${saleId} not found`);
+      }
+      if (oldSale.status === "VOID" || oldSale.status === "DELETED") {
+        throw new Error(`Cannot edit an invoice that is ${oldSale.status}`);
+      }
+
+      const storeId = oldSale.store_id;
+
+      // 2. Fetch old sale items
+      const oldItems = await tx
+        .select()
+        .from(sale_items)
+        .where(eq(sale_items.sale_id, saleId));
+
+      // 3. Revert stock for old items
+      for (const oldItem of oldItems) {
+        const [product] = await tx
+          .select()
+          .from(products)
+          .where(and(eq(products.id, oldItem.product_id), eq(products.store_id, storeId)))
+          .for("update");
+
+        if (product) {
+          await this.movementService.recordMovement({
+            storeId,
+            movementType: "VOID_INVOICE",
+            productId: oldItem.product_id,
+            quantity: oldItem.quantity,
+            referenceType: "INVOICE",
+            referenceId: oldSale.invoice_number,
+            reason: `Bill edit reversal for invoice ${oldSale.invoice_number}`,
+            createdBy: actingUser.name || actingUser.role || "Admin",
+          }, tx);
+        }
+      }
+
+      // Remove old sale_items
+      await tx.delete(sale_items).where(eq(sale_items.sale_id, saleId));
+
+      // 4. Resolve customer
+      let customerId = oldSale.customer_id;
+      if (data.customerPhone !== undefined) {
+        const phone = data.customerPhone.trim();
+        if (phone && phone !== "0000000000") {
+          const [existingCustomer] = await tx
+            .select()
+            .from(customers)
+            .where(and(eq(customers.phone, phone), eq(customers.store_id, storeId)));
+
+          if (existingCustomer) {
+            customerId = existingCustomer.id;
+          } else {
+            const [newCustomer] = await tx
+              .insert(customers)
+              .values({
+                store_id: storeId,
+                name: data.customerName || "Walk-in Customer",
+                phone,
+                notes: "Created during bill edit",
+              })
+              .returning();
+            customerId = newCustomer.id;
+          }
+        } else {
+          customerId = null;
+        }
+      }
+
+      // 5. Apply new sale items & calculate total
+      let subtotalPaise = 0;
+      let totalGstPaise = 0;
+      const newItemsData: any[] = [];
+
+      for (const itemRequest of data.items) {
+        const [product] = await tx
+          .select()
+          .from(products)
+          .where(and(eq(products.id, itemRequest.productId), eq(products.store_id, storeId)))
+          .for("update");
+
+        if (!product) {
+          throw new NotFoundError(`Product ID ${itemRequest.productId} not found`);
+        }
+        if (product.stock < itemRequest.quantity) {
+          throw new Error(`Insufficient stock for product ${product.name}. Available: ${product.stock}`);
+        }
+
+        const sellingPricePaise = product.selling_price;
+        const itemDiscountPaise = Math.round((itemRequest.discount || 0) * 100);
+        const lineTotalPaise = (sellingPricePaise - itemDiscountPaise) * itemRequest.quantity;
+        const itemGstPaise = Math.round((lineTotalPaise * (product.gst || 0)) / 100);
+
+        subtotalPaise += lineTotalPaise;
+        totalGstPaise += itemGstPaise;
+
+        // Update product stock for SALE
+        await this.movementService.recordMovement({
+          storeId,
+          movementType: "SALE",
+          productId: itemRequest.productId,
+          quantity: itemRequest.quantity,
+          referenceType: "INVOICE",
+          referenceId: oldSale.invoice_number,
+          reason: `Bill edit application for invoice ${oldSale.invoice_number}`,
+          createdBy: actingUser.name || actingUser.role || "Admin",
+        }, tx);
+
+        newItemsData.push({
+          sale_id: saleId,
+          product_id: itemRequest.productId,
+          quantity: itemRequest.quantity,
+          selling_price: sellingPricePaise,
+          discount: itemDiscountPaise,
+          line_total: lineTotalPaise,
+        });
+      }
+
+      // Insert new sale items
+      await tx.insert(sale_items).values(newItemsData);
+
+      const discountPaise = data.discountAmount !== undefined ? Math.round(data.discountAmount * 100) : oldSale.discount;
+      const finalGstPaise = data.taxAmount !== undefined ? Math.round(data.taxAmount * 100) : totalGstPaise;
+      const grandTotalPaise = Math.max(0, subtotalPaise - discountPaise + finalGstPaise);
+
+      // 6. Adjust Customer Stats
+      if (oldSale.customer_id) {
+        const [oldCust] = await tx
+          .select()
+          .from(customers)
+          .where(and(eq(customers.id, oldSale.customer_id), eq(customers.store_id, storeId)))
+          .for("update");
+        if (oldCust && oldCust.phone !== "0000000000") {
+          await tx
+            .update(customers)
+            .set({
+              total_orders: Math.max(0, oldCust.total_orders - 1),
+              lifetime_value: Math.max(0, oldCust.lifetime_value - oldSale.grand_total),
+              updated_at: new Date(),
+            })
+            .where(eq(customers.id, oldCust.id));
+        }
+      }
+
+      if (customerId) {
+        const [newCust] = await tx
+          .select()
+          .from(customers)
+          .where(and(eq(customers.id, customerId), eq(customers.store_id, storeId)))
+          .for("update");
+        if (newCust && newCust.phone !== "0000000000") {
+          await tx
+            .update(customers)
+            .set({
+              total_orders: newCust.total_orders + 1,
+              lifetime_value: newCust.lifetime_value + grandTotalPaise,
+              last_visit: new Date(),
+              updated_at: new Date(),
+            })
+            .where(eq(customers.id, newCust.id));
+        }
+      }
+
+      // 7. Update Sales record
+      const [updatedSale] = await tx
+        .update(sales)
+        .set({
+          customer_id: customerId,
+          payment_method: data.paymentMethod || oldSale.payment_method,
+          subtotal: subtotalPaise,
+          discount: discountPaise,
+          gst: finalGstPaise,
+          grand_total: grandTotalPaise,
+          paid_amount: grandTotalPaise,
+          balance: 0,
+        })
+        .where(eq(sales.id, saleId))
+        .returning();
+
+      // 8. Log Audit
+      await tx.insert(audit_logs).values({
+        store_id: storeId,
+        user_id: actingUser.userId,
+        action: "INVOICE_EDIT",
+        details: `${actingUser.name || actingUser.role} edited Invoice ${oldSale.invoice_number}. New Grand Total: Rs ${(grandTotalPaise / 100).toFixed(2)}`,
+      });
+
+      return updatedSale;
+    });
+  }
+
+  async deleteInvoice(saleId: number, deletedBy: string, userId: number): Promise<any> {
+    return db.transaction(async (tx) => {
+      // 1. Fetch sale with lock for update
+      const [sale] = await tx
+        .select()
+        .from(sales)
+        .where(eq(sales.id, saleId))
+        .for("update");
+
+      if (!sale) {
+        throw new NotFoundError("Invoice not found");
+      }
+
+      if (sale.status === "DELETED") {
+        throw new Error("Invoice is already deleted");
+      }
+
+      const storeId = sale.store_id;
+
+      // 2. If status was COMPLETED, restore inventory & customer stats
+      if (sale.status === "COMPLETED") {
+        const items = await tx
+          .select()
+          .from(sale_items)
+          .where(eq(sale_items.sale_id, saleId));
+
+        for (const item of items) {
+          const [product] = await tx
+            .select()
+            .from(products)
+            .where(and(eq(products.id, item.product_id), eq(products.store_id, storeId)))
+            .for("update");
+
+          if (product) {
+            await this.movementService.recordVoidInvoice(
+              product.id,
+              storeId,
+              item.quantity,
+              sale.invoice_number,
+              deletedBy,
+              `Soft deleted invoice ${sale.invoice_number}`,
+              tx
+            );
+          }
+        }
+
+        if (sale.customer_id) {
+          const [customer] = await tx
+            .select()
+            .from(customers)
+            .where(and(eq(customers.id, sale.customer_id), eq(customers.store_id, storeId)))
+            .for("update");
+
+          if (customer && customer.phone !== "0000000000") {
+            await tx
+              .update(customers)
+              .set({
+                total_orders: Math.max(0, customer.total_orders - 1),
+                lifetime_value: Math.max(0, customer.lifetime_value - sale.grand_total),
+                updated_at: new Date(),
+              })
+              .where(eq(customers.id, customer.id));
+          }
+        }
+      }
+
+      // 3. Update status to DELETED (Soft Delete)
+      const [deletedSale] = await tx
+        .update(sales)
+        .set({
+          status: "DELETED",
+          void_reason: `Deleted by ${deletedBy}`,
+          voided_by: deletedBy,
+          voided_at: new Date(),
+        })
+        .where(eq(sales.id, saleId))
+        .returning();
+
+      // 4. Log Audit
+      await tx.insert(audit_logs).values({
+        store_id: storeId,
+        user_id: userId,
+        action: "INVOICE_DELETE",
+        details: `${deletedBy} soft-deleted Invoice ${sale.invoice_number}`,
+      });
+
+      return deletedSale;
+    });
+  }
 }

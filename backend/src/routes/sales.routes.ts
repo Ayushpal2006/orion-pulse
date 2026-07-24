@@ -40,6 +40,12 @@ router.post("/:id/audit", controller.logAuditAction);
 // GET sale returns list
 router.get("/:id/returns", returnController.getReturnsBySale);
 
+// PUT edit sale
+router.put("/:id", authorize("admin", "manager"), controller.editInvoice);
+
+// DELETE sale (soft delete - Admin only)
+router.delete("/:id", authorize("admin"), controller.deleteInvoice);
+
 // GET sale by ID
 router.get("/:id", controller.getById);
 
