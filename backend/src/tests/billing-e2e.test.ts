@@ -2,6 +2,7 @@ import { db } from "../db";
 import { products, sales, sale_items, inventory_movements } from "../db/schema";
 import { storeStorage } from "../db/context";
 import { CheckoutService } from "../services/checkout.service";
+import { CheckoutRequest } from "../types/checkout.types";
 import { eq, and } from "drizzle-orm";
 import assert from "assert";
 
@@ -27,23 +28,20 @@ async function runBillingE2ETest() {
     const initialStock = initialProduct.stock;
     const checkoutQty = 3;
 
-    // 2. Perform Checkout / Bill creation
-    const checkoutReq = {
-      idempotencyKey: `BILL-E2E-${Date.now()}`,
+    // 2. Perform Checkout / Bill creation matching CheckoutRequest interface
+    const checkoutReq: CheckoutRequest = {
+      customerPhone: "0000000000",
+      customerName: "Walk-in Customer",
+      paymentMethod: "Cash",
+      cashierName: "Admin",
+      paidAmount: 2997,
       items: [
         {
           productId: 1,
           quantity: checkoutQty,
-          price: 999, // 999 INR
         },
       ],
-      discountAmount: 0,
-      taxAmount: 0,
-      paymentMethod: "Cash",
-      paidAmount: 2997,
-      customerName: "Walk-in Customer",
-      customerPhone: "0000000000",
-      notes: "E2E Billing Validation",
+      discount: 0,
     };
 
     console.log("\n▶ Executing Checkout Service executeCheckout call...");
