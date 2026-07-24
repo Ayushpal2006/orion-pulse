@@ -312,34 +312,44 @@ export function InvoiceActionsMenu({
 
           <div className="space-y-3">
             <div className="space-y-1">
-              <label className="text-xs font-semibold text-foreground">Reason for voiding</label>
-              <Select value={selectedReason} onValueChange={setSelectedReason}>
+              <label className="text-xs font-semibold text-foreground">Select Void Reason *</label>
+              <Select
+                value={selectedReason}
+                onValueChange={(val) => {
+                  setSelectedReason(val);
+                  if (val !== "Other") setVoidReason(val);
+                  else setVoidReason("");
+                }}
+              >
                 <SelectTrigger className="h-10 rounded-xl text-sm">
-                  <SelectValue placeholder="Select a reason" />
+                  <SelectValue placeholder="Choose predefined reason..." />
                 </SelectTrigger>
                 <SelectContent className="rounded-xl">
-                  <SelectItem value="Customer Return">Customer Return</SelectItem>
-                  <SelectItem value="Wrong Item Scanned">Wrong Item Scanned</SelectItem>
-                  <SelectItem value="Wrong Quantity">Wrong Quantity</SelectItem>
-                  <SelectItem value="Payment Cancelled">Payment Cancelled</SelectItem>
-                  <SelectItem value="Duplicate Invoice">Duplicate Invoice</SelectItem>
-                  <SelectItem value="Billing Mistake">Billing Mistake</SelectItem>
-                  <SelectItem value="Other">Other</SelectItem>
+                  <SelectItem value="Wrong Entry">Wrong Entry</SelectItem>
+                  <SelectItem value="Supplier Returned Goods">Supplier Returned Goods</SelectItem>
+                  <SelectItem value="Duplicate Purchase">Duplicate Purchase</SelectItem>
+                  <SelectItem value="Incorrect Quantity">Incorrect Quantity</SelectItem>
+                  <SelectItem value="Wrong Supplier">Wrong Supplier</SelectItem>
+                  <SelectItem value="Wrong Price">Wrong Price</SelectItem>
+                  <SelectItem value="Stock Entry Mistake">Stock Entry Mistake</SelectItem>
+                  <SelectItem value="Test Entry">Test Entry</SelectItem>
+                  <SelectItem value="Cancelled Purchase">Cancelled Purchase</SelectItem>
+                  <SelectItem value="Other">Other (Custom Reason)</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
-            {selectedReason === "Other" && (
-              <div className="space-y-1 animate-fade-in">
-                <label className="text-xs font-semibold text-foreground">Specify reason</label>
-                <Textarea
-                  placeholder="Enter details about why this invoice is being voided..."
-                  value={voidReason}
-                  onChange={(e) => setVoidReason(e.target.value)}
-                  className="rounded-xl min-h-[70px] text-sm focus-visible:ring-rose-500"
-                />
-              </div>
-            )}
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-foreground">
+                Reason Details {selectedReason === "Other" ? "*" : "(Editable)"}
+              </label>
+              <Textarea
+                placeholder="Enter or edit void details..."
+                value={voidReason}
+                onChange={(e) => setVoidReason(e.target.value)}
+                className="rounded-xl min-h-[60px] text-sm focus-visible:ring-rose-500"
+              />
+            </div>
 
             <div className="space-y-1 pt-1">
               <label className="text-xs font-semibold text-foreground">

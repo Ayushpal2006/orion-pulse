@@ -84,6 +84,76 @@ export function BrandingSettings() {
               <Building2 className="size-4 text-primary" /> 1. Shop Identity
             </div>
 
+            {/* Logo Upload Box */}
+            <div className="space-y-2 rounded-xl border border-border/50 bg-background p-3">
+              <Label className="text-xs font-semibold flex items-center justify-between">
+                <span>Shop Brand Logo</span>
+                {s.logo ? (
+                  <span className="text-[10px] text-emerald-600 font-bold flex items-center gap-1">
+                    <CheckCircle className="size-3" /> Active Logo Loaded
+                  </span>
+                ) : (
+                  <span className="text-[10px] text-muted-foreground">No Logo Uploaded</span>
+                )}
+              </Label>
+              <div className="flex items-center gap-3">
+                {s.logo ? (
+                  <div className="relative group size-16 rounded-xl border border-border bg-background p-1 flex items-center justify-center overflow-hidden shrink-0 shadow-sm">
+                    <img src={s.logo} alt="Shop Logo" className="max-h-full max-w-full object-contain" />
+                  </div>
+                ) : (
+                  <div className="size-16 rounded-xl border border-dashed border-border bg-muted/20 flex flex-col items-center justify-center text-muted-foreground text-[10px] shrink-0">
+                    <Upload className="size-5 mb-0.5" /> Logo
+                  </div>
+                )}
+                <div className="flex flex-wrap items-center gap-2">
+                  <label className="cursor-pointer">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          const reader = new FileReader();
+                          reader.onload = (evt) => {
+                            const base64 = evt.target?.result as string;
+                            if (base64) {
+                              s.setLogo(base64);
+                              localStorage.setItem("orion_logo", base64);
+                              toast.success("Brand logo uploaded successfully!", {
+                                description: "Logo will automatically appear on all future Invoices, Receipts, and PDFs.",
+                              });
+                            }
+                          };
+                          reader.readAsDataURL(file);
+                        }
+                      }}
+                    />
+                    <span className="inline-flex items-center justify-center rounded-xl text-xs font-semibold h-8 px-3 border border-border bg-background hover:bg-accent hover:text-accent-foreground shadow-sm transition-all cursor-pointer">
+                      <Upload className="size-3.5 mr-1.5" /> {s.logo ? "Replace Logo" : "Upload Logo"}
+                    </span>
+                  </label>
+
+                  {s.logo && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        s.setLogo("");
+                        localStorage.removeItem("orion_logo");
+                        toast.info("Brand logo deleted.");
+                      }}
+                      className="rounded-xl h-8 text-xs text-rose-600 border-rose-500/20 hover:bg-rose-500/10"
+                    >
+                      Delete Logo
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </div>
+
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-1">
                 <Label className="text-xs font-semibold">Shop Name *</Label>

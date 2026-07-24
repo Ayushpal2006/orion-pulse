@@ -185,14 +185,45 @@ export function PurchaseActionsMenu({
 
           <div className="space-y-3 py-2">
             <div className="space-y-1">
-              <label className="text-xs font-semibold">Reason for voiding *</label>
+              <label className="text-xs font-semibold">Select Void Reason *</label>
+              <Select
+                value={selectedReason}
+                onValueChange={(val) => {
+                  setSelectedReason(val);
+                  if (val !== "Other") setVoidReason(val);
+                  else setVoidReason("");
+                }}
+              >
+                <SelectTrigger className="rounded-xl h-9 text-xs">
+                  <SelectValue placeholder="Choose predefined reason..." />
+                </SelectTrigger>
+                <SelectContent className="rounded-xl">
+                  <SelectItem value="Wrong Entry">Wrong Entry</SelectItem>
+                  <SelectItem value="Supplier Returned Goods">Supplier Returned Goods</SelectItem>
+                  <SelectItem value="Duplicate Purchase">Duplicate Purchase</SelectItem>
+                  <SelectItem value="Incorrect Quantity">Incorrect Quantity</SelectItem>
+                  <SelectItem value="Wrong Supplier">Wrong Supplier</SelectItem>
+                  <SelectItem value="Wrong Price">Wrong Price</SelectItem>
+                  <SelectItem value="Stock Entry Mistake">Stock Entry Mistake</SelectItem>
+                  <SelectItem value="Test Entry">Test Entry</SelectItem>
+                  <SelectItem value="Cancelled Purchase">Cancelled Purchase</SelectItem>
+                  <SelectItem value="Other">Other (Custom Reason)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-xs font-semibold">
+                Reason Details {selectedReason === "Other" ? "*" : "(Editable)"}
+              </label>
               <Textarea
-                placeholder="Enter void reason..."
+                placeholder="Enter or edit void reason..."
                 value={voidReason}
                 onChange={(e) => setVoidReason(e.target.value)}
                 className="rounded-xl min-h-[60px] text-xs"
               />
             </div>
+
             <div className="space-y-1">
               <label className="text-xs font-semibold">
                 Type last 4 digits of PO (<span className="font-mono text-rose-600 font-bold">{(poNumber || "").slice(-4)}</span>) to confirm
@@ -208,37 +239,14 @@ export function PurchaseActionsMenu({
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setVoidDialogOpen(false)} className="rounded-xl">Cancel</Button>
+            <Button variant="outline" onClick={() => setVoidDialogOpen(false)} className="rounded-xl h-9 text-xs">Cancel</Button>
             <Button
               variant="destructive"
               onClick={handleConfirmVoid}
               disabled={voiding || !voidReason.trim() || confirmPoNum.trim() !== (poNumber || "").slice(-4)}
-              className="rounded-xl font-bold"
+              className="rounded-xl h-9 text-xs font-bold"
             >
               {voiding ? "Voiding..." : "Confirm Void"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Soft Delete Dialog */}
-      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <DialogContent className="sm:max-w-md rounded-2xl">
-          <DialogHeader>
-            <DialogTitle className="text-rose-600 font-bold">Soft Delete Purchase {poNumber}?</DialogTitle>
-            <DialogDescription className="text-xs leading-relaxed">
-              This will mark the purchase order as DELETED, reverse inventory stock and supplier ledger balance, and remove it from financial reports while keeping audit history.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDeleteDialogOpen(false)} className="rounded-xl">Cancel</Button>
-            <Button
-              variant="destructive"
-              onClick={handleConfirmDelete}
-              disabled={deleting}
-              className="rounded-xl font-bold bg-rose-600 hover:bg-rose-700 text-white"
-            >
-              {deleting ? "Deleting..." : "Confirm Soft Delete"}
             </Button>
           </DialogFooter>
         </DialogContent>
