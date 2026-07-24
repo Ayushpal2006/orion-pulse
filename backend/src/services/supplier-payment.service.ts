@@ -179,14 +179,21 @@ export class SupplierPaymentService {
       .limit(10);
 
     return {
-      totalPayables: Number(totalPayablesRow?.sum || 0),
-      outstandingSuppliers,
-      recentPayments: recentPayments.slice(0, 10),
+      totalPayables: Number(totalPayablesRow?.sum || 0) / 100.0,
+      outstandingSuppliers: outstandingSuppliers.map((s) => ({
+        ...s,
+        name: s.company_name,
+        current_balance: Number(s.current_balance || 0) / 100.0,
+      })),
+      recentPayments: recentPayments.slice(0, 10).map((p) => ({
+        ...p,
+        amount: Number(p.amount || 0) / 100.0,
+      })),
       topSuppliers: topSuppliersRaw.map((s) => ({
         id: s.id,
         name: s.name,
         phone: s.phone,
-        totalPurchases: Number(s.total_purchases),
+        totalPurchases: Number(s.total_purchases || 0) / 100.0,
       })),
     };
   }

@@ -125,7 +125,7 @@ export function PurchaseDetailsDialog({ purchase, open, onOpenChange }: Purchase
               <div className="bg-muted/50 px-3 py-2 grid grid-cols-12 text-[10px] font-bold text-muted-foreground uppercase">
                 <div className="col-span-1">#</div>
                 <div className="col-span-5">Product</div>
-                <div className="col-span-2 text-right">Buying Price</div>
+                <div className="col-span-2 text-right">Purchase Cost</div>
                 <div className="col-span-2 text-center">Qty</div>
                 <div className="col-span-2 text-right">Total</div>
               </div>

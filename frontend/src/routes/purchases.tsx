@@ -840,16 +840,30 @@ function PurchasesPage() {
               ) : (
                 filteredProducts.map((prod: any) => {
                   const costRupees = prod.purchase ? prod.purchase / 100.0 : 0;
+                  const cartItem = cartItems.find((item) => item.product_id === prod.id);
+                  const isSelected = !!cartItem && cartItem.quantity > 0;
+
                   return (
                     <div
                       key={prod.id}
                       onClick={() => handleAddProductToCart(prod)}
-                      className="card-soft p-3 cursor-pointer hover:border-primary/50 transition-all hover:shadow-md group flex flex-col justify-between"
+                      className={`card-soft p-3 cursor-pointer transition-all hover:shadow-md group flex flex-col justify-between relative ${
+                        isSelected
+                          ? "border-primary bg-primary/10 ring-2 ring-primary/30 shadow-md"
+                          : "hover:border-primary/50"
+                      }`}
                     >
                       <div>
-                        <div className="flex justify-between items-start">
+                        <div className="flex justify-between items-start gap-1">
                           <span className="text-xl">🛍️</span>
-                          <Badge variant="outline" className="text-[9px] font-mono">Stock: {prod.stock}</Badge>
+                          <div className="flex flex-col items-end gap-1">
+                            <Badge variant="outline" className="text-[9px] font-mono">Stock: {prod.stock}</Badge>
+                            {isSelected && (
+                              <Badge className="bg-primary text-primary-foreground font-black text-[9px] px-1.5 py-0.5 animate-pulse">
+                                ✓ Qty {cartItem.quantity}
+                              </Badge>
+                            )}
+                          </div>
                         </div>
                         <div className="font-bold text-xs text-foreground mt-2 line-clamp-2 group-hover:text-primary transition-colors">
                           {prod.name}
@@ -857,7 +871,7 @@ function PurchasesPage() {
                         {prod.sku && <div className="text-[10px] text-muted-foreground font-mono">{prod.sku}</div>}
                       </div>
                       <div className="mt-3 pt-2 border-t border-border/40 flex items-center justify-between">
-                        <span className="text-[10px] text-muted-foreground uppercase font-medium">Cost</span>
+                        <span className="text-[10px] text-muted-foreground uppercase font-semibold">Purchase Cost</span>
                         <span className="font-mono font-black text-xs text-foreground">{inr(costRupees)}</span>
                       </div>
                     </div>

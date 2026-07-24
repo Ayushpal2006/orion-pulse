@@ -1260,3 +1260,17 @@ export async function getPurchaseWhatsAppLink(id: number): Promise<string> {
   }
   return json.url;
 }
+
+export async function printPurchaseReceipt(id: string | number): Promise<any> {
+  const res = await fetch(`${API_BASE_URL}/api/purchases/${id}/print`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${localStorage.getItem("token") || ""}`,
+    },
+  });
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.error || `HTTP error! status: ${res.status}`);
+  }
+  return res.json();
+}
