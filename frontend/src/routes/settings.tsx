@@ -397,6 +397,100 @@ function SettingsV2() {
     }
   };
 
+  // Export All Application Settings (JSON file)
+  const handleExportAllSettings = () => {
+    const exportData = {
+      app: "Orion POS Enterprise",
+      schemaVersion: "2.0",
+      exportedAt: new Date().toISOString(),
+      multiStoreMetadata: {
+        storeId: "store_primary_01",
+        organizationId: "org_default",
+        storeName: s.shopName || "Apka Bill Store",
+      },
+      settings: {
+        shopInformation: {
+          shopName: s.shopName,
+          gstin: s.gstin,
+          storeAddress: s.storeAddress,
+          storePhone: s.storePhone,
+          storeEmail: s.storeEmail,
+          tagline: s.tagline || "",
+          website: s.website || "",
+        },
+        branding: {
+          logo: s.logo || "",
+          primaryColor: s.primaryColor || "#2563eb",
+          invoiceHeader: s.invoiceHeader || "TAX INVOICE",
+          invoiceFooter: s.invoiceFooter || "Terms: Goods once sold can be exchanged within 7 days.",
+          receiptFooter: s.receiptFooter || "*** Thank you — visit again ***",
+          thankYouMessage: s.thankYouMessage || "Thank you for shopping with us!",
+          termsAndConditions: s.termsAndConditions || "",
+          returnPolicy: s.returnPolicy || "",
+        },
+        billing: {
+          invPrefix,
+          invStartNo,
+          allowNegativeStock,
+          quickBilling,
+        },
+        purchase: {
+          poPrefix,
+          poStartNo,
+          autofillPurchaseCost,
+          autoSaveDraft,
+        },
+        printing: {
+          printer: s.printer,
+          paperWidth: s.paperWidth,
+          qrPosition: s.qrPosition,
+        },
+        whatsappTemplates: {
+          whatsappSignature: s.whatsappSignature || "",
+          whatsappFooter: s.whatsappFooter || "",
+        },
+        invoiceTemplates: {
+          receiptTemplate: s.receiptTemplate,
+          currency: s.currency || "INR",
+        },
+        gst: {
+          taxRate: s.taxRate,
+          gstin: s.gstin,
+        },
+        googleSheets: {
+          sheetId,
+          syncEnabled: isConnected ? "1" : "0",
+        },
+        upiAndPayment: {
+          upiId: s.upiId,
+          accountHolderName: s.accountHolderName || "",
+          bankDetails: s.bankDetails || "",
+        },
+        theme: {
+          theme: s.theme,
+          primaryColor: s.primaryColor || "#2563eb",
+        },
+        businessPreferences: {
+          lowStockThreshold,
+          defaultReportPeriod,
+          exportFormat,
+        },
+      },
+    };
+
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `Orion-Settings-Export-${new Date().toISOString().substring(0, 10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+
+    toast.success("All application settings exported successfully!", {
+      description: "Full configuration JSON generated with Multi-Store Schema V2.0 metadata.",
+    });
+  };
+
   const handleManualJsonBackup = () => {
     const backupObj = {
       app: "Orion POS Enterprise",
@@ -509,6 +603,11 @@ function SettingsV2() {
       }
     };
     reader.readAsText(file);
+    evt.target.value = "";
+  };
+
+  const handleJsonRestore = (evt: React.ChangeEvent<HTMLInputElement>) => {
+    handleImportFileSelect(evt);
   };
 
   // Reset fields in ONLY the active section to last saved values
