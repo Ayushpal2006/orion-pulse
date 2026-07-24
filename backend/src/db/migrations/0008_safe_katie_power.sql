@@ -19,16 +19,16 @@ ALTER TABLE "stock_adjustments" ADD CONSTRAINT "stock_adjustments_product_id_pro
 CREATE INDEX "idx_stock_adjustments_store_id" ON "stock_adjustments" USING btree ("store_id");--> statement-breakpoint
 CREATE INDEX "idx_stock_adjustments_product_id" ON "stock_adjustments" USING btree ("product_id");--> statement-breakpoint
 CREATE INDEX "idx_stock_adjustments_type" ON "stock_adjustments" USING btree ("adjustment_type");--> statement-breakpoint
-ALTER TABLE "purchase_items" DROP COLUMN "received_quantity";--> statement-breakpoint
-ALTER TABLE "purchase_items" DROP COLUMN "discount";--> statement-breakpoint
-ALTER TABLE "purchase_items" DROP COLUMN "gst";--> statement-breakpoint
-ALTER TABLE "purchase_orders" DROP COLUMN "po_number";--> statement-breakpoint
-ALTER TABLE "purchase_orders" DROP COLUMN "status";--> statement-breakpoint
-ALTER TABLE "purchase_orders" DROP COLUMN "expected_delivery";--> statement-breakpoint
-ALTER TABLE "purchase_orders" DROP COLUMN "net_amount";--> statement-breakpoint
-ALTER TABLE "purchase_orders" DROP COLUMN "gst";--> statement-breakpoint
-ALTER TABLE "purchase_orders" DROP COLUMN "invoice_number";--> statement-breakpoint
-ALTER TABLE "purchase_orders" DROP COLUMN "invoice_date";--> statement-breakpoint
-ALTER TABLE "purchase_orders" DROP COLUMN "transport_charges";--> statement-breakpoint
-ALTER TABLE "purchase_orders" DROP COLUMN "other_charges";--> statement-breakpoint
+ALTER TABLE "purchase_items" DROP COLUMN IF EXISTS "received_quantity";--> statement-breakpoint
+ALTER TABLE "purchase_items" DROP COLUMN IF EXISTS "discount";--> statement-breakpoint
+ALTER TABLE "purchase_items" DROP COLUMN IF EXISTS "gst";--> statement-breakpoint
+ALTER TABLE "purchase_orders" DROP COLUMN IF EXISTS "po_number";--> statement-breakpoint
+ALTER TABLE "purchase_orders" DROP COLUMN IF EXISTS "status";--> statement-breakpoint
+ALTER TABLE "purchase_orders" DROP COLUMN IF EXISTS "expected_delivery";--> statement-breakpoint
+ALTER TABLE "purchase_orders" DROP COLUMN IF EXISTS "net_amount";--> statement-breakpoint
+ALTER TABLE "purchase_orders" DROP COLUMN IF EXISTS "gst";--> statement-breakpoint
+ALTER TABLE "purchase_orders" DROP COLUMN IF EXISTS "invoice_number";--> statement-breakpoint
+ALTER TABLE "purchase_orders" DROP COLUMN IF EXISTS "invoice_date";--> statement-breakpoint
+ALTER TABLE "purchase_orders" DROP COLUMN IF EXISTS "transport_charges";--> statement-breakpoint
+ALTER TABLE "purchase_orders" DROP COLUMN IF EXISTS "other_charges";--> statement-breakpoint
 ALTER TABLE "purchase_orders" ADD CONSTRAINT "purchase_orders_purchase_number_unique" UNIQUE("purchase_number");
