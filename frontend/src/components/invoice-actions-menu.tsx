@@ -11,6 +11,7 @@ import {
   getSalePublicLink,
   logSaleAudit,
   deleteInvoice,
+  voidSaleInvoice,
 } from "@/lib/api";
 import { getPrintAdapter } from "@/lib/print-adapter";
 import { EditInvoiceDialog } from "@/components/edit-invoice-dialog";
@@ -146,6 +147,42 @@ export function InvoiceActionsMenu({
       window.location.href = "/billing";
     } catch (err: any) {
       toast.error("Failed to duplicate invoice: " + err.message);
+    }
+  };
+
+  const handleVoidInvoice = async () => {
+    const reasonToUse = selectedReason === "Other" ? voidReason.trim() : selectedReason;
+    if (!reasonToUse) {
+      toast.error("Please select or enter a reason to void the invoice");
+      return;
+    }
+
+    const last4 = (invoiceNumber || "").slice(-4);
+    if (confirmInvoiceNumber.trim().toUpperCase() !== last4.toUpperCase()) {
+      toast.error("Last 4 digits of invoice number do not match");
+      return;
+    }
+
+    setVoiding(true);
+    try {
+      await voidSaleInvoice(invoiceNumber, reasonToUse);
+      await logSaleAudit(invoiceNumber, "INVOICE_VOID", `${role} voided Invoice ${invoiceNumber}. Reason: ${reasonToUse}`);
+      toast.success(`Invoice ${invoiceNumber} voided successfully`);
+      setVoidDialogOpen(false);
+      setConfirmInvoiceNumber("");
+      setVoidReason("");
+      setSelectedReason("");
+
+      queryClient.invalidateQueries({ queryKey: ["receipt", invoiceNumber] });
+      queryClient.invalidateQueries({ queryKey: ["reports"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      queryClient.invalidateQueries({ queryKey: ["sales-paginated"] });
+
+      if (onCloseDrawer) onCloseDrawer();
+    } catch (err: any) {
+      toast.error(err.message || "Failed to void invoice");
+    } finally {
+      setVoiding(false);
     }
   };
 

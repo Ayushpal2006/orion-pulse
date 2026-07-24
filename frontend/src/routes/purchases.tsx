@@ -266,16 +266,31 @@ function PurchasesPage() {
       setCartItems(newItems);
       toast.info(`Increased "${prod.name}" quantity`);
     } else {
+      // Extract Purchase Cost from Inventory product (prod.purchase is already in Rupees from mapBackendProductToFrontend)
+      const initialPurchaseCost =
+        typeof prod.purchase === "number" && !isNaN(prod.purchase)
+          ? prod.purchase
+          : typeof prod.purchase_price === "number" && !isNaN(prod.purchase_price)
+            ? prod.purchase_price / 100.0
+            : 0;
+
+      const initialSellingPrice =
+        typeof prod.price === "number" && !isNaN(prod.price)
+          ? prod.price
+          : typeof prod.selling_price === "number" && !isNaN(prod.selling_price)
+            ? prod.selling_price / 100.0
+            : 0;
+
       setCartItems([
         ...cartItems,
         {
-          product_id: prod.id,
+          product_id: Number(prod.id),
           name: prod.name,
           sku: prod.sku || "",
           barcode: prod.barcode || "",
           quantity: 1,
-          purchase_price: prod.purchase ? prod.purchase / 100.0 : 0,
-          selling_price: prod.price ? prod.price / 100.0 : 0,
+          purchase_price: initialPurchaseCost,
+          selling_price: initialSellingPrice,
           gst: prod.gst || 0,
           discount: 0,
         },
@@ -762,11 +777,10 @@ function PurchasesPage() {
                   <button
                     key={cat}
                     onClick={() => setSelectedCategory(cat)}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-colors ${
-                      selectedCategory === cat
+                    className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-colors ${selectedCategory === cat
                         ? "bg-primary text-primary-foreground shadow-sm"
                         : "bg-muted/40 text-muted-foreground hover:bg-muted/80"
-                    }`}
+                      }`}
                   >
                     {cat}
                   </button>
@@ -782,7 +796,12 @@ function PurchasesPage() {
                 </div>
               ) : (
                 filteredProducts.map((prod: any) => {
-                  const costRupees = prod.purchase ? prod.purchase / 100.0 : 0;
+                  const costRupees =
+                    typeof prod.purchase === "number" && !isNaN(prod.purchase)
+                      ? prod.purchase
+                      : typeof prod.purchase_price === "number" && !isNaN(prod.purchase_price)
+                        ? prod.purchase_price / 100.0
+                        : 0;
                   const cartItem = cartItems.find((item) => item.product_id === prod.id);
                   const isSelected = !!cartItem && cartItem.quantity > 0;
 
@@ -790,11 +809,10 @@ function PurchasesPage() {
                     <div
                       key={prod.id}
                       onClick={() => handleAddProductToCart(prod)}
-                      className={`card-soft p-3 cursor-pointer transition-all hover:shadow-md group flex flex-col justify-between relative ${
-                        isSelected
+                      className={`card-soft p-3 cursor-pointer transition-all hover:shadow-md group flex flex-col justify-between relative ${isSelected
                           ? "border-primary bg-primary/10 ring-2 ring-primary/30 shadow-md"
                           : "hover:border-primary/50"
-                      }`}
+                        }`}
                     >
                       <div>
                         <div className="flex justify-between items-start gap-1">

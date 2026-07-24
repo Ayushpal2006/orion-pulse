@@ -1274,3 +1274,31 @@ export async function printPurchaseReceipt(id: string | number): Promise<any> {
   }
   return res.json();
 }
+
+export async function voidSaleInvoice(invoiceNumber: string, reason: string): Promise<any> {
+  const res = await fetch(`${API_BASE_URL}/api/sales/${invoiceNumber}/void`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${localStorage.getItem("token") || ""}`,
+    },
+    body: JSON.stringify({ reason }),
+  });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok || !json.success) {
+    const altRes = await fetch(`${API_BASE_URL}/invoices/${invoiceNumber}/void`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${localStorage.getItem("token") || ""}`,
+      },
+      body: JSON.stringify({ reason }),
+    });
+    const altJson = await altRes.json().catch(() => ({}));
+    if (!altRes.ok || !altJson.success) {
+      throw new Error(altJson.error || altJson.message || json.error || "Failed to void invoice");
+    }
+    return altJson.data;
+  }
+  return json.data;
+}
