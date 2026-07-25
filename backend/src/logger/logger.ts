@@ -37,11 +37,24 @@ export class CentralizedLogger {
   }
 
   error(message: string, error?: any, meta?: Record<string, any>): void {
+    if (error) {
+      console.error("=========================================");
+      console.error("Original PostgreSQL error message:", error.message || String(error));
+      console.error("SQLSTATE error code:", error.code || error.sqlState || "N/A");
+      console.error("Complete stack trace:", error.stack || "N/A");
+      console.error("Failed SQL:", error.query || error.sql || meta?.path || "N/A");
+      console.error("Parameters:", error.parameters || error.params || meta?.ip || "N/A");
+      console.error("=========================================");
+    }
+
     const errorMeta: Record<string, any> = {};
     if (error !== undefined) {
       if (error instanceof Error) {
         errorMeta.errorMessage = error.message;
         errorMeta.errorStack = error.stack;
+        if ((error as any).code) errorMeta.code = (error as any).code;
+        if ((error as any).query) errorMeta.query = (error as any).query;
+        if ((error as any).parameters) errorMeta.parameters = (error as any).parameters;
       } else {
         errorMeta.errorDetail = String(error);
       }

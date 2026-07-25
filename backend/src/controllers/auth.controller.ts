@@ -67,13 +67,38 @@ export class AuthController {
         return;
       }
 
-      // Organization Status Check
-      const orgId = user.organization_id || 1;
-      const [org] = await db
-        .select()
-        .from(organizations)
-        .where(eq(organizations.id, orgId))
-        .limit(1);
+      // Organization Status Check & Foreign Key Validation
+      let orgId = user.organization_id || 1;
+      let org: any = null;
+      try {
+        const [result] = await db
+          .select()
+          .from(organizations)
+          .where(eq(organizations.id, orgId))
+          .limit(1);
+        org = result;
+      } catch (err: any) {
+        console.log("Original PostgreSQL error message:", err.message);
+        console.log("SQLSTATE error code:", err.code);
+        console.log("Complete stack trace:", err.stack);
+        console.log("Failed SQL:", err.query || "SELECT * FROM organizations WHERE id = $1");
+        console.log("Parameters:", err.parameters || [orgId]);
+        throw err;
+      }
+
+      // If organization_id is invalid, safely repair the foreign key to a valid organization
+      if (!org) {
+        const [validOrg] = await db.select().from(organizations).limit(1);
+        if (validOrg) {
+          org = validOrg;
+          orgId = validOrg.id;
+          await db
+            .update(users)
+            .set({ organization_id: validOrg.id })
+            .where(eq(users.id, user.id));
+          console.log(`[Auth] Repaired invalid organization_id for user ${user.email} -> org ${validOrg.id}`);
+        }
+      }
 
       const orgStatus = org ? (org.status || "active").toLowerCase() : "active";
 
@@ -85,13 +110,31 @@ export class AuthController {
         return;
       }
 
-      // Fetch Current Store
-      const storeId = user.store_id || 1;
-      const [store] = await db
+      // Fetch & Validate Current Store
+      let storeId = user.store_id || 1;
+      let [store] = await db
         .select()
         .from(stores)
         .where(eq(stores.id, storeId))
         .limit(1);
+
+      // If store_id is invalid, safely repair store_id to a valid store
+      if (!store && org) {
+        const [validStore] = await db
+          .select()
+          .from(stores)
+          .where(eq(stores.organization_id, org.id))
+          .limit(1);
+        if (validStore) {
+          store = validStore;
+          storeId = validStore.id;
+          await db
+            .update(users)
+            .set({ store_id: validStore.id })
+            .where(eq(users.id, user.id));
+          console.log(`[Auth] Repaired invalid store_id for user ${user.email} -> store ${validStore.id}`);
+        }
+      }
 
       const token = jwt.sign(
         {
