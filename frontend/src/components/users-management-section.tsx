@@ -5,7 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Users, Plus, Edit2, Ban, CheckCircle, ShieldCheck, Mail, Phone, Store, Lock, UserCheck, Eye } from "lucide-react";
+import { Users, Plus, Edit2, Ban, CheckCircle, ShieldCheck, Mail, Phone, Store, Lock, UserCheck, Eye, EyeOff } from "lucide-react";
 import { useApp } from "@/lib/store";
 import { getUsers, createUser, updateUser, disableUser, getStores } from "@/lib/api";
 import { toast } from "sonner";
@@ -24,6 +24,7 @@ export function UsersManagementSection() {
   const [formEmail, setFormEmail] = useState("");
   const [formPhone, setFormPhone] = useState("");
   const [formPassword, setFormPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [formRole, setFormRole] = useState("Cashier");
   const [selectedStoreIds, setSelectedStoreIds] = useState<number[]>([]);
   const [saving, setSaving] = useState(false);
@@ -329,14 +330,24 @@ export function UsersManagementSection() {
                 <Label className="text-xs font-semibold">
                   {editingUser ? "New Password (Optional)" : "Password *"}
                 </Label>
-                <Input
-                  type="password"
-                  value={formPassword}
-                  onChange={(e) => setFormPassword(e.target.value)}
-                  placeholder={editingUser ? "Leave blank to keep current" : "Min 6 characters"}
-                  className="rounded-xl h-9 text-xs"
-                  required={!editingUser}
-                />
+                <div className="relative">
+                  <Input
+                    type={showPassword ? "text" : "password"}
+                    value={formPassword}
+                    onChange={(e) => setFormPassword(e.target.value)}
+                    placeholder={editingUser ? "Leave blank to keep current" : "Min 6 characters"}
+                    className="rounded-xl h-9 text-xs pr-9"
+                    required={!editingUser}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((prev) => !prev)}
+                    className="absolute right-2.5 top-2 text-muted-foreground hover:text-foreground transition-colors focus:outline-none"
+                    title={showPassword ? "Hide password" : "Show password"}
+                  >
+                    {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                  </button>
+                </div>
               </div>
 
               <div className="space-y-1.5">

@@ -165,13 +165,13 @@ async function testLoginFlow() {
   const saToken = jwt.sign(
     { id: superAdmin.id, email: superAdmin.email, role: superAdmin.role, organizationId: org.id, storeId: store.id },
     env.JWT_SECRET,
-    { expiresIn: "24h" }
+    { expiresIn: "24h" as any }
   );
 
   const ownerToken = jwt.sign(
     { id: ownerUser.id, email: ownerUser.email, role: ownerUser.role, organizationId: org.id, storeId: store.id },
     env.JWT_SECRET,
-    { expiresIn: "24h" }
+    { expiresIn: "24h" as any }
   );
 
   const saDecoded: any = jwt.verify(saToken, env.JWT_SECRET);
