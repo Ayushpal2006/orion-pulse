@@ -84,8 +84,11 @@ export class CheckoutService {
       return cached.response;
     }
 
+    const t0 = performance.now();
+
     const result = await db.transaction(async (tx) => {
       // 1. Find or create customer
+      const tCustomerStart = performance.now();
       let [customer] = await tx
         .select()
         .from(customers)
@@ -120,11 +123,15 @@ export class CheckoutService {
           .returning();
         customer = updatedCust;
       }
+      const tCustomerTime = performance.now() - tCustomerStart;
 
       // 2. Generate next sequential invoice number
+      const tInvStart = performance.now();
       const invoiceNumber = await this.generateNextInvoiceNumber(storeId, tx);
+      const tInvTime = performance.now() - tInvStart;
 
       // 3. Process items, validate stock, and calculate totals
+      const tStockStart = performance.now();
       let subtotal = 0;
       let totalGst = 0;
       const processedItems: any[] = [];
@@ -166,6 +173,7 @@ export class CheckoutService {
           lineGst: lineGst,
         });
       }
+      const tStockTime = performance.now() - tStockStart;
 
       const discount = request.discount ?? 0;
       const grandTotal = subtotal + totalGst - discount;
@@ -175,6 +183,7 @@ export class CheckoutService {
       const paymentDetailsJson = request.paymentDetails ? JSON.stringify(request.paymentDetails) : null;
 
       // 4. Create Sale entry
+      const tSaleStart = performance.now();
       const crypto = require("crypto");
       const publicToken = crypto.randomBytes(9).toString("base64url").substring(0, 12);
       const [sale] = await tx
@@ -206,8 +215,10 @@ export class CheckoutService {
         action: "INVOICE_CREATE",
         details: `${request.cashierName || "Admin"} created Invoice ${invoiceNumber}`,
       });
+      const tSaleTime = performance.now() - tSaleStart;
 
       // 5. Create Sale Item records
+      const tItemsStart = performance.now();
       for (const item of processedItems) {
         await tx.insert(sale_items).values({
           organization_id: orgId,
@@ -220,8 +231,10 @@ export class CheckoutService {
           line_total: item.lineTotal,
         });
       }
+      const tItemsTime = performance.now() - tItemsStart;
 
       // 6. Update Customer profile metrics
+      const tCustUpdateStart = performance.now();
       const updatedOrders = (customer.total_orders ?? 0) + 1;
       const updatedLtv = (customer.lifetime_value ?? 0) + grandTotal;
 
@@ -235,6 +248,7 @@ export class CheckoutService {
         })
         .where(eq(customers.id, customer.id))
         .returning();
+      const tCustUpdateTime = performance.now() - tCustUpdateStart;
 
       return {
         success: true,
@@ -259,42 +273,53 @@ export class CheckoutService {
           last_visit: updatedCustomer.last_visit ? updatedCustomer.last_visit.toISOString() : null
         },
         syncProducts: syncProductsList,
+        timings: {
+          customerLookup: tCustomerTime.toFixed(2),
+          invoiceGen: tInvTime.toFixed(2),
+          inventoryDeduction: tStockTime.toFixed(2),
+          saleInsert: tSaleTime.toFixed(2),
+          itemsInsert: tItemsTime.toFixed(2),
+          customerUpdate: tCustUpdateTime.toFixed(2),
+          dbTransactionTotal: (performance.now() - t0).toFixed(2)
+        }
       };
     });
 
-    // Enqueue background sync/notifications without blocking
-    try {
-      const { SyncQueueManager } = require("./sync.service");
-      
-      // A. Sale Sync
-      const syncPayload = {
-        invoiceNumber: result.invoice,
-        date: formatInTimeZone(new Date(), "Asia/Kolkata", "yyyy-MM-dd"),
-        time: formatInTimeZone(new Date(), "Asia/Kolkata", "hh:mm a"),
-        cashier: request.cashierName || "System",
-        paymentMethod: request.paymentMethod,
-        subtotal: result.subtotal / 100.0,
-        discount: result.discount / 100.0,
-        gst: result.gst / 100.0,
-        grandTotal: result.grandTotal / 100.0,
-        publicToken: result.publicToken
-      };
-      SyncQueueManager.getInstance().enqueue("sale", syncPayload);
+    // Enqueue background sync/notifications asynchronously outside response thread
+    setImmediate(() => {
+      try {
+        const { SyncQueueManager } = require("./sync.service");
+        
+        // A. Sale Sync
+        const syncPayload = {
+          invoiceNumber: result.invoice,
+          date: formatInTimeZone(new Date(), "Asia/Kolkata", "yyyy-MM-dd"),
+          time: formatInTimeZone(new Date(), "Asia/Kolkata", "hh:mm a"),
+          cashier: request.cashierName || "System",
+          paymentMethod: request.paymentMethod,
+          subtotal: result.subtotal / 100.0,
+          discount: result.discount / 100.0,
+          gst: result.gst / 100.0,
+          grandTotal: result.grandTotal / 100.0,
+          publicToken: result.publicToken
+        };
+        SyncQueueManager.getInstance().enqueue("sale", syncPayload);
 
-      // B. Customer Sync
-      if (result.syncCustomer) {
-        SyncQueueManager.getInstance().enqueue("customer", result.syncCustomer);
-      }
-
-      // C. Products Sync
-      if (result.syncProducts && Array.isArray(result.syncProducts)) {
-        for (const prod of result.syncProducts) {
-          SyncQueueManager.getInstance().enqueue("product", prod);
+        // B. Customer Sync
+        if (result.syncCustomer) {
+          SyncQueueManager.getInstance().enqueue("customer", result.syncCustomer);
         }
+
+        // C. Products Sync
+        if (result.syncProducts && Array.isArray(result.syncProducts)) {
+          for (const prod of result.syncProducts) {
+            SyncQueueManager.getInstance().enqueue("product", prod);
+          }
+        }
+      } catch (e) {
+        // safe ignore if manager is uninitialized
       }
-    } catch (e) {
-      // safe ignore if manager is uninitialized
-    }
+    });
 
     idempotencyCache.set(idempotencyKey, { timestamp: Date.now(), response: result });
     return result;

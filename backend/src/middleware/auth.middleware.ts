@@ -161,3 +161,9 @@ export function authorizeSuperAdmin() {
     });
   };
 }
+
+export const requireSuperAdmin = authorizeSuperAdmin;
+
+export function requireAdmin() {
+  return authorize("admin", "owner");
+}

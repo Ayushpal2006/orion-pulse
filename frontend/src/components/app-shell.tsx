@@ -208,11 +208,19 @@ export function AppShell({ children }: { children: ReactNode }) {
             const formattedRole = data.user.role.charAt(0).toUpperCase() + data.user.role.slice(1).toLowerCase();
             setRole(formattedRole as any);
 
-            if (roleLower === "super_admin" || roleLower === "superadmin") {
-              if (pathname === "/" || pathname === "/login") {
-                window.location.href = "/admin";
-                return;
-              }
+            const isSuperAdminUser = roleLower === "super_admin" || roleLower === "superadmin";
+
+            // Role-Based Portal Guard:
+            // 1. Super Admin is restricted to /admin and cannot access org shop routes (/dashboard, /billing, etc.)
+            if (isSuperAdminUser && !isAdminRoute) {
+              window.location.href = "/admin";
+              return;
+            }
+
+            // 2. Organization Admin (admin/owner/manager) cannot access platform /admin portal
+            if (!isSuperAdminUser && isAdminRoute) {
+              window.location.href = "/dashboard";
+              return;
             }
           }
           if (
