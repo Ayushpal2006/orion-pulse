@@ -20,40 +20,47 @@ export class AuthController {
       const normalizedEmail = String(email).trim().toLowerCase();
       console.log("Email received:", normalizedEmail);
 
-      // Super Admin dedicated authentication check
-      if ((normalizedEmail === "superadmin" || normalizedEmail === "superadmin@apkabill.com" || normalizedEmail === "superadmin@orion.com") && (password === "admin" || password === "SuperAdmin@123")) {
-        const token = jwt.sign(
-          {
-            id: 999999,
-            email: "superadmin@apkabill.com",
-            role: "superadmin",
-            organization_id: null,
-            store_id: null,
-            name: "System Super Admin",
-          },
-          env.JWT_SECRET,
-          { expiresIn: env.JWT_EXPIRES_IN as any }
-        );
+      const superAdminEmail = (process.env.SUPER_ADMIN_EMAIL || "superadmin@orion.com").trim().toLowerCase();
+      const superAdminPass = process.env.SUPER_ADMIN_PASSWORD || "admin";
 
-        res.status(200).json({
-          success: true,
-          data: {
-            token,
-            user: {
-              id: 999999,
-              name: "System Super Admin",
-              email: "superadmin@apkabill.com",
-              role: "superadmin",
-              phone: "",
-              organization_id: null,
-              store_id: null,
+      // Super Admin dedicated authentication check before database user lookup
+      if (
+        normalizedEmail === superAdminEmail ||
+        normalizedEmail === "superadmin" ||
+        normalizedEmail === "superadmin@apkabill.com"
+      ) {
+        if (password === superAdminPass || password === "admin" || password === "SuperAdmin@123") {
+          const token = jwt.sign(
+            {
+              id: "super-admin",
+              email: process.env.SUPER_ADMIN_EMAIL || "superadmin@orion.com",
+              role: "super_admin",
+              organizationId: null,
+              storeId: null,
             },
-            organization: null,
-            store: null,
-            organizationStatus: "active",
-          },
-        });
-        return;
+            env.JWT_SECRET,
+            { expiresIn: env.JWT_EXPIRES_IN as any }
+          );
+
+          res.status(200).json({
+            success: true,
+            data: {
+              token,
+              user: {
+                id: "super-admin",
+                name: "Super Admin",
+                email: process.env.SUPER_ADMIN_EMAIL || "superadmin@orion.com",
+                role: "super_admin",
+                organization_id: null,
+                store_id: null,
+              },
+              organization: null,
+              store: null,
+              organizationStatus: "active",
+            },
+          });
+          return;
+        }
       }
 
       const [user] = await db
