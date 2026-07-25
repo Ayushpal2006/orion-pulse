@@ -34,6 +34,7 @@ import backupRoutes from "./routes/backup.routes";
 import deviceRoutes from "./routes/device.routes";
 import auditRoutes from "./routes/audit.routes";
 import orgRoutes from "./routes/organization.routes";
+import superAdminRoutes from "./routes/super-admin.routes";
 import subscriptionRoutes from "./routes/subscription.routes";
 import copilotRoutes from "./routes/copilot.routes";
 import databaseRoutes from "./routes/database.routes";
@@ -172,6 +173,7 @@ app.use("/api/backup", authenticate(), backupRoutes);
 app.use("/api/device", authenticate(), deviceRoutes);
 app.use("/api/audit", authenticate(), auditRoutes);
 app.use("/api/organizations", orgRoutes);
+app.use("/api/super-admin", superAdminRoutes);
 app.use("/api/subscriptions", subscriptionRoutes);
 app.use("/api/ai/copilot", copilotRoutes);
 

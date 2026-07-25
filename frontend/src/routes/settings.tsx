@@ -52,7 +52,7 @@ import {
   Store,
 } from "lucide-react";
 import { ThemeToggle } from "@/components/theme-toggle";
-import { testPrinter, API_BASE_URL } from "@/lib/api";
+import { testPrinter, API_BASE_URL, resetOnboardingApi, changePasswordApi } from "@/lib/api";
 import { formatToKolkataDateTime } from "@/lib/datetime";
 import { WhatsAppTemplateManager } from "@/components/whatsapp-template-manager";
 import { BrandingSettings } from "@/components/branding-settings";
@@ -82,6 +82,7 @@ function SettingsPage() {
 type SettingsSectionId =
   | "general"
   | "organization"
+  | "security"
   | "shop"
   | "stores"
   | "users"
@@ -112,6 +113,7 @@ interface SectionMeta {
 const SECTIONS: SectionMeta[] = [
   { id: "general", name: "General", category: "Core", icon: SlidersHorizontal, description: "Business defaults, currency & localization", keywords: ["general", "currency", "timezone", "language", "theme", "color"] },
   { id: "organization", name: "Organization Profile", category: "Core", icon: Building2, description: "Business profile, GST/PAN, logo & SaaS parameters", badge: "Owner", keywords: ["organization", "profile", "business", "gst", "pan", "logo", "address", "saas", "owner"] },
+  { id: "security", name: "Security & Password", category: "Core", icon: Key, description: "Change owner login password & account security", badge: "Auth", keywords: ["security", "password", "owner", "login", "reset", "auth", "change password"] },
   { id: "shop", name: "Shop Information", category: "Core", icon: Building2, description: "Store name, GSTIN & contact details", keywords: ["shop", "store", "address", "phone", "email", "mobile", "contact", "identity"] },
   { id: "stores", name: "Stores Management", category: "Core", icon: Store, description: "Multi-store outlets, branches & switching", badge: "New", keywords: ["stores", "store", "multi-store", "branches", "outlets", "locations", "switching"] },
   { id: "users", name: "Users & Roles", category: "Core", icon: Users, description: "Team accounts, roles & store permissions", badge: "Roles", keywords: ["users", "user", "role", "permissions", "access", "manager", "cashier", "viewer", "team"] },
@@ -1031,11 +1033,40 @@ function SettingsV2() {
                   <span className="text-xs text-muted-foreground">Switch between Light, Dark, or System Sync mode.</span>
                 </div>
               </div>
+
+              <div className="space-y-2 pt-3 border-t border-border">
+                <Label className="text-xs font-semibold flex items-center gap-2">
+                  <Sparkles className="size-4 text-primary" /> First-Time Setup Wizard
+                </Label>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <span className="text-xs text-muted-foreground">Restart the 5-minute express onboarding wizard to reconfigure business defaults, store info, and receipt settings.</span>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={async () => {
+                      try {
+                        await resetOnboardingApi();
+                        toast.success("Setup wizard restarted");
+                        window.location.href = "/setup-wizard";
+                      } catch (err: any) {
+                        toast.error(err.message || "Failed to restart wizard");
+                      }
+                    }}
+                    className="rounded-xl h-8 text-xs font-semibold shrink-0 gap-1.5"
+                  >
+                    <Sparkles className="size-3.5" /> Restart Setup Wizard
+                  </Button>
+                </div>
+              </div>
             </div>
           )}
 
           {/* ORGANIZATION PROFILE & ADMIN */}
           {activeSection === "organization" && <OrganizationSettingsSection />}
+
+          {/* SECURITY & PASSWORD */}
+          {activeSection === "security" && <SecuritySettingsSection />}
 
           {/* STORES MANAGEMENT */}
           {activeSection === "stores" && <StoresManagementSection />}
@@ -2511,6 +2542,99 @@ function SettingsV2() {
           </Button>
         </div>
       </div>
+    </div>
+  );
+}
+
+function SecuritySettingsSection() {
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!currentPassword) {
+      toast.error("Current password is required");
+      return;
+    }
+    if (!newPassword || newPassword.length < 6) {
+      toast.error("New password must be at least 6 characters");
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      toast.error("New password and confirm password do not match");
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+      await changePasswordApi({ currentPassword, newPassword, confirmPassword });
+      toast.success("Your login password has been updated successfully!");
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+    } catch (err: any) {
+      toast.error(err.message || "Failed to update password");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="card-soft p-5 space-y-5">
+      <div className="border-b border-border pb-3">
+        <div className="text-base font-bold text-foreground flex items-center gap-2">
+          <Key className="size-5 text-primary" /> Change Organization Owner Password
+        </div>
+        <div className="text-xs text-muted-foreground mt-0.5">
+          Update your login password securely. Hashed and encrypted before storing.
+        </div>
+      </div>
+
+      <form onSubmit={handleSubmit} className="space-y-4 max-w-md">
+        <div className="space-y-1.5">
+          <Label className="text-xs font-semibold">Current Password *</Label>
+          <Input
+            type="password"
+            value={currentPassword}
+            onChange={(e) => setCurrentPassword(e.target.value)}
+            placeholder="Enter current password"
+            className="rounded-xl h-10 text-xs"
+            required
+          />
+        </div>
+
+        <div className="space-y-1.5">
+          <Label className="text-xs font-semibold">New Password *</Label>
+          <Input
+            type="password"
+            value={newPassword}
+            onChange={(e) => setNewPassword(e.target.value)}
+            placeholder="At least 6 characters"
+            className="rounded-xl h-10 text-xs"
+            required
+          />
+        </div>
+
+        <div className="space-y-1.5">
+          <Label className="text-xs font-semibold">Confirm New Password *</Label>
+          <Input
+            type="password"
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
+            placeholder="Re-enter new password"
+            className="rounded-xl h-10 text-xs"
+            required
+          />
+        </div>
+
+        <div className="pt-2">
+          <Button type="submit" disabled={submitting} className="rounded-xl h-10 px-5 text-xs font-bold gap-2">
+            <Lock className="size-4" /> {submitting ? "Updating Password…" : "Update Password"}
+          </Button>
+        </div>
+      </form>
     </div>
   );
 }

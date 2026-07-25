@@ -13,6 +13,8 @@ router.get("/current", authenticate(), controller.getCurrent);
 router.put("/current", authenticate(), authorize("Owner", "Admin", "owner", "admin"), controller.updateCurrent);
 router.get("/dashboard", authenticate(), controller.getDashboard);
 router.get("/stats", authenticate(), controller.getStats);
+router.post("/onboarding/complete", authenticate(), controller.completeOnboarding);
+router.post("/onboarding/reset", authenticate(), controller.resetOnboarding);
 
 router.post("/", authenticate(), authorize("Owner", "Admin", "owner", "admin"), controller.create);
 router.post("/invitations", authenticate(), authorize("Owner", "Admin", "owner", "admin", "Manager", "manager"), controller.inviteUser);

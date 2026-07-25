@@ -131,6 +131,8 @@ function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const isPrintRoute = pathname.startsWith("/print/");
+  const isLoginRoute = pathname === "/login" || pathname.startsWith("/login");
+  const isWizardRoute = pathname === "/setup-wizard" || pathname.startsWith("/setup-wizard");
 
   useEffect(() => {
     if (typeof window !== "undefined" && "serviceWorker" in navigator) {
@@ -149,7 +151,7 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      {isPrintRoute ? (
+      {isPrintRoute || isLoginRoute || isWizardRoute ? (
         <Outlet />
       ) : (
         <AppShell>

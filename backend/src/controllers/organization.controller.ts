@@ -456,4 +456,103 @@ export class OrganizationController {
       next(error);
     }
   };
+
+  completeOnboarding = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const { userId, organizationId, currentStoreId } = getTenantContext();
+      const {
+        businessName,
+        ownerName,
+        phone,
+        email,
+        gstNumber,
+        address,
+        storeName,
+        storeAddress,
+        storePhone,
+        invoicePrefix,
+        receiptInfo,
+      } = req.body;
+
+      if (!businessName || !businessName.trim()) {
+        throw new ValidationError("Business Name is required");
+      }
+      if (!storeName || !storeName.trim()) {
+        throw new ValidationError("Store Name is required");
+      }
+      if (!ownerName || !ownerName.trim()) {
+        throw new ValidationError("Owner Name is required");
+      }
+      if (!phone || !phone.trim()) {
+        throw new ValidationError("Mobile / Phone Number is required");
+      }
+
+      // Update organization
+      const [updatedOrg] = await db
+        .update(organizations)
+        .set({
+          name: businessName.trim(),
+          phone: phone.trim(),
+          email: email ? email.trim() : undefined,
+          gst_number: gstNumber ? gstNumber.trim() : undefined,
+          address: address ? address.trim() : undefined,
+          invoice_prefix: invoicePrefix ? invoicePrefix.trim() : "INV-",
+          receipt_info: receiptInfo ? receiptInfo.trim() : undefined,
+          onboarding_completed: 1,
+          updated_at: new Date(),
+        })
+        .where(eq(organizations.id, organizationId))
+        .returning();
+
+      // Update owner user
+      await db
+        .update(users)
+        .set({
+          name: ownerName.trim(),
+          phone: phone.trim(),
+          email: email ? email.trim() : undefined,
+          updated_at: new Date(),
+        })
+        .where(eq(users.id, userId));
+
+      // Update primary store
+      await db
+        .update(stores)
+        .set({
+          name: storeName.trim(),
+          address: storeAddress ? storeAddress.trim() : address ? address.trim() : undefined,
+          phone: storePhone ? storePhone.trim() : phone.trim(),
+          updated_at: new Date(),
+        })
+        .where(and(eq(stores.id, currentStoreId || 1), eq(stores.organization_id, organizationId)));
+
+      res.status(200).json({
+        success: true,
+        message: "Onboarding completed successfully",
+        data: updatedOrg,
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  resetOnboarding = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const { organizationId } = getTenantContext();
+
+      const [updatedOrg] = await db
+        .update(organizations)
+        .set({ onboarding_completed: 0, updated_at: new Date() })
+        .where(eq(organizations.id, organizationId))
+        .returning();
+
+      res.status(200).json({
+        success: true,
+        message: "Onboarding wizard reset successfully",
+        data: updatedOrg,
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
 }

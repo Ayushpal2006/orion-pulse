@@ -517,6 +517,7 @@ export const organizations = pgTable(
     billing_plan: text("billing_plan").default("Basic").notNull(), // Basic, Professional, Enterprise
     subscription_status: text("subscription_status").default("active").notNull(),
     razorpay_subscription_id: text("razorpay_subscription_id"),
+    onboarding_completed: integer("onboarding_completed").default(0).notNull(),
     created_at: timestamp("created_at").defaultNow().notNull(),
     updated_at: timestamp("updated_at").defaultNow().notNull(),
   },

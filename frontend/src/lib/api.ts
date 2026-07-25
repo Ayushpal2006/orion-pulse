@@ -1570,3 +1570,229 @@ export async function getOrganizationStats(): Promise<any> {
   }
   return json.data;
 }
+
+// ─── AUTHENTICATION V1 APIS ──────────────────────────────────────────────────
+
+export async function loginApi(email: string, password: string): Promise<any> {
+  const res = await fetch(`${API_BASE_URL}/api/auth/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, password }),
+  });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok || !json.success) {
+    throw new Error(json.error || "Login failed");
+  }
+  return json.data;
+}
+
+export async function logoutApi(): Promise<any> {
+  const res = await fetch(`${API_BASE_URL}/api/auth/logout`, {
+    method: "POST",
+    headers: getStoreHeaders(),
+  }).catch(() => ({}));
+  if (typeof window !== "undefined") {
+    localStorage.removeItem("token");
+    localStorage.removeItem("currentStoreId");
+  }
+  return true;
+}
+
+export async function getCurrentUserApi(): Promise<any> {
+  const res = await fetch(`${API_BASE_URL}/api/auth/me`, {
+    headers: getStoreHeaders(),
+  });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok || !json.success) {
+    throw new Error(json.error || "Failed to get current user session");
+  }
+  return json.data;
+}
+
+// ─── SUPER ADMIN PANEL APIS ──────────────────────────────────────────────────
+
+export async function getSuperAdminDashboard(): Promise<any> {
+  const res = await fetch(`${API_BASE_URL}/api/super-admin/dashboard`, {
+    headers: getStoreHeaders(),
+  });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok || !json.success) {
+    throw new Error(json.error || "Failed to fetch Super Admin dashboard metrics");
+  }
+  return json.data;
+}
+
+export async function getSuperAdminOrganizations(params?: { q?: string; status?: string }): Promise<any[]> {
+  const queryParts = [];
+  if (params?.q) queryParts.push(`q=${encodeURIComponent(params.q)}`);
+  if (params?.status) queryParts.push(`status=${encodeURIComponent(params.status)}`);
+  const queryStr = queryParts.length > 0 ? `?${queryParts.join("&")}` : "";
+
+  const res = await fetch(`${API_BASE_URL}/api/super-admin/organizations${queryStr}`, {
+    headers: getStoreHeaders(),
+  });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok || !json.success) {
+    throw new Error(json.error || "Failed to fetch organizations list");
+  }
+  return json.data || [];
+}
+
+export async function getSuperAdminOrganizationDetails(id: number): Promise<any> {
+  const res = await fetch(`${API_BASE_URL}/api/super-admin/organizations/${id}`, {
+    headers: getStoreHeaders(),
+  });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok || !json.success) {
+    throw new Error(json.error || "Failed to fetch organization details");
+  }
+  return json.data;
+}
+
+export async function updateSuperAdminOrganizationStatus(id: number, status: string): Promise<any> {
+  const res = await fetch(`${API_BASE_URL}/api/super-admin/organizations/${id}/status`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+      ...getStoreHeaders(),
+    },
+    body: JSON.stringify({ status }),
+  });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok || !json.success) {
+    throw new Error(json.error || "Failed to update organization status");
+  }
+  return json.data;
+}
+
+export async function resetSuperAdminOwnerPassword(id: number, newPassword: string): Promise<any> {
+  const res = await fetch(`${API_BASE_URL}/api/super-admin/organizations/${id}/reset-password`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...getStoreHeaders(),
+    },
+    body: JSON.stringify({ newPassword }),
+  });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok || !json.success) {
+    throw new Error(json.error || "Failed to reset owner password");
+  }
+  return json.data;
+}
+
+// ─── FIRST-TIME ONBOARDING WIZARD APIS ───────────────────────────────────────
+
+export async function completeOnboardingApi(data: {
+  businessName: string;
+  ownerName: string;
+  phone: string;
+  email?: string;
+  gstNumber?: string;
+  address?: string;
+  storeName: string;
+  storeAddress?: string;
+  storePhone?: string;
+  invoicePrefix?: string;
+  receiptInfo?: string;
+  printBusinessName?: boolean;
+  printGst?: boolean;
+  printPhone?: boolean;
+}): Promise<any> {
+  const res = await fetch(`${API_BASE_URL}/api/organizations/onboarding/complete`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...getStoreHeaders(),
+    },
+    body: JSON.stringify(data),
+  });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok || !json.success) {
+    throw new Error(json.error || "Failed to complete shop onboarding setup");
+  }
+  return json.data;
+}
+
+export async function resetOnboardingApi(): Promise<any> {
+  const res = await fetch(`${API_BASE_URL}/api/organizations/onboarding/reset`, {
+    method: "POST",
+    headers: getStoreHeaders(),
+  });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok || !json.success) {
+    throw new Error(json.error || "Failed to reset setup wizard");
+  }
+  return json.data;
+}
+
+export async function createSuperAdminOrganization(data: {
+  businessName: string;
+  gstNumber?: string;
+  address?: string;
+  phone: string;
+  ownerName: string;
+  email: string;
+  password: string;
+  storeName?: string;
+  storeAddress?: string;
+}): Promise<any> {
+  const res = await fetch(`${API_BASE_URL}/api/super-admin/organizations`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...getStoreHeaders(),
+    },
+    body: JSON.stringify(data),
+  });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok || !json.success) {
+    throw new Error(json.error || "Failed to create new customer organization");
+  }
+  return json.data;
+}
+
+export async function editSuperAdminOrganization(
+  id: number,
+  data: {
+    businessName?: string;
+    gstNumber?: string;
+    address?: string;
+    phone?: string;
+    email?: string;
+  }
+): Promise<any> {
+  const res = await fetch(`${API_BASE_URL}/api/super-admin/organizations/${id}`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+      ...getStoreHeaders(),
+    },
+    body: JSON.stringify(data),
+  });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok || !json.success) {
+    throw new Error(json.error || "Failed to edit organization details");
+  }
+  return json.data;
+}
+
+export async function changePasswordApi(data: {
+  currentPassword: string;
+  newPassword: string;
+  confirmPassword?: string;
+}): Promise<any> {
+  const res = await fetch(`${API_BASE_URL}/api/auth/change-password`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...getStoreHeaders(),
+    },
+    body: JSON.stringify(data),
+  });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok || !json.success) {
+    throw new Error(json.error || "Failed to change password");
+  }
+  return json;
+}

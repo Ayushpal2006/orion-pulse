@@ -10,13 +10,16 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as SuppliersRouteImport } from './routes/suppliers'
+import { Route as SuperAdminRouteImport } from './routes/super-admin'
 import { Route as StockHistoryRouteImport } from './routes/stock-history'
 import { Route as StockAdjustmentsRouteImport } from './routes/stock-adjustments'
+import { Route as SetupWizardRouteImport } from './routes/setup-wizard'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as ReportsRouteImport } from './routes/reports'
 import { Route as PurchasesRouteImport } from './routes/purchases'
 import { Route as ProfitRouteImport } from './routes/profit'
 import { Route as ProductsRouteImport } from './routes/products'
+import { Route as LoginRouteImport } from './routes/login'
 import { Route as InventoryRouteImport } from './routes/inventory'
 import { Route as ExpensesRouteImport } from './routes/expenses'
 import { Route as DashboardRouteImport } from './routes/dashboard'
@@ -35,6 +38,11 @@ const SuppliersRoute = SuppliersRouteImport.update({
   path: '/suppliers',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SuperAdminRoute = SuperAdminRouteImport.update({
+  id: '/super-admin',
+  path: '/super-admin',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const StockHistoryRoute = StockHistoryRouteImport.update({
   id: '/stock-history',
   path: '/stock-history',
@@ -43,6 +51,11 @@ const StockHistoryRoute = StockHistoryRouteImport.update({
 const StockAdjustmentsRoute = StockAdjustmentsRouteImport.update({
   id: '/stock-adjustments',
   path: '/stock-adjustments',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SetupWizardRoute = SetupWizardRouteImport.update({
+  id: '/setup-wizard',
+  path: '/setup-wizard',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SettingsRoute = SettingsRouteImport.update({
@@ -68,6 +81,11 @@ const ProfitRoute = ProfitRouteImport.update({
 const ProductsRoute = ProductsRouteImport.update({
   id: '/products',
   path: '/products',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
 const InventoryRoute = InventoryRouteImport.update({
@@ -140,13 +158,16 @@ export interface FileRoutesByFullPath {
   '/dashboard': typeof DashboardRoute
   '/expenses': typeof ExpensesRoute
   '/inventory': typeof InventoryRouteWithChildren
+  '/login': typeof LoginRoute
   '/products': typeof ProductsRoute
   '/profit': typeof ProfitRoute
   '/purchases': typeof PurchasesRoute
   '/reports': typeof ReportsRoute
   '/settings': typeof SettingsRoute
+  '/setup-wizard': typeof SetupWizardRoute
   '/stock-adjustments': typeof StockAdjustmentsRoute
   '/stock-history': typeof StockHistoryRoute
+  '/super-admin': typeof SuperAdminRoute
   '/suppliers': typeof SuppliersRoute
   '/inventory/history': typeof InventoryHistoryRoute
   '/purchase/$id': typeof PurchaseIdRoute
@@ -162,13 +183,16 @@ export interface FileRoutesByTo {
   '/dashboard': typeof DashboardRoute
   '/expenses': typeof ExpensesRoute
   '/inventory': typeof InventoryRouteWithChildren
+  '/login': typeof LoginRoute
   '/products': typeof ProductsRoute
   '/profit': typeof ProfitRoute
   '/purchases': typeof PurchasesRoute
   '/reports': typeof ReportsRoute
   '/settings': typeof SettingsRoute
+  '/setup-wizard': typeof SetupWizardRoute
   '/stock-adjustments': typeof StockAdjustmentsRoute
   '/stock-history': typeof StockHistoryRoute
+  '/super-admin': typeof SuperAdminRoute
   '/suppliers': typeof SuppliersRoute
   '/inventory/history': typeof InventoryHistoryRoute
   '/purchase/$id': typeof PurchaseIdRoute
@@ -185,13 +209,16 @@ export interface FileRoutesById {
   '/dashboard': typeof DashboardRoute
   '/expenses': typeof ExpensesRoute
   '/inventory': typeof InventoryRouteWithChildren
+  '/login': typeof LoginRoute
   '/products': typeof ProductsRoute
   '/profit': typeof ProfitRoute
   '/purchases': typeof PurchasesRoute
   '/reports': typeof ReportsRoute
   '/settings': typeof SettingsRoute
+  '/setup-wizard': typeof SetupWizardRoute
   '/stock-adjustments': typeof StockAdjustmentsRoute
   '/stock-history': typeof StockHistoryRoute
+  '/super-admin': typeof SuperAdminRoute
   '/suppliers': typeof SuppliersRoute
   '/inventory/history': typeof InventoryHistoryRoute
   '/purchase/$id': typeof PurchaseIdRoute
@@ -209,13 +236,16 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/expenses'
     | '/inventory'
+    | '/login'
     | '/products'
     | '/profit'
     | '/purchases'
     | '/reports'
     | '/settings'
+    | '/setup-wizard'
     | '/stock-adjustments'
     | '/stock-history'
+    | '/super-admin'
     | '/suppliers'
     | '/inventory/history'
     | '/purchase/$id'
@@ -231,13 +261,16 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/expenses'
     | '/inventory'
+    | '/login'
     | '/products'
     | '/profit'
     | '/purchases'
     | '/reports'
     | '/settings'
+    | '/setup-wizard'
     | '/stock-adjustments'
     | '/stock-history'
+    | '/super-admin'
     | '/suppliers'
     | '/inventory/history'
     | '/purchase/$id'
@@ -253,13 +286,16 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/expenses'
     | '/inventory'
+    | '/login'
     | '/products'
     | '/profit'
     | '/purchases'
     | '/reports'
     | '/settings'
+    | '/setup-wizard'
     | '/stock-adjustments'
     | '/stock-history'
+    | '/super-admin'
     | '/suppliers'
     | '/inventory/history'
     | '/purchase/$id'
@@ -276,13 +312,16 @@ export interface RootRouteChildren {
   DashboardRoute: typeof DashboardRoute
   ExpensesRoute: typeof ExpensesRoute
   InventoryRoute: typeof InventoryRouteWithChildren
+  LoginRoute: typeof LoginRoute
   ProductsRoute: typeof ProductsRoute
   ProfitRoute: typeof ProfitRoute
   PurchasesRoute: typeof PurchasesRoute
   ReportsRoute: typeof ReportsRoute
   SettingsRoute: typeof SettingsRoute
+  SetupWizardRoute: typeof SetupWizardRoute
   StockAdjustmentsRoute: typeof StockAdjustmentsRoute
   StockHistoryRoute: typeof StockHistoryRoute
+  SuperAdminRoute: typeof SuperAdminRoute
   SuppliersRoute: typeof SuppliersRoute
   PurchaseIdRoute: typeof PurchaseIdRoute
   SupplierLedgerSupplierIdRoute: typeof SupplierLedgerSupplierIdRoute
@@ -299,6 +338,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SuppliersRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/super-admin': {
+      id: '/super-admin'
+      path: '/super-admin'
+      fullPath: '/super-admin'
+      preLoaderRoute: typeof SuperAdminRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/stock-history': {
       id: '/stock-history'
       path: '/stock-history'
@@ -311,6 +357,13 @@ declare module '@tanstack/react-router' {
       path: '/stock-adjustments'
       fullPath: '/stock-adjustments'
       preLoaderRoute: typeof StockAdjustmentsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/setup-wizard': {
+      id: '/setup-wizard'
+      path: '/setup-wizard'
+      fullPath: '/setup-wizard'
+      preLoaderRoute: typeof SetupWizardRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/settings': {
@@ -346,6 +399,13 @@ declare module '@tanstack/react-router' {
       path: '/products'
       fullPath: '/products'
       preLoaderRoute: typeof ProductsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/inventory': {
@@ -455,13 +515,16 @@ const rootRouteChildren: RootRouteChildren = {
   DashboardRoute: DashboardRoute,
   ExpensesRoute: ExpensesRoute,
   InventoryRoute: InventoryRouteWithChildren,
+  LoginRoute: LoginRoute,
   ProductsRoute: ProductsRoute,
   ProfitRoute: ProfitRoute,
   PurchasesRoute: PurchasesRoute,
   ReportsRoute: ReportsRoute,
   SettingsRoute: SettingsRoute,
+  SetupWizardRoute: SetupWizardRoute,
   StockAdjustmentsRoute: StockAdjustmentsRoute,
   StockHistoryRoute: StockHistoryRoute,
+  SuperAdminRoute: SuperAdminRoute,
   SuppliersRoute: SuppliersRoute,
   PurchaseIdRoute: PurchaseIdRoute,
   SupplierLedgerSupplierIdRoute: SupplierLedgerSupplierIdRoute,

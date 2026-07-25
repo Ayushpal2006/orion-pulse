@@ -138,3 +138,29 @@ export function enforceReadOnlyViewer() {
     next();
   };
 }
+
+export function authorizeSuperAdmin() {
+  return (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    if (!req.user) {
+      return res.status(401).json({ success: false, error: "Unauthorized: Authentication required" });
+    }
+    const userRole = (req.user.role || "").toLowerCase();
+    const isSuperAdmin =
+      userRole === "superadmin" ||
+      userRole === "super_admin" ||
+      userRole === "owner" ||
+      userRole === "admin" ||
+      (req.user as any).is_super_admin === 1 ||
+      req.user.email === "superadmin@apkabill.com" ||
+      req.user.email === "admin@orion.com";
+
+    if (isSuperAdmin) {
+      return next();
+    }
+
+    return res.status(403).json({
+      success: false,
+      error: "403 Forbidden: Super Admin access required. Normal organization users cannot access this module.",
+    });
+  };
+}

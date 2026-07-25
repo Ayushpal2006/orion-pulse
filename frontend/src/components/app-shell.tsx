@@ -16,7 +16,7 @@ import { useApp, type Role } from "@/lib/store";
 import { CommandPalette } from "./command-palette";
 import { ThemeToggle, useThemeInit } from "./theme-toggle";
 import { cn } from "@/lib/utils";
-import { getProducts, getCustomers, getStores, switchStore } from "@/lib/api";
+import { getProducts, getCustomers, getStores, switchStore, logoutApi, getCurrentUserApi } from "@/lib/api";
 import { toast } from "sonner";
 
 export type NavItem = { to: string; label: string; icon: any; exact?: boolean; roles?: Role[] };
@@ -137,6 +137,7 @@ const navTree: NavElement[] = [
     ],
   },
   { to: "/settings", label: "Settings", icon: Settings, roles: ["Admin", "Manager"] },
+  { to: "/super-admin", label: "Super Admin", icon: UserCog, roles: ["Admin"] },
 ];
 
 export function AppShell({ children }: { children: ReactNode }) {
@@ -176,7 +177,48 @@ export function AppShell({ children }: { children: ReactNode }) {
     });
   }, [pathname]);
 
+  const handleLogout = async () => {
+    try {
+      await logoutApi();
+      toast.success("Logged out successfully");
+    } catch (e) {
+      // ignore
+    } finally {
+      localStorage.removeItem("token");
+      localStorage.removeItem("currentStoreId");
+      window.location.href = "/login";
+    }
+  };
+
   useEffect(() => {
+    // Session validation on route change
+    const token = localStorage.getItem("token");
+    if (!token && pathname !== "/login") {
+      window.location.href = "/login";
+      return;
+    }
+
+    if (token && pathname !== "/login") {
+      getCurrentUserApi()
+        .then((data) => {
+          if (data?.user?.role) {
+            const formattedRole = data.user.role.charAt(0).toUpperCase() + data.user.role.slice(1).toLowerCase();
+            setRole(formattedRole as any);
+          }
+          if (
+            data?.organization &&
+            (data.organization.onboarding_completed === 0 || data.organization.onboarding_completed === false) &&
+            pathname !== "/setup-wizard"
+          ) {
+            window.location.href = "/setup-wizard";
+          }
+        })
+        .catch((err) => {
+          console.warn("Session invalid or suspended:", err);
+          handleLogout();
+        });
+    }
+
     // 1. Fetch stores
     getStores()
       .then((stores) => {
@@ -213,7 +255,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         setCustomers(mapped);
       })
       .catch((err) => console.error("AppShell customers fetch failed:", err));
-  }, [setProducts, setCustomers, setActiveStoreId, setActiveStoreName, setStoresList]);
+  }, [pathname, setProducts, setCustomers, setActiveStoreId, setActiveStoreName, setStoresList, setRole]);
 
   const hasRole = (roles?: Role[]) => {
     if (!roles || roles.length === 0) return true;
@@ -384,7 +426,9 @@ export function AppShell({ children }: { children: ReactNode }) {
                 </DropdownMenuItem>
               )}
               <DropdownMenuItem><UserCog className="mr-2 size-4" /> Account</DropdownMenuItem>
-              <DropdownMenuItem><LogOut className="mr-2 size-4" /> Sign out</DropdownMenuItem>
+              <DropdownMenuItem onClick={handleLogout} className="cursor-pointer text-destructive focus:text-destructive">
+                <LogOut className="mr-2 size-4" /> Sign out
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
