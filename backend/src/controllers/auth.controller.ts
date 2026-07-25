@@ -233,6 +233,26 @@ export class AuthController {
         return;
       }
 
+      const roleLower = (req.user.role || "").toLowerCase();
+      if (roleLower === "super_admin" || roleLower === "superadmin" || String(req.user.id) === "super-admin") {
+        res.status(200).json({
+          success: true,
+          data: {
+            user: {
+              id: "super-admin",
+              name: "Super Admin",
+              email: req.user.email || process.env.SUPER_ADMIN_EMAIL || "superadmin@orion.com",
+              role: "super_admin",
+              organization_id: null,
+              store_id: null,
+            },
+            organization: null,
+            currentStore: null,
+          },
+        });
+        return;
+      }
+
       const { userId, organizationId, currentStoreId } = getTenantContext();
       const targetUserId = req.user.id || userId || 1;
 

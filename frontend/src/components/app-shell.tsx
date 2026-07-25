@@ -198,14 +198,25 @@ export function AppShell({ children }: { children: ReactNode }) {
       return;
     }
 
+    const isAdminRoute = pathname === "/admin" || pathname.startsWith("/admin") || pathname.startsWith("/super-admin");
+
     if (token && pathname !== "/login") {
       getCurrentUserApi()
         .then((data) => {
           if (data?.user?.role) {
+            const roleLower = (data.user.role || "").toLowerCase();
             const formattedRole = data.user.role.charAt(0).toUpperCase() + data.user.role.slice(1).toLowerCase();
             setRole(formattedRole as any);
+
+            if (roleLower === "super_admin" || roleLower === "superadmin") {
+              if (pathname === "/" || pathname === "/login") {
+                window.location.href = "/admin";
+                return;
+              }
+            }
           }
           if (
+            !isAdminRoute &&
             data?.organization &&
             (data.organization.onboarding_completed === 0 || data.organization.onboarding_completed === false) &&
             pathname !== "/setup-wizard"
@@ -219,25 +230,27 @@ export function AppShell({ children }: { children: ReactNode }) {
         });
     }
 
-    // 1. Fetch stores
-    getStores()
-      .then((stores) => {
-        setStoresList(stores);
-        if (stores && stores.length > 0) {
-          const savedStoreIdRaw = localStorage.getItem("currentStoreId");
-          const savedStoreId = savedStoreIdRaw ? parseInt(savedStoreIdRaw, 10) : null;
-          const found =
-            stores.find((st: any) => st.id === savedStoreId) ||
-            stores.find((st: any) => st.is_default === 1) ||
-            stores[0];
-          if (found) {
-            setActiveStoreId(found.id);
-            setActiveStoreName(found.name);
-            localStorage.setItem("currentStoreId", String(found.id));
+    // 1. Fetch stores only for non-superadmin organization context
+    if (!isAdminRoute) {
+      getStores()
+        .then((stores) => {
+          setStoresList(stores);
+          if (stores && stores.length > 0) {
+            const savedStoreIdRaw = localStorage.getItem("currentStoreId");
+            const savedStoreId = savedStoreIdRaw ? parseInt(savedStoreIdRaw, 10) : null;
+            const found =
+              stores.find((st: any) => st.id === savedStoreId) ||
+              stores.find((st: any) => st.is_default === 1) ||
+              stores[0];
+            if (found) {
+              setActiveStoreId(found.id);
+              setActiveStoreName(found.name);
+              localStorage.setItem("currentStoreId", String(found.id));
+            }
           }
-        }
-      })
-      .catch((err) => console.error("AppShell stores fetch failed:", err));
+        })
+        .catch((err) => console.error("AppShell stores fetch failed:", err));
+    }
 
     // 2. Fetch products
     getProducts()

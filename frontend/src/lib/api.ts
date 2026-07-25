@@ -539,7 +539,14 @@ export async function uploadProductImage(productId: string, file: File): Promise
 
 export async function getSaleReceipt(idOrInvoice: string): Promise<any> {
   try {
-    const res = await fetch(`${API_BASE_URL}/sales/${encodeURIComponent(idOrInvoice)}/receipt`);
+    let res = await fetch(`${API_BASE_URL}/api/sales/${encodeURIComponent(idOrInvoice)}/receipt`, {
+      headers: getStoreHeaders(),
+    });
+    if (!res.ok && res.status === 404) {
+      res = await fetch(`${API_BASE_URL}/sales/${encodeURIComponent(idOrInvoice)}/receipt`, {
+        headers: getStoreHeaders(),
+      });
+    }
     if (!res.ok) {
       const errorData = await res.json().catch(() => ({}));
       throw new Error(errorData.error || `HTTP error! status: ${res.status}`);
@@ -559,9 +566,16 @@ export async function getSaleReceipt(idOrInvoice: string): Promise<any> {
 
 export async function printSaleReceipt(idOrInvoice: string): Promise<any> {
   try {
-    const res = await fetch(`${API_BASE_URL}/sales/${encodeURIComponent(idOrInvoice)}/print`, {
+    let res = await fetch(`${API_BASE_URL}/api/sales/${encodeURIComponent(idOrInvoice)}/print`, {
       method: "POST",
+      headers: getStoreHeaders(),
     });
+    if (!res.ok && res.status === 404) {
+      res = await fetch(`${API_BASE_URL}/sales/${encodeURIComponent(idOrInvoice)}/print`, {
+        method: "POST",
+        headers: getStoreHeaders(),
+      });
+    }
     if (!res.ok) {
       const errorData = await res.json().catch(() => ({}));
       throw new Error(errorData.error || `HTTP error! status: ${res.status}`);
@@ -580,6 +594,7 @@ export async function testPrinter(): Promise<any> {
   try {
     const res = await fetch(`${API_BASE_URL}/printer/test`, {
       method: "POST",
+      headers: getStoreHeaders(),
     });
     if (!res.ok) {
       const errorData = await res.json().catch(() => ({}));
@@ -597,7 +612,14 @@ export async function testPrinter(): Promise<any> {
 
 export async function getWhatsAppShareLink(idOrInvoice: string): Promise<string> {
   try {
-    const res = await fetch(`${API_BASE_URL}/sales/${encodeURIComponent(idOrInvoice)}/share/whatsapp`);
+    let res = await fetch(`${API_BASE_URL}/api/sales/${encodeURIComponent(idOrInvoice)}/share/whatsapp`, {
+      headers: getStoreHeaders(),
+    });
+    if (!res.ok && res.status === 404) {
+      res = await fetch(`${API_BASE_URL}/sales/${encodeURIComponent(idOrInvoice)}/share/whatsapp`, {
+        headers: getStoreHeaders(),
+      });
+    }
     if (!res.ok) {
       const errorData = await res.json().catch(() => ({}));
       throw new Error(errorData.error || `HTTP error! status: ${res.status}`);
@@ -618,7 +640,14 @@ export async function getWhatsAppShareLink(idOrInvoice: string): Promise<string>
 /** Download PDF receipt as a Blob so the browser can force-download it. */
 export async function downloadSalePdf(idOrInvoice: string): Promise<Blob> {
   try {
-    const res = await fetch(`${API_BASE_URL}/sales/${encodeURIComponent(idOrInvoice)}/pdf`);
+    let res = await fetch(`${API_BASE_URL}/api/sales/${encodeURIComponent(idOrInvoice)}/pdf`, {
+      headers: getStoreHeaders(),
+    });
+    if (!res.ok && res.status === 404) {
+      res = await fetch(`${API_BASE_URL}/sales/${encodeURIComponent(idOrInvoice)}/pdf`, {
+        headers: getStoreHeaders(),
+      });
+    }
     if (!res.ok) {
       const errorData = await res.json().catch(() => ({}));
       throw new Error(errorData.error || `HTTP error! status: ${res.status}`);
@@ -640,7 +669,14 @@ export function getSalePublicLink(publicToken: string): string {
 /** Fetch all sales for a given customer phone number. */
 export async function getCustomerSales(phone: string): Promise<any[]> {
   try {
-    const res = await fetch(`${API_BASE_URL}/sales?phone=${encodeURIComponent(phone)}`);
+    let res = await fetch(`${API_BASE_URL}/api/sales?phone=${encodeURIComponent(phone)}`, {
+      headers: getStoreHeaders(),
+    });
+    if (!res.ok && res.status === 404) {
+      res = await fetch(`${API_BASE_URL}/sales?phone=${encodeURIComponent(phone)}`, {
+        headers: getStoreHeaders(),
+      });
+    }
     if (!res.ok) {
       const errorData = await res.json().catch(() => ({}));
       throw new Error(errorData.error || `HTTP error! status: ${res.status}`);
@@ -1677,6 +1713,110 @@ export async function resetSuperAdminOwnerPassword(id: number, newPassword: stri
   const json = await res.json().catch(() => ({}));
   if (!res.ok || !json.success) {
     throw new Error(json.error || "Failed to reset owner password");
+  }
+  return json.data;
+}
+
+export async function updateSuperAdminSubscription(id: number, plan: string): Promise<any> {
+  const res = await fetch(`${API_BASE_URL}/api/super-admin/organizations/${id}/subscription`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+      ...getStoreHeaders(),
+    },
+    body: JSON.stringify({ plan }),
+  });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok || !json.success) {
+    throw new Error(json.error || "Failed to update subscription plan");
+  }
+  return json.data;
+}
+
+export async function deleteSuperAdminOrganization(id: number): Promise<any> {
+  const res = await fetch(`${API_BASE_URL}/api/super-admin/organizations/${id}`, {
+    method: "DELETE",
+    headers: getStoreHeaders(),
+  });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok || !json.success) {
+    throw new Error(json.error || "Failed to delete organization");
+  }
+  return json.data;
+}
+
+export async function getSuperAdminStores(): Promise<any[]> {
+  const res = await fetch(`${API_BASE_URL}/api/super-admin/stores`, {
+    headers: getStoreHeaders(),
+  });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok || !json.success) {
+    throw new Error(json.error || "Failed to fetch stores list");
+  }
+  return json.data || [];
+}
+
+export async function getSuperAdminUsers(): Promise<any[]> {
+  const res = await fetch(`${API_BASE_URL}/api/super-admin/users`, {
+    headers: getStoreHeaders(),
+  });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok || !json.success) {
+    throw new Error(json.error || "Failed to fetch users list");
+  }
+  return json.data || [];
+}
+
+export async function updateSuperAdminUserStatus(id: number, status: string): Promise<any> {
+  const res = await fetch(`${API_BASE_URL}/api/super-admin/users/${id}/status`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+      ...getStoreHeaders(),
+    },
+    body: JSON.stringify({ status }),
+  });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok || !json.success) {
+    throw new Error(json.error || "Failed to update user status");
+  }
+  return json.data;
+}
+
+export async function resetSuperAdminUserPassword(id: number, newPassword: string): Promise<any> {
+  const res = await fetch(`${API_BASE_URL}/api/super-admin/users/${id}/reset-password`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...getStoreHeaders(),
+    },
+    body: JSON.stringify({ newPassword }),
+  });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok || !json.success) {
+    throw new Error(json.error || "Failed to reset user password");
+  }
+  return json.data;
+}
+
+export async function getSuperAdminAuditLogs(): Promise<any[]> {
+  const res = await fetch(`${API_BASE_URL}/api/super-admin/audit-logs`, {
+    headers: getStoreHeaders(),
+  });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok || !json.success) {
+    throw new Error(json.error || "Failed to fetch audit logs");
+  }
+  return json.data || [];
+}
+
+export async function getSuperAdminSystemHealth(): Promise<any> {
+  const res = await fetch(`${API_BASE_URL}/api/super-admin/system-health`, {
+    headers: getStoreHeaders(),
+  });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok || !json.success) {
+    throw new Error(json.error || "Failed to fetch system health");
   }
   return json.data;
 }

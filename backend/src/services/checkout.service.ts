@@ -3,7 +3,7 @@ import { sales, sale_items, products, customers, inventory_logs, audit_logs } fr
 import { eq, and, desc, like } from "drizzle-orm";
 import { CheckoutRequest, CheckoutResponse } from "../types/checkout.types";
 import { ValidationError, NotFoundError } from "../utils/errors";
-import { getStoreId, getUserId } from "../db/context";
+import { getStoreId, getOrganizationId, getUserId } from "../db/context";
 import { getKolkataDateString } from "../utils/datetime";
 import { formatInTimeZone } from "date-fns-tz";
 import { settingsRepository } from "../repositories";
@@ -54,6 +54,7 @@ export class CheckoutService {
 
   async executeCheckout(request: CheckoutRequest & { paymentDetails?: any; paidAmount?: number; balance?: number }): Promise<CheckoutResponse> {
     const storeId = getStoreId() || 1;
+    const orgId = getOrganizationId() || 1;
 
     const requireCustomerSetting = await settingsRepository.get("require_customer_before_checkout", "0");
     const requireCustomer = requireCustomerSetting === "1";
@@ -179,6 +180,7 @@ export class CheckoutService {
       const [sale] = await tx
         .insert(sales)
         .values({
+          organization_id: orgId,
           store_id: storeId,
           invoice_number: invoiceNumber,
           customer_id: customer.id,
@@ -198,6 +200,7 @@ export class CheckoutService {
 
       // Add creation details to audit logs
       await tx.insert(audit_logs).values({
+        organization_id: orgId,
         store_id: storeId,
         user_id: getUserId(),
         action: "INVOICE_CREATE",
@@ -207,6 +210,8 @@ export class CheckoutService {
       // 5. Create Sale Item records
       for (const item of processedItems) {
         await tx.insert(sale_items).values({
+          organization_id: orgId,
+          store_id: storeId,
           sale_id: sale.id,
           product_id: item.productId,
           quantity: item.quantity,
