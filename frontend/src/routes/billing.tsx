@@ -749,60 +749,19 @@ export function SlipDialog({
 }: {
   open: boolean; onClose: () => void; result: any;
 }) {
-  const invoiceId = result?.invoice;
-  const [printing, setPrinting] = useState(false);
-  const [downloadingPdf, setDownloadingPdf] = useState(false);
-  const [voidDialogOpen, setVoidDialogOpen] = useState(false);
-  const [voidReason, setVoidReason] = useState("");
-  const [voiding, setVoiding] = useState(false);
-  const [showMoreActions, setShowMoreActions] = useState(false);
-  const [confirmInvoiceNumber, setConfirmInvoiceNumber] = useState("");
-
-  const queryClient = useQueryClient();
-  const role = useApp((s) => s.role);
-  const canVoid = role === "Admin" || role === role; // Admin/Manager roles checked locally
-
-  const { data: receipt, isLoading } = useQuery({
-    queryKey: ["receipt", invoiceId],
-    queryFn: () => getSaleReceipt(invoiceId),
-    enabled: open && !!invoiceId,
-  });
-
-  const handlePrint = async () => {
-    if (!receipt) return;
-    console.log("PRINT STEP 1: Print button clicked");
-    setPrinting(true);
-    try {
-      const adapter = getPrintAdapter();
-      await adapter.print(receipt);
-      toast.success("Receipt printed successfully");
-      await logSaleAudit(receipt.invoiceNumber, "INVOICE_PRINT", `${role} printed Invoice ${receipt.invoiceNumber}`);
-    } catch (err: any) {
-      toast.error(err.message || "Failed to print receipt");
-    } finally {
-      setPrinting(false);
-    }
-  };
-
-
-  const handlePrintPdf = async () => {
-    if (!receipt) return;
-    try {
-      await printPdfFallback(receipt.invoiceNumber);
-      await logSaleAudit(receipt.invoiceNumber, "INVOICE_PRINT", `${role} printed Invoice PDF ${receipt.invoiceNumber}`);
-    } catch (err: any) {
-      toast.error(err.message || "Failed to trigger PDF printing");
-    }
-  };
+  const [sharingWhatsApp, setSharingWhatsApp] = useState(false);
 
   const handleWhatsApp = async () => {
-    if (!receipt || !receipt.customer.phone) return;
+    if (!receipt) return;
+    setSharingWhatsApp(true);
     try {
       const url = await getWhatsAppShareLink(receipt.invoiceNumber);
       window.open(url, "_blank");
       await logSaleAudit(receipt.invoiceNumber, "INVOICE_SHARE", `${role} shared invoice ${receipt.invoiceNumber} on WhatsApp`);
     } catch (err: any) {
       toast.error(err.message || "Failed to generate WhatsApp share link");
+    } finally {
+      setSharingWhatsApp(false);
     }
   };
 
@@ -1049,15 +1008,14 @@ export function SlipDialog({
               <Button variant="outline" onClick={handleDownloadPdf} disabled={downloadingPdf || isLoading} className="rounded-xl text-xs h-9">
                 {downloadingPdf ? "Generating…" : "📄 Download PDF"}
               </Button>
-              {receipt && receipt.customer.phone ? (
-                <Button variant="outline" onClick={handleWhatsApp} className="rounded-xl text-xs h-9">
-                  💬 WhatsApp
-                </Button>
-              ) : (
-                <Button variant="outline" disabled className="rounded-xl text-xs h-9 opacity-50" title="Customer phone required">
-                  💬 WhatsApp
-                </Button>
-              )}
+              <Button
+                variant="outline"
+                onClick={handleWhatsApp}
+                disabled={sharingWhatsApp || isLoading}
+                className="rounded-xl text-xs h-9 text-green-600 border-green-500/30 hover:bg-green-500/10"
+              >
+                {sharingWhatsApp ? "Opening..." : "💬 WhatsApp"}
+              </Button>
             </div>
 
             {!showMoreActions ? (

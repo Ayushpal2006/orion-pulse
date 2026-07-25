@@ -49,11 +49,13 @@ export class ShareService {
     const encoded = encodeURIComponent(rawMessage);
 
     // Normalize phone number to strip spacing, non-digits
-    let phone = receipt.customer.phone || "";
+    let phone = receipt.customer?.phone || "";
     phone = phone.replace(/[^0-9]/g, "");
 
-    // Add default country code if 10 digits
-    if (phone.length === 10) {
+    // Clear dummy phone numbers (e.g. Walk-in Customer default "0000000000")
+    if (phone === "0000000000" || phone.startsWith("0000000000")) {
+      phone = "";
+    } else if (phone.length === 10) {
       phone = "91" + phone;
     }
 

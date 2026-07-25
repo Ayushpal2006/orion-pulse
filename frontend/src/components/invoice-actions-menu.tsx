@@ -31,6 +31,7 @@ export function InvoiceActionsMenu({
 
   const [printing, setPrinting] = useState(false);
   const [downloadingPdf, setDownloadingPdf] = useState(false);
+  const [sharingWhatsApp, setSharingWhatsApp] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [voidDialogOpen, setVoidDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -87,16 +88,15 @@ export function InvoiceActionsMenu({
   };
 
   const handleWhatsApp = async () => {
-    if (!receipt.customer?.phone) {
-      toast.error("Customer phone number is required to share on WhatsApp");
-      return;
-    }
+    setSharingWhatsApp(true);
     try {
       const url = await getWhatsAppShareLink(invoiceNumber);
       window.open(url, "_blank");
       await logSaleAudit(invoiceNumber, "INVOICE_SHARE", `${role} shared invoice ${invoiceNumber} on WhatsApp`);
     } catch (err: any) {
       toast.error(err.message || "Failed to generate WhatsApp share link");
+    } finally {
+      setSharingWhatsApp(false);
     }
   };
 
@@ -237,10 +237,10 @@ export function InvoiceActionsMenu({
               variant="outline"
               size="sm"
               onClick={handleWhatsApp}
-              disabled={!receipt.customer?.phone}
-              className="h-10 rounded-xl justify-start font-medium text-xs disabled:opacity-50"
+              disabled={sharingWhatsApp}
+              className="h-10 rounded-xl justify-start font-medium text-xs text-green-600 border-green-500/30 hover:bg-green-500/10"
             >
-              <Share2 className="mr-2 size-3.5 text-green-500" /> WhatsApp
+              <Share2 className="mr-2 size-3.5 text-green-500" /> {sharingWhatsApp ? "Opening..." : "WhatsApp"}
             </Button>
           </div>
         </div>
