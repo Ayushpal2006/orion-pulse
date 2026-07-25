@@ -149,7 +149,7 @@ export class OrganizationController {
       todayStart.setHours(0, 0, 0, 0);
 
       const [todayResult] = await db
-        .select({ total: sql<string>`COALESCE(SUM(total_amount), 0)` })
+        .select({ total: sql<string>`COALESCE(SUM(${sales.grand_total}), 0)` })
         .from(sales)
         .where(and(eq(sales.organization_id, organizationId), gte(sales.created_at, todayStart)));
 
@@ -159,13 +159,13 @@ export class OrganizationController {
       monthStart.setHours(0, 0, 0, 0);
 
       const [monthResult] = await db
-        .select({ total: sql<string>`COALESCE(SUM(total_amount), 0)` })
+        .select({ total: sql<string>`COALESCE(SUM(${sales.grand_total}), 0)` })
         .from(sales)
         .where(and(eq(sales.organization_id, organizationId), gte(sales.created_at, monthStart)));
 
       // Inventory Value
       const [invResult] = await db
-        .select({ value: sql<string>`COALESCE(SUM(stock * purchase_price), 0)` })
+        .select({ value: sql<string>`COALESCE(SUM(${products.stock} * ${products.purchase_price}), 0)` })
         .from(products)
         .where(and(eq(products.organization_id, organizationId), eq(products.is_active, 1)));
 

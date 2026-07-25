@@ -50,6 +50,9 @@ import {
   FileDown,
   SearchX,
   Store,
+  Key,
+  Lock,
+  KeyRound,
 } from "lucide-react";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { testPrinter, API_BASE_URL, resetOnboardingApi, changePasswordApi } from "@/lib/api";

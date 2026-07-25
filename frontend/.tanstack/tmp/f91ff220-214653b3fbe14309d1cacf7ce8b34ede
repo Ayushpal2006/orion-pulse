@@ -25,6 +25,7 @@ import { Route as ExpensesRouteImport } from './routes/expenses'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as CustomersRouteImport } from './routes/customers'
 import { Route as BillingRouteImport } from './routes/billing'
+import { Route as AdminRouteImport } from './routes/admin'
 import { Route as AdjustStockRouteImport } from './routes/adjust-stock'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as SupplierLedgerSupplierIdRouteImport } from './routes/supplier-ledger.$supplierId'
@@ -113,6 +114,11 @@ const BillingRoute = BillingRouteImport.update({
   path: '/billing',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminRoute = AdminRouteImport.update({
+  id: '/admin',
+  path: '/admin',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AdjustStockRoute = AdjustStockRouteImport.update({
   id: '/adjust-stock',
   path: '/adjust-stock',
@@ -153,6 +159,7 @@ const PrintInvoiceIdRoute = PrintInvoiceIdRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/adjust-stock': typeof AdjustStockRoute
+  '/admin': typeof AdminRoute
   '/billing': typeof BillingRoute
   '/customers': typeof CustomersRoute
   '/dashboard': typeof DashboardRoute
@@ -178,6 +185,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/adjust-stock': typeof AdjustStockRoute
+  '/admin': typeof AdminRoute
   '/billing': typeof BillingRoute
   '/customers': typeof CustomersRoute
   '/dashboard': typeof DashboardRoute
@@ -204,6 +212,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/adjust-stock': typeof AdjustStockRoute
+  '/admin': typeof AdminRoute
   '/billing': typeof BillingRoute
   '/customers': typeof CustomersRoute
   '/dashboard': typeof DashboardRoute
@@ -231,6 +240,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/adjust-stock'
+    | '/admin'
     | '/billing'
     | '/customers'
     | '/dashboard'
@@ -256,6 +266,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/adjust-stock'
+    | '/admin'
     | '/billing'
     | '/customers'
     | '/dashboard'
@@ -281,6 +292,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/adjust-stock'
+    | '/admin'
     | '/billing'
     | '/customers'
     | '/dashboard'
@@ -307,6 +319,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AdjustStockRoute: typeof AdjustStockRoute
+  AdminRoute: typeof AdminRoute
   BillingRoute: typeof BillingRoute
   CustomersRoute: typeof CustomersRoute
   DashboardRoute: typeof DashboardRoute
@@ -443,6 +456,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof BillingRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin': {
+      id: '/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AdminRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/adjust-stock': {
       id: '/adjust-stock'
       path: '/adjust-stock'
@@ -510,6 +530,7 @@ const InventoryRouteWithChildren = InventoryRoute._addFileChildren(
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AdjustStockRoute: AdjustStockRoute,
+  AdminRoute: AdminRoute,
   BillingRoute: BillingRoute,
   CustomersRoute: CustomersRoute,
   DashboardRoute: DashboardRoute,

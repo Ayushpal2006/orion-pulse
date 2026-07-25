@@ -48,6 +48,7 @@ function LoginPage() {
       }
 
       if (data.user) {
+        const userRoleLower = (data.user.role || "").toLowerCase();
         if (data.user.role) {
           const formattedRole = data.user.role.charAt(0).toUpperCase() + data.user.role.slice(1).toLowerCase();
           setRole(formattedRole as any);
@@ -55,6 +56,11 @@ function LoginPage() {
         if (data.user.store_id) {
           localStorage.setItem("currentStoreId", String(data.user.store_id));
           setActiveStoreId(Number(data.user.store_id));
+        }
+        if (userRoleLower === "superadmin" || userRoleLower === "super_admin") {
+          toast.success("Welcome back, System Super Admin!");
+          navigate({ to: "/admin" as any });
+          return;
         }
       }
 

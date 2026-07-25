@@ -33,7 +33,7 @@ export const Route = createFileRoute("/super-admin")({
   component: SuperAdminPage,
 });
 
-function SuperAdminPage() {
+export function SuperAdminPage() {
   const currentRole = useApp((s) => s.role);
   const isSuperAdmin = ["admin", "owner"].includes((currentRole || "").toLowerCase());
 
