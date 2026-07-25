@@ -134,6 +134,13 @@
       "when": 1784900003000,
       "tag": "0018_backfill_tenant_data",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1784900004000,
+      "tag": "0019_add_missing_organization_columns",
+      "breakpoints": true
     }
   ]
 }

@@ -69,22 +69,11 @@ export class AuthController {
 
       // Organization Status Check & Foreign Key Validation
       let orgId = user.organization_id || 1;
-      let org: any = null;
-      try {
-        const [result] = await db
-          .select()
-          .from(organizations)
-          .where(eq(organizations.id, orgId))
-          .limit(1);
-        org = result;
-      } catch (err: any) {
-        console.log("Original PostgreSQL error message:", err.message);
-        console.log("SQLSTATE error code:", err.code);
-        console.log("Complete stack trace:", err.stack);
-        console.log("Failed SQL:", err.query || "SELECT * FROM organizations WHERE id = $1");
-        console.log("Parameters:", err.parameters || [orgId]);
-        throw err;
-      }
+      let [org] = await db
+        .select()
+        .from(organizations)
+        .where(eq(organizations.id, orgId))
+        .limit(1);
 
       // If organization_id is invalid, safely repair the foreign key to a valid organization
       if (!org) {
