@@ -21,7 +21,7 @@ export class SuperAdminController {
       const totalUsers = userRows.length;
 
       const [salesSum] = await db
-        .select({ total: sql<string>`COALESCE(SUM(total_amount), 0)` })
+        .select({ total: sql<string>`COALESCE(SUM(${sales.grand_total}), 0)` })
         .from(sales);
 
       res.status(200).json({

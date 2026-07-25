@@ -3,7 +3,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { LogIn, Lock, Mail, AlertCircle, Building2, HelpCircle } from "lucide-react";
+import { LogIn, Lock, Mail, AlertCircle, Building2, HelpCircle, Eye, EyeOff } from "lucide-react";
 import { loginApi } from "@/lib/api";
 import { useApp } from "@/lib/store";
 import { toast } from "sonner";
@@ -26,6 +26,7 @@ function LoginPage() {
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
 
@@ -109,15 +110,25 @@ function LoginPage() {
               <Label className="text-xs font-semibold flex items-center gap-1.5">
                 <Lock className="size-3.5 text-muted-foreground" /> Password
               </Label>
-              <Input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
-                className="rounded-xl h-10 text-xs"
-                autoComplete="current-password"
-                required
-              />
+              <div className="relative">
+                <Input
+                  type={showPassword ? "text" : "password"}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••••"
+                  className="rounded-xl h-10 text-xs pr-10"
+                  autoComplete="current-password"
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((prev) => !prev)}
+                  className="absolute right-3 top-2.5 text-muted-foreground hover:text-foreground transition-colors focus:outline-none"
+                  title={showPassword ? "Hide password" : "Show password"}
+                >
+                  {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                </button>
+              </div>
             </div>
 
             <Button

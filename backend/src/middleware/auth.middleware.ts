@@ -148,11 +148,8 @@ export function authorizeSuperAdmin() {
     const isSuperAdmin =
       userRole === "superadmin" ||
       userRole === "super_admin" ||
-      userRole === "owner" ||
-      userRole === "admin" ||
       (req.user as any).is_super_admin === 1 ||
-      req.user.email === "superadmin@apkabill.com" ||
-      req.user.email === "admin@orion.com";
+      req.user.email === "superadmin@apkabill.com";
 
     if (isSuperAdmin) {
       return next();
