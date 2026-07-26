@@ -209,6 +209,48 @@ table tbody tr {
   transition: background-color 0.15s ease, color 0.15s ease;
 }
 
+/* Touch UX & Micro-Interaction Utility Helpers (Sprint 2 Design System) */
+.touch-target {
+  min-height: 44px;
+  min-width: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.touch-btn {
+  min-height: 44px;
+  padding-left: 1rem;
+  padding-right: 1rem;
+  border-radius: var(--radius-xl);
+  font-weight: 600;
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 0.1s cubic-bezier(0.16, 1, 0.3, 1), background-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.touch-btn:active,
+.active-press:active {
+  transform: scale(0.97);
+}
+
+.glass-panel {
+  background-color: var(--color-elevated);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--color-border);
+}
+
+.badge-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25rem 0.625rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
 /* Hide the print container under normal screen media, unless we are on a print-page */
 body:not(.print-page) #orion-print-section {
   display: none;

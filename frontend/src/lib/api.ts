@@ -1799,6 +1799,86 @@ export async function resetSuperAdminUserPassword(id: number, newPassword: strin
   return json.data;
 }
 
+export async function createSuperAdminStore(dto: any): Promise<any> {
+  const res = await fetch(`${API_BASE_URL}/api/super-admin/stores`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...getStoreHeaders(),
+    },
+    body: JSON.stringify(dto),
+  });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok || !json.success) {
+    throw new Error(json.error || "Failed to create store");
+  }
+  return json.data;
+}
+
+export async function editSuperAdminStore(id: number, dto: any): Promise<any> {
+  const res = await fetch(`${API_BASE_URL}/api/super-admin/stores/${id}`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+      ...getStoreHeaders(),
+    },
+    body: JSON.stringify(dto),
+  });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok || !json.success) {
+    throw new Error(json.error || "Failed to update store details");
+  }
+  return json.data;
+}
+
+export async function updateSuperAdminStoreStatus(id: number, status: string): Promise<any> {
+  const res = await fetch(`${API_BASE_URL}/api/super-admin/stores/${id}/status`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+      ...getStoreHeaders(),
+    },
+    body: JSON.stringify({ status }),
+  });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok || !json.success) {
+    throw new Error(json.error || "Failed to update store status");
+  }
+  return json.data;
+}
+
+export async function createSuperAdminUser(dto: any): Promise<any> {
+  const res = await fetch(`${API_BASE_URL}/api/super-admin/users`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...getStoreHeaders(),
+    },
+    body: JSON.stringify(dto),
+  });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok || !json.success) {
+    throw new Error(json.error || "Failed to create user");
+  }
+  return json.data;
+}
+
+export async function editSuperAdminUser(id: number, dto: any): Promise<any> {
+  const res = await fetch(`${API_BASE_URL}/api/super-admin/users/${id}`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+      ...getStoreHeaders(),
+    },
+    body: JSON.stringify(dto),
+  });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok || !json.success) {
+    throw new Error(json.error || "Failed to update user profile");
+  }
+  return json.data;
+}
+
 export async function getSuperAdminAuditLogs(): Promise<any[]> {
   const res = await fetch(`${API_BASE_URL}/api/super-admin/audit-logs`, {
     headers: getStoreHeaders(),

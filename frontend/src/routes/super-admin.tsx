@@ -22,7 +22,12 @@ import {
   editSuperAdminOrganization,
   deleteSuperAdminOrganization,
   getSuperAdminStores,
+  createSuperAdminStore,
+  editSuperAdminStore,
+  updateSuperAdminStoreStatus,
   getSuperAdminUsers,
+  createSuperAdminUser,
+  editSuperAdminUser,
   updateSuperAdminUserStatus,
   resetSuperAdminUserPassword,
   getSuperAdminAuditLogs,
@@ -114,6 +119,24 @@ export function SuperAdminPage() {
   // Soft Delete Confirmation Modal
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [deleteOrgTarget, setDeleteOrgTarget] = useState<any>(null);
+
+  // Store Management Modals
+  const [createStoreModalOpen, setCreateStoreModalOpen] = useState(false);
+  const [createStoreSubmitting, setCreateStoreSubmitting] = useState(false);
+  const [createStoreForm, setCreateStoreForm] = useState({ organizationId: "", name: "", code: "", address: "", phone: "" });
+  const [editStoreModalOpen, setEditStoreModalOpen] = useState(false);
+  const [editStoreSubmitting, setEditStoreSubmitting] = useState(false);
+  const [editStoreTarget, setEditStoreTarget] = useState<any>(null);
+  const [editStoreForm, setEditStoreForm] = useState({ name: "", code: "", address: "", phone: "" });
+
+  // User Management Modals
+  const [createUserModalOpen, setCreateUserModalOpen] = useState(false);
+  const [createUserSubmitting, setCreateUserSubmitting] = useState(false);
+  const [createUserForm, setCreateUserForm] = useState({ organizationId: "", storeId: "", name: "", email: "", phone: "", password: "", role: "cashier" });
+  const [editUserModalOpen, setEditUserModalOpen] = useState(false);
+  const [editUserSubmitting, setEditUserSubmitting] = useState(false);
+  const [editUserTarget, setEditUserTarget] = useState<any>(null);
+  const [editUserForm, setEditUserForm] = useState({ name: "", email: "", phone: "", role: "cashier", storeId: "" });
 
   const fetchData = async () => {
     try {
@@ -254,6 +277,127 @@ export function SuperAdminPage() {
       toast.error(err.message || "Failed to create organization");
     } finally {
       setCreateSubmitting(false);
+    }
+  };
+
+  const handleEditOrganization = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editOrg) return;
+    try {
+      setEditSubmitting(true);
+      await editSuperAdminOrganization(editOrg.id, editForm);
+      toast.success(`Organization ${editForm.businessName} updated successfully!`);
+      setEditModalOpen(false);
+      fetchData();
+    } catch (err: any) {
+      toast.error(err.message || "Failed to update organization");
+    } finally {
+      setEditSubmitting(false);
+    }
+  };
+
+  const handleCreateStore = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!createStoreForm.organizationId) return toast.error("Select an Organization");
+    if (!createStoreForm.name.trim()) return toast.error("Store Name is required");
+    try {
+      setCreateStoreSubmitting(true);
+      await createSuperAdminStore({
+        organizationId: Number(createStoreForm.organizationId),
+        name: createStoreForm.name,
+        code: createStoreForm.code,
+        address: createStoreForm.address,
+        phone: createStoreForm.phone,
+      });
+      toast.success(`Store "${createStoreForm.name}" created successfully!`);
+      setCreateStoreModalOpen(false);
+      setCreateStoreForm({ organizationId: "", name: "", code: "", address: "", phone: "" });
+      fetchData();
+    } catch (err: any) {
+      toast.error(err.message || "Failed to create store");
+    } finally {
+      setCreateStoreSubmitting(false);
+    }
+  };
+
+  const handleEditStore = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editStoreTarget) return;
+    try {
+      setEditStoreSubmitting(true);
+      await editSuperAdminStore(editStoreTarget.id, editStoreForm);
+      toast.success(`Store "${editStoreForm.name}" updated successfully!`);
+      setEditStoreModalOpen(false);
+      fetchData();
+    } catch (err: any) {
+      toast.error(err.message || "Failed to update store");
+    } finally {
+      setEditStoreSubmitting(false);
+    }
+  };
+
+  const handleStoreStatusChange = async (storeId: number, status: string) => {
+    try {
+      await updateSuperAdminStoreStatus(storeId, status);
+      toast.success(`Store status updated to ${status.toUpperCase()}`);
+      fetchData();
+    } catch (err: any) {
+      toast.error(err.message || "Failed to update store status");
+    }
+  };
+
+  const handleCreateUser = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!createUserForm.organizationId) return toast.error("Select an Organization");
+    if (!createUserForm.name.trim()) return toast.error("User Name is required");
+    if (!createUserForm.email.trim()) return toast.error("User Email is required");
+    if (!createUserForm.password || createUserForm.password.length < 6) return toast.error("Password min 6 chars");
+
+    try {
+      setCreateUserSubmitting(true);
+      await createSuperAdminUser({
+        organizationId: Number(createUserForm.organizationId),
+        storeId: createUserForm.storeId ? Number(createUserForm.storeId) : 1,
+        name: createUserForm.name,
+        email: createUserForm.email,
+        phone: createUserForm.phone,
+        password: createUserForm.password,
+        role: createUserForm.role,
+      });
+      toast.success(`User "${createUserForm.email}" created successfully!`);
+      setCreateUserModalOpen(false);
+      setCreateUserForm({ organizationId: "", storeId: "", name: "", email: "", phone: "", password: "", role: "cashier" });
+      fetchData();
+    } catch (err: any) {
+      toast.error(err.message || "Failed to create user");
+    } finally {
+      setCreateUserSubmitting(false);
+    }
+  };
+
+  const handleEditUser = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editUserTarget) return;
+    try {
+      setEditUserSubmitting(true);
+      await editSuperAdminUser(editUserTarget.id, editUserForm);
+      toast.success(`User "${editUserForm.email}" updated successfully!`);
+      setEditUserModalOpen(false);
+      fetchData();
+    } catch (err: any) {
+      toast.error(err.message || "Failed to update user");
+    } finally {
+      setEditUserSubmitting(false);
+    }
+  };
+
+  const handleUserStatusChange = async (userId: number, status: string) => {
+    try {
+      await updateSuperAdminUserStatus(userId, status);
+      toast.success(`User status updated to ${status.toUpperCase()}`);
+      fetchData();
+    } catch (err: any) {
+      toast.error(err.message || "Failed to update user status");
     }
   };
 
@@ -772,8 +916,16 @@ export function SuperAdminPage() {
           {/* STORES TAB */}
           {activeTab === "stores" && (
             <div className="space-y-4">
-              <h2 className="text-lg font-bold text-foreground">Stores & Outlets ({storesList.length})</h2>
-              <p className="text-xs text-muted-foreground">Manage POS outlets across all registered tenant accounts</p>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                  <h2 className="text-lg font-bold text-foreground">Stores & Outlets ({storesList.length})</h2>
+                  <p className="text-xs text-muted-foreground">Manage multi-store POS outlets across all registered tenant organizations</p>
+                </div>
+                <Button size="sm" onClick={() => setCreateStoreModalOpen(true)} className="rounded-xl h-9 text-xs gap-1.5 shadow-sm font-semibold">
+                  <Plus className="size-4" /> Create Store
+                </Button>
+              </div>
+
               <div className="rounded-2xl border border-border bg-card overflow-hidden">
                 <table className="w-full text-left text-xs">
                   <thead className="bg-muted/50 border-b border-border font-semibold uppercase text-[10px] text-muted-foreground">
@@ -781,20 +933,51 @@ export function SuperAdminPage() {
                       <th className="p-3.5">Store Name</th>
                       <th className="p-3.5">Store Code</th>
                       <th className="p-3.5">Organization</th>
+                      <th className="p-3.5">Manager</th>
+                      <th className="p-3.5">Total Products</th>
                       <th className="p-3.5">Status</th>
-                      <th className="p-3.5">Actions</th>
+                      <th className="p-3.5 text-right">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border">
-                    {storesList.map((st) => (
-                      <tr key={st.id} className="hover:bg-muted/30">
-                        <td className="p-3.5 font-semibold text-foreground">{st.name}</td>
-                        <td className="p-3.5 font-mono text-muted-foreground">{st.code || "STR-MAIN"}</td>
-                        <td className="p-3.5 text-foreground font-medium">{st.organizationName}</td>
-                        <td className="p-3.5"><Badge variant="outline">{st.status || "active"}</Badge></td>
-                        <td className="p-3.5"><Button size="sm" variant="ghost" className="h-7 text-xs">Edit Store</Button></td>
-                      </tr>
-                    ))}
+                    {storesList.length === 0 ? (
+                      <tr><td colSpan={7} className="p-6 text-center text-muted-foreground">No stores found</td></tr>
+                    ) : (
+                      storesList.map((st) => (
+                        <tr key={st.id} className="hover:bg-muted/30">
+                          <td className="p-3.5 font-semibold text-foreground">{st.name}</td>
+                          <td className="p-3.5 font-mono text-muted-foreground">{st.code || "STR-MAIN"}</td>
+                          <td className="p-3.5 text-foreground font-medium">{st.organizationName}</td>
+                          <td className="p-3.5 text-muted-foreground">{st.managerName || "N/A"}</td>
+                          <td className="p-3.5 font-mono">{st.totalProducts ?? 0}</td>
+                          <td className="p-3.5">{getStatusBadge(st.status)}</td>
+                          <td className="p-3.5 text-right">
+                            <div className="flex items-center justify-end gap-1.5">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => {
+                                  setEditStoreTarget(st);
+                                  setEditStoreForm({ name: st.name, code: st.code || "", address: st.address || "", phone: st.phone || "" });
+                                  setEditStoreModalOpen(true);
+                                }}
+                                className="h-7 text-xs rounded-lg"
+                              >
+                                Edit
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => handleStoreStatusChange(st.id, (st.status || "active").toLowerCase() === "suspended" ? "active" : "suspended")}
+                                className={cn("h-7 text-xs rounded-lg font-medium", (st.status || "active").toLowerCase() === "suspended" ? "text-emerald-600" : "text-amber-600")}
+                              >
+                                {(st.status || "active").toLowerCase() === "suspended" ? "Reactivate" : "Suspend"}
+                              </Button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))
+                    )}
                   </tbody>
                 </table>
               </div>
@@ -804,8 +987,16 @@ export function SuperAdminPage() {
           {/* USERS TAB */}
           {activeTab === "users" && (
             <div className="space-y-4">
-              <h2 className="text-lg font-bold text-foreground">Tenant Users ({usersList.length})</h2>
-              <p className="text-xs text-muted-foreground">Platform user accounts across all tenant organizations</p>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                  <h2 className="text-lg font-bold text-foreground">Tenant Users ({usersList.length})</h2>
+                  <p className="text-xs text-muted-foreground">Platform user accounts across all tenant organizations and stores</p>
+                </div>
+                <Button size="sm" onClick={() => setCreateUserModalOpen(true)} className="rounded-xl h-9 text-xs gap-1.5 shadow-sm font-semibold">
+                  <Plus className="size-4" /> Create User
+                </Button>
+              </div>
+
               <div className="rounded-2xl border border-border bg-card overflow-hidden">
                 <table className="w-full text-left text-xs">
                   <thead className="bg-muted/50 border-b border-border font-semibold uppercase text-[10px] text-muted-foreground">
@@ -813,23 +1004,52 @@ export function SuperAdminPage() {
                       <th className="p-3.5">User</th>
                       <th className="p-3.5">Role</th>
                       <th className="p-3.5">Organization</th>
+                      <th className="p-3.5">Assigned Store</th>
                       <th className="p-3.5">Status</th>
-                      <th className="p-3.5">Actions</th>
+                      <th className="p-3.5 text-right">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border">
-                    {usersList.map((u) => (
-                      <tr key={u.id} className="hover:bg-muted/30">
-                        <td className="p-3.5">
-                          <div className="font-semibold text-foreground">{u.name}</div>
-                          <div className="text-[10px] text-muted-foreground">{u.email}</div>
-                        </td>
-                        <td className="p-3.5"><Badge variant="secondary" className="capitalize">{u.role}</Badge></td>
-                        <td className="p-3.5 text-foreground font-medium">{u.organizationName}</td>
-                        <td className="p-3.5">{getStatusBadge(u.status)}</td>
-                        <td className="p-3.5"><Button size="sm" variant="ghost" className="h-7 text-xs text-purple-600">Reset Pass</Button></td>
-                      </tr>
-                    ))}
+                    {usersList.length === 0 ? (
+                      <tr><td colSpan={6} className="p-6 text-center text-muted-foreground">No users found</td></tr>
+                    ) : (
+                      usersList.map((u) => (
+                        <tr key={u.id} className="hover:bg-muted/30">
+                          <td className="p-3.5">
+                            <div className="font-semibold text-foreground">{u.name}</div>
+                            <div className="text-[10px] text-muted-foreground">{u.email}</div>
+                          </td>
+                          <td className="p-3.5"><Badge variant="secondary" className="capitalize">{u.role}</Badge></td>
+                          <td className="p-3.5 text-foreground font-medium">{u.organizationName}</td>
+                          <td className="p-3.5 text-muted-foreground">{u.storeName}</td>
+                          <td className="p-3.5">{getStatusBadge(u.status)}</td>
+                          <td className="p-3.5 text-right">
+                            <div className="flex items-center justify-end gap-1.5">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => {
+                                  setEditUserTarget(u);
+                                  setEditUserForm({ name: u.name, email: u.email, phone: u.phone || "", role: u.role || "cashier", storeId: String(u.storeId || 1) });
+                                  setEditUserModalOpen(true);
+                                }}
+                                className="h-7 text-xs rounded-lg"
+                              >
+                                Edit
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => handleUserStatusChange(u.id, (u.status || "active").toLowerCase() === "suspended" ? "active" : "suspended")}
+                                className={cn("h-7 text-xs rounded-lg font-medium", (u.status || "active").toLowerCase() === "suspended" ? "text-emerald-600" : "text-amber-600")}
+                              >
+                                {(u.status || "active").toLowerCase() === "suspended" ? "Reactivate" : "Suspend"}
+                              </Button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))
+                    )}
                   </tbody>
                 </table>
               </div>
@@ -1097,6 +1317,316 @@ export function SuperAdminPage() {
               Close
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* CREATE STORE MODAL */}
+      <Dialog open={createStoreModalOpen} onOpenChange={setCreateStoreModalOpen}>
+        <DialogContent className="max-w-md rounded-2xl">
+          <DialogHeader>
+            <DialogTitle className="text-base font-bold flex items-center gap-2">
+              <Store className="size-4 text-primary" /> Create New Store Outlet
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              Allocate a new store branch under an existing tenant organization
+            </DialogDescription>
+          </DialogHeader>
+
+          <form onSubmit={handleCreateStore} className="space-y-3 text-xs">
+            <div className="space-y-1">
+              <Label className="text-xs font-semibold">Select Organization *</Label>
+              <Select value={createStoreForm.organizationId} onValueChange={(val) => setCreateStoreForm((p) => ({ ...p, organizationId: val }))}>
+                <SelectTrigger className="rounded-xl h-9 text-xs">
+                  <SelectValue placeholder="Choose Organization" />
+                </SelectTrigger>
+                <SelectContent className="rounded-xl text-xs">
+                  {organizations.map((org) => (
+                    <SelectItem key={org.id} value={String(org.id)}>{org.name} (#{org.id})</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-1">
+              <Label className="text-xs font-semibold">Store Name *</Label>
+              <Input
+                value={createStoreForm.name}
+                onChange={(e) => setCreateStoreForm((p) => ({ ...p, name: e.target.value }))}
+                placeholder="e.g. MG Road Branch"
+                className="rounded-xl h-9 text-xs"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label className="text-xs font-semibold">Store Code</Label>
+                <Input
+                  value={createStoreForm.code}
+                  onChange={(e) => setCreateStoreForm((p) => ({ ...p, code: e.target.value }))}
+                  placeholder="STR-002"
+                  className="rounded-xl h-9 text-xs"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs font-semibold">Phone</Label>
+                <Input
+                  value={createStoreForm.phone}
+                  onChange={(e) => setCreateStoreForm((p) => ({ ...p, phone: e.target.value }))}
+                  placeholder="+91 98765 43210"
+                  className="rounded-xl h-9 text-xs"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <Label className="text-xs font-semibold">Store Address</Label>
+              <Input
+                value={createStoreForm.address}
+                onChange={(e) => setCreateStoreForm((p) => ({ ...p, address: e.target.value }))}
+                placeholder="Address line"
+                className="rounded-xl h-9 text-xs"
+              />
+            </div>
+
+            <DialogFooter className="pt-2">
+              <Button type="button" variant="outline" size="sm" onClick={() => setCreateStoreModalOpen(false)} className="rounded-xl text-xs">
+                Cancel
+              </Button>
+              <Button type="submit" size="sm" disabled={createStoreSubmitting} className="rounded-xl text-xs font-bold">
+                {createStoreSubmitting ? "Creating…" : "Create Store"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* EDIT STORE MODAL */}
+      <Dialog open={editStoreModalOpen} onOpenChange={setEditStoreModalOpen}>
+        <DialogContent className="max-w-md rounded-2xl">
+          <DialogHeader>
+            <DialogTitle className="text-base font-bold flex items-center gap-2">
+              <Edit className="size-4 text-primary" /> Edit Store Outlet #{editStoreTarget?.id}
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              Update store profile details for <span className="font-bold text-foreground">{editStoreTarget?.name}</span>
+            </DialogDescription>
+          </DialogHeader>
+
+          <form onSubmit={handleEditStore} className="space-y-3 text-xs">
+            <div className="space-y-1">
+              <Label className="text-xs font-semibold">Store Name *</Label>
+              <Input
+                value={editStoreForm.name}
+                onChange={(e) => setEditStoreForm((p) => ({ ...p, name: e.target.value }))}
+                className="rounded-xl h-9 text-xs"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label className="text-xs font-semibold">Store Code</Label>
+                <Input
+                  value={editStoreForm.code}
+                  onChange={(e) => setEditStoreForm((p) => ({ ...p, code: e.target.value }))}
+                  className="rounded-xl h-9 text-xs"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs font-semibold">Phone</Label>
+                <Input
+                  value={editStoreForm.phone}
+                  onChange={(e) => setEditStoreForm((p) => ({ ...p, phone: e.target.value }))}
+                  className="rounded-xl h-9 text-xs"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <Label className="text-xs font-semibold">Store Address</Label>
+              <Input
+                value={editStoreForm.address}
+                onChange={(e) => setEditStoreForm((p) => ({ ...p, address: e.target.value }))}
+                className="rounded-xl h-9 text-xs"
+              />
+            </div>
+
+            <DialogFooter className="pt-2">
+              <Button type="button" variant="outline" size="sm" onClick={() => setEditStoreModalOpen(false)} className="rounded-xl text-xs">
+                Cancel
+              </Button>
+              <Button type="submit" size="sm" disabled={editStoreSubmitting} className="rounded-xl text-xs font-bold">
+                {editStoreSubmitting ? "Saving…" : "Save Changes"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* CREATE USER MODAL */}
+      <Dialog open={createUserModalOpen} onOpenChange={setCreateUserModalOpen}>
+        <DialogContent className="max-w-md rounded-2xl">
+          <DialogHeader>
+            <DialogTitle className="text-base font-bold flex items-center gap-2">
+              <Users className="size-4 text-primary" /> Create Tenant User
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              Provision a new staff account under an organization and store
+            </DialogDescription>
+          </DialogHeader>
+
+          <form onSubmit={handleCreateUser} className="space-y-3 text-xs">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label className="text-xs font-semibold">Organization *</Label>
+                <Select value={createUserForm.organizationId} onValueChange={(val) => setCreateUserForm((p) => ({ ...p, organizationId: val }))}>
+                  <SelectTrigger className="rounded-xl h-9 text-xs">
+                    <SelectValue placeholder="Choose Org" />
+                  </SelectTrigger>
+                  <SelectContent className="rounded-xl text-xs">
+                    {organizations.map((org) => (
+                      <SelectItem key={org.id} value={String(org.id)}>{org.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-xs font-semibold">User Role *</Label>
+                <Select value={createUserForm.role} onValueChange={(val) => setCreateUserForm((p) => ({ ...p, role: val }))}>
+                  <SelectTrigger className="rounded-xl h-9 text-xs">
+                    <SelectValue placeholder="Choose Role" />
+                  </SelectTrigger>
+                  <SelectContent className="rounded-xl text-xs">
+                    <SelectItem value="admin">Admin</SelectItem>
+                    <SelectItem value="manager">Manager</SelectItem>
+                    <SelectItem value="cashier">Cashier</SelectItem>
+                    <SelectItem value="viewer">Viewer</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <Label className="text-xs font-semibold">Full Name *</Label>
+              <Input
+                value={createUserForm.name}
+                onChange={(e) => setCreateUserForm((p) => ({ ...p, name: e.target.value }))}
+                placeholder="e.g. Rahul Sharma"
+                className="rounded-xl h-9 text-xs"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label className="text-xs font-semibold">Email *</Label>
+                <Input
+                  type="email"
+                  value={createUserForm.email}
+                  onChange={(e) => setCreateUserForm((p) => ({ ...p, email: e.target.value }))}
+                  placeholder="rahul@store.com"
+                  className="rounded-xl h-9 text-xs"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs font-semibold">Phone</Label>
+                <Input
+                  value={createUserForm.phone}
+                  onChange={(e) => setCreateUserForm((p) => ({ ...p, phone: e.target.value }))}
+                  placeholder="+91 98765 43210"
+                  className="rounded-xl h-9 text-xs"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <Label className="text-xs font-semibold">Password *</Label>
+              <Input
+                type="password"
+                value={createUserForm.password}
+                onChange={(e) => setCreateUserForm((p) => ({ ...p, password: e.target.value }))}
+                placeholder="Min 6 characters"
+                className="rounded-xl h-9 text-xs"
+              />
+            </div>
+
+            <DialogFooter className="pt-2">
+              <Button type="button" variant="outline" size="sm" onClick={() => setCreateUserModalOpen(false)} className="rounded-xl text-xs">
+                Cancel
+              </Button>
+              <Button type="submit" size="sm" disabled={createUserSubmitting} className="rounded-xl text-xs font-bold">
+                {createUserSubmitting ? "Creating…" : "Create User"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* EDIT USER MODAL */}
+      <Dialog open={editUserModalOpen} onOpenChange={setEditUserModalOpen}>
+        <DialogContent className="max-w-md rounded-2xl">
+          <DialogHeader>
+            <DialogTitle className="text-base font-bold flex items-center gap-2">
+              <Edit className="size-4 text-primary" /> Edit User Profile #{editUserTarget?.id}
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              Update user details for <span className="font-bold text-foreground">{editUserTarget?.name}</span>
+            </DialogDescription>
+          </DialogHeader>
+
+          <form onSubmit={handleEditUser} className="space-y-3 text-xs">
+            <div className="space-y-1">
+              <Label className="text-xs font-semibold">Full Name *</Label>
+              <Input
+                value={editUserForm.name}
+                onChange={(e) => setEditUserForm((p) => ({ ...p, name: e.target.value }))}
+                className="rounded-xl h-9 text-xs"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label className="text-xs font-semibold">Email *</Label>
+                <Input
+                  type="email"
+                  value={editUserForm.email}
+                  onChange={(e) => setEditUserForm((p) => ({ ...p, email: e.target.value }))}
+                  className="rounded-xl h-9 text-xs"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs font-semibold">Phone</Label>
+                <Input
+                  value={editUserForm.phone}
+                  onChange={(e) => setEditUserForm((p) => ({ ...p, phone: e.target.value }))}
+                  className="rounded-xl h-9 text-xs"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <Label className="text-xs font-semibold">User Role *</Label>
+              <Select value={editUserForm.role} onValueChange={(val) => setEditUserForm((p) => ({ ...p, role: val }))}>
+                <SelectTrigger className="rounded-xl h-9 text-xs">
+                  <SelectValue placeholder="Choose Role" />
+                </SelectTrigger>
+                <SelectContent className="rounded-xl text-xs">
+                  <SelectItem value="admin">Admin</SelectItem>
+                  <SelectItem value="manager">Manager</SelectItem>
+                  <SelectItem value="cashier">Cashier</SelectItem>
+                  <SelectItem value="viewer">Viewer</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <DialogFooter className="pt-2">
+              <Button type="button" variant="outline" size="sm" onClick={() => setEditUserModalOpen(false)} className="rounded-xl text-xs">
+                Cancel
+              </Button>
+              <Button type="submit" size="sm" disabled={editUserSubmitting} className="rounded-xl text-xs font-bold">
+                {editUserSubmitting ? "Saving…" : "Save Changes"}
+              </Button>
+            </DialogFooter>
+          </form>
         </DialogContent>
       </Dialog>
     </div>

@@ -439,29 +439,29 @@ function Billing() {
                             <div className="truncate text-sm font-medium">{l.name}</div>
                             <div className="text-[11px] text-muted-foreground">{inr(l.price)} · GST {l.gst}%</div>
                           </div>
-                          <button onClick={() => remove(l.productId)} className="rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-danger">
+                          <button onClick={() => remove(l.productId)} className="rounded-xl p-2 text-muted-foreground hover:bg-muted hover:text-danger active:scale-95 transition-transform" title="Remove item">
                             <Trash2 className="size-4" />
                           </button>
                         </div>
-                        <div className="mt-2 flex items-center justify-between gap-2">
-                          <div className="inline-flex items-center rounded-lg border border-border">
-                            <button onClick={() => dec(l.productId)} className="grid size-8 place-items-center hover:bg-muted"><Minus className="size-3.5" /></button>
-                            <span className="tabular w-8 text-center text-sm font-medium">{l.qty}</span>
-                            <button onClick={() => inc(l.productId)} className="grid size-8 place-items-center hover:bg-muted"><Plus className="size-3.5" /></button>
+                        <div className="mt-2.5 flex items-center justify-between gap-2">
+                          <div className="inline-flex items-center rounded-xl border border-border bg-elevated shadow-xs">
+                            <button onClick={() => dec(l.productId)} className="grid size-10 place-items-center rounded-l-xl hover:bg-muted active:bg-muted/80 text-foreground transition-colors"><Minus className="size-4" /></button>
+                            <span className="tabular w-9 text-center text-sm font-bold">{l.qty}</span>
+                            <button onClick={() => inc(l.productId)} className="grid size-10 place-items-center rounded-r-xl hover:bg-muted active:bg-muted/80 text-foreground transition-colors"><Plus className="size-4" /></button>
                           </div>
                           <div className="flex items-center gap-1">
-                            <span className="text-[11px] text-muted-foreground">Disc</span>
+                            <span className="text-[11px] font-medium text-muted-foreground">Disc</span>
                             <input
                               type="number"
                               min={0}
                               max={100}
                               value={l.discount}
                               onChange={(e) => setLineDiscount(l.productId, Number(e.target.value) || 0)}
-                              className="tabular h-7 w-12 rounded-md border border-border bg-elevated px-1.5 text-center text-xs"
+                              className="tabular h-9 w-14 rounded-lg border border-border bg-elevated px-1.5 text-center text-xs font-semibold"
                             />
-                            <span className="text-[11px] text-muted-foreground">%</span>
+                            <span className="text-[11px] font-medium text-muted-foreground">%</span>
                           </div>
-                          <div className="tabular text-sm font-semibold">
+                          <div className="tabular text-sm font-bold text-money">
                             {inr(l.price * l.qty * (1 - l.discount / 100))}
                           </div>
                         </div>

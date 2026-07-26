@@ -1,9 +1,26 @@
 import { Request, Response, NextFunction } from "express";
 import { db } from "../db";
-import { organizations, stores, users, sales, user_store_access } from "../db/schema";
-import { eq, and, like, or, sql } from "drizzle-orm";
+import { organizations, stores, users, sales, products, customers, audit_logs, user_store_access } from "../db/schema";
+import { eq, and, like, or, sql, desc } from "drizzle-orm";
 import { ValidationError, NotFoundError, ConflictError } from "../utils/errors";
 import bcrypt from "bcryptjs";
+
+// Helper function to log Super Admin actions into audit_logs table
+async function logAudit(action: string, details: string, orgId?: number | null, storeId?: number | null, userId?: number | null) {
+  try {
+    const sId = storeId || 1;
+    await db.insert(audit_logs).values({
+      organization_id: orgId || null,
+      store_id: sId,
+      user_id: userId || null,
+      action,
+      details,
+      created_at: new Date(),
+    });
+  } catch (err) {
+    console.error("[SuperAdminAudit] Failed to log audit record:", err);
+  }
+}
 
 export class SuperAdminController {
   getDashboard = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
@@ -118,6 +135,16 @@ export class SuperAdminController {
         null;
 
       const orgStores = await db.select().from(stores).where(eq(stores.organization_id, id));
+      const orgProducts = await db.select().from(products).where(eq(products.organization_id, id));
+      const orgCustomers = await db.select().from(customers).where(eq(customers.organization_id, id));
+      
+      const [salesMetrics] = await db
+        .select({
+          totalSales: sql<string>`COALESCE(SUM(${sales.grand_total}), 0)`,
+          ordersCount: sql<string>`COUNT(${sales.id})`,
+        })
+        .from(sales)
+        .where(eq(sales.organization_id, id));
 
       res.status(200).json({
         success: true,
@@ -140,75 +167,14 @@ export class SuperAdminController {
             status: s.status,
             createdAt: s.created_at,
           })),
+          insights: {
+            totalUsers: orgUsers.length,
+            totalProducts: orgProducts.length,
+            totalCustomers: orgCustomers.length,
+            totalSalesAmount: Number(salesMetrics?.totalSales || 0),
+            totalSalesOrders: Number(salesMetrics?.ordersCount || 0),
+          },
         },
-      });
-    } catch (error) {
-      next(error);
-    }
-  };
-
-  updateStatus = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-    try {
-      const id = parseInt(req.params.id as string, 10);
-      const { status } = req.body;
-
-      if (isNaN(id)) {
-        throw new ValidationError("Invalid organization ID");
-      }
-      if (!status || !["active", "trial", "suspended"].includes(String(status).toLowerCase())) {
-        throw new ValidationError("Status must be ACTIVE, TRIAL, or SUSPENDED");
-      }
-
-      const targetStatus = String(status).toLowerCase();
-
-      const [updated] = await db
-        .update(organizations)
-        .set({ status: targetStatus, updated_at: new Date() })
-        .where(eq(organizations.id, id))
-        .returning();
-
-      if (!updated) {
-        throw new NotFoundError("Organization not found");
-      }
-
-      res.status(200).json({
-        success: true,
-        message: `Organization status updated to ${targetStatus.toUpperCase()}`,
-        data: updated,
-      });
-    } catch (error) {
-      next(error);
-    }
-  };
-
-  resetOwnerPassword = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-    try {
-      const id = parseInt(req.params.id as string, 10);
-      const { newPassword } = req.body;
-
-      if (isNaN(id)) {
-        throw new ValidationError("Invalid organization ID");
-      }
-      if (!newPassword || typeof newPassword !== "string" || newPassword.length < 6) {
-        throw new ValidationError("New password must be at least 6 characters");
-      }
-
-      const passwordHash = await bcrypt.hash(newPassword, 10);
-
-      // Reset password for owner(s) belonging to organization
-      const updatedUsers = await db
-        .update(users)
-        .set({ password_hash: passwordHash, updated_at: new Date() })
-        .where(eq(users.organization_id, id))
-        .returning();
-
-      if (updatedUsers.length === 0) {
-        throw new NotFoundError("No owner user found for this organization");
-      }
-
-      res.status(200).json({
-        success: true,
-        message: `Password successfully reset for owner of organization #${id}`,
       });
     } catch (error) {
       next(error);
@@ -264,7 +230,7 @@ export class SuperAdminController {
       const sAddr = storeAddress && storeAddress.trim() ? storeAddress.trim() : address ? address.trim() : null;
 
       const result = await db.transaction(async (tx) => {
-        // 1. Create Organization (Mark status = TRIAL as required)
+        // 1. Create Organization
         const [org] = await tx
           .insert(organizations)
           .values({
@@ -320,6 +286,14 @@ export class SuperAdminController {
         return { organization: org, store, user };
       });
 
+      await logAudit(
+        "SUPER_ADMIN_CREATE_ORG",
+        `Created Organization ${result.organization.name} (#${result.organization.id}) with Owner ${result.user.email} and Default Store ${result.store.name}`,
+        result.organization.id,
+        result.store.id,
+        result.user.id
+      );
+
       res.status(201).json({
         success: true,
         message: "Customer organization created successfully in TRIAL status",
@@ -367,10 +341,91 @@ export class SuperAdminController {
           .where(and(eq(users.organization_id, id), eq(users.role, "owner")));
       }
 
+      await logAudit("SUPER_ADMIN_EDIT_ORG", `Updated Organization details for ${updated.name} (#${id})`, id);
+
       res.status(200).json({
         success: true,
         message: "Organization details updated successfully",
         data: updated,
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  updateStatus = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const id = parseInt(req.params.id as string, 10);
+      const { status } = req.body;
+
+      if (isNaN(id)) {
+        throw new ValidationError("Invalid organization ID");
+      }
+      if (!status || !["active", "trial", "suspended", "disabled"].includes(String(status).toLowerCase())) {
+        throw new ValidationError("Status must be ACTIVE, TRIAL, SUSPENDED, or DISABLED");
+      }
+
+      const targetStatus = String(status).toLowerCase();
+
+      const [updated] = await db
+        .update(organizations)
+        .set({ status: targetStatus, updated_at: new Date() })
+        .where(eq(organizations.id, id))
+        .returning();
+
+      if (!updated) {
+        throw new NotFoundError("Organization not found");
+      }
+
+      await logAudit(
+        targetStatus === "suspended" ? "SUPER_ADMIN_SUSPEND_ORG" : "SUPER_ADMIN_UPDATE_ORG_STATUS",
+        `Changed Organization ${updated.name} (#${id}) status to ${targetStatus.toUpperCase()}`,
+        id
+      );
+
+      res.status(200).json({
+        success: true,
+        message: `Organization status updated to ${targetStatus.toUpperCase()}`,
+        data: updated,
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  resetOwnerPassword = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const id = parseInt(req.params.id as string, 10);
+      const { newPassword } = req.body;
+
+      if (isNaN(id)) {
+        throw new ValidationError("Invalid organization ID");
+      }
+      if (!newPassword || typeof newPassword !== "string" || newPassword.length < 6) {
+        throw new ValidationError("New password must be at least 6 characters");
+      }
+
+      const passwordHash = await bcrypt.hash(newPassword, 10);
+
+      const updatedUsers = await db
+        .update(users)
+        .set({ password_hash: passwordHash, updated_at: new Date() })
+        .where(eq(users.organization_id, id))
+        .returning();
+
+      if (updatedUsers.length === 0) {
+        throw new NotFoundError("No owner user found for this organization");
+      }
+
+      await logAudit(
+        "SUPER_ADMIN_RESET_PASSWORD",
+        `Reset password for owner(s) of Organization #${id}`,
+        id
+      );
+
+      res.status(200).json({
+        success: true,
+        message: `Password successfully reset for owner of organization #${id}`,
       });
     } catch (error) {
       next(error);
@@ -388,6 +443,8 @@ export class SuperAdminController {
         .where(eq(organizations.id, id))
         .returning();
 
+      await logAudit("SUPER_ADMIN_DISABLE_ORG", `Soft-deleted Organization #${id} (status set to disabled)`, id);
+
       res.status(200).json({ success: true, message: "Organization soft-deleted (status set to disabled)", data: updated });
     } catch (error) {
       next(error);
@@ -397,16 +454,26 @@ export class SuperAdminController {
   updateSubscription = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const id = parseInt(req.params.id as string, 10);
-      const { plan } = req.body;
+      const { plan, status } = req.body;
       if (isNaN(id)) throw new ValidationError("Invalid organization ID");
+
+      const updatePayload: any = { updated_at: new Date() };
+      if (plan) updatePayload.billing_plan = plan;
+      if (status) updatePayload.subscription_status = status;
 
       const [updated] = await db
         .update(organizations)
-        .set({ billing_plan: plan || "Basic", updated_at: new Date() })
+        .set(updatePayload)
         .where(eq(organizations.id, id))
         .returning();
 
-      res.status(200).json({ success: true, message: `Subscription updated to ${plan}`, data: updated });
+      await logAudit(
+        "SUPER_ADMIN_CHANGE_SUBSCRIPTION",
+        `Updated subscription for Organization ${updated?.name} (#${id}) to Plan: ${updated?.billing_plan}, Status: ${updated?.subscription_status}`,
+        id
+      );
+
+      res.status(200).json({ success: true, message: `Subscription updated successfully`, data: updated });
     } catch (error) {
       next(error);
     }
@@ -416,16 +483,131 @@ export class SuperAdminController {
     try {
       const allStores = await db.select().from(stores);
       const allOrgs = await db.select().from(organizations);
+      const allProducts = await db.select().from(products);
+      const allSales = await db.select().from(sales);
+      const allUsers = await db.select().from(users);
 
       const result = allStores.map((s) => {
         const org = allOrgs.find((o) => o.id === s.organization_id);
+        const storeProducts = allProducts.filter((p) => p.store_id === s.id);
+        const storeSales = allSales.filter((sal) => sal.store_id === s.id);
+        const manager = allUsers.find((u) => u.store_id === s.id && ["manager", "admin", "owner"].includes(u.role?.toLowerCase() || "")) || null;
+        
+        const totalSalesAmount = storeSales.reduce((acc, current) => acc + Number(current.grand_total || 0), 0);
+
         return {
-          ...s,
+          id: s.id,
+          organizationId: s.organization_id,
           organizationName: org ? org.name : "N/A",
+          name: s.name,
+          code: s.code,
+          address: s.address || "",
+          phone: s.phone || "",
+          status: s.status || "active",
+          managerName: manager ? manager.name : "N/A",
+          totalProducts: storeProducts.length,
+          totalSales: totalSalesAmount,
+          createdAt: s.created_at,
         };
       });
 
       res.status(200).json({ success: true, data: result });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  createStore = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const { organizationId, name, code, address, phone } = req.body;
+
+      if (!organizationId || isNaN(Number(organizationId))) {
+        throw new ValidationError("Valid Organization ID is required");
+      }
+      if (!name || !name.trim()) {
+        throw new ValidationError("Store Name is required");
+      }
+
+      const orgId = Number(organizationId);
+      const [org] = await db.select().from(organizations).where(eq(organizations.id, orgId)).limit(1);
+      if (!org) {
+        throw new NotFoundError("Organization not found");
+      }
+
+      const storeCode = code && code.trim() ? code.trim() : `STR-${Date.now().toString().slice(-4)}`;
+
+      const [newStore] = await db
+        .insert(stores)
+        .values({
+          organization_id: orgId,
+          name: name.trim(),
+          code: storeCode,
+          address: address ? address.trim() : null,
+          phone: phone ? phone.trim() : null,
+          status: "active",
+          is_default: 0,
+        })
+        .returning();
+
+      await logAudit("SUPER_ADMIN_CREATE_STORE", `Created Store ${newStore.name} (${newStore.code}) under Organization ${org.name}`, orgId, newStore.id);
+
+      res.status(201).json({
+        success: true,
+        message: "Store created successfully",
+        data: newStore,
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  editStore = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const id = parseInt(req.params.id as string, 10);
+      if (isNaN(id)) throw new ValidationError("Invalid store ID");
+
+      const { name, code, address, phone } = req.body;
+
+      const updateData: any = { updated_at: new Date() };
+      if (name !== undefined) updateData.name = name.trim();
+      if (code !== undefined) updateData.code = code.trim();
+      if (address !== undefined) updateData.address = address ? address.trim() : null;
+      if (phone !== undefined) updateData.phone = phone ? phone.trim() : null;
+
+      const [updated] = await db.update(stores).set(updateData).where(eq(stores.id, id)).returning();
+      if (!updated) throw new NotFoundError("Store not found");
+
+      await logAudit("SUPER_ADMIN_EDIT_STORE", `Updated Store #${id} details`, updated.organization_id, id);
+
+      res.status(200).json({ success: true, message: "Store updated successfully", data: updated });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  updateStoreStatus = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const id = parseInt(req.params.id as string, 10);
+      const { status } = req.body;
+      if (isNaN(id)) throw new ValidationError("Invalid store ID");
+
+      const targetStatus = String(status || "active").toLowerCase();
+      const [updated] = await db
+        .update(stores)
+        .set({ status: targetStatus, updated_at: new Date() })
+        .where(eq(stores.id, id))
+        .returning();
+
+      if (!updated) throw new NotFoundError("Store not found");
+
+      await logAudit(
+        targetStatus === "suspended" ? "SUPER_ADMIN_SUSPEND_STORE" : "SUPER_ADMIN_REACTIVATE_STORE",
+        `Changed Store #${id} status to ${targetStatus.toUpperCase()}`,
+        updated.organization_id,
+        id
+      );
+
+      res.status(200).json({ success: true, message: `Store status updated to ${targetStatus.toUpperCase()}`, data: updated });
     } catch (error) {
       next(error);
     }
@@ -446,8 +628,10 @@ export class SuperAdminController {
           email: u.email,
           phone: u.phone,
           role: u.role,
-          status: u.status || (u.is_active ? "active" : "disabled"),
+          status: u.status || (u.is_active ? "active" : "suspended"),
+          organizationId: u.organization_id,
           organizationName: org ? org.name : "N/A",
+          storeId: u.store_id,
           storeName: store ? store.name : "N/A",
           createdAt: u.created_at,
         };
@@ -459,20 +643,101 @@ export class SuperAdminController {
     }
   };
 
+  createUser = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const { organizationId, storeId, name, email, phone, password, role } = req.body;
+
+      if (!organizationId || isNaN(Number(organizationId))) throw new ValidationError("Organization ID is required");
+      if (!name || !name.trim()) throw new ValidationError("User Name is required");
+      if (!email || !email.trim()) throw new ValidationError("User Email is required");
+      if (!password || password.length < 6) throw new ValidationError("Password min 6 characters");
+
+      const normalizedEmail = email.trim().toLowerCase();
+      const [existing] = await db.select().from(users).where(eq(users.email, normalizedEmail)).limit(1);
+      if (existing) throw new ConflictError("User with this email already exists");
+
+      const orgId = Number(organizationId);
+      const sId = storeId ? Number(storeId) : 1;
+      const hash = await bcrypt.hash(password, 10);
+
+      const [newUser] = await db
+        .insert(users)
+        .values({
+          organization_id: orgId,
+          store_id: sId,
+          name: name.trim(),
+          email: normalizedEmail,
+          phone: phone ? phone.trim() : null,
+          password_hash: hash,
+          role: role || "cashier",
+          status: "active",
+          is_active: 1,
+        })
+        .returning();
+
+      await db.insert(user_store_access).values({
+        user_id: newUser.id,
+        store_id: sId,
+      });
+
+      await logAudit("SUPER_ADMIN_CREATE_USER", `Created User ${newUser.email} with Role ${newUser.role}`, orgId, sId, newUser.id);
+
+      res.status(201).json({ success: true, message: "User created successfully", data: newUser });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  editUser = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const id = parseInt(req.params.id as string, 10);
+      if (isNaN(id)) throw new ValidationError("Invalid user ID");
+
+      const { name, email, phone, role, storeId } = req.body;
+
+      const updateData: any = { updated_at: new Date() };
+      if (name !== undefined) updateData.name = name.trim();
+      if (email !== undefined) updateData.email = email.trim().toLowerCase();
+      if (phone !== undefined) updateData.phone = phone ? phone.trim() : null;
+      if (role !== undefined) updateData.role = role;
+      if (storeId !== undefined) updateData.store_id = Number(storeId);
+
+      const [updated] = await db.update(users).set(updateData).where(eq(users.id, id)).returning();
+      if (!updated) throw new NotFoundError("User not found");
+
+      await logAudit("SUPER_ADMIN_EDIT_USER", `Updated User profile for #${id} (${updated.email})`, updated.organization_id, updated.store_id, id);
+
+      res.status(200).json({ success: true, message: "User updated successfully", data: updated });
+    } catch (error) {
+      next(error);
+    }
+  };
+
   updateUserStatus = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const id = parseInt(req.params.id as string, 10);
       const { status } = req.body;
       if (isNaN(id)) throw new ValidationError("Invalid user ID");
 
-      const isActive = status === "active" ? 1 : 0;
+      const targetStatus = String(status || "active").toLowerCase();
+      const isActive = targetStatus === "active" ? 1 : 0;
       const [updated] = await db
         .update(users)
-        .set({ status, is_active: isActive, updated_at: new Date() })
+        .set({ status: targetStatus, is_active: isActive, updated_at: new Date() })
         .where(eq(users.id, id))
         .returning();
 
-      res.status(200).json({ success: true, message: `User status updated to ${status}`, data: updated });
+      if (!updated) throw new NotFoundError("User not found");
+
+      await logAudit(
+        targetStatus === "suspended" ? "SUPER_ADMIN_SUSPEND_USER" : "SUPER_ADMIN_REACTIVATE_USER",
+        `Changed User #${id} (${updated.email}) status to ${targetStatus.toUpperCase()}`,
+        updated.organization_id,
+        updated.store_id,
+        id
+      );
+
+      res.status(200).json({ success: true, message: `User status updated to ${targetStatus.toUpperCase()}`, data: updated });
     } catch (error) {
       next(error);
     }
@@ -486,7 +751,9 @@ export class SuperAdminController {
       if (!newPassword || newPassword.length < 6) throw new ValidationError("Password must be at least 6 characters");
 
       const hash = await bcrypt.hash(newPassword, 10);
-      await db.update(users).set({ password_hash: hash, updated_at: new Date() }).where(eq(users.id, id));
+      const [updated] = await db.update(users).set({ password_hash: hash, updated_at: new Date() }).where(eq(users.id, id)).returning();
+
+      await logAudit("SUPER_ADMIN_RESET_USER_PASSWORD", `Reset password for User #${id} (${updated?.email})`, updated?.organization_id, updated?.store_id, id);
 
       res.status(200).json({ success: true, message: "User password reset successfully" });
     } catch (error) {
@@ -496,12 +763,30 @@ export class SuperAdminController {
 
   getAuditLogs = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
+      const logs = await db
+        .select()
+        .from(audit_logs)
+        .orderBy(desc(audit_logs.id))
+        .limit(100);
+
+      const allUsers = await db.select({ id: users.id, name: users.name, email: users.email }).from(users);
+
+      const formatted = logs.map((l) => {
+        const u = allUsers.find((user) => user.id === l.user_id);
+        return {
+          id: l.id,
+          action: l.action,
+          performedBy: u ? `${u.name} (${u.email})` : "Super Admin",
+          details: l.details || "N/A",
+          organizationId: l.organization_id,
+          storeId: l.store_id,
+          timestamp: l.created_at ? new Date(l.created_at).toISOString() : new Date().toISOString(),
+        };
+      });
+
       res.status(200).json({
         success: true,
-        data: [
-          { id: 1, action: "SUPER_ADMIN_LOGIN", performedBy: "superadmin@orion.com", details: "Successful Super Admin login", ip: "127.0.0.1", timestamp: new Date().toISOString() },
-          { id: 2, action: "SCHEMA_VERIFY", performedBy: "SYSTEM", details: "Database columns verified and mapped", ip: "127.0.0.1", timestamp: new Date().toISOString() },
-        ],
+        data: formatted,
       });
     } catch (error) {
       next(error);
@@ -510,14 +795,29 @@ export class SuperAdminController {
 
   getSystemHealth = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
+      const startMs = Date.now();
+      const [dbTest] = await db.select({ val: sql<number>`1` }).from(organizations).limit(1);
+      const latencyMs = Date.now() - startMs;
+
+      const [orgCount] = await db.select({ count: sql<string>`COUNT(*)` }).from(organizations);
+      const [storeCount] = await db.select({ count: sql<string>`COUNT(*)` }).from(stores);
+      const [userCount] = await db.select({ count: sql<string>`COUNT(*)` }).from(users);
+      const [productCount] = await db.select({ count: sql<string>`COUNT(*)` }).from(products);
+      const [salesCount] = await db.select({ count: sql<string>`COUNT(*)` }).from(sales);
+
       res.status(200).json({
         success: true,
         data: {
-          database: { status: "HEALTHY", latencyMs: 4, provider: "PostgreSQL on Railway" },
+          database: { status: dbTest ? "HEALTHY" : "DEGRADED", latencyMs, provider: "PostgreSQL on Railway" },
           railway: { status: "OPERATIONAL", region: "iad", uptime: "99.99%" },
-          cloudinary: { status: "CONNECTED", statusText: "Media CDN Active" },
-          storage: { status: "HEALTHY", availableSpace: "98.2 GB" },
           api: { status: "ONLINE", httpStatus: 200, timestamp: new Date().toISOString() },
+          metrics: {
+            totalOrganizations: Number(orgCount?.count || 0),
+            totalStores: Number(storeCount?.count || 0),
+            totalUsers: Number(userCount?.count || 0),
+            totalProducts: Number(productCount?.count || 0),
+            totalSales: Number(salesCount?.count || 0),
+          },
         },
       });
     } catch (error) {

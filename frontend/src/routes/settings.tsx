@@ -846,10 +846,10 @@ function SettingsV2() {
               aria-selected={isActive}
               aria-controls={`panel-${sec.id}`}
               onClick={() => setActiveSection(sec.id)}
-              className={`shrink-0 flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${
+              className={`shrink-0 flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all min-h-[44px] touch-target active:scale-95 ${
                 isActive
                   ? "bg-primary text-primary-foreground shadow-xs"
-                  : "bg-muted/40 text-muted-foreground hover:bg-muted hover:text-foreground"
+                  : "bg-muted/50 text-muted-foreground hover:bg-muted hover:text-foreground"
               }`}
             >
               <Icon className="size-3.5" />

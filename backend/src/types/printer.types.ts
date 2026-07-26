@@ -1,5 +1,5 @@
 export interface PrinterConfig {
-  type: "Internal POS" | "Bluetooth" | "USB";
+  type: "Internal POS" | "Bluetooth" | "USB" | "Network";
   paperWidth: "58mm" | "80mm";
   characterDensity: "normal" | "compact";
   darkness: string;
