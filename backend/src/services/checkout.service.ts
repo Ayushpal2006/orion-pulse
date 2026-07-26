@@ -217,19 +217,21 @@ export class CheckoutService {
       });
       const tSaleTime = performance.now() - tSaleStart;
 
-      // 5. Create Sale Item records
+      // 5. Create Sale Item records via atomic multi-row batch insert
       const tItemsStart = performance.now();
-      for (const item of processedItems) {
-        await tx.insert(sale_items).values({
-          organization_id: orgId,
-          store_id: storeId,
-          sale_id: sale.id,
-          product_id: item.productId,
-          quantity: item.quantity,
-          selling_price: item.sellingPrice,
-          discount: item.discount,
-          line_total: item.lineTotal,
-        });
+      if (processedItems.length > 0) {
+        await tx.insert(sale_items).values(
+          processedItems.map((item) => ({
+            organization_id: orgId,
+            store_id: storeId,
+            sale_id: sale.id,
+            product_id: item.productId,
+            quantity: item.quantity,
+            selling_price: item.sellingPrice,
+            discount: item.discount,
+            line_total: item.lineTotal,
+          }))
+        );
       }
       const tItemsTime = performance.now() - tItemsStart;
 
