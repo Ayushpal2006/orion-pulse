@@ -469,6 +469,146 @@ export class EscposFormatter {
     return this.getBuffer();
   }
 
+  pulseCashDrawer(pin: number = 0) {
+    // ESC p m t1 t2 (Pulse cash drawer pin 0 or 1)
+    this.buffer.push(0x1b, 0x70, pin & 0x01, 25, 250);
+    return this;
+  }
+
+  printUnicode(str: string, lang: string = "en") {
+    // Convert string to UTF-8 buffer bytes safely
+    const utf8Bytes = Buffer.from(str, "utf-8");
+    for (let i = 0; i < utf8Bytes.length; i++) {
+      this.buffer.push(utf8Bytes[i]);
+    }
+    return this;
+  }
+
+  formatKOT(kot: any): Buffer {
+    this.init();
+
+    this.alignCenter();
+    this.bold(true);
+    this.sizeDoubleWidthHeight();
+    this.text("KITCHEN ORDER TICKET");
+    this.lineFeed(2);
+
+    this.sizeNormal();
+    this.bold(false);
+    this.row(`KOT #: ${kot.kotNumber || "KOT-001"}`, `Table: ${kot.tableNumber || "T-01"}`);
+    this.row(`Date: ${kot.date || new Date().toLocaleDateString()}`, `Time: ${kot.time || new Date().toLocaleTimeString()}`);
+    this.row(`Server: ${kot.serverName || "Order App"}`, `Type: ${kot.orderType || "Dine-In"}`);
+    this.divider();
+
+    this.alignLeft();
+    this.bold(true);
+    this.text("ITEM NAME                        QTY");
+    this.lineFeed();
+    this.divider();
+    this.bold(false);
+
+    for (const item of kot.items || []) {
+      this.bold(true);
+      this.row(item.name, `x${item.qty}`);
+      this.bold(false);
+      if (item.notes) {
+        this.text(`   * Note: ${item.notes}`);
+        this.lineFeed();
+      }
+    }
+
+    this.divider();
+    if (kot.specialInstructions) {
+      this.text(`INSTRUCTIONS: ${kot.specialInstructions}`);
+      this.lineFeed();
+      this.divider();
+    }
+
+    this.lineFeed(2);
+    this.cut();
+
+    return this.getBuffer();
+  }
+
+  formatAdvancedReceipt(receipt: any, copyType: string = "CUSTOMER COPY"): Buffer {
+    this.init();
+
+    // 1. Watermark / Copy Header
+    this.alignCenter();
+    this.bold(true);
+    this.text(`*** ${copyType.toUpperCase()} ***`);
+    this.lineFeed(2);
+
+    // 2. Shop Info
+    this.sizeDoubleWidthHeight();
+    this.text(receipt.shop.name);
+    this.lineFeed();
+
+    this.sizeNormal();
+    this.bold(false);
+    this.text(receipt.shop.address);
+    this.lineFeed();
+    this.text(`Phone: ${receipt.shop.phone}`);
+    this.lineFeed();
+    if (receipt.shop.gstin) {
+      this.text(`GSTIN: ${receipt.shop.gstin}`);
+      this.lineFeed();
+    }
+
+    this.divider();
+
+    // 3. Invoice Details
+    this.alignLeft();
+    this.text(`Ref Number: ${receipt.invoiceNumber}`);
+    this.lineFeed();
+    this.text(`Date & Time: ${receipt.date} ${receipt.time}`);
+    this.lineFeed();
+    if (receipt.cashier) {
+      this.text(`Cashier: ${receipt.cashier}`);
+      this.lineFeed();
+    }
+    if (receipt.customer?.name) {
+      this.text(`Customer: ${receipt.customer.name}`);
+      this.lineFeed();
+    }
+
+    this.divider();
+
+    // 4. Line Items
+    for (const item of receipt.items || []) {
+      this.row(`${item.qty}x ${item.name}`, `Rs ${(item.lineTotal || 0).toFixed(2)}`);
+    }
+
+    this.divider();
+
+    // 5. Totals
+    this.row("Subtotal", `Rs ${(receipt.subtotal || 0).toFixed(2)}`);
+    if (receipt.discount > 0) {
+      this.row("Discount", `Rs ${(receipt.discount || 0).toFixed(2)}`);
+    }
+    if (receipt.gst > 0) {
+      this.row("GST Tax", `Rs ${(receipt.gst || 0).toFixed(2)}`);
+    }
+
+    this.divider();
+    this.bold(true);
+    this.row("TOTAL AMOUNT", `Rs ${(receipt.grandTotal || 0).toFixed(2)}`);
+    this.bold(false);
+    this.divider();
+
+    // 6. Payment & Footer
+    this.alignCenter();
+    this.text(`Payment: ${receipt.paymentMethod || "Cash"}`);
+    this.lineFeed();
+    this.bold(true);
+    this.text(receipt.thankYouMessage || "Thank you for your business!");
+    this.lineFeed(3);
+
+    this.cut();
+
+    return this.getBuffer();
+  }
+
   getBuffer(): Buffer {
     return Buffer.from(this.buffer);
   }
