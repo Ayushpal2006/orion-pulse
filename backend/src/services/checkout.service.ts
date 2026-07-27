@@ -322,6 +322,35 @@ export class CheckoutService {
       };
     });
 
+    // Step 5 & 6: Immediate WhatsApp message preparation (failsafe - never rolls back or blocks checkout)
+    let whatsappUrl: string | undefined = undefined;
+    let whatsappPrepared = false;
+    let whatsappError: string | undefined = undefined;
+
+    try {
+      const { ShareService } = require("./share.service");
+      const { SalesService } = require("./sales.service");
+      const shareService = new ShareService();
+      const salesService = new SalesService();
+
+      const receipt = await salesService.getReceipt(result.invoice);
+      if (receipt) {
+        whatsappUrl = shareService.generateWhatsAppLink(receipt);
+        whatsappPrepared = true;
+      }
+    } catch (err: any) {
+      console.error("[Checkout Flow] WhatsApp message preparation notice (checkout succeeded):", err.message || err);
+      whatsappPrepared = false;
+      whatsappError = "Sale completed successfully. WhatsApp message could not be prepared.";
+    }
+
+    const finalResult: CheckoutResponse = {
+      ...result,
+      whatsappUrl,
+      whatsappPrepared,
+      ...(whatsappError ? { whatsappError } : {}),
+    };
+
     // Enqueue background sync/notifications asynchronously outside response thread
     setImmediate(() => {
       try {
@@ -358,7 +387,7 @@ export class CheckoutService {
       }
     });
 
-    idempotencyCache.set(idempotencyKey, { timestamp: Date.now(), response: result });
-    return result;
+    idempotencyCache.set(idempotencyKey, { timestamp: Date.now(), response: finalResult });
+    return finalResult;
   }
 }

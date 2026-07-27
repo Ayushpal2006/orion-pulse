@@ -54,6 +54,10 @@ export interface CheckoutResponse {
   discount: number;
   gst: number;
   grandTotal: number;
+  publicToken?: string;
+  whatsappUrl?: string;
+  whatsappPrepared?: boolean;
+  whatsappError?: string;
   items: {
     productId: number;
     name: string;
@@ -61,6 +65,9 @@ export interface CheckoutResponse {
     sellingPrice: number;
     lineTotal: number;
   }[];
+  syncCustomer?: any;
+  syncProducts?: any[];
+  timings?: any;
 }
 
 export interface SaleDetailResponse {

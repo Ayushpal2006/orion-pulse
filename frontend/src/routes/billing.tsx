@@ -306,7 +306,11 @@ function Billing() {
         setCustomers(mapped);
       }).catch(() => {});
 
-      toast.success("Sale complete", { description: `Invoice created: ${res.invoice}` });
+      if (res.whatsappPrepared === false) {
+        toast.info("Sale completed successfully. WhatsApp message could not be prepared.", { description: `Invoice created: ${res.invoice}` });
+      } else {
+        toast.success("Sale complete", { description: `Invoice created: ${res.invoice}` });
+      }
       console.log("[Checkout Flow] Receipt Navigation");
       setShowSlip(true);
     } catch (err: any) {
@@ -789,6 +793,13 @@ export function SlipDialog({
   };
 
   const handleWhatsApp = async () => {
+    if (result?.whatsappUrl) {
+      window.open(result.whatsappUrl, "_blank");
+      if (receipt) {
+        await logSaleAudit(receipt.invoiceNumber, "INVOICE_SHARE", `${role} shared invoice ${receipt.invoiceNumber} on WhatsApp`);
+      }
+      return;
+    }
     if (!receipt) return;
     setSharingWhatsApp(true);
     try {
