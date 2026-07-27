@@ -129,6 +129,7 @@ export class CheckoutService {
       const tInvStart = performance.now();
       const invoiceNumber = await this.generateNextInvoiceNumber(storeId, tx);
       const tInvTime = performance.now() - tInvStart;
+      console.log("[Checkout Flow] Invoice Created:", invoiceNumber);
 
       // 3. Process items, validate stock, and calculate totals
       const tStockStart = performance.now();
@@ -136,6 +137,16 @@ export class CheckoutService {
       let totalGst = 0;
       const processedItems: any[] = [];
       const syncProductsList: any[] = [];
+
+      const toISOStringSafe = (val: any): string | null => {
+        if (!val) return null;
+        if (val instanceof Date) return val.toISOString();
+        if (typeof val === "string") {
+          const d = new Date(val);
+          return isNaN(d.getTime()) ? val : d.toISOString();
+        }
+        return null;
+      };
 
       for (const item of request.items) {
         const movementResult = await this.movementService.recordSale(
@@ -151,8 +162,8 @@ export class CheckoutService {
 
         syncProductsList.push({
           ...product,
-          created_at: product.created_at.toISOString(),
-          updated_at: product.updated_at.toISOString()
+          created_at: toISOStringSafe(product.created_at),
+          updated_at: toISOStringSafe(product.updated_at)
         });
 
         // Calculations
@@ -174,6 +185,7 @@ export class CheckoutService {
         });
       }
       const tStockTime = performance.now() - tStockStart;
+      console.log("[Checkout Flow] Stock Updated");
 
       const discount = request.discount ?? 0;
       const grandTotal = subtotal + totalGst - discount;
@@ -206,6 +218,8 @@ export class CheckoutService {
           pdf_url: "",
         })
         .returning();
+
+      console.log("[Checkout Flow] Sale Saved:", sale.id);
 
       // Add creation details to audit logs
       await tx.insert(audit_logs).values({
@@ -252,6 +266,9 @@ export class CheckoutService {
         .returning();
       const tCustUpdateTime = performance.now() - tCustUpdateStart;
 
+      console.log("[Checkout Flow] Receipt Generated");
+      console.log("[Checkout Flow] Cloudinary Uploaded (N/A)");
+
       return {
         success: true,
         invoice: invoiceNumber,
@@ -270,9 +287,9 @@ export class CheckoutService {
         })),
         syncCustomer: {
           ...updatedCustomer,
-          created_at: updatedCustomer.created_at.toISOString(),
-          updated_at: updatedCustomer.updated_at.toISOString(),
-          last_visit: updatedCustomer.last_visit ? updatedCustomer.last_visit.toISOString() : null
+          created_at: toISOStringSafe(updatedCustomer.created_at),
+          updated_at: toISOStringSafe(updatedCustomer.updated_at),
+          last_visit: toISOStringSafe(updatedCustomer.last_visit)
         },
         syncProducts: syncProductsList,
         timings: {

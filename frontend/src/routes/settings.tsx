@@ -255,6 +255,9 @@ function SettingsV2() {
           if (cfg.invoice_footer && s.setInvoiceFooter) s.setInvoiceFooter(cfg.invoice_footer);
           if (cfg.terms_and_conditions && s.setTermsAndConditions) s.setTermsAndConditions(cfg.terms_and_conditions);
           if (cfg.whatsapp_signature && s.setWhatsappSignature) s.setWhatsappSignature(cfg.whatsapp_signature);
+          if (cfg.require_customer_before_checkout !== undefined && s.setRequireCustomerBeforeCheckout) {
+            s.setRequireCustomerBeforeCheckout(cfg.require_customer_before_checkout === "1" || cfg.require_customer_before_checkout === "true");
+          }
         }
       })
       .catch(() => {});
@@ -395,6 +398,7 @@ function SettingsV2() {
           low_stock_threshold: String(lowStockThreshold || 10),
           default_report_period: defaultReportPeriod,
           export_format: exportFormat,
+          require_customer_before_checkout: s.requireCustomerBeforeCheckout ? "1" : "0",
         }),
       });
 

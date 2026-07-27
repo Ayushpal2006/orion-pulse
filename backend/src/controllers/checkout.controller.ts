@@ -10,9 +10,13 @@ export class CheckoutController {
 
   checkout = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
+      console.log("[Checkout Flow] Checkout Started");
       const result = await this.service.executeCheckout(req.body);
+      console.log("[Checkout Flow] Response Built");
       res.status(201).json(result);
+      console.log("[Checkout Flow] Response Returned");
     } catch (error) {
+      console.error("[Checkout Flow] Error caught in controller:", error);
       next(error);
     }
   };
