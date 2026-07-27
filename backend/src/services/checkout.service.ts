@@ -29,7 +29,14 @@ export class CheckoutService {
   async generateNextInvoiceNumber(storeId: number, txClient?: any): Promise<string> {
     const client = txClient || db;
     const todayStr = getKolkataDateString();
-    const prefix = `INV-${todayStr}-`;
+    
+    // Load configured prefix setting dynamically from DB
+    const rawPrefix = await settingsRepository.get("inv_prefix", "INV-");
+    const basePrefix = rawPrefix && rawPrefix.trim() !== "" ? rawPrefix.trim() : "INV-";
+    
+    const prefix = basePrefix.endsWith("-") || basePrefix.endsWith("/")
+      ? `${basePrefix}${todayStr}-`
+      : `${basePrefix}-${todayStr}-`;
 
     const rows = await client
       .select({ invoice_number: sales.invoice_number })
@@ -41,15 +48,17 @@ export class CheckoutService {
     let nextSeq = 1;
     if (rows[0]) {
       const parts = rows[0].invoice_number.split("-");
-      if (parts.length === 3) {
-        const seqNum = parseInt(parts[2], 10);
+      if (parts.length >= 3) {
+        const lastPart = parts[parts.length - 1];
+        const seqNum = parseInt(lastPart, 10);
         if (!isNaN(seqNum)) {
           nextSeq = seqNum + 1;
         }
       }
     }
 
-    return `${prefix}${String(nextSeq).padStart(6, "0")}`;
+    const seqStr = String(nextSeq).padStart(6, "0");
+    return `${prefix}${seqStr}`;
   }
 
   async executeCheckout(request: CheckoutRequest & { paymentDetails?: any; paidAmount?: number; balance?: number }): Promise<CheckoutResponse> {

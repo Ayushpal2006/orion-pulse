@@ -105,7 +105,7 @@ function StoreSwitcher() {
 }
 
 const navTree: NavElement[] = [
-  { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard, exact: true },
+  { to: "/", label: "Dashboard", icon: LayoutDashboard, exact: true },
   { to: "/billing", label: "Billing", icon: ShoppingCart },
   {
     label: "Inventory",

@@ -58,12 +58,32 @@ export class BrowserPrintAdapter implements PrintAdapter {
 
 export class PosPrintAdapter implements PrintAdapter {
   async print(receipt: any): Promise<void> {
-    console.log("[PosPrintAdapter] Placeholder print called. Later this will invoke the Z91 Android SDK.", receipt);
-    alert("Z91 POS SDK print triggered (Placeholder Mode)");
-    
     const invoiceNumber = receipt?.invoiceNumber || (typeof receipt === "string" ? receipt : null);
+    
+    // 1. Android POS WebBridge Integration (Sunmi / Z91 / POS Android Terminals)
+    if (typeof window !== "undefined" && (window as any).Android && typeof (window as any).Android.printReceipt === "function") {
+      try {
+        (window as any).Android.printReceipt(JSON.stringify(receipt));
+        toast.success("Printed to POS Thermal Printer via Android SDK");
+        return;
+      } catch (err: any) {
+        console.error("Android POS Native Print Error:", err);
+      }
+    }
+
+    // 2. Direct ESC/POS Backend Spooler Fallback
     if (invoiceNumber) {
-      await printSaleReceipt(invoiceNumber);
+      const toastId = toast.loading("Sending job to ESC/POS Thermal Printer...");
+      try {
+        const res = await printSaleReceipt(invoiceNumber);
+        toast.dismiss(toastId);
+        toast.success(res?.message || "Thermal receipt printed successfully!");
+      } catch (err: any) {
+        toast.dismiss(toastId);
+        toast.error("Thermal print error: " + (err.message || "Could not dispatch to printer"));
+        // Fall back to dedicated browser print window
+        window.open(`/print/invoice/${invoiceNumber}?autoprint=true`, "_blank");
+      }
     }
   }
 }
