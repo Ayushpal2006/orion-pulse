@@ -16,6 +16,7 @@ const upload = multer({ dest: tempDir });
 
 router.get("/", controller.getAll);
 router.post("/", controller.update);
+router.put("/", controller.update);
 router.get("/storage", controller.getStorageStatus);
 router.post("/storage/cleanup", controller.triggerCleanup);
 router.get("/backup", controller.backup);
