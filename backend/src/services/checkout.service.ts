@@ -57,21 +57,39 @@ export class CheckoutService {
     const orgId = getOrganizationId() || 1;
 
     const requireCustomerSetting = await settingsRepository.get("require_customer_before_checkout", "0");
-    const requireCustomer = requireCustomerSetting === "1";
+    const requireCustomer = requireCustomerSetting === "1" || requireCustomerSetting === "true";
+    const walkInEnabled = !requireCustomer;
 
     let phone = request.customerPhone;
     let name = request.customerName;
+    let customerId = (request as any).customerId;
 
-    if (requireCustomer) {
-      if (!phone || phone.trim() === "" || phone === "0000000000" || name === "Walk-in Customer") {
-        throw new ValidationError("Please select a customer before completing this sale.");
-      }
-    } else {
-      if (!phone || phone.trim() === "" || phone === "0000000000") {
-        phone = "0000000000";
-        name = "Walk-in Customer";
-      }
+    const hasRealCustomer = Boolean(
+      phone &&
+      phone.trim() !== "" &&
+      phone !== "0000000000" &&
+      name &&
+      name !== "Walk-in Customer"
+    );
+
+    let resolvedCustomer = hasRealCustomer
+      ? { phone, name }
+      : { phone: "0000000000", name: "Walk-in Customer" };
+
+    console.log({
+      customerId,
+      customerName: name,
+      customerPhone: phone,
+      walkInEnabled,
+      resolvedCustomer
+    });
+
+    if (requireCustomer && !hasRealCustomer) {
+      throw new ValidationError("Please select a customer before completing checkout.");
     }
+
+    phone = resolvedCustomer.phone;
+    name = resolvedCustomer.name;
 
     const idempotencyKey = `${storeId}-${phone}-${request.paymentMethod}-${request.items
       .map((i) => `${i.productId}:${i.quantity}`)
