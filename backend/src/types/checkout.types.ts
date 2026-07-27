@@ -5,6 +5,7 @@ export interface CheckoutItemRequest {
 }
 
 export interface CheckoutRequest {
+  customerId?: number;
   customerPhone: string;
   paymentMethod: "Cash" | "UPI" | "Card" | "Wallet" | "Split" | "Bank Transfer";
   cashierName: string;

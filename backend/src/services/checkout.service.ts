@@ -56,13 +56,14 @@ export class CheckoutService {
     const storeId = getStoreId() || 1;
     const orgId = getOrganizationId() || 1;
 
+    // 1. Load setting
     const requireCustomerSetting = await settingsRepository.get("require_customer_before_checkout", "0");
     const requireCustomer = requireCustomerSetting === "1" || requireCustomerSetting === "true";
     const walkInEnabled = !requireCustomer;
 
     let phone = request.customerPhone;
     let name = request.customerName;
-    let customerId = (request as any).customerId;
+    let customerId = request.customerId;
 
     // Sanitize phone number (strip non-digits, leading zeros, +91 prefix)
     let sanitizedPhone = (phone || "").replace(/\D/g, "");
@@ -73,69 +74,68 @@ export class CheckoutService {
       sanitizedPhone = sanitizedPhone.slice(1);
     }
 
-    const hasRealCustomer = Boolean(
-      sanitizedPhone &&
-      sanitizedPhone !== "0000000000" &&
-      sanitizedPhone.length >= 10 &&
-      name &&
-      name.trim() !== "" &&
-      name !== "Walk-in Customer"
+    const isExplicitCustomer = Boolean(
+      customerId ||
+      (sanitizedPhone && sanitizedPhone !== "0000000000" && sanitizedPhone.length >= 10) ||
+      (name && name.trim() !== "" && name.trim() !== "Walk-in Customer")
     );
 
-    let resolvedCustomer = hasRealCustomer
-      ? { phone: sanitizedPhone, name: (name || "").trim() }
-      : { phone: "0000000000", name: "Walk-in Customer" };
-
-    console.log({
+    console.log("[Checkout Customer Validation]", {
       customerId,
       customerName: name,
       customerPhone: phone,
+      requireCustomer,
       walkInEnabled,
-      resolvedCustomer
+      isExplicitCustomer
     });
 
-    if (requireCustomer && !hasRealCustomer) {
+    // 2. Validate mandatory customer selection if require_customer_before_checkout is enabled
+    if (requireCustomer && !isExplicitCustomer) {
       throw new ValidationError("Please select a customer before completing checkout.");
     }
 
-    phone = resolvedCustomer.phone;
-    name = resolvedCustomer.name;
-
-    const idempotencyKey = `${storeId}-${phone}-${request.paymentMethod}-${request.items
+    const idempotencyKey = `${storeId}-${isExplicitCustomer ? (sanitizedPhone || customerId) : "walkin"}-${request.paymentMethod}-${request.items
       .map((i) => `${i.productId}:${i.quantity}`)
       .join(",")}`;
 
     const now = Date.now();
     const cached = idempotencyCache.get(idempotencyKey);
     if (cached && now - cached.timestamp < 3000) {
-      console.warn(`[IDEMPOTENCY] Duplicate checkout request detected for key: ${idempotencyKey}. Returning cached response.`);
+      console.log("[Checkout Flow] Returning cached response for duplicate request:", idempotencyKey);
       return cached.response;
     }
 
     const t0 = performance.now();
 
     const result = await db.transaction(async (tx) => {
-      // 1. Find or resolve customer
+      // 3. Resolve customer
       const tCustomerStart = performance.now();
       let customer: any = null;
 
-      if (!hasRealCustomer) {
-        customer = await settingsRepository ? await customerRepository.ensureSystemWalkInCustomer(orgId, storeId, tx) : null;
-      } else if (sanitizedPhone && sanitizedPhone.length >= 10) {
-        const [found] = await tx
-          .select()
-          .from(customers)
-          .where(and(eq(customers.phone, sanitizedPhone), eq(customers.store_id, storeId)))
-          .limit(1);
-        customer = found;
+      if (isExplicitCustomer) {
+        if (customerId) {
+          customer = await customerRepository.getById(Number(customerId), tx);
+        }
+        if (!customer && sanitizedPhone && sanitizedPhone.length >= 10) {
+          customer = await customerRepository.getByPhone(sanitizedPhone, true, tx);
+        }
+        if (!customer && name && name.trim() !== "" && name.trim() !== "Walk-in Customer") {
+          const [found] = await tx
+            .select()
+            .from(customers)
+            .where(and(eq(customers.name, name.trim()), eq(customers.store_id, storeId)))
+            .limit(1);
+          customer = found;
+        }
+
         if (!customer) {
           const [newCust] = await tx
             .insert(customers)
             .values({
               organization_id: orgId,
               store_id: storeId,
-              name: (name || "").trim() || `Customer - ${sanitizedPhone}`,
-              phone: sanitizedPhone,
+              name: (name || "").trim() || `Customer - ${sanitizedPhone || "Guest"}`,
+              phone: sanitizedPhone && sanitizedPhone.length >= 10 ? sanitizedPhone : null,
               email: null,
               address: null,
               notes: "Auto-created during checkout",
@@ -148,7 +148,7 @@ export class CheckoutService {
         } else if (
           name &&
           name.trim() !== "" &&
-          name !== "Walk-in Customer" &&
+          name.trim() !== "Walk-in Customer" &&
           (customer.name.startsWith("Customer - ") || customer.name === "Walk-in Customer")
         ) {
           const [updatedCust] = await tx
@@ -157,31 +157,6 @@ export class CheckoutService {
             .where(eq(customers.id, customer.id))
             .returning();
           customer = updatedCust;
-        }
-      } else if (name && name.trim() !== "" && name !== "Walk-in Customer") {
-        const [found] = await tx
-          .select()
-          .from(customers)
-          .where(and(eq(customers.name, name.trim()), eq(customers.store_id, storeId)))
-          .limit(1);
-        customer = found;
-        if (!customer) {
-          const [newCust] = await tx
-            .insert(customers)
-            .values({
-              organization_id: orgId,
-              store_id: storeId,
-              name: name.trim(),
-              phone: null,
-              email: null,
-              address: null,
-              notes: "Auto-created during checkout (no phone)",
-              total_orders: 0,
-              lifetime_value: 0,
-              is_active: 1,
-            })
-            .returning();
-          customer = newCust;
         }
       }
 
@@ -382,7 +357,7 @@ export class CheckoutService {
 
       const receipt = await salesService.getReceipt(result.invoice);
       if (receipt) {
-        const isSystemWalkIn = !hasRealCustomer || receipt.customer?.name === "Walk-in Customer";
+        const isSystemWalkIn = !isExplicitCustomer || receipt.customer?.name === "Walk-in Customer";
         const customerPhoneDigits = (receipt.customer?.phone || "").replace(/\D/g, "");
         const hasValidPhone = Boolean(customerPhoneDigits && customerPhoneDigits !== "0000000000" && customerPhoneDigits.length >= 10);
 

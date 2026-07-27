@@ -1598,12 +1598,31 @@ function SettingsV2() {
                     ))}
                   </div>
                 </div>
+
+                {/* Require Customer Selection Toggle */}
+                <div className="space-y-1 sm:col-span-2 pt-1 flex items-center justify-between border-t border-border/40">
+                  <div className="space-y-0.5">
+                    <Label className="text-xs font-semibold">Require Customer Selection</Label>
+                    <div className="text-[10px] text-muted-foreground">When disabled, checkout automatically resolves to System Walk-in Customer.</div>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={s.requireCustomerBeforeCheckout}
+                    onChange={(e) => { s.setRequireCustomerBeforeCheckout(e.target.checked); setIsDirty(true); }}
+                    className="size-4 accent-primary cursor-pointer rounded"
+                  />
+                </div>
               </div>
 
               {/* Dynamic Live Preview Canvas Specimen */}
               <div className="space-y-3 pt-2">
-                <div className="text-xs font-bold uppercase tracking-wider text-foreground flex items-center gap-1.5">
-                  <CheckCircle className="size-4 text-emerald-500" /> Dynamic Live Specimen ({s.receiptTemplate} Theme)
+                <div className="text-xs font-bold uppercase tracking-wider text-foreground flex items-center justify-between">
+                  <div className="flex items-center gap-1.5">
+                    <CheckCircle className="size-4 text-emerald-500" /> Dynamic Live Specimen ({s.receiptTemplate} Theme)
+                  </div>
+                  <span className="text-[11px] font-mono text-muted-foreground">
+                    Format: <span className="font-bold text-foreground">{invPrefix}00125</span>
+                  </span>
                 </div>
 
                 <div
@@ -1659,17 +1678,25 @@ function SettingsV2() {
                     </div>
                   )}
 
-                  {/* Customer Info */}
+                  {/* Customer Info & Checkout Policy Banner */}
                   <div className="grid grid-cols-2 text-[11px] p-2.5 rounded-xl bg-muted/20 border border-border/40">
                     <div>
                       <div className="text-[10px] font-bold uppercase text-muted-foreground">Customer Billed To</div>
-                      <div className="font-semibold text-foreground">Rahul Verma</div>
-                      <div className="text-muted-foreground">+91 98765 43210</div>
+                      <div className="font-semibold text-foreground">
+                        {s.requireCustomerBeforeCheckout ? "Rahul Verma (Required)" : "Walk-in Customer"}
+                      </div>
+                      <div className="text-muted-foreground">
+                        {s.requireCustomerBeforeCheckout ? "+91 98765 43210" : "System Walk-in Customer (Auto)"}
+                      </div>
                     </div>
                     <div className="text-right">
-                      <div className="text-[10px] font-bold uppercase text-muted-foreground">GSTIN / State</div>
-                      <div className="font-mono text-foreground">27AABCU9603R1ZM</div>
-                      <div className="text-muted-foreground">Maharashtra (27)</div>
+                      <div className="text-[10px] font-bold uppercase text-muted-foreground">Checkout Requirement</div>
+                      <div className="font-mono text-foreground font-semibold">
+                        {s.requireCustomerBeforeCheckout ? "Mandatory Selection" : "Walk-in Allowed (Optional)"}
+                      </div>
+                      <div className="text-muted-foreground">
+                        {s.requireCustomerBeforeCheckout ? "Customer Attach Required" : "Auto System Resolution"}
+                      </div>
                     </div>
                   </div>
 
