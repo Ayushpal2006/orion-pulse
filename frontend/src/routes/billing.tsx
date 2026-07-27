@@ -306,8 +306,8 @@ function Billing() {
         setCustomers(mapped);
       }).catch(() => {});
 
-      if (res.whatsappPrepared === false) {
-        toast.info("Sale completed successfully. WhatsApp message could not be prepared.", { description: `Invoice created: ${res.invoice}` });
+      if (res.whatsappPrepared === false && res.whatsappError) {
+        toast.info(res.whatsappError, { description: `Invoice created: ${res.invoice}` });
       } else {
         toast.success("Sale complete", { description: `Invoice created: ${res.invoice}` });
       }

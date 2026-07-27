@@ -7,6 +7,7 @@ import path from "path";
 import fs from "fs";
 import { env } from "../config/env";
 import { logger } from "../logger/logger";
+import { customerRepository } from "../repositories";
 import { DatabaseProvider } from "./provider";
 import { runZeroAvgCostMigration } from "../db/migrations/fix_zero_avg_cost_migration";
 
@@ -173,6 +174,10 @@ export async function initDb(): Promise<void> {
       }
       logger.info("✅ Default customers seeded successfully.");
     }
+
+    // Always ensure System Walk-in Customer exists for default store
+    await customerRepository.ensureSystemWalkInCustomer(1, 1);
+    logger.info("✅ System Walk-in Customer verified.");
 
     // 7. Ensure invoices uploads directory exists
     const uploadsDir = path.join(process.cwd(), "uploads/invoices");

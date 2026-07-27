@@ -11,4 +11,5 @@ export interface ICustomerRepository {
   search(query: string, tx?: DatabaseAdapter): Promise<Customer[]>;
   getCustomerInvoices(customerId: number, tx?: DatabaseAdapter): Promise<any[]>;
   getCustomersExport(tx?: DatabaseAdapter): Promise<any[]>;
+  ensureSystemWalkInCustomer(orgId?: number, storeId?: number, tx?: any): Promise<Customer>;
 }

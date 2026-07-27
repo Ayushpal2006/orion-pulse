@@ -209,7 +209,7 @@ function Customers() {
                       )}
                     </div>
                     <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                      <Phone className="size-3" /> +91 {c.mobile}
+                      <Phone className="size-3" /> {c.mobile && c.mobile !== "0000000000" ? `+91 ${c.mobile}` : "System Account (No Phone)"}
                     </div>
                   </div>
                   <div className="hidden text-right sm:block">
@@ -318,14 +318,20 @@ function CustomerDetail({
             Registered since <span className="font-medium text-foreground">{customer.since}</span>.
           </span>
         </div>
-        <div className="flex gap-2">
-          <Button size="sm" variant="outline" className="h-8 rounded-lg" onClick={onEdit}>
-            <Pencil className="mr-1 size-3" /> Edit
-          </Button>
-          <Button size="sm" variant="outline" className="h-8 rounded-lg text-rose-500 hover:text-rose-500 hover:bg-rose-500/5 border-rose-500/20" onClick={onDelete}>
-            <Trash2 className="mr-1 size-3" /> Delete
-          </Button>
-        </div>
+        {customer.name === "Walk-in Customer" || (customer as any).is_protected || (customer as any).is_system ? (
+          <span className="rounded-full bg-primary/10 px-2.5 py-1 text-[11px] font-semibold text-primary border border-primary/20">
+            Protected System Account
+          </span>
+        ) : (
+          <div className="flex gap-2">
+            <Button size="sm" variant="outline" className="h-8 rounded-lg" onClick={onEdit}>
+              <Pencil className="mr-1 size-3" /> Edit
+            </Button>
+            <Button size="sm" variant="outline" className="h-8 rounded-lg text-rose-500 hover:text-rose-500 hover:bg-rose-500/5 border-rose-500/20" onClick={onDelete}>
+              <Trash2 className="mr-1 size-3" /> Delete
+            </Button>
+          </div>
+        )}
       </div>
 
       <div className="text-xs font-semibold text-muted-foreground mb-3 mt-4">Transaction History Timeline</div>

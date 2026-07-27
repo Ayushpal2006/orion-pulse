@@ -201,7 +201,7 @@ export class SalesService {
       },
       customer: {
         name: customer ? customer.name : "Walk-in Customer",
-        phone: customer ? customer.phone : "",
+        phone: customer ? (customer.phone || "") : "",
       },
       items: itemsMapped,
       subtotal: sale.subtotal / 100.0,

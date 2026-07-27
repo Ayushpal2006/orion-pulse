@@ -6,7 +6,7 @@ import { ValidationError, NotFoundError } from "../utils/errors";
 import { getStoreId, getOrganizationId, getUserId } from "../db/context";
 import { getKolkataDateString } from "../utils/datetime";
 import { formatInTimeZone } from "date-fns-tz";
-import { settingsRepository } from "../repositories";
+import { settingsRepository, customerRepository } from "../repositories";
 import { InventoryMovementService } from "./inventory-movement.service";
 
 const idempotencyCache = new Map<string, { timestamp: number; response: any }>();
@@ -64,16 +64,26 @@ export class CheckoutService {
     let name = request.customerName;
     let customerId = (request as any).customerId;
 
+    // Sanitize phone number (strip non-digits, leading zeros, +91 prefix)
+    let sanitizedPhone = (phone || "").replace(/\D/g, "");
+    if (sanitizedPhone.length === 12 && sanitizedPhone.startsWith("91")) {
+      sanitizedPhone = sanitizedPhone.slice(2);
+    }
+    if (sanitizedPhone.length === 11 && sanitizedPhone.startsWith("0")) {
+      sanitizedPhone = sanitizedPhone.slice(1);
+    }
+
     const hasRealCustomer = Boolean(
-      phone &&
-      phone.trim() !== "" &&
-      phone !== "0000000000" &&
+      sanitizedPhone &&
+      sanitizedPhone !== "0000000000" &&
+      sanitizedPhone.length >= 10 &&
       name &&
+      name.trim() !== "" &&
       name !== "Walk-in Customer"
     );
 
     let resolvedCustomer = hasRealCustomer
-      ? { phone, name }
+      ? { phone: sanitizedPhone, name: (name || "").trim() }
       : { phone: "0000000000", name: "Walk-in Customer" };
 
     console.log({
@@ -105,41 +115,78 @@ export class CheckoutService {
     const t0 = performance.now();
 
     const result = await db.transaction(async (tx) => {
-      // 1. Find or create customer
+      // 1. Find or resolve customer
       const tCustomerStart = performance.now();
-      let [customer] = await tx
-        .select()
-        .from(customers)
-        .where(and(eq(customers.phone, phone), eq(customers.store_id, storeId)))
-        .limit(1);
+      let customer: any = null;
+
+      if (!hasRealCustomer) {
+        customer = await settingsRepository ? await customerRepository.ensureSystemWalkInCustomer(orgId, storeId, tx) : null;
+      } else if (sanitizedPhone && sanitizedPhone.length >= 10) {
+        const [found] = await tx
+          .select()
+          .from(customers)
+          .where(and(eq(customers.phone, sanitizedPhone), eq(customers.store_id, storeId)))
+          .limit(1);
+        customer = found;
+        if (!customer) {
+          const [newCust] = await tx
+            .insert(customers)
+            .values({
+              organization_id: orgId,
+              store_id: storeId,
+              name: (name || "").trim() || `Customer - ${sanitizedPhone}`,
+              phone: sanitizedPhone,
+              email: null,
+              address: null,
+              notes: "Auto-created during checkout",
+              total_orders: 0,
+              lifetime_value: 0,
+              is_active: 1,
+            })
+            .returning();
+          customer = newCust;
+        } else if (
+          name &&
+          name.trim() !== "" &&
+          name !== "Walk-in Customer" &&
+          (customer.name.startsWith("Customer - ") || customer.name === "Walk-in Customer")
+        ) {
+          const [updatedCust] = await tx
+            .update(customers)
+            .set({ name: name.trim(), updated_at: new Date() })
+            .where(eq(customers.id, customer.id))
+            .returning();
+          customer = updatedCust;
+        }
+      } else if (name && name.trim() !== "" && name !== "Walk-in Customer") {
+        const [found] = await tx
+          .select()
+          .from(customers)
+          .where(and(eq(customers.name, name.trim()), eq(customers.store_id, storeId)))
+          .limit(1);
+        customer = found;
+        if (!customer) {
+          const [newCust] = await tx
+            .insert(customers)
+            .values({
+              organization_id: orgId,
+              store_id: storeId,
+              name: name.trim(),
+              phone: null,
+              email: null,
+              address: null,
+              notes: "Auto-created during checkout (no phone)",
+              total_orders: 0,
+              lifetime_value: 0,
+              is_active: 1,
+            })
+            .returning();
+          customer = newCust;
+        }
+      }
 
       if (!customer) {
-        const [newCust] = await tx
-          .insert(customers)
-          .values({
-            store_id: storeId,
-            name: name || `Customer - ${phone}`,
-            phone: phone,
-            email: null,
-            address: null,
-            notes: phone === "0000000000" ? "System Walk-in Customer" : "Auto-created during checkout",
-            total_orders: 0,
-            lifetime_value: 0,
-            is_active: 1,
-          })
-          .returning();
-        customer = newCust;
-      } else if (
-        name &&
-        name !== "Walk-in Customer" &&
-        (customer.name.startsWith("Customer - ") || customer.name === "Walk-in Customer")
-      ) {
-        const [updatedCust] = await tx
-          .update(customers)
-          .set({ name: name, updated_at: new Date() })
-          .where(eq(customers.id, customer.id))
-          .returning();
-        customer = updatedCust;
+        customer = await customerRepository.ensureSystemWalkInCustomer(orgId, storeId, tx);
       }
       const tCustomerTime = performance.now() - tCustomerStart;
 
@@ -335,13 +382,26 @@ export class CheckoutService {
 
       const receipt = await salesService.getReceipt(result.invoice);
       if (receipt) {
-        whatsappUrl = shareService.generateWhatsAppLink(receipt);
-        whatsappPrepared = true;
+        const isSystemWalkIn = !hasRealCustomer || receipt.customer?.name === "Walk-in Customer";
+        const customerPhoneDigits = (receipt.customer?.phone || "").replace(/\D/g, "");
+        const hasValidPhone = Boolean(customerPhoneDigits && customerPhoneDigits !== "0000000000" && customerPhoneDigits.length >= 10);
+
+        if (isSystemWalkIn) {
+          // System Walk-in Customer: Skip WhatsApp automatically, do not throw error or block checkout
+          whatsappPrepared = false;
+        } else if (hasValidPhone) {
+          // Named customer with valid phone: Generate WhatsApp message immediately
+          whatsappUrl = shareService.generateWhatsAppLink(receipt);
+          whatsappPrepared = true;
+        } else {
+          // Named customer without phone: Checkout succeeds, return notification message
+          whatsappPrepared = false;
+          whatsappError = "Sale completed successfully. WhatsApp sharing unavailable because no phone number is available.";
+        }
       }
     } catch (err: any) {
       console.error("[Checkout Flow] WhatsApp message preparation notice (checkout succeeded):", err.message || err);
       whatsappPrepared = false;
-      whatsappError = "Sale completed successfully. WhatsApp message could not be prepared.";
     }
 
     const finalResult: CheckoutResponse = {

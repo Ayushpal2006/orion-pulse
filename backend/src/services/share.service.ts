@@ -48,15 +48,22 @@ export class ShareService {
     const rawMessage = this.generateWhatsAppMessage(receipt);
     const encoded = encodeURIComponent(rawMessage);
 
-    // Normalize phone number to strip spacing, non-digits
+    // Normalize phone number: strip spacing, dashes, non-digits
     let phone = receipt.customer?.phone || "";
-    phone = phone.replace(/[^0-9]/g, "");
+    phone = phone.replace(/\D/g, "");
 
-    // Clear dummy phone numbers (e.g. Walk-in Customer default "0000000000")
-    if (phone === "0000000000" || phone.startsWith("0000000000")) {
+    // Clear dummy or invalid phone numbers (e.g. Walk-in Customer default "0000000000")
+    if (!phone || /^0+$/.test(phone) || phone.length < 10) {
       phone = "";
-    } else if (phone.length === 10) {
-      phone = "91" + phone;
+    } else {
+      // Remove leading zeros if present (e.g. 09876543210 -> 9876543210)
+      if (phone.length === 11 && phone.startsWith("0")) {
+        phone = phone.slice(1);
+      }
+      // Add country code 91 for 10-digit Indian mobile numbers
+      if (phone.length === 10) {
+        phone = "91" + phone;
+      }
     }
 
     return `https://wa.me/${phone}?text=${encoded}`;

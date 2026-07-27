@@ -1,6 +1,6 @@
 import { db } from "../db";
 import { sales, sale_items, products, customers, purchase_orders, expenses, return_items } from "../db/schema";
-import { eq, and, sql, desc, sum, count, gte, lte } from "drizzle-orm";
+import { eq, and, sql, desc, sum, count, gte, lte, gt } from "drizzle-orm";
 import { getStoreId } from "../db/context";
 import { ValidationError } from "../utils/errors";
 import { getUtcBoundariesForFilter } from "../utils/datetime";
@@ -119,6 +119,28 @@ export class AnalyticsService {
     const countCust = Number(totals?.totalCount || 0);
     const totalLtvVal = Number(totals?.totalLtv || 0);
 
+    const [salesBreakdown] = await db
+      .select({
+        walkInSales: sql<string>`COUNT(CASE WHEN ${customers.is_system} = 1 OR ${customers.name} = 'Walk-in Customer' OR ${sales.customer_id} IS NULL THEN 1 END)`,
+        namedSales: sql<string>`COUNT(CASE WHEN (${customers.is_system} = 0 OR ${customers.is_system} IS NULL) AND (${customers.name} != 'Walk-in Customer' OR ${customers.name} IS NULL) AND ${sales.customer_id} IS NOT NULL THEN 1 END)`,
+      })
+      .from(sales)
+      .leftJoin(customers, eq(sales.customer_id, customers.id))
+      .where(eq(sales.store_id, storeId));
+
+    const [repeatCountRes] = await db
+      .select({
+        count: sql<string>`COUNT(*)`
+      })
+      .from(customers)
+      .where(and(
+        eq(customers.is_active, 1),
+        eq(customers.store_id, storeId),
+        eq(customers.is_system, 0),
+        sql`${customers.name} != 'Walk-in Customer'`,
+        gt(customers.total_orders, 1)
+      ));
+
     const vipCustomers = await db
       .select()
       .from(customers)
@@ -131,6 +153,9 @@ export class AnalyticsService {
       lifetimeValueTotal_INR: totalLtvVal / 100.0,
       averageSpendPerCustomer_INR: countCust > 0 ? (totalLtvVal / countCust) / 100.0 : 0,
       totalOrdersCount: Number(totals?.totalOrders || 0),
+      walkInSalesCount: Number(salesBreakdown?.walkInSales || 0),
+      namedCustomerSalesCount: Number(salesBreakdown?.namedSales || 0),
+      repeatCustomersCount: Number(repeatCountRes?.count || 0),
       topVIPCustomers: vipCustomers.map((c) => ({
         name: c.name,
         phone: c.phone,

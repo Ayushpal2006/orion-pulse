@@ -289,4 +289,67 @@ export class PostgresCustomerRepository implements ICustomerRepository {
       CreatedAt: r.created_at ? r.created_at.toISOString() : "",
     }));
   }
+
+  async ensureSystemWalkInCustomer(orgId?: number, storeId?: number, tx?: any): Promise<Customer> {
+    const client = tx || db;
+    let targetOrgId = orgId;
+    let targetStoreId = storeId;
+    try {
+      const ctx = getTenantContext();
+      if (!targetOrgId) targetOrgId = ctx.organizationId;
+      if (!targetStoreId) targetStoreId = ctx.currentStoreId;
+    } catch (e) {}
+    targetOrgId = targetOrgId || 1;
+    targetStoreId = targetStoreId || 1;
+
+    let cond = and(
+      eq(customers.organization_id, targetOrgId),
+      eq(customers.store_id, targetStoreId),
+      or(
+        eq(customers.is_system, 1),
+        eq(customers.type, "SYSTEM"),
+        eq(customers.name, "Walk-in Customer")
+      )
+    );
+
+    const rows = await client
+      .select()
+      .from(customers)
+      .where(cond)
+      .limit(1);
+
+    if (rows[0]) {
+      const r = rows[0];
+      return {
+        ...r,
+        last_visit: r.last_visit ? r.last_visit.toISOString() : null,
+        created_at: r.created_at.toISOString(),
+        updated_at: r.updated_at.toISOString()
+      };
+    }
+
+    const [created] = await client
+      .insert(customers)
+      .values({
+        organization_id: targetOrgId,
+        store_id: targetStoreId,
+        name: "Walk-in Customer",
+        phone: null,
+        email: null,
+        address: null,
+        notes: "Protected System Walk-in Customer",
+        type: "SYSTEM",
+        is_system: 1,
+        is_protected: 1,
+        is_active: 1,
+      })
+      .returning();
+
+    return {
+      ...created,
+      last_visit: created.last_visit ? created.last_visit.toISOString() : null,
+      created_at: created.created_at.toISOString(),
+      updated_at: created.updated_at.toISOString()
+    };
+  }
 }
