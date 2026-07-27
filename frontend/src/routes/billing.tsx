@@ -232,6 +232,7 @@ function Billing() {
   };
 
   const runCheckout = async () => {
+    console.log("[Checkout Flow] Checkout Started");
     if (typeof window !== "undefined" && !window.navigator.onLine) {
       toast.error("Network connection lost. Checkouts are disabled until connection is restored.");
       return;
@@ -260,7 +261,9 @@ function Billing() {
       };
 
       setStep(1);
+      console.log("[Checkout Flow] API Request");
       const res = await checkoutApi(dto);
+      console.log("[Checkout Flow] API Response", res);
 
       setStep(2);
       await new Promise((r) => setTimeout(r, 200));
@@ -272,6 +275,7 @@ function Billing() {
       await new Promise((r) => setTimeout(r, 200));
 
       setStep(CHECKOUT_STEPS.length);
+      console.log("[Checkout Flow] Mutation Success");
       setCheckoutResult(res);
 
       clearCart();
@@ -303,6 +307,7 @@ function Billing() {
       }).catch(() => {});
 
       toast.success("Sale complete", { description: `Invoice created: ${res.invoice}` });
+      console.log("[Checkout Flow] Receipt Navigation");
       setShowSlip(true);
     } catch (err: any) {
       setStep(-1);
@@ -749,7 +754,39 @@ export function SlipDialog({
 }: {
   open: boolean; onClose: () => void; result: any;
 }) {
+  const invoiceId = result?.invoice;
+  const [printing, setPrinting] = useState(false);
+  const [downloadingPdf, setDownloadingPdf] = useState(false);
   const [sharingWhatsApp, setSharingWhatsApp] = useState(false);
+  const [voidDialogOpen, setVoidDialogOpen] = useState(false);
+  const [voidReason, setVoidReason] = useState("");
+  const [voiding, setVoiding] = useState(false);
+  const [showMoreActions, setShowMoreActions] = useState(false);
+  const [confirmInvoiceNumber, setConfirmInvoiceNumber] = useState("");
+
+  const queryClient = useQueryClient();
+  const role = useApp((s) => s.role);
+
+  const { data: receipt, isLoading } = useQuery({
+    queryKey: ["receipt", invoiceId],
+    queryFn: () => getSaleReceipt(invoiceId),
+    enabled: open && !!invoiceId,
+  });
+
+  const handlePrint = async () => {
+    if (!receipt) return;
+    setPrinting(true);
+    try {
+      const adapter = getPrintAdapter();
+      await adapter.print(receipt);
+      toast.success("Receipt printed successfully");
+      await logSaleAudit(receipt.invoiceNumber, "INVOICE_PRINT", `${role} printed Invoice ${receipt.invoiceNumber}`);
+    } catch (err: any) {
+      toast.error(err.message || "Failed to print receipt");
+    } finally {
+      setPrinting(false);
+    }
+  };
 
   const handleWhatsApp = async () => {
     if (!receipt) return;
@@ -767,6 +804,7 @@ export function SlipDialog({
 
   const handleDownloadPdf = async () => {
     if (!receipt) return;
+    console.log("[Checkout Flow] PDF");
     setDownloadingPdf(true);
     try {
       const blob = await downloadSalePdf(receipt.invoiceNumber);
@@ -780,6 +818,7 @@ export function SlipDialog({
       URL.revokeObjectURL(url);
       toast.success("PDF downloaded");
       await logSaleAudit(receipt.invoiceNumber, "INVOICE_PDF", `${role} downloaded PDF for ${receipt.invoiceNumber}`);
+      console.log("[Checkout Flow] Completed");
     } catch (err: any) {
       toast.error(err.message || "Failed to download PDF");
     } finally {
@@ -877,6 +916,7 @@ export function SlipDialog({
 
   if (!result) return null;
 
+  console.log("[Checkout Flow] Receipt Render", { isLoading, hasReceipt: !!receipt });
   if (isLoading || !receipt) {
     return (
       <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
