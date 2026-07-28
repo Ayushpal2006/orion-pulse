@@ -18,6 +18,7 @@ router.post("/organizations", controller.createOrganization);
 router.get("/organizations/:id", controller.getOrganizationDetails);
 router.put("/organizations/:id", controller.editOrganization);
 router.patch("/organizations/:id/status", controller.updateStatus);
+router.put("/organizations/:id/status", controller.updateStatus);
 router.patch("/organizations/:id/subscription", controller.updateSubscription);
 router.delete("/organizations/:id", controller.deleteOrganization);
 router.post("/organizations/:id/reset-password", controller.resetOwnerPassword);

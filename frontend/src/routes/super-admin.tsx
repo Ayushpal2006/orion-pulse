@@ -1629,6 +1629,140 @@ export function SuperAdminPage() {
           </form>
         </DialogContent>
       </Dialog>
+
+      {/* CREATE ORGANIZATION MODAL */}
+      <Dialog open={createModalOpen} onOpenChange={setCreateModalOpen}>
+        <DialogContent className="max-w-lg rounded-2xl">
+          <DialogHeader>
+            <DialogTitle className="text-base font-bold flex items-center gap-2">
+              <Building2 className="size-4 text-primary" /> Create New Organization
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              Provision a new customer business account, default main store, and owner admin login.
+            </DialogDescription>
+          </DialogHeader>
+
+          <form onSubmit={handleCreateOrganization} className="space-y-3 text-xs">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label className="text-xs font-semibold">Business Name *</Label>
+                <Input
+                  required
+                  value={createForm.businessName}
+                  onChange={(e) => setCreateForm((p) => ({ ...p, businessName: e.target.value }))}
+                  placeholder="e.g. Acme Supermarket"
+                  className="rounded-xl h-9 text-xs"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs font-semibold">Business Phone *</Label>
+                <Input
+                  required
+                  value={createForm.phone}
+                  onChange={(e) => setCreateForm((p) => ({ ...p, phone: e.target.value }))}
+                  placeholder="+91 98765 43210"
+                  className="rounded-xl h-9 text-xs"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label className="text-xs font-semibold">GSTIN Number</Label>
+                <Input
+                  value={createForm.gstNumber}
+                  onChange={(e) => setCreateForm((p) => ({ ...p, gstNumber: e.target.value }))}
+                  placeholder="22AAAAA0000A1Z5"
+                  className="rounded-xl h-9 text-xs font-mono"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs font-semibold">Business Address</Label>
+                <Input
+                  value={createForm.address}
+                  onChange={(e) => setCreateForm((p) => ({ ...p, address: e.target.value }))}
+                  placeholder="Main Office / Store Address"
+                  className="rounded-xl h-9 text-xs"
+                />
+              </div>
+            </div>
+
+            <div className="border-t border-border pt-3 font-semibold text-xs text-primary flex items-center gap-1.5">
+              <User className="size-3.5" /> Account Owner Credentials
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label className="text-xs font-semibold">Owner Full Name *</Label>
+                <Input
+                  required
+                  value={createForm.ownerName}
+                  onChange={(e) => setCreateForm((p) => ({ ...p, ownerName: e.target.value }))}
+                  placeholder="e.g. Rajesh Kumar"
+                  className="rounded-xl h-9 text-xs"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs font-semibold">Owner Email *</Label>
+                <Input
+                  required
+                  type="email"
+                  value={createForm.email}
+                  onChange={(e) => setCreateForm((p) => ({ ...p, email: e.target.value }))}
+                  placeholder="owner@acme.com"
+                  className="rounded-xl h-9 text-xs"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <Label className="text-xs font-semibold">Initial Password *</Label>
+              <Input
+                required
+                type="password"
+                value={createForm.password}
+                onChange={(e) => setCreateForm((p) => ({ ...p, password: e.target.value }))}
+                placeholder="Min 6 characters"
+                className="rounded-xl h-9 text-xs"
+              />
+            </div>
+
+            <div className="border-t border-border pt-3 font-semibold text-xs text-primary flex items-center gap-1.5">
+              <Store className="size-3.5" /> Default Store Configuration
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label className="text-xs font-semibold">Default Store Name</Label>
+                <Input
+                  value={createForm.storeName}
+                  onChange={(e) => setCreateForm((p) => ({ ...p, storeName: e.target.value }))}
+                  placeholder="Defaults to '[Business] Main Store'"
+                  className="rounded-xl h-9 text-xs"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs font-semibold">Store Address</Label>
+                <Input
+                  value={createForm.storeAddress}
+                  onChange={(e) => setCreateForm((p) => ({ ...p, storeAddress: e.target.value }))}
+                  placeholder="Defaults to business address"
+                  className="rounded-xl h-9 text-xs"
+                />
+              </div>
+            </div>
+
+            <DialogFooter className="pt-2">
+              <Button type="button" variant="outline" size="sm" onClick={() => setCreateModalOpen(false)} className="rounded-xl text-xs">
+                Cancel
+              </Button>
+              <Button type="submit" size="sm" disabled={createSubmitting} className="rounded-xl text-xs font-bold">
+                {createSubmitting ? "Creating..." : "Create Organization"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

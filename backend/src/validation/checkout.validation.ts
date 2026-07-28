@@ -6,12 +6,17 @@ const CheckoutItemSchema = z.object({
 });
 
 export const CheckoutRequestSchema = z.object({
-  customerPhone: z.string().trim().regex(/^\d{10}$/, "Phone number must be exactly 10 digits"),
-  paymentMethod: z.string().trim().refine(
-    (val) => ["Cash", "UPI", "Card", "Wallet"].includes(val),
-    { message: "Payment method must be one of: Cash, UPI, Card, Wallet" }
-  ),
-  cashierName: z.string().trim().min(1, "Cashier name is required"),
-  customerName: z.string().trim().optional(),
+  customerPhone: z.string().trim().optional().nullable(),
+  customerName: z.string().trim().optional().nullable(),
+  customerId: z.number().optional().nullable(),
+  paymentMethod: z.string().trim().optional().default("Cash"),
+  cashierName: z.string().trim().optional().nullable(),
   items: z.array(CheckoutItemSchema).min(1, "At least one checkout item is required"),
+  subtotal: z.number().optional(),
+  discount: z.number().optional(),
+  gst: z.number().optional(),
+  grandTotal: z.number().optional(),
+  paidAmount: z.number().optional(),
+  balance: z.number().optional(),
+  paymentDetails: z.any().optional(),
 });

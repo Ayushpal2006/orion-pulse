@@ -66,8 +66,9 @@ export class CheckoutService {
     const orgId = getOrganizationId() || 1;
 
     // 1. Load setting
-    const requireCustomerSetting = await settingsRepository.get("require_customer_before_checkout", "0");
-    const requireCustomer = requireCustomerSetting === "1" || requireCustomerSetting === "true";
+    const reqSetting1 = await settingsRepository.get("require_customer_before_checkout", "0");
+    const reqSetting2 = await settingsRepository.get("require_customer", "0");
+    const requireCustomer = reqSetting1 === "1" || reqSetting1 === "true" || reqSetting2 === "1" || reqSetting2 === "true";
     const walkInEnabled = !requireCustomer;
 
     let phone = request.customerPhone;
