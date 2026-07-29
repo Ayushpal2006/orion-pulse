@@ -32,7 +32,7 @@ export class PdfService {
         const pageHeight = 841.89;
         const contentWidth = pageWidth - 2 * margin;
 
-        const doc = new PDFDocument({ size: "A4", margin, bufferPages: true });
+        const doc = new PDFDocument({ size: "A4", margins: { top: margin, bottom: 20, left: margin, right: margin }, bufferPages: true });
         const stream = fs.createWriteStream(outputPath);
         doc.pipe(stream);
         doc.on("error", (err: any) => reject(err));
@@ -257,10 +257,10 @@ export class PdfService {
             doc.restore();
           }
 
-          const footerY = pageHeight - 50;
-          doc.font("Outfit-Bold").fontSize(9).fillColor(primaryColor).text(receipt.thankYouMessage, margin, footerY, { align: "center", width: contentWidth, lineBreak: false });
-          doc.font("Outfit").fontSize(7).fillColor("#94a3b8").text("Generated automatically via Apka Bill POS ecosystem.", margin, footerY + 13, { align: "center", width: contentWidth, lineBreak: false });
-          doc.text(`Page ${i + 1} of ${range.count}`, margin, footerY + 24, { align: "center", width: contentWidth, lineBreak: false });
+          const footerY = pageHeight - 65;
+          doc.font("Outfit-Bold").fontSize(8).fillColor(primaryColor).text(receipt.thankYouMessage, margin, footerY, { align: "center", width: contentWidth, lineBreak: false });
+          doc.font("Outfit").fontSize(7).fillColor("#94a3b8").text("Generated automatically via Apka Bill POS ecosystem.", margin, footerY + 12, { align: "center", width: contentWidth, lineBreak: false });
+          doc.text(`Page ${i + 1} of ${range.count}`, margin, footerY + 22, { align: "center", width: contentWidth, lineBreak: false });
         }
 
         doc.end();
