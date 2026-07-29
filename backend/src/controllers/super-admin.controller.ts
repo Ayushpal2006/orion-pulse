@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import { db } from "../db";
-import { organizations, stores, users, sales, products, customers, audit_logs, user_store_access } from "../db/schema";
+import { organizations, stores, users, sales, products, customers, settings, audit_logs, user_store_access } from "../db/schema";
 import { eq, and, like, or, sql, desc } from "drizzle-orm";
 import { ValidationError, NotFoundError, ConflictError } from "../utils/errors";
 import bcrypt from "bcryptjs";
@@ -281,6 +281,36 @@ export class SuperAdminController {
         await tx.insert(user_store_access).values({
           user_id: user.id,
           store_id: store.id,
+        });
+
+        // 5. Seed default settings for the store
+        const defaultSettings = [
+          { store_id: store.id, key: "shop_name", value: businessName.trim() },
+          { store_id: store.id, key: "shop_gstin", value: gstNumber ? gstNumber.trim() : "" },
+          { store_id: store.id, key: "shop_address", value: address ? address.trim() : "" },
+          { store_id: store.id, key: "shop_phone", value: phone.trim() },
+          { store_id: store.id, key: "shop_email", value: normalizedEmail },
+          { store_id: store.id, key: "receipt_template", value: "Classic" },
+          { store_id: store.id, key: "inv_prefix", value: "INV" },
+          { store_id: store.id, key: "po_prefix", value: "PO" },
+          { store_id: store.id, key: "receipt_footer", value: "Thank you for shopping with us!" },
+          { store_id: store.id, key: "qr_position", value: "Bottom" },
+          { store_id: store.id, key: "primary_color", value: "#2563eb" },
+        ];
+        for (const setItem of defaultSettings) {
+          await tx.insert(settings).values(setItem).onConflictDoNothing();
+        }
+
+        // 6. Create default Walk-In Customer for store
+        await tx.insert(customers).values({
+          organization_id: org.id,
+          store_id: store.id,
+          name: "Walk-in Customer",
+          phone: "9999999999",
+          total_orders: 0,
+          lifetime_value: 0,
+          is_system: 1,
+          is_protected: 1,
         });
 
         return { organization: org, store, user };

@@ -37,8 +37,12 @@ function resolveOrganizationId(req: Request, fallbackOrgId: number, role: string
   return fallbackOrgId;
 }
 
+import { db } from "../db";
+import { stores } from "../db/schema";
+import { eq, and, desc } from "drizzle-orm";
+
 export function authenticate() {
-  return (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  return async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
       return res.status(401).json({
@@ -58,8 +62,32 @@ export function authenticate() {
       }
 
       const baseStoreId = decoded.store_id || 1;
-      const requestedStoreId = resolveStoreId(req, baseStoreId);
       const requestedOrgId = resolveOrganizationId(req, decoded.organization_id, decoded.role || "");
+      let requestedStoreId = resolveStoreId(req, baseStoreId);
+
+      // Verify that requestedStoreId actually belongs to requestedOrgId
+      try {
+        const [validStore] = await db
+          .select({ id: stores.id })
+          .from(stores)
+          .where(and(eq(stores.id, requestedStoreId), eq(stores.organization_id, requestedOrgId)))
+          .limit(1);
+
+        if (!validStore) {
+          const [primaryStore] = await db
+            .select({ id: stores.id })
+            .from(stores)
+            .where(eq(stores.organization_id, requestedOrgId))
+            .orderBy(desc(stores.is_default), stores.id)
+            .limit(1);
+
+          if (primaryStore) {
+            requestedStoreId = primaryStore.id;
+          }
+        }
+      } catch (dbErr) {
+        logger.warn("Store validation failed in auth middleware: " + String(dbErr));
+      }
 
       req.user = {
         id: decoded.id,
