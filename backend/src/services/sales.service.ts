@@ -122,6 +122,10 @@ export class SalesService {
     }
 
     if (!sale) {
+      sale = await this.saleRepo.getByPublicToken(idOrInvoice);
+    }
+
+    if (!sale) {
       throw new NotFoundError(`Sale with identifier "${idOrInvoice}" not found`);
     }
 

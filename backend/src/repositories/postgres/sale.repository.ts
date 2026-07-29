@@ -170,7 +170,7 @@ export class PostgresSaleRepository implements ISaleRepository {
     const [sale] = await client
       .select()
       .from(sales)
-      .where(eq(sales.public_token, token))
+      .where(or(eq(sales.public_token, token), eq(sales.invoice_number, token)))
       .limit(1);
 
     if (!sale) return null;
