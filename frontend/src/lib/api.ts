@@ -25,6 +25,21 @@ export function buildImageUrl(imageUrl: string | null | undefined): string | und
 
 export const API_BASE_URL = getApiBaseUrl();
 
+export async function apiFetch(input: RequestInfo | URL, init: RequestInit = {}): Promise<Response> {
+  const token = typeof window !== "undefined" ? localStorage.getItem("token") || "" : "";
+  const currentStoreId = typeof window !== "undefined" ? localStorage.getItem("currentStoreId") || "" : "";
+
+  const headers = new Headers(init.headers || {});
+  if (token && !headers.has("Authorization")) {
+    headers.set("Authorization", `Bearer ${token}`);
+  }
+  if (currentStoreId && !headers.has("X-Store-Id")) {
+    headers.set("X-Store-Id", currentStoreId);
+  }
+
+  return fetch(input, { ...init, headers });
+}
+
 export function mapBackendProductToFrontend(p: any): Product {
   const mappedImage = buildImageUrl(p.image_url);
   
@@ -73,7 +88,7 @@ export function mapFrontendProductToBackend(p: Partial<Product>): any {
 
 export async function getProducts(): Promise<Product[]> {
   try {
-    const res = await fetch(`${API_BASE_URL}/products`);
+    const res = await apiFetch(`${API_BASE_URL}/products`);
     if (!res.ok) {
       const errorData = await res.json().catch(() => ({}));
       throw new Error(errorData.error || `HTTP error! status: ${res.status}`);
@@ -93,7 +108,7 @@ export async function getProducts(): Promise<Product[]> {
 
 export async function getProductMovements(productId: number): Promise<any[]> {
   try {
-    const res = await fetch(`${API_BASE_URL}/products/${productId}/movements`);
+    const res = await apiFetch(`${API_BASE_URL}/products/${productId}/movements`);
     if (!res.ok) {
       const errorData = await res.json().catch(() => ({}));
       throw new Error(errorData.error || `HTTP error! status: ${res.status}`);
@@ -113,7 +128,7 @@ export async function getProductMovements(productId: number): Promise<any[]> {
 
 export async function searchProducts(q: string): Promise<Product[]> {
   try {
-    const res = await fetch(`${API_BASE_URL}/products/search?q=${encodeURIComponent(q)}`);
+    const res = await apiFetch(`${API_BASE_URL}/products/search?q=${encodeURIComponent(q)}`);
     if (!res.ok) {
       const errorData = await res.json().catch(() => ({}));
       throw new Error(errorData.error || `HTTP error! status: ${res.status}`);
@@ -134,7 +149,7 @@ export async function searchProducts(q: string): Promise<Product[]> {
 export async function createProduct(product: Partial<Product>): Promise<Product> {
   try {
     const backendBody = mapFrontendProductToBackend(product);
-    const res = await fetch(`${API_BASE_URL}/products`, {
+    const res = await apiFetch(`${API_BASE_URL}/products`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(backendBody),
@@ -159,7 +174,7 @@ export async function createProduct(product: Partial<Product>): Promise<Product>
 export async function updateProduct(id: string, product: Partial<Product>): Promise<Product> {
   try {
     const backendBody = mapFrontendProductToBackend(product);
-    const res = await fetch(`${API_BASE_URL}/products/${id}`, {
+    const res = await apiFetch(`${API_BASE_URL}/products/${id}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(backendBody),
@@ -183,7 +198,7 @@ export async function updateProduct(id: string, product: Partial<Product>): Prom
 
 export async function deleteProductApi(id: string): Promise<void> {
   try {
-    const res = await fetch(`${API_BASE_URL}/products/${id}`, {
+    const res = await apiFetch(`${API_BASE_URL}/products/${id}`, {
       method: "DELETE",
     });
     if (!res.ok) {
@@ -200,7 +215,7 @@ export async function deleteProductApi(id: string): Promise<void> {
 
 export async function getCustomers(): Promise<any[]> {
   try {
-    const res = await fetch(`${API_BASE_URL}/customers`);
+    const res = await apiFetch(`${API_BASE_URL}/customers`);
     if (!res.ok) {
       const errorData = await res.json().catch(() => ({}));
       throw new Error(errorData.error || `HTTP error! status: ${res.status}`);
@@ -220,7 +235,7 @@ export async function getCustomers(): Promise<any[]> {
 
 export async function searchCustomers(q: string): Promise<any[]> {
   try {
-    const res = await fetch(`${API_BASE_URL}/customers/search?q=${encodeURIComponent(q)}`);
+    const res = await apiFetch(`${API_BASE_URL}/customers/search?q=${encodeURIComponent(q)}`);
     if (!res.ok) {
       const errorData = await res.json().catch(() => ({}));
       throw new Error(errorData.error || `HTTP error! status: ${res.status}`);
@@ -240,7 +255,7 @@ export async function searchCustomers(q: string): Promise<any[]> {
 
 export async function updateCustomer(id: string | number, dto: any): Promise<any> {
   try {
-    const res = await fetch(`${API_BASE_URL}/customers/${id}`, {
+    const res = await apiFetch(`${API_BASE_URL}/customers/${id}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(dto),
@@ -264,7 +279,7 @@ export async function updateCustomer(id: string | number, dto: any): Promise<any
 
 export async function deleteCustomerApi(id: string | number): Promise<void> {
   try {
-    const res = await fetch(`${API_BASE_URL}/customers/${id}`, {
+    const res = await apiFetch(`${API_BASE_URL}/customers/${id}`, {
       method: "DELETE",
     });
     if (!res.ok) {
@@ -281,7 +296,7 @@ export async function deleteCustomerApi(id: string | number): Promise<void> {
 
 export async function getCustomerInvoices(id: string | number): Promise<any[]> {
   try {
-    const res = await fetch(`${API_BASE_URL}/customers/${id}/invoices`);
+    const res = await apiFetch(`${API_BASE_URL}/customers/${id}/invoices`);
     if (!res.ok) {
       const errorData = await res.json().catch(() => ({}));
       throw new Error(errorData.error || `HTTP error! status: ${res.status}`);
@@ -307,7 +322,7 @@ export async function createCustomer(dto: {
   notes?: string | null;
 }): Promise<any> {
   try {
-    const res = await fetch(`${API_BASE_URL}/customers`, {
+    const res = await apiFetch(`${API_BASE_URL}/customers`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(dto),
@@ -336,7 +351,7 @@ export async function getSuppliers(q?: string, sort?: string, includeArchived?: 
     if (sort) params.append("sort", sort);
     if (includeArchived) params.append("includeArchived", "true");
 
-    const res = await fetch(`${API_BASE_URL}/api/suppliers?${params.toString()}`);
+    const res = await apiFetch(`${API_BASE_URL}/api/suppliers?${params.toString()}`);
     if (!res.ok) {
       const errorData = await res.json().catch(() => ({}));
       throw new Error(errorData.error || `HTTP error! status: ${res.status}`);
@@ -363,7 +378,7 @@ export async function createSupplier(dto: {
   notes?: string | null;
 }): Promise<any> {
   try {
-    const res = await fetch(`${API_BASE_URL}/api/suppliers`, {
+    const res = await apiFetch(`${API_BASE_URL}/api/suppliers`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(dto),
@@ -387,7 +402,7 @@ export async function createSupplier(dto: {
 
 export async function updateSupplier(id: string | number, dto: any): Promise<any> {
   try {
-    const res = await fetch(`${API_BASE_URL}/api/suppliers/${id}`, {
+    const res = await apiFetch(`${API_BASE_URL}/api/suppliers/${id}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(dto),
@@ -411,7 +426,7 @@ export async function updateSupplier(id: string | number, dto: any): Promise<any
 
 export async function deleteSupplierApi(id: string | number): Promise<void> {
   try {
-    const res = await fetch(`${API_BASE_URL}/api/suppliers/${id}`, {
+    const res = await apiFetch(`${API_BASE_URL}/api/suppliers/${id}`, {
       method: "DELETE",
     });
     if (!res.ok) {
@@ -433,7 +448,7 @@ export async function checkout(dto: {
   items: { productId: number; quantity: number }[];
 }): Promise<any> {
   try {
-    const res = await fetch(`${API_BASE_URL}/checkout`, {
+    const res = await apiFetch(`${API_BASE_URL}/checkout`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(dto),
@@ -454,7 +469,7 @@ export async function checkout(dto: {
 
 export async function getDashboardData(): Promise<any> {
   try {
-    const res = await fetch(`${API_BASE_URL}/dashboard`);
+    const res = await apiFetch(`${API_BASE_URL}/dashboard`);
     if (!res.ok) {
       const errorData = await res.json().catch(() => ({}));
       throw new Error(errorData.error || `HTTP error! status: ${res.status}`);
@@ -489,7 +504,7 @@ export async function getReportsData(
     if (showVoidInvoices) {
       url += `&showVoidInvoices=true`;
     }
-    const res = await fetch(url);
+    const res = await apiFetch(url);
     if (!res.ok) {
       const errorData = await res.json().catch(() => ({}));
       throw new Error(errorData.error || `HTTP error! status: ${res.status}`);
@@ -512,7 +527,7 @@ export async function uploadProductImage(productId: string, file: File): Promise
     const formData = new FormData();
     formData.append("image", file);
 
-    const res = await fetch(`${API_BASE_URL}/products/${productId}/image`, {
+    const res = await apiFetch(`${API_BASE_URL}/products/${productId}/image`, {
       method: "POST",
       body: formData,
     });
@@ -539,11 +554,11 @@ export async function uploadProductImage(productId: string, file: File): Promise
 
 export async function getSaleReceipt(idOrInvoice: string): Promise<any> {
   try {
-    let res = await fetch(`${API_BASE_URL}/api/sales/${encodeURIComponent(idOrInvoice)}/receipt`, {
+    let res = await apiFetch(`${API_BASE_URL}/api/sales/${encodeURIComponent(idOrInvoice)}/receipt`, {
       headers: getStoreHeaders(),
     });
     if (!res.ok && res.status === 404) {
-      res = await fetch(`${API_BASE_URL}/sales/${encodeURIComponent(idOrInvoice)}/receipt`, {
+      res = await apiFetch(`${API_BASE_URL}/sales/${encodeURIComponent(idOrInvoice)}/receipt`, {
         headers: getStoreHeaders(),
       });
     }
@@ -566,12 +581,12 @@ export async function getSaleReceipt(idOrInvoice: string): Promise<any> {
 
 export async function printSaleReceipt(idOrInvoice: string): Promise<any> {
   try {
-    let res = await fetch(`${API_BASE_URL}/api/sales/${encodeURIComponent(idOrInvoice)}/print`, {
+    let res = await apiFetch(`${API_BASE_URL}/api/sales/${encodeURIComponent(idOrInvoice)}/print`, {
       method: "POST",
       headers: getStoreHeaders(),
     });
     if (!res.ok && res.status === 404) {
-      res = await fetch(`${API_BASE_URL}/sales/${encodeURIComponent(idOrInvoice)}/print`, {
+      res = await apiFetch(`${API_BASE_URL}/sales/${encodeURIComponent(idOrInvoice)}/print`, {
         method: "POST",
         headers: getStoreHeaders(),
       });
@@ -592,7 +607,7 @@ export async function printSaleReceipt(idOrInvoice: string): Promise<any> {
 
 export async function testPrinter(): Promise<any> {
   try {
-    const res = await fetch(`${API_BASE_URL}/printer/test`, {
+    const res = await apiFetch(`${API_BASE_URL}/printer/test`, {
       method: "POST",
       headers: getStoreHeaders(),
     });
@@ -612,11 +627,11 @@ export async function testPrinter(): Promise<any> {
 
 export async function getWhatsAppShareLink(idOrInvoice: string): Promise<string> {
   try {
-    let res = await fetch(`${API_BASE_URL}/api/sales/${encodeURIComponent(idOrInvoice)}/share/whatsapp`, {
+    let res = await apiFetch(`${API_BASE_URL}/api/sales/${encodeURIComponent(idOrInvoice)}/share/whatsapp`, {
       headers: getStoreHeaders(),
     });
     if (!res.ok && res.status === 404) {
-      res = await fetch(`${API_BASE_URL}/sales/${encodeURIComponent(idOrInvoice)}/share/whatsapp`, {
+      res = await apiFetch(`${API_BASE_URL}/sales/${encodeURIComponent(idOrInvoice)}/share/whatsapp`, {
         headers: getStoreHeaders(),
       });
     }
@@ -640,11 +655,11 @@ export async function getWhatsAppShareLink(idOrInvoice: string): Promise<string>
 /** Download PDF receipt as a Blob so the browser can force-download it. */
 export async function downloadSalePdf(idOrInvoice: string): Promise<Blob> {
   try {
-    let res = await fetch(`${API_BASE_URL}/api/sales/${encodeURIComponent(idOrInvoice)}/pdf`, {
+    let res = await apiFetch(`${API_BASE_URL}/api/sales/${encodeURIComponent(idOrInvoice)}/pdf`, {
       headers: getStoreHeaders(),
     });
     if (!res.ok && res.status === 404) {
-      res = await fetch(`${API_BASE_URL}/sales/${encodeURIComponent(idOrInvoice)}/pdf`, {
+      res = await apiFetch(`${API_BASE_URL}/sales/${encodeURIComponent(idOrInvoice)}/pdf`, {
         headers: getStoreHeaders(),
       });
     }
@@ -669,11 +684,11 @@ export function getSalePublicLink(publicToken: string): string {
 /** Fetch all sales for a given customer phone number. */
 export async function getCustomerSales(phone: string): Promise<any[]> {
   try {
-    let res = await fetch(`${API_BASE_URL}/api/sales?phone=${encodeURIComponent(phone)}`, {
+    let res = await apiFetch(`${API_BASE_URL}/api/sales?phone=${encodeURIComponent(phone)}`, {
       headers: getStoreHeaders(),
     });
     if (!res.ok && res.status === 404) {
-      res = await fetch(`${API_BASE_URL}/sales?phone=${encodeURIComponent(phone)}`, {
+      res = await apiFetch(`${API_BASE_URL}/sales?phone=${encodeURIComponent(phone)}`, {
         headers: getStoreHeaders(),
       });
     }
@@ -697,7 +712,7 @@ export async function getCustomerSales(phone: string): Promise<any[]> {
 /** Log action to the database audit_logs. */
 export async function logSaleAudit(invoiceNumber: string, action: string, details: string): Promise<void> {
   try {
-    const res = await fetch(`${API_BASE_URL}/sales/${encodeURIComponent(invoiceNumber)}/audit`, {
+    const res = await apiFetch(`${API_BASE_URL}/sales/${encodeURIComponent(invoiceNumber)}/audit`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -715,7 +730,7 @@ export async function logSaleAudit(invoiceNumber: string, action: string, detail
 
 /** Edit an existing bill. */
 export async function editInvoice(idOrInvoice: string | number, data: any): Promise<any> {
-  const res = await fetch(`${API_BASE_URL}/sales/${encodeURIComponent(idOrInvoice)}`, {
+  const res = await apiFetch(`${API_BASE_URL}/sales/${encodeURIComponent(idOrInvoice)}`, {
     method: "PUT",
     headers: {
       "Content-Type": "application/json",
@@ -732,7 +747,7 @@ export async function editInvoice(idOrInvoice: string | number, data: any): Prom
 
 /** Soft delete an invoice (Admin only). */
 export async function deleteInvoice(idOrInvoice: string | number): Promise<any> {
-  const res = await fetch(`${API_BASE_URL}/sales/${encodeURIComponent(idOrInvoice)}`, {
+  const res = await apiFetch(`${API_BASE_URL}/sales/${encodeURIComponent(idOrInvoice)}`, {
     method: "DELETE",
     headers: {
       "Content-Type": "application/json",
@@ -777,7 +792,7 @@ export async function getSalesPaginated(params: {
     if (params.dateFilter !== undefined) q.append("dateFilter", params.dateFilter);
     if (params.sort !== undefined) q.append("sort", params.sort);
 
-    const res = await fetch(`${API_BASE_URL}/sales?${q.toString()}`, {
+    const res = await apiFetch(`${API_BASE_URL}/sales?${q.toString()}`, {
       headers: {
         "Authorization": `Bearer ${localStorage.getItem("token") || ""}`
       }
@@ -806,7 +821,7 @@ export async function getPurchases(filters?: { q?: string; startDate?: string; e
     if (filters?.startDate) params.append("startDate", filters.startDate);
     if (filters?.endDate) params.append("endDate", filters.endDate);
 
-    const res = await fetch(`${API_BASE_URL}/api/purchases?${params.toString()}`);
+    const res = await apiFetch(`${API_BASE_URL}/api/purchases?${params.toString()}`);
     if (!res.ok) {
       const errorData = await res.json().catch(() => ({}));
       throw new Error(errorData.error || `HTTP error! status: ${res.status}`);
@@ -826,7 +841,7 @@ export async function getPurchases(filters?: { q?: string; startDate?: string; e
 
 export async function getPurchaseById(id: string | number): Promise<any> {
   try {
-    const res = await fetch(`${API_BASE_URL}/api/purchases/${id}`);
+    const res = await apiFetch(`${API_BASE_URL}/api/purchases/${id}`);
     if (!res.ok) {
       const errorData = await res.json().catch(() => ({}));
       throw new Error(errorData.error || `HTTP error! status: ${res.status}`);
@@ -846,7 +861,7 @@ export async function getPurchaseById(id: string | number): Promise<any> {
 
 export async function createPurchase(dto: any): Promise<any> {
   try {
-    const res = await fetch(`${API_BASE_URL}/api/purchases`, {
+    const res = await apiFetch(`${API_BASE_URL}/api/purchases`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(dto),
@@ -870,7 +885,7 @@ export async function createPurchase(dto: any): Promise<any> {
 
 export async function updatePurchase(id: string | number, dto: any): Promise<any> {
   try {
-    const res = await fetch(`${API_BASE_URL}/api/purchases/${id}`, {
+    const res = await apiFetch(`${API_BASE_URL}/api/purchases/${id}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(dto),
@@ -894,7 +909,7 @@ export async function updatePurchase(id: string | number, dto: any): Promise<any
 
 export async function deletePurchase(id: string | number): Promise<void> {
   try {
-    const res = await fetch(`${API_BASE_URL}/api/purchases/${id}`, {
+    const res = await apiFetch(`${API_BASE_URL}/api/purchases/${id}`, {
       method: "DELETE",
     });
     if (!res.ok) {
@@ -924,7 +939,7 @@ export async function getStockAdjustments(filters?: {
     if (filters?.product_id) params.append("product_id", String(filters.product_id));
     if (filters?.adjustment_type) params.append("adjustment_type", filters.adjustment_type);
 
-    const res = await fetch(`${API_BASE_URL}/api/stock-adjustments?${params.toString()}`);
+    const res = await apiFetch(`${API_BASE_URL}/api/stock-adjustments?${params.toString()}`);
     if (!res.ok) {
       const errorData = await res.json().catch(() => ({}));
       throw new Error(errorData.error || `HTTP error! status: ${res.status}`);
@@ -944,7 +959,7 @@ export async function getStockAdjustments(filters?: {
 
 export async function getStockAdjustmentById(id: string | number): Promise<any> {
   try {
-    const res = await fetch(`${API_BASE_URL}/api/stock-adjustments/${id}`);
+    const res = await apiFetch(`${API_BASE_URL}/api/stock-adjustments/${id}`);
     if (!res.ok) {
       const errorData = await res.json().catch(() => ({}));
       throw new Error(errorData.error || `HTTP error! status: ${res.status}`);
@@ -964,7 +979,7 @@ export async function getStockAdjustmentById(id: string | number): Promise<any> 
 
 export async function createStockAdjustment(dto: any): Promise<any> {
   try {
-    const res = await fetch(`${API_BASE_URL}/api/stock-adjustments`, {
+    const res = await apiFetch(`${API_BASE_URL}/api/stock-adjustments`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(dto),
@@ -996,7 +1011,7 @@ export async function getSupplierLedger(
     if (filters?.endDate) params.append("endDate", filters.endDate);
     if (filters?.transaction_type) params.append("transaction_type", filters.transaction_type);
 
-    const res = await fetch(`${API_BASE_URL}/api/supplier-payments/ledger/${supplierId}?${params.toString()}`);
+    const res = await apiFetch(`${API_BASE_URL}/api/supplier-payments/ledger/${supplierId}?${params.toString()}`);
     if (!res.ok) {
       const errorData = await res.json().catch(() => ({}));
       throw new Error(errorData.error || `HTTP error! status: ${res.status}`);
@@ -1027,7 +1042,7 @@ export async function getSupplierPayments(filters?: {
     if (filters?.endDate) params.append("endDate", filters.endDate);
     if (filters?.supplier_id) params.append("supplier_id", String(filters.supplier_id));
 
-    const res = await fetch(`${API_BASE_URL}/api/supplier-payments?${params.toString()}`);
+    const res = await apiFetch(`${API_BASE_URL}/api/supplier-payments?${params.toString()}`);
     if (!res.ok) {
       const errorData = await res.json().catch(() => ({}));
       throw new Error(errorData.error || `HTTP error! status: ${res.status}`);
@@ -1047,7 +1062,7 @@ export async function getSupplierPayments(filters?: {
 
 export async function createSupplierPayment(dto: any): Promise<any> {
   try {
-    const res = await fetch(`${API_BASE_URL}/api/supplier-payments`, {
+    const res = await apiFetch(`${API_BASE_URL}/api/supplier-payments`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(dto),
@@ -1071,7 +1086,7 @@ export async function createSupplierPayment(dto: any): Promise<any> {
 
 export async function getSupplierReports(): Promise<any> {
   try {
-    const res = await fetch(`${API_BASE_URL}/api/supplier-payments/reports`);
+    const res = await apiFetch(`${API_BASE_URL}/api/supplier-payments/reports`);
     if (!res.ok) {
       const errorData = await res.json().catch(() => ({}));
       throw new Error(errorData.error || `HTTP error! status: ${res.status}`);
@@ -1116,7 +1131,7 @@ function buildProfitParams(filters: ProfitFilters = {}): string {
 }
 
 async function profitFetch(url: string): Promise<any> {
-  const res = await fetch(url);
+  const res = await apiFetch(url);
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     throw new Error((err as any).error || `HTTP ${res.status}`);
@@ -1161,7 +1176,7 @@ export async function getExpenses(params?: { categoryId?: number; startDate?: st
   if (params?.startDate) p.set("startDate", params.startDate);
   if (params?.endDate) p.set("endDate", params.endDate);
 
-  const res = await fetch(`${API_BASE_URL}/api/expenses?${p.toString()}`);
+  const res = await apiFetch(`${API_BASE_URL}/api/expenses?${p.toString()}`);
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     throw new Error(err.error || `HTTP ${res.status}`);
@@ -1177,7 +1192,7 @@ export async function getExpenseSummary(params?: { filter?: string; startDate?: 
   if (params?.startDate) p.set("startDate", params.startDate);
   if (params?.endDate) p.set("endDate", params.endDate);
 
-  const res = await fetch(`${API_BASE_URL}/api/expenses/summary?${p.toString()}`);
+  const res = await apiFetch(`${API_BASE_URL}/api/expenses/summary?${p.toString()}`);
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     throw new Error(err.error || `HTTP ${res.status}`);
@@ -1188,7 +1203,7 @@ export async function getExpenseSummary(params?: { filter?: string; startDate?: 
 }
 
 export async function getExpenseCategories(): Promise<any[]> {
-  const res = await fetch(`${API_BASE_URL}/api/expenses/categories`);
+  const res = await apiFetch(`${API_BASE_URL}/api/expenses/categories`);
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     throw new Error(err.error || `HTTP ${res.status}`);
@@ -1199,7 +1214,7 @@ export async function getExpenseCategories(): Promise<any[]> {
 }
 
 export async function createExpenseCategory(name: string): Promise<any> {
-  const res = await fetch(`${API_BASE_URL}/api/expenses/categories`, {
+  const res = await apiFetch(`${API_BASE_URL}/api/expenses/categories`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ name }),
@@ -1214,7 +1229,7 @@ export async function createExpenseCategory(name: string): Promise<any> {
 }
 
 export async function createExpense(data: any): Promise<any> {
-  const res = await fetch(`${API_BASE_URL}/api/expenses`, {
+  const res = await apiFetch(`${API_BASE_URL}/api/expenses`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),
@@ -1229,7 +1244,7 @@ export async function createExpense(data: any): Promise<any> {
 }
 
 export async function updateExpense(id: number, data: any): Promise<any> {
-  const res = await fetch(`${API_BASE_URL}/api/expenses/${id}`, {
+  const res = await apiFetch(`${API_BASE_URL}/api/expenses/${id}`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),
@@ -1244,7 +1259,7 @@ export async function updateExpense(id: number, data: any): Promise<any> {
 }
 
 export async function deleteExpense(id: number): Promise<any> {
-  const res = await fetch(`${API_BASE_URL}/api/expenses/${id}`, {
+  const res = await apiFetch(`${API_BASE_URL}/api/expenses/${id}`, {
     method: "DELETE",
   });
   if (!res.ok) {
@@ -1257,7 +1272,7 @@ export async function deleteExpense(id: number): Promise<any> {
 }
 
 export async function voidPurchase(id: number, reason: string): Promise<any> {
-  const res = await fetch(`${API_BASE_URL}/api/purchases/${id}/void`, {
+  const res = await apiFetch(`${API_BASE_URL}/api/purchases/${id}/void`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -1273,7 +1288,7 @@ export async function voidPurchase(id: number, reason: string): Promise<any> {
 }
 
 export async function downloadPurchasePdf(id: number): Promise<Blob> {
-  const res = await fetch(`${API_BASE_URL}/api/purchases/${id}/pdf`, {
+  const res = await apiFetch(`${API_BASE_URL}/api/purchases/${id}/pdf`, {
     headers: {
       Authorization: `Bearer ${localStorage.getItem("token") || ""}`,
     },
@@ -1285,7 +1300,7 @@ export async function downloadPurchasePdf(id: number): Promise<Blob> {
 }
 
 export async function getPurchaseWhatsAppLink(id: number): Promise<string> {
-  const res = await fetch(`${API_BASE_URL}/api/purchases/${id}/share/whatsapp`, {
+  const res = await apiFetch(`${API_BASE_URL}/api/purchases/${id}/share/whatsapp`, {
     headers: {
       Authorization: `Bearer ${localStorage.getItem("token") || ""}`,
     },
@@ -1298,7 +1313,7 @@ export async function getPurchaseWhatsAppLink(id: number): Promise<string> {
 }
 
 export async function printPurchaseReceipt(id: string | number): Promise<any> {
-  const res = await fetch(`${API_BASE_URL}/api/purchases/${id}/print`, {
+  const res = await apiFetch(`${API_BASE_URL}/api/purchases/${id}/print`, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${localStorage.getItem("token") || ""}`,
@@ -1312,7 +1327,7 @@ export async function printPurchaseReceipt(id: string | number): Promise<any> {
 }
 
 export async function voidSaleInvoice(invoiceNumber: string, reason: string): Promise<any> {
-  const res = await fetch(`${API_BASE_URL}/api/sales/${invoiceNumber}/void`, {
+  const res = await apiFetch(`${API_BASE_URL}/api/sales/${invoiceNumber}/void`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -1322,7 +1337,7 @@ export async function voidSaleInvoice(invoiceNumber: string, reason: string): Pr
   });
   const json = await res.json().catch(() => ({}));
   if (!res.ok || !json.success) {
-    const altRes = await fetch(`${API_BASE_URL}/invoices/${invoiceNumber}/void`, {
+    const altRes = await apiFetch(`${API_BASE_URL}/invoices/${invoiceNumber}/void`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -1353,7 +1368,7 @@ export function getStoreHeaders(): Record<string, string> {
 }
 
 export async function getStores(): Promise<any[]> {
-  const res = await fetch(`${API_BASE_URL}/api/stores`, {
+  const res = await apiFetch(`${API_BASE_URL}/api/stores`, {
     headers: getStoreHeaders(),
   });
   const json = await res.json().catch(() => ({}));
@@ -1364,7 +1379,7 @@ export async function getStores(): Promise<any[]> {
 }
 
 export async function getCurrentStore(): Promise<any> {
-  const res = await fetch(`${API_BASE_URL}/api/stores/current`, {
+  const res = await apiFetch(`${API_BASE_URL}/api/stores/current`, {
     headers: getStoreHeaders(),
   });
   const json = await res.json().catch(() => ({}));
@@ -1386,7 +1401,7 @@ export async function createStore(storeData: {
   currency?: string;
   timezone?: string;
 }): Promise<any> {
-  const res = await fetch(`${API_BASE_URL}/api/stores`, {
+  const res = await apiFetch(`${API_BASE_URL}/api/stores`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -1402,7 +1417,7 @@ export async function createStore(storeData: {
 }
 
 export async function updateStore(id: number, storeData: any): Promise<any> {
-  const res = await fetch(`${API_BASE_URL}/api/stores/${id}`, {
+  const res = await apiFetch(`${API_BASE_URL}/api/stores/${id}`, {
     method: "PUT",
     headers: {
       "Content-Type": "application/json",
@@ -1418,7 +1433,7 @@ export async function updateStore(id: number, storeData: any): Promise<any> {
 }
 
 export async function disableStore(id: number): Promise<any> {
-  const res = await fetch(`${API_BASE_URL}/api/stores/${id}/disable`, {
+  const res = await apiFetch(`${API_BASE_URL}/api/stores/${id}/disable`, {
     method: "PATCH",
     headers: getStoreHeaders(),
   });
@@ -1430,7 +1445,7 @@ export async function disableStore(id: number): Promise<any> {
 }
 
 export async function switchStore(storeId: number): Promise<{ store: any; token?: string }> {
-  const res = await fetch(`${API_BASE_URL}/api/stores/switch`, {
+  const res = await apiFetch(`${API_BASE_URL}/api/stores/switch`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -1454,7 +1469,7 @@ export async function switchStore(storeId: number): Promise<{ store: any; token?
 // ─── USER MANAGEMENT APIS ───────────────────────────────────────────────────
 
 export async function getUsers(): Promise<any[]> {
-  const res = await fetch(`${API_BASE_URL}/api/users`, {
+  const res = await apiFetch(`${API_BASE_URL}/api/users`, {
     headers: getStoreHeaders(),
   });
   const json = await res.json().catch(() => ({}));
@@ -1465,7 +1480,7 @@ export async function getUsers(): Promise<any[]> {
 }
 
 export async function getUser(id: number): Promise<any> {
-  const res = await fetch(`${API_BASE_URL}/api/users/${id}`, {
+  const res = await apiFetch(`${API_BASE_URL}/api/users/${id}`, {
     headers: getStoreHeaders(),
   });
   const json = await res.json().catch(() => ({}));
@@ -1484,7 +1499,7 @@ export async function createUser(userData: {
   storeId?: number;
   storeIds?: number[];
 }): Promise<any> {
-  const res = await fetch(`${API_BASE_URL}/api/users`, {
+  const res = await apiFetch(`${API_BASE_URL}/api/users`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -1500,7 +1515,7 @@ export async function createUser(userData: {
 }
 
 export async function updateUser(id: number, userData: any): Promise<any> {
-  const res = await fetch(`${API_BASE_URL}/api/users/${id}`, {
+  const res = await apiFetch(`${API_BASE_URL}/api/users/${id}`, {
     method: "PUT",
     headers: {
       "Content-Type": "application/json",
@@ -1516,7 +1531,7 @@ export async function updateUser(id: number, userData: any): Promise<any> {
 }
 
 export async function disableUser(id: number): Promise<any> {
-  const res = await fetch(`${API_BASE_URL}/api/users/${id}/disable`, {
+  const res = await apiFetch(`${API_BASE_URL}/api/users/${id}/disable`, {
     method: "PATCH",
     headers: getStoreHeaders(),
   });
@@ -1528,7 +1543,7 @@ export async function disableUser(id: number): Promise<any> {
 }
 
 export async function assignUserStores(id: number, storeIds: number[]): Promise<any> {
-  const res = await fetch(`${API_BASE_URL}/api/users/${id}/stores`, {
+  const res = await apiFetch(`${API_BASE_URL}/api/users/${id}/stores`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -1546,7 +1561,7 @@ export async function assignUserStores(id: number, storeIds: number[]): Promise<
 // ─── ORGANIZATION ADMINISTRATION APIS ────────────────────────────────────────
 
 export async function getOrganizationCurrent(): Promise<any> {
-  const res = await fetch(`${API_BASE_URL}/api/organizations/current`, {
+  const res = await apiFetch(`${API_BASE_URL}/api/organizations/current`, {
     headers: getStoreHeaders(),
   });
   const json = await res.json().catch(() => ({}));
@@ -1570,7 +1585,7 @@ export async function updateOrganizationCurrent(orgData: {
   financialYear?: string;
   receiptInfo?: string;
 }): Promise<any> {
-  const res = await fetch(`${API_BASE_URL}/api/organizations/current`, {
+  const res = await apiFetch(`${API_BASE_URL}/api/organizations/current`, {
     method: "PUT",
     headers: {
       "Content-Type": "application/json",
@@ -1586,7 +1601,7 @@ export async function updateOrganizationCurrent(orgData: {
 }
 
 export async function getOrganizationDashboard(): Promise<any> {
-  const res = await fetch(`${API_BASE_URL}/api/organizations/dashboard`, {
+  const res = await apiFetch(`${API_BASE_URL}/api/organizations/dashboard`, {
     headers: getStoreHeaders(),
   });
   const json = await res.json().catch(() => ({}));
@@ -1597,7 +1612,7 @@ export async function getOrganizationDashboard(): Promise<any> {
 }
 
 export async function getOrganizationStats(): Promise<any> {
-  const res = await fetch(`${API_BASE_URL}/api/organizations/stats`, {
+  const res = await apiFetch(`${API_BASE_URL}/api/organizations/stats`, {
     headers: getStoreHeaders(),
   });
   const json = await res.json().catch(() => ({}));
@@ -1610,7 +1625,7 @@ export async function getOrganizationStats(): Promise<any> {
 // ─── AUTHENTICATION V1 APIS ──────────────────────────────────────────────────
 
 export async function loginApi(email: string, password: string): Promise<any> {
-  const res = await fetch(`${API_BASE_URL}/api/auth/login`, {
+  const res = await apiFetch(`${API_BASE_URL}/api/auth/login`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ email, password }),
@@ -1623,7 +1638,7 @@ export async function loginApi(email: string, password: string): Promise<any> {
 }
 
 export async function logoutApi(): Promise<any> {
-  const res = await fetch(`${API_BASE_URL}/api/auth/logout`, {
+  const res = await apiFetch(`${API_BASE_URL}/api/auth/logout`, {
     method: "POST",
     headers: getStoreHeaders(),
   }).catch(() => ({}));
@@ -1635,7 +1650,7 @@ export async function logoutApi(): Promise<any> {
 }
 
 export async function getCurrentUserApi(): Promise<any> {
-  const res = await fetch(`${API_BASE_URL}/api/auth/me`, {
+  const res = await apiFetch(`${API_BASE_URL}/api/auth/me`, {
     headers: getStoreHeaders(),
   });
   const json = await res.json().catch(() => ({}));
@@ -1648,7 +1663,7 @@ export async function getCurrentUserApi(): Promise<any> {
 // ─── SUPER ADMIN PANEL APIS ──────────────────────────────────────────────────
 
 export async function getSuperAdminDashboard(): Promise<any> {
-  const res = await fetch(`${API_BASE_URL}/api/super-admin/dashboard`, {
+  const res = await apiFetch(`${API_BASE_URL}/api/super-admin/dashboard`, {
     headers: getStoreHeaders(),
   });
   const json = await res.json().catch(() => ({}));
@@ -1664,7 +1679,7 @@ export async function getSuperAdminOrganizations(params?: { q?: string; status?:
   if (params?.status) queryParts.push(`status=${encodeURIComponent(params.status)}`);
   const queryStr = queryParts.length > 0 ? `?${queryParts.join("&")}` : "";
 
-  const res = await fetch(`${API_BASE_URL}/api/super-admin/organizations${queryStr}`, {
+  const res = await apiFetch(`${API_BASE_URL}/api/super-admin/organizations${queryStr}`, {
     headers: getStoreHeaders(),
   });
   const json = await res.json().catch(() => ({}));
@@ -1675,7 +1690,7 @@ export async function getSuperAdminOrganizations(params?: { q?: string; status?:
 }
 
 export async function getSuperAdminOrganizationDetails(id: number): Promise<any> {
-  const res = await fetch(`${API_BASE_URL}/api/super-admin/organizations/${id}`, {
+  const res = await apiFetch(`${API_BASE_URL}/api/super-admin/organizations/${id}`, {
     headers: getStoreHeaders(),
   });
   const json = await res.json().catch(() => ({}));
@@ -1686,7 +1701,7 @@ export async function getSuperAdminOrganizationDetails(id: number): Promise<any>
 }
 
 export async function updateSuperAdminOrganizationStatus(id: number, status: string): Promise<any> {
-  const res = await fetch(`${API_BASE_URL}/api/super-admin/organizations/${id}/status`, {
+  const res = await apiFetch(`${API_BASE_URL}/api/super-admin/organizations/${id}/status`, {
     method: "PATCH",
     headers: {
       "Content-Type": "application/json",
@@ -1702,7 +1717,7 @@ export async function updateSuperAdminOrganizationStatus(id: number, status: str
 }
 
 export async function resetSuperAdminOwnerPassword(id: number, newPassword: string): Promise<any> {
-  const res = await fetch(`${API_BASE_URL}/api/super-admin/organizations/${id}/reset-password`, {
+  const res = await apiFetch(`${API_BASE_URL}/api/super-admin/organizations/${id}/reset-password`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -1718,7 +1733,7 @@ export async function resetSuperAdminOwnerPassword(id: number, newPassword: stri
 }
 
 export async function updateSuperAdminSubscription(id: number, plan: string): Promise<any> {
-  const res = await fetch(`${API_BASE_URL}/api/super-admin/organizations/${id}/subscription`, {
+  const res = await apiFetch(`${API_BASE_URL}/api/super-admin/organizations/${id}/subscription`, {
     method: "PATCH",
     headers: {
       "Content-Type": "application/json",
@@ -1734,7 +1749,7 @@ export async function updateSuperAdminSubscription(id: number, plan: string): Pr
 }
 
 export async function deleteSuperAdminOrganization(id: number): Promise<any> {
-  const res = await fetch(`${API_BASE_URL}/api/super-admin/organizations/${id}`, {
+  const res = await apiFetch(`${API_BASE_URL}/api/super-admin/organizations/${id}`, {
     method: "DELETE",
     headers: getStoreHeaders(),
   });
@@ -1746,7 +1761,7 @@ export async function deleteSuperAdminOrganization(id: number): Promise<any> {
 }
 
 export async function getSuperAdminStores(): Promise<any[]> {
-  const res = await fetch(`${API_BASE_URL}/api/super-admin/stores`, {
+  const res = await apiFetch(`${API_BASE_URL}/api/super-admin/stores`, {
     headers: getStoreHeaders(),
   });
   const json = await res.json().catch(() => ({}));
@@ -1757,7 +1772,7 @@ export async function getSuperAdminStores(): Promise<any[]> {
 }
 
 export async function getSuperAdminUsers(): Promise<any[]> {
-  const res = await fetch(`${API_BASE_URL}/api/super-admin/users`, {
+  const res = await apiFetch(`${API_BASE_URL}/api/super-admin/users`, {
     headers: getStoreHeaders(),
   });
   const json = await res.json().catch(() => ({}));
@@ -1768,7 +1783,7 @@ export async function getSuperAdminUsers(): Promise<any[]> {
 }
 
 export async function updateSuperAdminUserStatus(id: number, status: string): Promise<any> {
-  const res = await fetch(`${API_BASE_URL}/api/super-admin/users/${id}/status`, {
+  const res = await apiFetch(`${API_BASE_URL}/api/super-admin/users/${id}/status`, {
     method: "PATCH",
     headers: {
       "Content-Type": "application/json",
@@ -1784,7 +1799,7 @@ export async function updateSuperAdminUserStatus(id: number, status: string): Pr
 }
 
 export async function resetSuperAdminUserPassword(id: number, newPassword: string): Promise<any> {
-  const res = await fetch(`${API_BASE_URL}/api/super-admin/users/${id}/reset-password`, {
+  const res = await apiFetch(`${API_BASE_URL}/api/super-admin/users/${id}/reset-password`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -1800,7 +1815,7 @@ export async function resetSuperAdminUserPassword(id: number, newPassword: strin
 }
 
 export async function createSuperAdminStore(dto: any): Promise<any> {
-  const res = await fetch(`${API_BASE_URL}/api/super-admin/stores`, {
+  const res = await apiFetch(`${API_BASE_URL}/api/super-admin/stores`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -1816,7 +1831,7 @@ export async function createSuperAdminStore(dto: any): Promise<any> {
 }
 
 export async function editSuperAdminStore(id: number, dto: any): Promise<any> {
-  const res = await fetch(`${API_BASE_URL}/api/super-admin/stores/${id}`, {
+  const res = await apiFetch(`${API_BASE_URL}/api/super-admin/stores/${id}`, {
     method: "PUT",
     headers: {
       "Content-Type": "application/json",
@@ -1832,7 +1847,7 @@ export async function editSuperAdminStore(id: number, dto: any): Promise<any> {
 }
 
 export async function updateSuperAdminStoreStatus(id: number, status: string): Promise<any> {
-  const res = await fetch(`${API_BASE_URL}/api/super-admin/stores/${id}/status`, {
+  const res = await apiFetch(`${API_BASE_URL}/api/super-admin/stores/${id}/status`, {
     method: "PATCH",
     headers: {
       "Content-Type": "application/json",
@@ -1848,7 +1863,7 @@ export async function updateSuperAdminStoreStatus(id: number, status: string): P
 }
 
 export async function createSuperAdminUser(dto: any): Promise<any> {
-  const res = await fetch(`${API_BASE_URL}/api/super-admin/users`, {
+  const res = await apiFetch(`${API_BASE_URL}/api/super-admin/users`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -1864,7 +1879,7 @@ export async function createSuperAdminUser(dto: any): Promise<any> {
 }
 
 export async function editSuperAdminUser(id: number, dto: any): Promise<any> {
-  const res = await fetch(`${API_BASE_URL}/api/super-admin/users/${id}`, {
+  const res = await apiFetch(`${API_BASE_URL}/api/super-admin/users/${id}`, {
     method: "PUT",
     headers: {
       "Content-Type": "application/json",
@@ -1880,7 +1895,7 @@ export async function editSuperAdminUser(id: number, dto: any): Promise<any> {
 }
 
 export async function getSuperAdminAuditLogs(): Promise<any[]> {
-  const res = await fetch(`${API_BASE_URL}/api/super-admin/audit-logs`, {
+  const res = await apiFetch(`${API_BASE_URL}/api/super-admin/audit-logs`, {
     headers: getStoreHeaders(),
   });
   const json = await res.json().catch(() => ({}));
@@ -1891,7 +1906,7 @@ export async function getSuperAdminAuditLogs(): Promise<any[]> {
 }
 
 export async function getSuperAdminSystemHealth(): Promise<any> {
-  const res = await fetch(`${API_BASE_URL}/api/super-admin/system-health`, {
+  const res = await apiFetch(`${API_BASE_URL}/api/super-admin/system-health`, {
     headers: getStoreHeaders(),
   });
   const json = await res.json().catch(() => ({}));
@@ -1919,7 +1934,7 @@ export async function completeOnboardingApi(data: {
   printGst?: boolean;
   printPhone?: boolean;
 }): Promise<any> {
-  const res = await fetch(`${API_BASE_URL}/api/organizations/onboarding/complete`, {
+  const res = await apiFetch(`${API_BASE_URL}/api/organizations/onboarding/complete`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -1935,7 +1950,7 @@ export async function completeOnboardingApi(data: {
 }
 
 export async function resetOnboardingApi(): Promise<any> {
-  const res = await fetch(`${API_BASE_URL}/api/organizations/onboarding/reset`, {
+  const res = await apiFetch(`${API_BASE_URL}/api/organizations/onboarding/reset`, {
     method: "POST",
     headers: getStoreHeaders(),
   });
@@ -1957,7 +1972,7 @@ export async function createSuperAdminOrganization(data: {
   storeName?: string;
   storeAddress?: string;
 }): Promise<any> {
-  const res = await fetch(`${API_BASE_URL}/api/super-admin/organizations`, {
+  const res = await apiFetch(`${API_BASE_URL}/api/super-admin/organizations`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -1982,7 +1997,7 @@ export async function editSuperAdminOrganization(
     email?: string;
   }
 ): Promise<any> {
-  const res = await fetch(`${API_BASE_URL}/api/super-admin/organizations/${id}`, {
+  const res = await apiFetch(`${API_BASE_URL}/api/super-admin/organizations/${id}`, {
     method: "PUT",
     headers: {
       "Content-Type": "application/json",
@@ -2002,7 +2017,7 @@ export async function changePasswordApi(data: {
   newPassword: string;
   confirmPassword?: string;
 }): Promise<any> {
-  const res = await fetch(`${API_BASE_URL}/api/auth/change-password`, {
+  const res = await apiFetch(`${API_BASE_URL}/api/auth/change-password`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

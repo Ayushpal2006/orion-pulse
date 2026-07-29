@@ -57,7 +57,7 @@ type State = {
   whatsappFooter: string;
   requireCustomerBeforeCheckout: boolean;
   receiptTemplate: "Classic" | "Retail" | "Premium" | "Compact";
-  // branding extended properties
+  primaryColor?: string;
   tagline?: string;
   website?: string;
   invoiceHeader?: string;

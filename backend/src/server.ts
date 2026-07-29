@@ -159,10 +159,10 @@ app.use("/api/sync", authenticate(), syncRoutes);
 app.use("/api/admin", authenticate(), authorize("admin"), adminRoutes);
 
 // New Modules
-app.use("/api/users", userRoutes);
-app.use("/users", userRoutes);
-app.use("/api/stores", storeRoutes);
-app.use("/stores", storeRoutes);
+app.use("/api/users", authenticate(), userRoutes);
+app.use("/users", authenticate(), userRoutes);
+app.use("/api/stores", authenticate(), storeRoutes);
+app.use("/stores", authenticate(), storeRoutes);
 app.use("/api/suppliers", authenticate(), supplierRoutes);
 app.use("/api/supplier-payments", authenticate(), supplierPaymentRoutes);
 app.use("/api/profit", authenticate(), profitRoutes);

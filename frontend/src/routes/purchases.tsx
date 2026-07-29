@@ -77,6 +77,7 @@ type FormItem = {
   selling_price: number; // in Rupees
   gst: number;
   discount: number;
+  image?: string;
 };
 
 function PurchasesPage() {

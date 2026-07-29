@@ -36,11 +36,19 @@ export const storeStorage = {
 
 export function getTenantContext(): TenantContext {
   const store = tenantStorage.getStore();
+  if (!store) {
+    return {
+      userId: 0,
+      organizationId: 0,
+      currentStoreId: 0,
+      role: "none",
+    };
+  }
   return {
-    userId: store?.userId ?? 1,
-    organizationId: store?.organizationId ?? 1,
-    currentStoreId: store?.currentStoreId ?? 1,
-    role: store?.role ?? "admin",
+    userId: store.userId,
+    organizationId: store.organizationId,
+    currentStoreId: store.currentStoreId,
+    role: store.role,
   };
 }
 

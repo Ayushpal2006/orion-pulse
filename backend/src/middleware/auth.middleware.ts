@@ -30,64 +30,51 @@ export function authenticate() {
   return (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      // In V1, default to the seeded admin user context so frontend operations bypass login
-      const storeId = resolveStoreId(req, 1);
-      const defaultUser = {
-        id: 1,
-        email: "admin@orion.com",
-        role: "admin",
-        organization_id: 1,
-        store_id: storeId,
-        name: "Default Admin",
-      };
-      req.user = defaultUser;
-      return storeStorage.run(
-        { organizationId: defaultUser.organization_id, currentStoreId: defaultUser.store_id, userId: defaultUser.id, role: defaultUser.role },
-        () => {
-          next();
-        }
-      );
+      return res.status(401).json({
+        success: false,
+        error: "Unauthorized: Missing or invalid Authorization header. Please log in again.",
+      });
     }
 
     const token = authHeader.split(" ")[1];
     try {
       const decoded = jwt.verify(token, env.JWT_SECRET) as any;
+      if (!decoded || !decoded.organization_id) {
+        return res.status(401).json({
+          success: false,
+          error: "Unauthorized: Invalid token payload. Missing organization_id.",
+        });
+      }
+
       const baseStoreId = decoded.store_id || 1;
-      const storeId = resolveStoreId(req, baseStoreId);
+      const requestedStoreId = resolveStoreId(req, baseStoreId);
 
       req.user = {
         id: decoded.id,
         email: decoded.email,
         role: decoded.role,
-        organization_id: decoded.organization_id || 1,
-        store_id: storeId,
+        organization_id: decoded.organization_id,
+        store_id: requestedStoreId,
         name: decoded.name,
       };
 
       storeStorage.run(
-        { organizationId: req.user.organization_id, currentStoreId: req.user.store_id, userId: decoded.id, role: decoded.role },
+        {
+          organizationId: req.user.organization_id,
+          currentStoreId: req.user.store_id,
+          userId: decoded.id,
+          role: decoded.role,
+        },
         () => {
           next();
         }
       );
     } catch (err: any) {
-      logger.warn("Authentication token verification failed, falling back to default admin context for V1: " + (err instanceof Error ? err.message : String(err)));
-      const storeId = resolveStoreId(req, 1);
-      const defaultUser = {
-        id: 1,
-        email: "admin@orion.com",
-        role: "admin",
-        organization_id: 1,
-        store_id: storeId,
-        name: "Default Admin",
-      };
-      req.user = defaultUser;
-      return storeStorage.run(
-        { organizationId: defaultUser.organization_id, currentStoreId: defaultUser.store_id, userId: defaultUser.id, role: defaultUser.role },
-        () => {
-          next();
-        }
-      );
+      logger.warn("Authentication token verification failed: " + (err instanceof Error ? err.message : String(err)));
+      return res.status(401).json({
+        success: false,
+        error: "Unauthorized: Token verification failed or session expired. Please log in again.",
+      });
     }
   };
 }

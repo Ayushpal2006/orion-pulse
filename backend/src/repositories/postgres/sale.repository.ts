@@ -69,13 +69,9 @@ export class PostgresSaleRepository implements ISaleRepository {
     const { organizationId, currentStoreId } = getTenantContext();
     const conditions: any[] = [
       eq(sales.invoice_number, invoiceNumber),
+      eq(sales.organization_id, organizationId),
+      eq(sales.store_id, currentStoreId)
     ];
-    if (currentStoreId) {
-      conditions.push(eq(sales.store_id, currentStoreId));
-    }
-    if (organizationId) {
-      conditions.push(or(eq(sales.organization_id, organizationId), isNull(sales.organization_id)));
-    }
 
     const [sale] = await client
       .select()

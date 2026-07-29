@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import {
-  Building2, Store, FileText, Upload, CheckCircle2, ArrowRight, ArrowLeft, Sparkles, Receipt, ShoppingBag, LayoutDashboard, Plus, HelpCircle
+  Building2, Store, FileText, Upload, CheckCircle2, ArrowRight, ArrowLeft, Sparkles, Receipt, ShoppingBag, ShoppingCart, LayoutDashboard, Plus, HelpCircle
 } from "lucide-react";
 import { completeOnboardingApi, getOrganizationCurrent, createProduct } from "@/lib/api";
 import { toast } from "sonner";
@@ -127,8 +127,8 @@ function SetupWizardPage() {
         try {
           await createProduct({
             name: sampleProductName.trim(),
-            price: Math.round(parseFloat(sampleProductPrice) * 100),
-            cost_price: sampleProductCost ? Math.round(parseFloat(sampleProductCost) * 100) : 0,
+            price: parseFloat(sampleProductPrice),
+            purchase: sampleProductCost ? parseFloat(sampleProductCost) : 0,
             stock: 10,
             sku: `SKU-${Date.now().toString().slice(-4)}`,
             category: "General",

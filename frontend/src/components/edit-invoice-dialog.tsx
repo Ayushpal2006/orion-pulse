@@ -214,7 +214,7 @@ export function EditInvoiceDialog({
                       <span className="font-semibold text-foreground">{prod.name}</span>
                       <span className="text-[10px] text-muted-foreground ml-2">Stock: {prod.stock}</span>
                     </div>
-                    <span className="font-mono text-primary font-bold">{inr((prod.selling_price || 0) / 100)}</span>
+                    <span className="font-mono text-primary font-bold">{inr(prod.price || 0)}</span>
                   </button>
                 ))}
               </div>
