@@ -55,7 +55,7 @@ import {
   KeyRound,
 } from "lucide-react";
 import { ThemeToggle } from "@/components/theme-toggle";
-import { testPrinter, API_BASE_URL, resetOnboardingApi, changePasswordApi } from "@/lib/api";
+import { testPrinter, API_BASE_URL, apiFetch, resetOnboardingApi, changePasswordApi } from "@/lib/api";
 import { formatToKolkataDateTime } from "@/lib/datetime";
 import { WhatsAppTemplateManager } from "@/components/whatsapp-template-manager";
 import { BrandingSettings } from "@/components/branding-settings";
@@ -229,7 +229,7 @@ function SettingsV2() {
     if (localSheetId) setSheetId(localSheetId);
 
     // 2. Fetch Production Settings from Backend Database API
-    fetch(`${API_BASE_URL}/settings`)
+    apiFetch(`${API_BASE_URL}/settings`)
       .then((r) => r.json())
       .then((d) => {
         if (d.success && d.data) {
@@ -263,7 +263,7 @@ function SettingsV2() {
       .catch(() => {});
 
     // 3. Load Storage & Sync Status
-    fetch(`${API_BASE_URL}/settings/storage`)
+    apiFetch(`${API_BASE_URL}/settings/storage`)
       .then((r) => r.json())
       .then((d) => d.success && setStorageStats(d.data))
       .catch(() => {});
@@ -369,7 +369,7 @@ function SettingsV2() {
       localStorage.setItem("orion_export_format", exportFormat);
 
       // 2. Persist to PostgreSQL Database Settings table via API
-      await fetch(`${API_BASE_URL}/settings`, {
+      await apiFetch(`${API_BASE_URL}/settings`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -2277,7 +2277,7 @@ function SettingsV2() {
                 onClick={async () => {
                   setCleaningStorage(true);
                   try {
-                    const res = await fetch(`${API_BASE_URL}/settings/storage/cleanup`, { method: "POST" });
+                    const res = await apiFetch(`${API_BASE_URL}/settings/storage/cleanup`, { method: "POST" });
                     const json = await res.json();
                     if (json.success) toast.success(json.message);
                   } catch (e) {

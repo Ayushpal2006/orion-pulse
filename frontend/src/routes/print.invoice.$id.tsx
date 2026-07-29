@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { Loader2 } from "lucide-react";
-import { getSaleReceipt, API_BASE_URL } from "@/lib/api";
+import { getSaleReceipt, API_BASE_URL, apiFetch } from "@/lib/api";
 import { waitForReceiptResources } from "@/lib/print-adapter";
 import { Button } from "@/components/ui/button";
 import { ReceiptRenderer } from "@/components/receipt-templates";
