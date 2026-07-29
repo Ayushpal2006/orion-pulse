@@ -1,7 +1,7 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState, useMemo, type ReactNode } from "react";
 import { Link, useRouterState } from "@tanstack/react-router";
 import {
-  LayoutDashboard, ShoppingCart, Package, Users, BarChart3, Search, Wifi, WifiOff, Settings, LogOut, UserCog, Truck, Receipt, Sliders, TrendingUp, History, CreditCard, Wallet, ChevronDown, ChevronRight, Menu, X, Store, Check
+  LayoutDashboard, ShoppingCart, Package, Users, BarChart3, Search, Wifi, WifiOff, Settings, LogOut, UserCog, Truck, Receipt, Sliders, TrendingUp, History, CreditCard, Wallet, ChevronDown, ChevronRight, Menu, X, Store, Check, Building2
 } from "lucide-react";
 import { usePWA } from "@/hooks/usePWA";
 import { Button } from "@/components/ui/button";
@@ -16,7 +16,7 @@ import { useApp, type Role } from "@/lib/store";
 import { CommandPalette } from "./command-palette";
 import { ThemeToggle, useThemeInit } from "./theme-toggle";
 import { cn } from "@/lib/utils";
-import { getProducts, getCustomers, getStores, switchStore, logoutApi, getCurrentUserApi } from "@/lib/api";
+import { getProducts, getCustomers, getStores, switchStore, logoutApi, getCurrentUserApi, getSuperAdminOrganizations } from "@/lib/api";
 import { toast } from "sonner";
 
 export type NavItem = { to: string; label: string; icon: any; exact?: boolean; roles?: Role[] };
@@ -25,6 +25,67 @@ export type NavElement = NavItem | NavGroup;
 
 function isGroup(item: NavElement): item is NavGroup {
   return "items" in item;
+}
+
+function OrganizationSwitcher() {
+  const [orgs, setOrgs] = useState<any[]>([]);
+  const [activeOrg, setActiveOrg] = useState<any>(null);
+
+  useEffect(() => {
+    getSuperAdminOrganizations()
+      .then((res) => {
+        if (Array.isArray(res)) {
+          setOrgs(res);
+          const savedOrgId = localStorage.getItem("currentOrgId");
+          const found = res.find((o: any) => String(o.id) === savedOrgId) || res[0];
+          if (found) {
+            setActiveOrg(found);
+            localStorage.setItem("currentOrgId", String(found.id));
+          }
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  const handleSelectOrg = (org: any) => {
+    setActiveOrg(org);
+    localStorage.setItem("currentOrgId", String(org.id));
+    toast.success(`Organization: ${org.name}`);
+    window.location.reload();
+  };
+
+  if (orgs.length === 0) return null;
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="outline" size="sm" className="h-9 gap-2 rounded-xl text-xs font-medium border-border/60 bg-background/50 hover:bg-accent">
+          <Building2 className="size-3.5 text-primary shrink-0" />
+          <span className="truncate max-w-[110px] sm:max-w-[140px] font-semibold">{activeOrg?.name || "Organization"}</span>
+          <ChevronDown className="size-3 opacity-60 ml-auto" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" className="w-56 rounded-xl">
+        <DropdownMenuLabel className="text-xs text-muted-foreground font-normal">Switch Organization</DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        {orgs.map((o) => (
+          <DropdownMenuItem
+            key={o.id}
+            onClick={() => handleSelectOrg(o)}
+            className="flex items-center justify-between cursor-pointer rounded-lg text-xs"
+          >
+            <div className="flex flex-col">
+              <span className={cn("font-medium", o.id === activeOrg?.id ? "text-primary font-bold" : "")}>
+                {o.name}
+              </span>
+              <span className="text-[10px] text-muted-foreground">ID: #{o.id} ({o.status})</span>
+            </div>
+            {o.id === activeOrg?.id && <Check className="size-4 text-primary" />}
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
 }
 
 function StoreSwitcher() {
@@ -105,39 +166,40 @@ function StoreSwitcher() {
 }
 
 const navTree: NavElement[] = [
-  { to: "/", label: "Dashboard", icon: LayoutDashboard, exact: true },
-  { to: "/billing", label: "Billing", icon: ShoppingCart },
+  { to: "/", label: "Dashboard", icon: LayoutDashboard, exact: true, roles: ["Super Admin", "Admin", "Manager"] },
+  { to: "/billing", label: "Billing", icon: ShoppingCart, roles: ["Super Admin", "Admin", "Manager", "Cashier"] },
   {
     label: "Inventory",
     icon: Package,
+    roles: ["Super Admin", "Admin", "Manager", "Cashier"],
     items: [
-      { to: "/products", label: "Products", icon: Package },
-      { to: "/adjust-stock", label: "Adjust Stock", icon: Sliders },
-      { to: "/stock-history", label: "Stock History", icon: History },
-
+      { to: "/products", label: "Products", icon: Package, roles: ["Super Admin", "Admin", "Manager", "Cashier"] },
+      { to: "/adjust-stock", label: "Adjust Stock", icon: Sliders, roles: ["Super Admin", "Admin", "Manager"] },
+      { to: "/stock-history", label: "Stock History", icon: History, roles: ["Super Admin", "Admin", "Manager"] },
     ],
   },
   {
     label: "Contacts",
     icon: Users,
+    roles: ["Super Admin", "Admin", "Manager", "Cashier"],
     items: [
-      { to: "/customers", label: "Customers", icon: Users },
-      { to: "/suppliers", label: "Suppliers", icon: Truck },
+      { to: "/customers", label: "Customers", icon: Users, roles: ["Super Admin", "Admin", "Manager", "Cashier"] },
+      { to: "/suppliers", label: "Suppliers", icon: Truck, roles: ["Super Admin", "Admin", "Manager"] },
     ],
   },
-  { to: "/purchases", label: "Purchases", icon: Receipt },
-  { to: "/reports", label: "Reports", icon: BarChart3, roles: ["Admin", "Manager"] },
+  { to: "/purchases", label: "Purchases", icon: Receipt, roles: ["Super Admin", "Admin", "Manager"] },
+  { to: "/reports", label: "Reports", icon: BarChart3, roles: ["Super Admin", "Admin", "Manager"] },
   {
     label: "Finance",
     icon: Wallet,
-    roles: ["Admin", "Manager"],
+    roles: ["Super Admin", "Admin", "Manager"],
     items: [
-      { to: "/profit", label: "Profit", icon: TrendingUp },
-      { to: "/expenses", label: "Expenses", icon: CreditCard },
+      { to: "/profit", label: "Profit", icon: TrendingUp, roles: ["Super Admin", "Admin", "Manager"] },
+      { to: "/expenses", label: "Expenses", icon: CreditCard, roles: ["Super Admin", "Admin", "Manager"] },
     ],
   },
-  { to: "/settings", label: "Settings", icon: Settings, roles: ["Admin", "Manager"] },
-  { to: "/super-admin", label: "Super Admin", icon: UserCog, roles: ["Admin"] },
+  { to: "/settings", label: "Settings", icon: Settings, roles: ["Super Admin", "Admin", "Manager"] },
+  { to: "/super-admin", label: "Super Admin", icon: UserCog, roles: ["Super Admin"] },
 ];
 
 export function AppShell({ children }: { children: ReactNode }) {
@@ -148,12 +210,14 @@ export function AppShell({ children }: { children: ReactNode }) {
   const setProducts = useApp((s) => s.setProducts);
   const setCustomers = useApp((s) => s.setCustomers);
   const setActiveStoreId = useApp((s) => s.setActiveStoreId);
+  const activeStoreName = useApp((s) => s.activeStoreName);
   const setActiveStoreName = useApp((s) => s.setActiveStoreName);
   const setStoresList = useApp((s) => s.setStoresList);
   const pathname = useRouterState({ select: (s) => s.location.pathname });
 
   // Mobile menu drawer state
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [currentUser, setCurrentUser] = useState<any>(null);
 
   // Accordion open states for nav groups
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({
@@ -203,21 +267,36 @@ export function AppShell({ children }: { children: ReactNode }) {
     if (token && pathname !== "/login") {
       getCurrentUserApi()
         .then((data) => {
-          if (data?.user?.role) {
+          if (data?.user) {
+            setCurrentUser(data.user);
             const roleLower = (data.user.role || "").toLowerCase();
-            const formattedRole = data.user.role.charAt(0).toUpperCase() + data.user.role.slice(1).toLowerCase();
-            setRole(formattedRole as any);
-
             const isSuperAdminUser = roleLower === "super_admin" || roleLower === "superadmin";
+            const formattedRole: Role = isSuperAdminUser
+              ? "Super Admin"
+              : roleLower === "cashier"
+              ? "Cashier"
+              : roleLower === "manager"
+              ? "Manager"
+              : "Admin";
+            setRole(formattedRole);
 
             // Role-Based Portal Guard:
-            // 1. Super Admin is restricted to /admin and cannot access org shop routes (/dashboard, /billing, etc.)
+            // 1. Cashier is restricted to /billing, /customers, /products
+            if (roleLower === "cashier") {
+              const isAllowedForCashier = pathname === "/billing" || pathname === "/customers" || pathname === "/products";
+              if (!isAllowedForCashier) {
+                window.location.href = "/billing";
+                return;
+              }
+            }
+
+            // 2. Super Admin is restricted to /admin
             if (isSuperAdminUser && !isAdminRoute) {
               window.location.href = "/admin";
               return;
             }
 
-            // 2. Organization Admin (admin/owner/manager) cannot access platform /admin portal
+            // 3. Non-Super Admin cannot access /admin
             if (!isSuperAdminUser && isAdminRoute) {
               window.location.href = "/dashboard";
               return;
@@ -413,8 +492,26 @@ export function AppShell({ children }: { children: ReactNode }) {
             <kbd className="ml-auto hidden rounded-md border border-border bg-elevated px-1.5 py-0.5 text-[10px] font-medium sm:inline-block">⌘K</kbd>
           </button>
 
-          <div className="hidden sm:block">
-            <StoreSwitcher />
+          {/* Role-Specific Top Bar Controls */}
+          <div className="hidden sm:flex items-center gap-2">
+            {role === "Super Admin" && (
+              <>
+                <OrganizationSwitcher />
+                <StoreSwitcher />
+              </>
+            )}
+            {role === "Admin" && (
+              <StoreSwitcher />
+            )}
+            {role === "Manager" && (
+              <StoreSwitcher />
+            )}
+            {role === "Cashier" && (
+              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-muted/60 border border-border/50 text-xs font-semibold text-foreground">
+                <Store className="size-3.5 text-primary shrink-0" />
+                <span>{activeStoreName || "Main Store"}</span>
+              </div>
+            )}
           </div>
 
           <div className="hidden lg:block">
@@ -426,27 +523,35 @@ export function AppShell({ children }: { children: ReactNode }) {
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="icon" className="size-10 rounded-full bg-muted">
-                <span className="text-sm font-semibold">
-                  {role === "Admin" ? "AD" : role === "Manager" ? "MG" : "CS"}
+                <span className="text-xs font-bold">
+                  {role === "Super Admin" ? "SA" : role === "Admin" ? "AD" : role === "Manager" ? "MG" : "CS"}
                 </span>
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-56">
-              <DropdownMenuLabel>Signed in as {role}</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">Switch role</DropdownMenuLabel>
-              <DropdownMenuRadioGroup value={role} onValueChange={(v) => setRole(v as Role)}>
-                <DropdownMenuRadioItem value="Admin">Admin</DropdownMenuRadioItem>
-                <DropdownMenuRadioItem value="Manager">Manager</DropdownMenuRadioItem>
-                <DropdownMenuRadioItem value="Cashier">Cashier</DropdownMenuRadioItem>
-              </DropdownMenuRadioGroup>
+              <DropdownMenuLabel>
+                <div className="flex flex-col">
+                  <span className="font-bold text-foreground">{currentUser?.name || (role === "Cashier" ? "Cashier" : "User")}</span>
+                  <span className="text-[10px] text-muted-foreground">Signed in as {role}</span>
+                </div>
+              </DropdownMenuLabel>
+              {role !== "Cashier" && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">Switch role</DropdownMenuLabel>
+                  <DropdownMenuRadioGroup value={role} onValueChange={(v) => setRole(v as Role)}>
+                    <DropdownMenuRadioItem value="Admin">Organization Admin</DropdownMenuRadioItem>
+                    <DropdownMenuRadioItem value="Manager">Store Manager</DropdownMenuRadioItem>
+                    <DropdownMenuRadioItem value="Cashier">Cashier</DropdownMenuRadioItem>
+                  </DropdownMenuRadioGroup>
+                </>
+              )}
               <DropdownMenuSeparator />
               {role !== "Cashier" && (
                 <DropdownMenuItem asChild>
                   <Link to="/settings"><Settings className="mr-2 size-4" /> Settings</Link>
                 </DropdownMenuItem>
               )}
-              <DropdownMenuItem><UserCog className="mr-2 size-4" /> Account</DropdownMenuItem>
               <DropdownMenuItem onClick={handleLogout} className="cursor-pointer text-destructive focus:text-destructive">
                 <LogOut className="mr-2 size-4" /> Sign out
               </DropdownMenuItem>
@@ -462,13 +567,21 @@ export function AppShell({ children }: { children: ReactNode }) {
 
       {/* Mobile bottom nav */}
       <nav className="fixed bottom-0 left-0 right-0 z-30 border-t border-border bg-elevated/95 backdrop-blur lg:hidden">
-        <div className="grid grid-cols-5">
-          {[
-            { to: "/dashboard", label: "Home", icon: LayoutDashboard, exact: true },
-            { to: "/billing", label: "Billing", icon: ShoppingCart },
-            { to: "/products", label: "Products", icon: Package },
-            { to: "/purchases", label: "Purchases", icon: Receipt },
-          ].map((n) => {
+        <div className={cn("grid", role === "Cashier" ? "grid-cols-3" : "grid-cols-5")}>
+          {(role === "Cashier"
+            ? [
+                { to: "/billing", label: "Billing", icon: ShoppingCart },
+                { to: "/products", label: "Products", icon: Package },
+                { to: "/customers", label: "Customers", icon: Users },
+              ]
+            : [
+                { to: "/", label: "Home", icon: LayoutDashboard, exact: true },
+                { to: "/billing", label: "Billing", icon: ShoppingCart },
+                { to: "/products", label: "Products", icon: Package },
+                { to: "/purchases", label: "Purchases", icon: Receipt },
+                { to: "/customers", label: "Customers", icon: Users },
+              ]
+          ).map((n) => {
             const Icon = n.icon;
             const active = isActive(n.to, n.exact);
             return (
@@ -484,16 +597,6 @@ export function AppShell({ children }: { children: ReactNode }) {
               </Link>
             );
           })}
-          {/* Menu button on mobile bottom bar opens full drawer */}
-          <button
-            onClick={() => setMobileMenuOpen(true)}
-            className="flex flex-col items-center gap-1 py-2 text-[11px] font-medium text-muted-foreground hover:text-foreground touch-manipulation"
-          >
-            <div className="grid size-9 place-items-center rounded-xl">
-              <Menu className="size-[18px]" />
-            </div>
-            Menu
-          </button>
         </div>
       </nav>
 

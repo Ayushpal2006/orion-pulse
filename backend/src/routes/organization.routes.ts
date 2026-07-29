@@ -11,7 +11,7 @@ router.post("/invitations/accept", controller.acceptInvitation);
 // Authenticated organization administration endpoints
 router.get("/current", authenticate(), controller.getCurrent);
 router.put("/current", authenticate(), authorize("Owner", "Admin", "owner", "admin"), controller.updateCurrent);
-router.get("/dashboard", authenticate(), controller.getDashboard);
+router.get("/dashboard", authenticate(), authorize("super_admin", "superadmin"), controller.getDashboard);
 router.get("/stats", authenticate(), controller.getStats);
 router.post("/onboarding/complete", authenticate(), controller.completeOnboarding);
 router.post("/onboarding/reset", authenticate(), controller.resetOnboarding);

@@ -28,6 +28,7 @@ export const API_BASE_URL = getApiBaseUrl();
 export async function apiFetch(input: RequestInfo | URL, init: RequestInit = {}): Promise<Response> {
   const token = typeof window !== "undefined" ? localStorage.getItem("token") || "" : "";
   const currentStoreId = typeof window !== "undefined" ? localStorage.getItem("currentStoreId") || "" : "";
+  const currentOrgId = typeof window !== "undefined" ? localStorage.getItem("currentOrgId") || "" : "";
 
   const headers = new Headers(init.headers || {});
   if (token && !headers.has("Authorization")) {
@@ -35,6 +36,9 @@ export async function apiFetch(input: RequestInfo | URL, init: RequestInit = {})
   }
   if (currentStoreId && !headers.has("X-Store-Id")) {
     headers.set("X-Store-Id", currentStoreId);
+  }
+  if (currentOrgId && !headers.has("X-Organization-Id")) {
+    headers.set("X-Organization-Id", currentOrgId);
   }
 
   return fetch(input, { ...init, headers });

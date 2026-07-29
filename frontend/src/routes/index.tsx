@@ -74,11 +74,19 @@ function useGreeting() {
 }
 
 export function Dashboard() {
+  const role = useApp((s) => s.role);
   const products = useApp((s) => s.products);
   const setProducts = useApp((s) => s.setProducts);
   const [range, setRange] = useState<Range>("Week");
   const [selectedInvoice, setSelectedInvoice] = useState<any>(null);
   const { greeting, time } = useGreeting();
+
+  // Cashier Role Guard: Cashier must NOT open Dashboard; redirect directly to /billing
+  useEffect(() => {
+    if (role === "Cashier") {
+      window.location.href = "/billing";
+    }
+  }, [role]);
 
   // Load products list into store on mount
   useEffect(() => {
@@ -105,6 +113,7 @@ export function Dashboard() {
   });
 
   const lowStock = useMemo(() => products.filter((p) => stockLevel(p) !== "ok"), [products]);
+  const inventoryValueVal = useMemo(() => products.reduce((sum, p) => sum + (p.price * p.stock), 0), [products]);
 
   const getProductEmoji = (name: string) => {
     const matched = products.find((p) => p.name === name);
@@ -115,6 +124,14 @@ export function Dashboard() {
     const matched = products.find((p) => p.name === name);
     return matched?.sku || "";
   };
+
+  if (role === "Cashier") {
+    return (
+      <div className="flex h-[80vh] items-center justify-center">
+        <Loader2 className="size-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
 
   if (isLoadingDashboard) {
     return (
@@ -147,19 +164,26 @@ export function Dashboard() {
   };
 
   const chartSeries = reportData?.salesSeries || [];
-
   const avgTicket = stats.todayOrders > 0 ? stats.todayRevenue / stats.todayOrders : 0;
   const marginPercent = stats.todayRevenue > 0 ? (stats.todayProfit / stats.todayRevenue) * 100 : 0;
   const listInsights = getInsights(stats.todayRevenue, stats.lowStockCount || lowStock.length);
 
+  const isSuperAdmin = role === "Super Admin";
+  const isOrgAdmin = role === "Admin";
+  const isStoreManager = role === "Manager";
+
   return (
     <div className="space-y-6 page-enter">
-      {/* Hero Header */}
+      {/* 1. First Section: Greeting + Clock Header */}
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">{greeting}</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Here's your store overview for today.
+            {isOrgAdmin
+              ? "Here is your shop overview for today."
+              : isStoreManager
+              ? "Here is your store performance for today."
+              : "Here is your platform command center."}
           </p>
         </div>
         <div className="flex items-center gap-2 rounded-2xl border border-border bg-elevated px-4 py-2.5 shadow-sm">
@@ -169,58 +193,108 @@ export function Dashboard() {
         </div>
       </div>
 
-      {/* Organization Executive Dashboard Card */}
-      <OrganizationDashboardCard />
+      {/* ONLY Super Admin sees the Organization Executive Overview */}
+      {isSuperAdmin && <OrganizationDashboardCard />}
 
-      {/* 1. KPI cards — 5-column grid on large screens */}
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 md:gap-4">
-        <MetricCard
-          label="Revenue Today"
-          value={inr(stats.todayRevenue)}
-          delta={stats.todayRevenue > 0 ? 12 : undefined}
-          hint="vs yesterday"
-          accent="money"
-          icon={<IndianRupee className="size-4" />}
-        />
-        <MetricCard
-          label="Orders"
-          value={String(stats.todayOrders)}
-          delta={stats.todayOrders > 0 ? 8 : undefined}
-          hint={`Avg ticket ${inr(avgTicket)}`}
-          accent="default"
-          icon={<ShoppingBag className="size-4" />}
-        />
-        <MetricCard
-          label="Profit"
-          value={inr(stats.todayProfit)}
-          delta={stats.todayProfit > 0 ? -3 : undefined}
-          hint={`Margin ${marginPercent.toFixed(1)}%`}
-          accent="money"
-          icon={<TrendingUp className="size-4" />}
-        />
-        <MetricCard
-          label="Inventory"
-          value={String(stats.inventoryCount || products.length)}
-          hint={
-            <span className={cn(stats.lowStockCount || lowStock.length ? "text-warn-foreground" : "text-muted-foreground", "font-medium")}>
-              {stats.lowStockCount || lowStock.length} items need restock
-            </span>
-          }
-          accent={stats.lowStockCount || lowStock.length ? "warn" : "default"}
-          icon={<Package className="size-4" />}
-        />
-        <MetricCard
-          label="Adjustments Today"
-          value={String(todayAdjustments.length)}
-          hint={
-            <span className="text-muted-foreground font-medium">
-              Net: {todayAdjustments.reduce((acc: number, a: any) => acc + (a.quantity_change || 0), 0)} units
-            </span>
-          }
-          accent="default"
-          icon={<Sliders className="size-4" />}
-        />
-      </div>
+      {/* 2. KPI Cards Grid — Tailored per role */}
+      {isOrgAdmin ? (
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 md:gap-4">
+          <MetricCard
+            label="Today's Sales"
+            value={inr(stats.todayRevenue)}
+            delta={stats.todayRevenue > 0 ? 12 : undefined}
+            hint="vs yesterday"
+            accent="money"
+            icon={<IndianRupee className="size-4" />}
+          />
+          <MetricCard
+            label="Today's Orders"
+            value={String(stats.todayOrders)}
+            delta={stats.todayOrders > 0 ? 8 : undefined}
+            hint={`Avg ${inr(avgTicket)}`}
+            accent="default"
+            icon={<ShoppingBag className="size-4" />}
+          />
+          <MetricCard
+            label="Today's Profit"
+            value={inr(stats.todayProfit)}
+            delta={stats.todayProfit > 0 ? 5 : undefined}
+            hint={`Margin ${marginPercent.toFixed(1)}%`}
+            accent="money"
+            icon={<TrendingUp className="size-4" />}
+          />
+          <MetricCard
+            label="Inventory Value"
+            value={inr(inventoryValueVal)}
+            hint="Total stock valuation"
+            accent="default"
+            icon={<Package className="size-4" />}
+          />
+          <MetricCard
+            label="Pending Adjustments"
+            value={String(todayAdjustments.length)}
+            hint="Recorded today"
+            accent="default"
+            icon={<Sliders className="size-4" />}
+          />
+          <MetricCard
+            label="Low Stock Alerts"
+            value={String(stats.lowStockCount || lowStock.length)}
+            hint={
+              <span className={cn(stats.lowStockCount || lowStock.length ? "text-warn-foreground" : "text-muted-foreground", "font-medium")}>
+                {stats.lowStockCount || lowStock.length} items low
+              </span>
+            }
+            accent={stats.lowStockCount || lowStock.length ? "warn" : "default"}
+            icon={<AlertTriangle className="size-4" />}
+          />
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 md:gap-4">
+          <MetricCard
+            label="Today's Sales"
+            value={inr(stats.todayRevenue)}
+            delta={stats.todayRevenue > 0 ? 12 : undefined}
+            hint="vs yesterday"
+            accent="money"
+            icon={<IndianRupee className="size-4" />}
+          />
+          <MetricCard
+            label="Today's Orders"
+            value={String(stats.todayOrders)}
+            delta={stats.todayOrders > 0 ? 8 : undefined}
+            hint={`Avg ticket ${inr(avgTicket)}`}
+            accent="default"
+            icon={<ShoppingBag className="size-4" />}
+          />
+          <MetricCard
+            label="Today's Profit"
+            value={inr(stats.todayProfit)}
+            delta={stats.todayProfit > 0 ? -3 : undefined}
+            hint={`Margin ${marginPercent.toFixed(1)}%`}
+            accent="money"
+            icon={<TrendingUp className="size-4" />}
+          />
+          <MetricCard
+            label="Today's Inventory"
+            value={String(stats.inventoryCount || products.length)}
+            hint={
+              <span className={cn(stats.lowStockCount || lowStock.length ? "text-warn-foreground" : "text-muted-foreground", "font-medium")}>
+                {stats.lowStockCount || lowStock.length} items need restock
+              </span>
+            }
+            accent={stats.lowStockCount || lowStock.length ? "warn" : "default"}
+            icon={<Package className="size-4" />}
+          />
+          <MetricCard
+            label="Low Stock"
+            value={String(stats.lowStockCount || lowStock.length)}
+            hint="Items requiring reorder"
+            accent={stats.lowStockCount || lowStock.length ? "warn" : "default"}
+            icon={<AlertTriangle className="size-4" />}
+          />
+        </div>
+      )}
 
       {/* 2. Quick Actions — prominent grid */}
       <div className="card-soft p-5">

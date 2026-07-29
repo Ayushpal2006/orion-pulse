@@ -26,6 +26,17 @@ function resolveStoreId(req: Request, fallbackStoreId: number): number {
   return fallbackStoreId;
 }
 
+function resolveOrganizationId(req: Request, fallbackOrgId: number, role: string): number {
+  const headerVal = req.headers["x-organization-id"] || req.headers["X-Organization-Id"];
+  if (headerVal && ["super_admin", "superadmin", "owner", "admin"].includes((role || "").toLowerCase())) {
+    const parsed = parseInt(String(headerVal), 10);
+    if (!isNaN(parsed) && parsed > 0) {
+      return parsed;
+    }
+  }
+  return fallbackOrgId;
+}
+
 export function authenticate() {
   return (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     const authHeader = req.headers.authorization;
@@ -48,12 +59,13 @@ export function authenticate() {
 
       const baseStoreId = decoded.store_id || 1;
       const requestedStoreId = resolveStoreId(req, baseStoreId);
+      const requestedOrgId = resolveOrganizationId(req, decoded.organization_id, decoded.role || "");
 
       req.user = {
         id: decoded.id,
         email: decoded.email,
         role: decoded.role,
-        organization_id: decoded.organization_id,
+        organization_id: requestedOrgId,
         store_id: requestedStoreId,
         name: decoded.name,
       };
