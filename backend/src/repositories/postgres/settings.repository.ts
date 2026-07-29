@@ -7,11 +7,12 @@ import { getTenantContext } from "../../db/context";
 export class PostgresSettingsRepository implements ISettingsRepository {
   async getAll(tx?: any): Promise<Record<string, string>> {
     const client = tx || db;
-    const { currentStoreId } = getTenantContext();
+    const ctx = getTenantContext();
+    const storeId = ctx.currentStoreId || 1;
     const rows = await client
       .select()
       .from(settings)
-      .where(eq(settings.store_id, currentStoreId));
+      .where(eq(settings.store_id, storeId));
 
     const settingsObj: Record<string, string> = {};
     for (const row of rows) {
@@ -22,11 +23,12 @@ export class PostgresSettingsRepository implements ISettingsRepository {
 
   async get(key: string, fallback = "", tx?: any): Promise<string> {
     const client = tx || db;
-    const { currentStoreId } = getTenantContext();
+    const ctx = getTenantContext();
+    const storeId = ctx.currentStoreId || 1;
     const rows = await client
       .select({ value: settings.value })
       .from(settings)
-      .where(and(eq(settings.store_id, currentStoreId), eq(settings.key, key)))
+      .where(and(eq(settings.store_id, storeId), eq(settings.key, key)))
       .limit(1);
 
     return rows[0]?.value ?? fallback;
@@ -34,10 +36,11 @@ export class PostgresSettingsRepository implements ISettingsRepository {
 
   async set(key: string, value: string, tx?: any): Promise<void> {
     const client = tx || db;
-    const { currentStoreId } = getTenantContext();
+    const ctx = getTenantContext();
+    const storeId = ctx.currentStoreId || 1;
     await client
       .insert(settings)
-      .values({ store_id: currentStoreId, key, value })
+      .values({ store_id: storeId, key, value })
       .onConflictDoUpdate({
         target: [settings.store_id, settings.key],
         set: { value },
@@ -46,12 +49,13 @@ export class PostgresSettingsRepository implements ISettingsRepository {
 
   async setMany(settingsObj: Record<string, string>, tx?: any): Promise<void> {
     const client = tx || db;
-    const { currentStoreId } = getTenantContext();
+    const ctx = getTenantContext();
+    const storeId = ctx.currentStoreId || 1;
     await client.transaction(async (txClient: any) => {
       for (const [key, value] of Object.entries(settingsObj)) {
         await txClient
           .insert(settings)
-          .values({ store_id: currentStoreId, key, value: String(value ?? "") })
+          .values({ store_id: storeId, key, value: String(value ?? "") })
           .onConflictDoUpdate({
             target: [settings.store_id, settings.key],
             set: { value: String(value ?? "") },

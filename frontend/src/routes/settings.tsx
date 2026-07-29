@@ -363,6 +363,8 @@ function SettingsV2() {
       localStorage.setItem("orion_inv_prefix", invPrefix);
       localStorage.setItem("orion_po_prefix", poPrefix);
       localStorage.setItem("orion_receipt_footer", s.receiptFooter);
+      localStorage.setItem("orion_receipt_template", s.receiptTemplate);
+      if (s.primaryColor) localStorage.setItem("orion_primary_color", s.primaryColor);
       localStorage.setItem("orion_google_sheet_id", sheetId);
       localStorage.setItem("orion_low_stock_threshold", String(lowStockThreshold));
       localStorage.setItem("orion_default_report_period", defaultReportPeriod);
