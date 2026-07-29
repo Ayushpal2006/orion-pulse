@@ -538,17 +538,17 @@ function KpiCard({
   loading?: boolean;
 }) {
   return (
-    <div className="card-soft p-4 space-y-3">
+    <div className="card-soft p-4 space-y-2 border-t-2 border-t-primary/50 hover:-translate-y-0.5 transition-all duration-200">
       <div className="flex items-center justify-between">
-        <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">{label}</span>
-        <div className={cn("size-9 rounded-xl grid place-items-center", bg, color)}>{icon}</div>
+        <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest leading-tight">{label}</span>
+        <div className={cn("size-8 rounded-xl grid place-items-center shrink-0 transition-transform hover:scale-105", bg, color)}>{icon}</div>
       </div>
       {loading ? (
-        <div className="h-8 rounded-lg bg-muted/30 animate-pulse" />
+        <div className="h-7 rounded-lg bg-muted/30 animate-pulse" />
       ) : (
         <>
-          <div className={cn("text-2xl font-bold tracking-tight tabular-nums", color)}>{value}</div>
-          {sub && <div className="text-[10px] text-muted-foreground">{sub}</div>}
+          <div className={cn("text-xl font-black tracking-tight tabular leading-none", color)}>{value}</div>
+          {sub && <div className="text-[10px] text-muted-foreground font-medium">{sub}</div>}
         </>
       )}
     </div>

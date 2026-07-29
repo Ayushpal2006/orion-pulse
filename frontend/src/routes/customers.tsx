@@ -190,43 +190,47 @@ function Customers() {
         <div className="grid gap-3">
           {mappedFiltered.map((c) => {
             const open = openId === c.id;
+            const isVip = c.visits > 5 || c.ltv > 5000;
             return (
-              <div key={c.id} className="card-soft animate-fade-in">
+              <div key={c.id} className={cn("card-soft transition-all duration-200 hover:border-foreground/20 hover:shadow-md", open && "ring-1 ring-primary/30")}>
                 <button
                   onClick={() => setOpenId(open ? null : c.id)}
-                  className="flex w-full items-center gap-3 p-4 text-left"
+                  className="flex w-full items-center gap-3 p-4 text-left touch-manipulation focus-visible:outline-2 focus-visible:outline-ring"
                 >
-                  <div className="grid size-11 place-items-center rounded-full bg-muted text-sm font-semibold text-muted-foreground">
-                    {c.name.split(" ").map((s) => s[0]).join("").slice(0, 2)}
+                  <div className={cn(
+                    "grid size-11 place-items-center rounded-2xl text-sm font-bold shadow-xs shrink-0 transition-transform hover:scale-105",
+                    isVip ? "bg-gradient-to-br from-amber-500/20 to-amber-600/10 text-amber-600 dark:text-amber-400 border border-amber-500/30" : "bg-muted text-muted-foreground"
+                  )}>
+                    {c.name.split(" ").map((s) => s[0]).join("").slice(0, 2).toUpperCase()}
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
-                      <div className="truncate font-semibold text-foreground">{c.name}</div>
-                      {c.visits > 10 && (
-                        <span className="rounded-full bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">
-                          VIP
+                      <div className="truncate font-bold text-foreground text-sm sm:text-base">{c.name}</div>
+                      {isVip && (
+                        <span className="rounded-full bg-amber-500/15 border border-amber-500/30 px-2 py-0.5 text-[10px] font-extrabold text-amber-600 dark:text-amber-400 tracking-wide uppercase">
+                          ★ VIP
                         </span>
                       )}
                     </div>
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                      <Phone className="size-3" /> {c.mobile && c.mobile !== "0000000000" ? `+91 ${c.mobile}` : "System Account (No Phone)"}
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
+                      <Phone className="size-3 shrink-0" /> {c.mobile && c.mobile !== "0000000000" ? `+91 ${c.mobile}` : "System Account (No Phone)"}
                     </div>
                   </div>
                   <div className="hidden text-right sm:block">
-                    <div className="tabular text-sm font-semibold text-money">{inr(c.ltv)}</div>
-                    <div className="text-[11px] text-muted-foreground">Lifetime Spend</div>
+                    <div className="tabular text-sm font-extrabold text-money">{inr(c.ltv)}</div>
+                    <div className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider">Lifetime Spend</div>
                   </div>
                   <div className="hidden text-right sm:block">
-                    <div className="tabular text-sm font-semibold">{c.visits}</div>
-                    <div className="text-[11px] text-muted-foreground">Total Purchases</div>
+                    <div className="tabular text-sm font-bold">{c.visits}</div>
+                    <div className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider">Purchases</div>
                   </div>
                   <div className="hidden text-right md:block">
-                    <div className="text-sm font-medium">{c.lastVisit}</div>
-                    <div className="text-[11px] text-muted-foreground">Last Purchase</div>
+                    <div className="text-xs font-semibold text-foreground">{c.lastVisit}</div>
+                    <div className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider">Last Visit</div>
                   </div>
-                  <ChevronDown
-                    className={cn("size-4 text-muted-foreground transition-transform", open && "rotate-180")}
-                  />
+                  <div className={cn("grid size-8 place-items-center rounded-xl bg-muted/60 transition-transform", open && "rotate-180 bg-primary/10 text-primary")}>
+                    <ChevronDown className="size-4" />
+                  </div>
                 </button>
 
                 {open && (

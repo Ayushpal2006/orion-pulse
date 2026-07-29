@@ -815,9 +815,9 @@ function SettingsV2() {
                 ✕
               </button>
             ) : (
-              <kbd className="pointer-events-none absolute right-3 top-2.5 hidden sm:inline-flex h-4 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[9px] font-medium text-muted-foreground opacity-100">
-                ⌘K
-              </kbd>
+              <span className="pointer-events-none absolute right-3 top-2.5 hidden sm:inline-flex items-center gap-1">
+                <span className="kbd">⌘K</span>
+              </span>
             )}
           </div>
         </div>

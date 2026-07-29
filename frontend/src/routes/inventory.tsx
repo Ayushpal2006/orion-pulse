@@ -262,17 +262,17 @@ export function Inventory() {
       ) : (
         <>
           {/* Desktop table */}
-          <div className="card-soft hidden overflow-hidden lg:block">
+          <div className="card-soft hidden overflow-hidden lg:block border border-border shadow-xs">
             <table className="w-full text-sm">
-              <thead className="bg-muted/40 text-xs uppercase tracking-wide text-muted-foreground">
+              <thead className="bg-muted/40 border-b border-border">
                 <tr>
-                  <th className="px-4 py-3 text-left font-medium">Product</th>
-                  <th className="px-4 py-3 text-left font-medium">SKU</th>
-                  <th className="px-4 py-3 text-left font-medium">Barcode</th>
-                  <th className="px-4 py-3 text-right font-medium">Purchase</th>
-                  <th className="px-4 py-3 text-right font-medium">Selling</th>
-                  <th className="px-4 py-3 text-right font-medium">GST</th>
-                  <th className="px-4 py-3 text-right font-medium">Stock</th>
+                  <th className="px-4 py-3 text-left table-header-cell">Product</th>
+                  <th className="px-4 py-3 text-left table-header-cell">SKU</th>
+                  <th className="px-4 py-3 text-left table-header-cell">Barcode</th>
+                  <th className="px-4 py-3 text-right table-header-cell">Purchase</th>
+                  <th className="px-4 py-3 text-right table-header-cell">Selling</th>
+                  <th className="px-4 py-3 text-right table-header-cell">GST</th>
+                  <th className="px-4 py-3 text-right table-header-cell">Stock Status</th>
                   <th className="px-4 py-3" />
                 </tr>
               </thead>
@@ -281,28 +281,28 @@ export function Inventory() {
                   <tr
                     key={p.id}
                     onClick={() => setDrawerProduct(p)}
-                    className="cursor-pointer transition-colors hover:bg-muted/30"
+                    className="group cursor-pointer transition-colors hover:bg-muted/50 focus-visible:bg-muted/50"
                   >
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-3.5">
                       <div className="flex items-center gap-3">
-                        <div className="grid size-9 place-items-center overflow-hidden rounded-lg bg-muted text-lg">
+                        <div className="grid size-10 place-items-center overflow-hidden rounded-xl bg-muted text-xl shadow-xs group-hover:scale-105 transition-transform">
                           {p.image ? <img src={p.image} className="size-full object-cover" alt="" /> : p.emoji}
                         </div>
                         <div>
-                          <div className="font-medium">{p.name}</div>
-                          <div className="text-xs text-muted-foreground">{p.category}</div>
+                          <div className="font-bold text-foreground text-sm leading-tight">{p.name}</div>
+                          <div className="text-xs text-muted-foreground mt-0.5">{p.category}</div>
                         </div>
                       </div>
                     </td>
-                    <td className="px-4 py-3 text-xs text-muted-foreground">{p.sku}</td>
-                    <td className="px-4 py-3 tabular text-xs text-muted-foreground">{p.barcode}</td>
-                    <td className="px-4 py-3 text-right tabular">{inr(p.purchase)}</td>
-                    <td className="px-4 py-3 text-right tabular font-medium text-money">{inr(p.price)}</td>
-                    <td className="px-4 py-3 text-right tabular text-muted-foreground">{p.gst}%</td>
-                    <td className="px-4 py-3 text-right"><StockBadge product={p} /></td>
-                    <td className="px-4 py-3 text-right" onClick={(e) => e.stopPropagation()}>
-                      <Button variant="ghost" size="sm" onClick={() => setBarcodeProduct(p)} className="text-muted-foreground">
-                        <BarcodeIcon className="mr-1.5 size-4" /> Barcode
+                    <td className="px-4 py-3.5 text-xs font-mono font-medium text-muted-foreground">{p.sku}</td>
+                    <td className="px-4 py-3.5 tabular text-xs font-mono text-muted-foreground">{p.barcode}</td>
+                    <td className="px-4 py-3.5 text-right tabular text-muted-foreground">{inr(p.purchase)}</td>
+                    <td className="px-4 py-3.5 text-right tabular font-bold text-money">{inr(p.price)}</td>
+                    <td className="px-4 py-3.5 text-right tabular text-xs font-semibold text-muted-foreground">{p.gst}%</td>
+                    <td className="px-4 py-3.5 text-right"><StockBadge product={p} /></td>
+                    <td className="px-4 py-3.5 text-right" onClick={(e) => e.stopPropagation()}>
+                      <Button variant="outline" size="sm" onClick={() => setBarcodeProduct(p)} className="h-8 rounded-lg text-xs gap-1 border-border/80 hover:bg-muted">
+                        <BarcodeIcon className="size-3.5" /> Barcode
                       </Button>
                     </td>
                   </tr>
@@ -317,7 +317,7 @@ export function Inventory() {
               <button
                 key={p.id}
                 onClick={() => setDrawerProduct(p)}
-                className="card-soft p-4 text-left transition-transform active:scale-[0.99] hover:border-foreground/20"
+                className="card-soft p-4 text-left transition-all active:scale-[0.98] hover:border-foreground/20 hover:shadow-md touch-manipulation"
               >
                 <div className="flex items-start gap-3">
                   <div className="grid size-11 place-items-center overflow-hidden rounded-xl bg-muted text-xl">

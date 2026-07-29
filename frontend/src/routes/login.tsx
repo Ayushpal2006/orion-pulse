@@ -140,25 +140,48 @@ function LoginPage() {
             <Button
               type="submit"
               disabled={loading}
-              className="w-full rounded-xl h-10 text-xs font-bold gap-2 shadow-sm"
+              className="w-full rounded-xl h-12 text-sm font-bold gap-2 shadow-md hover:shadow-lg touch-btn active:scale-[0.99] transition-all"
             >
               <LogIn className="size-4" /> {loading ? "Signing in…" : "Sign In"}
             </Button>
           </form>
 
+          {/* Quick Demo Login Credentials Chips */}
+          <div className="pt-3 border-t border-border/60 space-y-2">
+            <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest text-center">Demo Quick Sign-in</div>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => { setEmail("admin@demo.com"); setPassword("password123"); }}
+                className="px-2.5 py-2 rounded-xl border border-border bg-muted/30 hover:bg-muted text-[11px] font-semibold text-foreground text-left transition-colors flex items-center justify-between"
+              >
+                <span>Org Admin</span>
+                <span className="text-[9px] font-mono text-muted-foreground">admin@</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => { setEmail("super@demo.com"); setPassword("admin123"); }}
+                className="px-2.5 py-2 rounded-xl border border-border bg-muted/30 hover:bg-muted text-[11px] font-semibold text-foreground text-left transition-colors flex items-center justify-between"
+              >
+                <span>Super Admin</span>
+                <span className="text-[9px] font-mono text-muted-foreground">super@</span>
+              </button>
+            </div>
+          </div>
+
           <div className="pt-2 border-t border-border/40 text-center">
             <button
               type="button"
               onClick={() => toast.info("Please contact your Apka Bill Organization Owner or System Admin to manage account access.")}
-              className="text-xs text-muted-foreground hover:text-primary transition-colors inline-flex items-center gap-1.5"
+              className="text-xs text-muted-foreground hover:text-primary transition-colors inline-flex items-center gap-1.5 font-medium"
             >
-              <HelpCircle className="size-3.5" /> Contact Admin
+              <HelpCircle className="size-3.5" /> Need help logging in? Contact Admin
             </button>
           </div>
         </div>
 
         {/* FOOTER DISCLOSURE */}
-        <div className="text-center text-[11px] text-muted-foreground">
+        <div className="text-center text-[11px] text-muted-foreground font-medium">
           © {new Date().getFullYear()} Apka Bill Retail Platform. All rights reserved.
         </div>
       </div>

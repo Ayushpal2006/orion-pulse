@@ -271,20 +271,21 @@ function SuppliersPage() {
           <div className="grid gap-3">
             {paginatedSuppliers.map((s) => {
               const open = openId === s.id;
+              const hasBalance = s.currentBalance !== 0;
               return (
-                <div key={s.id} className="card-soft animate-fade-in">
+                <div key={s.id} className={cn("card-soft transition-all duration-200 hover:border-foreground/20 hover:shadow-md", open && "ring-1 ring-primary/30")}>
                   <button
                     onClick={() => setOpenId(open ? null : s.id)}
-                    className="flex w-full items-center gap-3 p-4 text-left"
+                    className="flex w-full items-center gap-3 p-4 text-left touch-manipulation focus-visible:outline-2 focus-visible:outline-ring"
                   >
-                    <div className="grid size-11 place-items-center rounded-full bg-muted text-sm font-semibold text-muted-foreground">
+                    <div className="grid size-11 place-items-center rounded-2xl bg-muted text-sm font-bold text-muted-foreground shadow-xs shrink-0 transition-transform hover:scale-105">
                       {s.name.split(" ").map((x) => x[0]).join("").slice(0, 2).toUpperCase()}
                     </div>
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
-                        <div className="truncate font-semibold text-foreground">{s.name}</div>
+                        <div className="truncate font-bold text-foreground text-sm sm:text-base">{s.name}</div>
                         {s.gstin && (
-                          <span className="rounded-full bg-primary/10 px-1.5 py-0.5 text-[9px] font-semibold text-primary">
+                          <span className="rounded-full bg-primary/10 border border-primary/20 px-2 py-0.5 text-[9px] font-bold text-primary font-mono">
                             GSTIN: {s.gstin}
                           </span>
                         )}
@@ -292,25 +293,25 @@ function SuppliersPage() {
                       <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1 text-xs text-muted-foreground">
                         {s.phone && (
                           <span className="flex items-center gap-1">
-                            <Phone className="size-3" /> {s.phone}
+                            <Phone className="size-3 shrink-0" /> {s.phone}
                           </span>
                         )}
                         {s.email && (
                           <span className="flex items-center gap-1">
-                            <Mail className="size-3" /> {s.email}
+                            <Mail className="size-3 shrink-0" /> {s.email}
                           </span>
                         )}
                       </div>
                     </div>
                     <div className="text-right shrink-0 mr-2">
-                      <div className="text-[9px] text-muted-foreground uppercase font-semibold">Balance Due</div>
-                      <div className={`font-bold tabular-nums text-sm ${s.currentBalance > 0 ? "text-rose-500" : s.currentBalance < 0 ? "text-emerald-500" : "text-muted-foreground"}`}>
+                      <div className="text-[9px] text-muted-foreground uppercase font-semibold tracking-wider">Balance Due</div>
+                      <div className={`font-extrabold tabular text-sm ${s.currentBalance > 0 ? "text-rose-500" : s.currentBalance < 0 ? "text-emerald-500" : "text-muted-foreground"}`}>
                         {inr(s.currentBalance)}
                       </div>
                     </div>
-                    <ChevronDown
-                      className={cn("size-4 text-muted-foreground transition-transform", open && "rotate-180")}
-                    />
+                    <div className={cn("grid size-8 place-items-center rounded-xl bg-muted/60 transition-transform", open && "rotate-180 bg-primary/10 text-primary")}>
+                      <ChevronDown className="size-4" />
+                    </div>
                   </button>
 
                   {open && (

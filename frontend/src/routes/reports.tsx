@@ -218,23 +218,23 @@ function Reports() {
 
       {/* KPI Cards Grid */}
       <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-        <div className="card-soft p-4 space-y-1">
-          <span className="text-xs text-muted-foreground font-medium">Revenue</span>
-          <div className="text-2xl font-bold tracking-tight text-foreground">{inr(summary.revenue)}</div>
+        <div className="card-soft p-5 border-t-2 border-t-emerald-500 space-y-1">
+          <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Revenue</span>
+          <div className="text-2xl font-extrabold tracking-tight text-foreground tabular">{inr(summary.revenue)}</div>
         </div>
-        <div className="card-soft p-4 space-y-1">
-          <span className="text-xs text-muted-foreground font-medium">Orders Count</span>
-          <div className="text-2xl font-bold tracking-tight text-foreground">{summary.orders}</div>
+        <div className="card-soft p-5 border-t-2 border-t-primary space-y-1">
+          <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Orders Count</span>
+          <div className="text-2xl font-extrabold tracking-tight text-foreground tabular">{summary.orders}</div>
         </div>
         {canProfit && (
-          <div className="card-soft p-4 space-y-1 border-emerald-500/20 bg-emerald-500/[0.02]">
-            <span className="text-xs text-emerald-500/80 font-medium">Gross Profit ({marginPercent.toFixed(1)}%)</span>
-            <div className="text-2xl font-bold tracking-tight text-emerald-600 dark:text-emerald-400">{inr(summary.profit)}</div>
+          <div className="card-soft p-5 border-t-2 border-t-emerald-500 bg-emerald-500/[0.02] space-y-1">
+            <span className="text-[10px] font-semibold uppercase tracking-widest text-emerald-600 dark:text-emerald-400">Gross Profit ({marginPercent.toFixed(1)}%)</span>
+            <div className="text-2xl font-extrabold tracking-tight text-emerald-600 dark:text-emerald-400 tabular">{inr(summary.profit)}</div>
           </div>
         )}
-        <div className="card-soft p-4 space-y-1">
-          <span className="text-xs text-muted-foreground font-medium">Low Stock Alerts</span>
-          <div className={`text-2xl font-bold tracking-tight ${summary.lowStockCount > 0 ? "text-amber-500" : "text-foreground"}`}>
+        <div className="card-soft p-5 border-t-2 border-t-amber-500 space-y-1">
+          <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Low Stock Alerts</span>
+          <div className={`text-2xl font-extrabold tracking-tight tabular ${summary.lowStockCount > 0 ? "text-amber-500" : "text-foreground"}`}>
             {summary.lowStockCount} items
           </div>
         </div>

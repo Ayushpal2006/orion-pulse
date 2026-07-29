@@ -620,40 +620,40 @@ export function SuperAdminPage() {
 
               {/* KPI METRICS GRID */}
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                <div className="p-5 rounded-2xl bg-card border border-border shadow-sm space-y-2">
-                  <div className="flex items-center justify-between text-muted-foreground text-xs font-medium">
+                <div className="card-soft p-5 border-t-2 border-t-primary space-y-2">
+                  <div className="flex items-center justify-between text-muted-foreground text-[10px] font-semibold uppercase tracking-widest">
                     <span>Total Organizations</span>
                     <Building2 className="size-4 text-primary" />
                   </div>
-                  <div className="text-3xl font-bold text-foreground">{metrics?.totalOrganizations ?? 0}</div>
-                  <div className="text-[11px] text-emerald-600 font-medium">{metrics?.activeOrganizations ?? 0} Active Customers</div>
+                  <div className="text-3xl font-extrabold text-foreground tabular">{metrics?.totalOrganizations ?? 0}</div>
+                  <div className="text-xs text-emerald-600 dark:text-emerald-400 font-semibold">{metrics?.activeOrganizations ?? 0} Active Customers</div>
                 </div>
 
-                <div className="p-5 rounded-2xl bg-card border border-border shadow-sm space-y-2">
-                  <div className="flex items-center justify-between text-muted-foreground text-xs font-medium">
+                <div className="card-soft p-5 border-t-2 border-t-blue-500 space-y-2">
+                  <div className="flex items-center justify-between text-muted-foreground text-[10px] font-semibold uppercase tracking-widest">
                     <span>Total Retail Stores</span>
                     <Store className="size-4 text-blue-500" />
                   </div>
-                  <div className="text-3xl font-bold text-foreground">{metrics?.totalStores ?? 0}</div>
-                  <div className="text-[11px] text-muted-foreground font-medium">Active POS Outlets</div>
+                  <div className="text-3xl font-extrabold text-foreground tabular">{metrics?.totalStores ?? 0}</div>
+                  <div className="text-xs text-muted-foreground font-medium">Active POS Outlets</div>
                 </div>
 
-                <div className="p-5 rounded-2xl bg-card border border-border shadow-sm space-y-2">
-                  <div className="flex items-center justify-between text-muted-foreground text-xs font-medium">
+                <div className="card-soft p-5 border-t-2 border-t-amber-500 space-y-2">
+                  <div className="flex items-center justify-between text-muted-foreground text-[10px] font-semibold uppercase tracking-widest">
                     <span>Platform Users</span>
                     <Users className="size-4 text-amber-500" />
                   </div>
-                  <div className="text-3xl font-bold text-foreground">{metrics?.totalUsers ?? 0}</div>
-                  <div className="text-[11px] text-muted-foreground font-medium">Tenant Accounts</div>
+                  <div className="text-3xl font-extrabold text-foreground tabular">{metrics?.totalUsers ?? 0}</div>
+                  <div className="text-xs text-muted-foreground font-medium">Tenant Accounts</div>
                 </div>
 
-                <div className="p-5 rounded-2xl bg-card border border-border shadow-sm space-y-2">
-                  <div className="flex items-center justify-between text-muted-foreground text-xs font-medium">
+                <div className="card-soft p-5 border-t-2 border-t-emerald-500 space-y-2">
+                  <div className="flex items-center justify-between text-muted-foreground text-[10px] font-semibold uppercase tracking-widest">
                     <span>Platform Gross Sales</span>
                     <DollarSign className="size-4 text-emerald-500" />
                   </div>
-                  <div className="text-3xl font-bold text-foreground">{inr(metrics?.totalSales ?? 0)}</div>
-                  <div className="text-[11px] text-emerald-600 font-medium">Processed Billing Sum</div>
+                  <div className="text-3xl font-extrabold text-foreground tabular">{inr(metrics?.totalSales ?? 0)}</div>
+                  <div className="text-xs text-emerald-600 dark:text-emerald-400 font-semibold">Processed Billing Sum</div>
                 </div>
               </div>
 

@@ -262,31 +262,31 @@ function ExpensesPage() {
 
       {/* KPI Cards */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
-          <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+        <div className="card-soft p-5 border-t-2 border-t-primary">
+          <div className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground flex items-center gap-1.5">
             <Wallet className="size-4 text-primary" /> Filtered Expenses Total
           </div>
-          <div className="mt-2 text-3xl font-black text-foreground">
+          <div className="mt-2 text-3xl font-black text-foreground tabular">
             ₹{(totalAmountPaise / 100).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
           </div>
           <div className="mt-1 text-xs text-muted-foreground">{filteredExpenses.length} entries matching current view</div>
         </div>
 
-        <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
-          <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+        <div className="card-soft p-5 border-t-2 border-t-emerald-500">
+          <div className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground flex items-center gap-1.5">
             <Building2 className="size-4 text-emerald-500" /> Current Month Total
           </div>
-          <div className="mt-2 text-3xl font-black text-emerald-600 dark:text-emerald-400">
+          <div className="mt-2 text-3xl font-black text-emerald-600 dark:text-emerald-400 tabular">
             ₹{(summaryData?.totalAmount_INR || (totalAmountPaise / 100)).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
           </div>
           <div className="mt-1 text-xs text-muted-foreground">Operational outflow this period</div>
         </div>
 
-        <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
-          <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+        <div className="card-soft p-5 border-t-2 border-t-indigo-500">
+          <div className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground flex items-center gap-1.5">
             <Tag className="size-4 text-indigo-500" /> Categories Tracked
           </div>
-          <div className="mt-2 text-3xl font-black text-foreground">
+          <div className="mt-2 text-3xl font-black text-foreground tabular">
             {categories.length}
           </div>
           <div className="mt-1 text-xs text-muted-foreground">Rent, Electricity, Salary, Marketing etc.</div>
@@ -294,20 +294,20 @@ function ExpensesPage() {
       </div>
 
       {/* Filters Bar */}
-      <div className="flex flex-col gap-3 rounded-2xl border border-border bg-card p-4 shadow-sm md:flex-row md:items-center">
+      <div className="card-soft p-4 flex flex-col gap-3 md:flex-row md:items-center">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             value={q}
             onChange={(e) => setQ(e.target.value)}
             placeholder="Search vendor, description, amount..."
-            className="pl-9"
+            className="pl-9 h-11 rounded-xl"
           />
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
           <Select value={selectedCategory} onValueChange={(v) => { setSelectedCategory(v); setPage(1); }}>
-            <SelectTrigger className="w-[170px]">
+            <SelectTrigger className="w-[170px] h-11 rounded-xl">
               <Tag className="mr-2 size-4 text-muted-foreground" />
               <SelectValue placeholder="All Categories" />
             </SelectTrigger>
@@ -320,7 +320,7 @@ function ExpensesPage() {
           </Select>
 
           <Select value={paymentFilter} onValueChange={(v) => { setPaymentFilter(v); setPage(1); }}>
-            <SelectTrigger className="w-[160px]">
+            <SelectTrigger className="w-[160px] h-11 rounded-xl">
               <Wallet className="mr-2 size-4 text-muted-foreground" />
               <SelectValue placeholder="All Methods" />
             </SelectTrigger>
@@ -334,7 +334,7 @@ function ExpensesPage() {
             </SelectContent>
           </Select>
 
-          <div className="flex items-center gap-1.5 rounded-xl border border-border bg-muted/30 px-2.5 py-1.5 text-xs text-muted-foreground">
+          <div className="flex items-center gap-1.5 rounded-xl border border-border bg-muted/30 px-3 h-11 text-xs text-muted-foreground">
             <Calendar className="size-3.5" />
             <input
               type="date"
@@ -354,7 +354,7 @@ function ExpensesPage() {
       </div>
 
       {/* Expense Data Table */}
-      <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
+      <div className="card-soft overflow-hidden">
         {isLoading ? (
           <div className="flex h-64 flex-col items-center justify-center gap-2 text-muted-foreground">
             <RefreshCw className="size-6 animate-spin text-primary" />
@@ -369,15 +369,15 @@ function ExpensesPage() {
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
-              <thead className="border-b border-border bg-muted/40 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+              <thead className="border-b border-border bg-muted/40">
                 <tr>
-                  <th className="px-5 py-3.5">Date</th>
-                  <th className="px-5 py-3.5">Category</th>
-                  <th className="px-5 py-3.5">Vendor / Payee</th>
-                  <th className="px-5 py-3.5">Description</th>
-                  <th className="px-5 py-3.5">Payment Method</th>
-                  <th className="px-5 py-3.5 text-right">Amount (₹)</th>
-                  <th className="px-5 py-3.5 text-right">Actions</th>
+                  <th className="px-5 py-3.5 table-header-cell">Date</th>
+                  <th className="px-5 py-3.5 table-header-cell">Category</th>
+                  <th className="px-5 py-3.5 table-header-cell">Vendor / Payee</th>
+                  <th className="px-5 py-3.5 table-header-cell">Description</th>
+                  <th className="px-5 py-3.5 table-header-cell">Payment Method</th>
+                  <th className="px-5 py-3.5 text-right table-header-cell">Amount (₹)</th>
+                  <th className="px-5 py-3.5 text-right table-header-cell">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">

@@ -3,7 +3,7 @@ import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "rec
 import { useMemo, useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
-  IndianRupee, ShoppingBag, TrendingUp, Package, Sparkles, Plus, Truck, AlertTriangle, Flame, Loader2, RefreshCw, Sliders
+  IndianRupee, ShoppingBag, TrendingUp, Package, Sparkles, Plus, Truck, AlertTriangle, Flame, Loader2, RefreshCw, Sliders, Clock, ArrowUpRight
 } from "lucide-react";
 import { toast } from "sonner";
 import { MetricCard } from "@/components/metric-card";
@@ -29,6 +29,7 @@ export const Route = createFileRoute("/")({
   component: Dashboard,
 });
 
+
 const ranges = ["Today", "Week", "Month", "Year"] as const;
 type Range = (typeof ranges)[number];
 
@@ -47,11 +48,37 @@ const getInsights = (revenue: number, lowStockCount: number) => [
   { tone: "growth", text: "Calculated margins are fully computed locally with zero cloud delay." },
 ];
 
+function useGreeting() {
+  const [greeting, setGreeting] = useState("");
+  const [time, setTime] = useState("");
+
+  useEffect(() => {
+    const update = () => {
+      const now = new Date();
+      const h = now.getHours();
+      const g =
+        h < 5 ? "Good night 🌙"
+        : h < 12 ? "Good morning ☀️"
+        : h < 17 ? "Good afternoon 🌤"
+        : h < 21 ? "Good evening 🌇"
+        : "Good night 🌙";
+      setGreeting(g);
+      setTime(now.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true, timeZone: "Asia/Kolkata" }));
+    };
+    update();
+    const id = setInterval(update, 30000);
+    return () => clearInterval(id);
+  }, []);
+
+  return { greeting, time };
+}
+
 export function Dashboard() {
   const products = useApp((s) => s.products);
   const setProducts = useApp((s) => s.setProducts);
   const [range, setRange] = useState<Range>("Week");
   const [selectedInvoice, setSelectedInvoice] = useState<any>(null);
+  const { greeting, time } = useGreeting();
 
   // Load products list into store on mount
   useEffect(() => {
@@ -87,11 +114,6 @@ export function Dashboard() {
   const getProductSku = (name: string) => {
     const matched = products.find((p) => p.name === name);
     return matched?.sku || "";
-  };
-
-  const getProductPrice = (name: string) => {
-    const matched = products.find((p) => p.name === name);
-    return matched?.price || 0;
   };
 
   if (isLoadingDashboard) {
@@ -131,11 +153,19 @@ export function Dashboard() {
   const listInsights = getInsights(stats.todayRevenue, stats.lowStockCount || lowStock.length);
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-end justify-between gap-3">
+    <div className="space-y-6 page-enter">
+      {/* Hero Header */}
+      <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">Good morning 👋</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Here's what's happening across your organization today.</p>
+          <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">{greeting}</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Here's your store overview for today.
+          </p>
+        </div>
+        <div className="flex items-center gap-2 rounded-2xl border border-border bg-elevated px-4 py-2.5 shadow-sm">
+          <Clock className="size-4 text-muted-foreground" />
+          <span className="tabular text-sm font-semibold text-foreground">{time}</span>
+          <span className="text-xs text-muted-foreground">IST</span>
         </div>
       </div>
 
@@ -192,25 +222,38 @@ export function Dashboard() {
         />
       </div>
 
-      {/* 2. Quick Actions */}
-      <div className="card-soft flex flex-wrap items-center gap-2 p-4">
-        <div className="mr-auto">
-          <div className="text-sm font-semibold">Quick actions</div>
-          <div className="text-xs text-muted-foreground">Common tasks in one tap</div>
+      {/* 2. Quick Actions — prominent grid */}
+      <div className="card-soft p-5">
+        <div className="mb-4 flex items-center justify-between">
+          <div>
+            <div className="text-sm font-semibold">Quick actions</div>
+            <div className="text-xs text-muted-foreground">Common tasks in one tap</div>
+          </div>
         </div>
-        <Button asChild size="sm" className="rounded-xl">
-          <Link to="/billing"><Plus className="mr-1.5 size-4" /> New sale</Link>
-        </Button>
-        <Button asChild variant="outline" size="sm" className="rounded-xl">
-          <Link to="/inventory"><Package className="mr-1.5 size-4" /> Add product</Link>
-        </Button>
-        <Button asChild variant="outline" size="sm" className="rounded-xl">
-          <Link to="/purchases"><Truck className="mr-1.5 size-4" /> Purchase stock</Link>
-        </Button>
-        <Button asChild variant="outline" size="sm" className="rounded-xl">
-          <Link to="/stock-adjustments"><Sliders className="mr-1.5 size-4" /> Adjust stock</Link>
-        </Button>
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          {[
+            { to: "/billing", icon: Plus, label: "New Sale", desc: "Start billing", color: "bg-primary text-primary-foreground" },
+            { to: "/inventory", icon: Package, label: "Add Product", desc: "Manage catalog", color: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400" },
+            { to: "/purchases", icon: Truck, label: "Purchase Stock", desc: "Record intake", color: "bg-blue-500/10 text-blue-700 dark:text-blue-400" },
+            { to: "/stock-adjustments", icon: Sliders, label: "Adjust Stock", desc: "Fix inventory", color: "bg-amber-500/10 text-amber-700 dark:text-amber-400" },
+          ].map(({ to, icon: Icon, label, desc, color }) => (
+            <Link
+              key={to}
+              to={to}
+              className="group flex flex-col gap-3 rounded-2xl border border-border p-4 transition-all hover:border-foreground/20 hover:shadow-md hover:-translate-y-0.5 active:scale-[0.98]"
+            >
+              <div className={cn("grid size-10 place-items-center rounded-xl transition-transform group-hover:scale-105", color)}>
+                <Icon className="size-5" />
+              </div>
+              <div>
+                <div className="text-sm font-semibold text-foreground">{label}</div>
+                <div className="text-xs text-muted-foreground">{desc}</div>
+              </div>
+            </Link>
+          ))}
+        </div>
       </div>
+
 
       {/* 3. Sales Overview */}
       <div className="card-soft p-5">

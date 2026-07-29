@@ -153,18 +153,25 @@
   }
   html {
     transition: background-color 0.3s ease, color 0.3s ease;
+    /* Prevent double-tap zoom on touch POS terminals */
+    touch-action: manipulation;
   }
   html, body {
     background-color: var(--color-surface);
     color: var(--color-foreground);
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
+    /* Prevent iOS tap highlight */
+    -webkit-tap-highlight-color: transparent;
   }
   .tabular {
     font-variant-numeric: tabular-nums;
   }
 }
 
+/* ================================================
+   CORE CARD SYSTEM
+   ================================================ */
 @utility card-soft {
   background-color: var(--color-elevated);
   border: 1px solid var(--color-border);
@@ -177,7 +184,19 @@
   box-shadow: 0 4px 12px oklch(0 0 0 / 0.06), 0 12px 32px -12px oklch(0 0 0 / 0.1);
 }
 
-/* Custom Sleek Scrollbar */
+/* Premium card variant with top accent border */
+@utility card-accent {
+  background-color: var(--color-elevated);
+  border: 1px solid var(--color-border);
+  border-top: 3px solid var(--color-primary);
+  border-radius: var(--radius-2xl);
+  box-shadow: 0 1px 2px oklch(0 0 0 / 0.04), 0 8px 24px -12px oklch(0 0 0 / 0.08);
+  transition: box-shadow 0.25s ease, background-color 0.3s ease;
+}
+
+/* ================================================
+   SCROLLBAR SYSTEM
+   ================================================ */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -194,22 +213,61 @@
   background: var(--color-foreground);
 }
 
-/* Button & Input Micro Polish */
+/* ================================================
+   FOCUS & KEYBOARD INTERACTION SYSTEM
+   ================================================ */
 button:focus-visible,
 input:focus-visible,
 textarea:focus-visible,
-select:focus-visible {
+select:focus-visible,
+[role="button"]:focus-visible,
+a:focus-visible {
   outline: 2px solid var(--color-ring);
   outline-offset: 2px;
   transition: outline-color 0.15s ease, box-shadow 0.15s ease;
 }
 
-/* Smooth Table Row Transitions */
+/* Keyboard shortcut badge (physical key style) */
+.kbd {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.5rem;
+  height: 1.375rem;
+  padding: 0 0.375rem;
+  font-size: 0.625rem;
+  font-weight: 600;
+  font-family: var(--font-sans);
+  letter-spacing: 0.02em;
+  border-radius: 0.3125rem;
+  background: var(--color-muted);
+  border: 1px solid var(--color-border);
+  border-bottom-width: 2px;
+  color: var(--color-muted-foreground);
+  box-shadow: inset 0 -1px 0 oklch(0 0 0 / 0.12);
+  white-space: nowrap;
+  user-select: none;
+}
+
+/* ================================================
+   TABLE SYSTEM
+   ================================================ */
 table tbody tr {
   transition: background-color 0.15s ease, color 0.15s ease;
 }
 
-/* Touch UX & Micro-Interaction Utility Helpers (Sprint 2 Design System) */
+/* Column headers: uppercase, compact, professional */
+.table-header-cell {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-muted-foreground);
+}
+
+/* ================================================
+   TOUCH UX & MOBILE-FIRST SYSTEM
+   ================================================ */
 .touch-target {
   min-height: 44px;
   min-width: 44px;
@@ -218,8 +276,9 @@ table tbody tr {
   justify-content: center;
 }
 
+/* Large touch button — 48px minimum per WCAG */
 .touch-btn {
-  min-height: 44px;
+  min-height: 48px;
   padding-left: 1rem;
   padding-right: 1rem;
   border-radius: var(--radius-xl);
@@ -235,11 +294,74 @@ table tbody tr {
   transform: scale(0.97);
 }
 
-.glass-panel {
-  background-color: var(--color-elevated);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid var(--color-border);
+/* Cash note chip — large tap target for quick checkout */
+.cash-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 40px;
+  min-width: 52px;
+  padding: 0 0.625rem;
+  border-radius: var(--radius-xl);
+  font-size: 0.75rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  border: 1.5px solid var(--color-border);
+  background: var(--color-elevated);
+  color: var(--color-foreground);
+  cursor: pointer;
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 0.1s ease, background-color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.cash-chip:hover {
+  border-color: var(--color-foreground);
+  background: var(--color-muted);
+}
+
+.cash-chip:active {
+  transform: scale(0.95);
+  background: var(--color-primary);
+  color: var(--color-primary-foreground);
+  border-color: var(--color-primary);
+}
+
+/* ================================================
+   STATUS BADGE SYSTEM
+   ================================================ */
+.badge-success {
+  background: oklch(0.68 0.16 155 / 0.12);
+  color: oklch(0.35 0.12 155);
+  border: 1px solid oklch(0.68 0.16 155 / 0.25);
+}
+.dark .badge-success {
+  background: oklch(0.72 0.16 155 / 0.15);
+  color: oklch(0.72 0.16 155);
+  border-color: oklch(0.72 0.16 155 / 0.30);
+}
+
+.badge-warn {
+  background: oklch(0.82 0.15 80 / 0.15);
+  color: oklch(0.45 0.12 80);
+  border: 1px solid oklch(0.82 0.15 80 / 0.30);
+}
+.dark .badge-warn {
+  background: oklch(0.82 0.15 80 / 0.20);
+  color: oklch(0.82 0.15 80);
+  border-color: oklch(0.82 0.15 80 / 0.35);
+}
+
+.badge-danger {
+  background: oklch(0.62 0.22 25 / 0.10);
+  color: oklch(0.45 0.18 25);
+  border: 1px solid oklch(0.62 0.22 25 / 0.25);
+}
+.dark .badge-danger {
+  background: oklch(0.68 0.22 25 / 0.15);
+  color: oklch(0.68 0.22 25);
+  border-color: oklch(0.68 0.22 25 / 0.35);
 }
 
 .badge-pill {
@@ -251,6 +373,113 @@ table tbody tr {
   font-weight: 600;
 }
 
+/* ================================================
+   GLASS / BLUR SURFACES
+   ================================================ */
+.glass-panel {
+  background-color: var(--color-elevated);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--color-border);
+}
+
+/* ================================================
+   MICRO-ANIMATION LIBRARY
+   ================================================ */
+@keyframes slide-up-fade {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0);   }
+}
+
+@keyframes scale-in {
+  from { opacity: 0; transform: scale(0.88); }
+  to   { opacity: 1; transform: scale(1);    }
+}
+
+@keyframes flash-success {
+  0%  { box-shadow: 0 0 0 0 oklch(0.68 0.16 155 / 0.5); }
+  70% { box-shadow: 0 0 0 8px oklch(0.68 0.16 155 / 0);  }
+  100%{ box-shadow: 0 0 0 0 oklch(0.68 0.16 155 / 0);    }
+}
+
+@keyframes flash-green-border {
+  0%  { border-color: oklch(0.68 0.16 155); box-shadow: 0 0 0 2px oklch(0.68 0.16 155 / 0.3); }
+  50% { border-color: oklch(0.68 0.16 155); box-shadow: 0 0 0 4px oklch(0.68 0.16 155 / 0.1); }
+  100%{ border-color: var(--color-border);  box-shadow: none; }
+}
+
+@keyframes shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position:  200% 0; }
+}
+
+@keyframes count-up {
+  from { opacity: 0; transform: translateY(4px) scale(0.92); }
+  to   { opacity: 1; transform: translateY(0) scale(1);      }
+}
+
+.animate-slide-up-fade {
+  animation: slide-up-fade 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.animate-scale-in {
+  animation: scale-in 0.2s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.animate-flash-success {
+  animation: flash-success 0.6s ease-out;
+}
+.animate-scan-flash {
+  animation: flash-green-border 0.6s ease-out;
+}
+.animate-count-up {
+  animation: count-up 0.25s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* Shimmer skeleton */
+.skeleton-shimmer {
+  background: linear-gradient(
+    90deg,
+    var(--color-muted) 25%,
+    oklch(from var(--color-muted) l c h / 0.7) 50%,
+    var(--color-muted) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.6s infinite ease-in-out;
+}
+
+/* ================================================
+   PAGE TRANSITION SYSTEM
+   ================================================ */
+.page-enter {
+  animation: slide-up-fade 0.35s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* ================================================
+   EMPTY STATE SYSTEM
+   ================================================ */
+.empty-state-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem 1.5rem;
+  text-align: center;
+  gap: 0.75rem;
+}
+
+.empty-state-icon {
+  display: grid;
+  place-items: center;
+  width: 4rem;
+  height: 4rem;
+  border-radius: 1.25rem;
+  background: var(--color-muted);
+  color: var(--color-muted-foreground);
+  margin-bottom: 0.25rem;
+}
+
+/* ================================================
+   PRINT SYSTEM
+   ================================================ */
 /* Hide the print container under normal screen media, unless we are on a print-page */
 body:not(.print-page) #orion-print-section {
   display: none;

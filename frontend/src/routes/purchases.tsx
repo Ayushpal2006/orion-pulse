@@ -712,14 +712,14 @@ function PurchasesPage() {
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm text-left border-collapse">
                     <thead>
-                      <tr className="border-b border-border bg-muted/30 text-xs font-semibold text-muted-foreground uppercase">
-                        <th className="p-4">PO Number</th>
-                        <th className="p-4">Supplier</th>
-                        <th className="p-4">Date</th>
-                        <th className="p-4">Supplier Invoice #</th>
-                        <th className="p-4">Status</th>
-                        <th className="p-4 text-right">Grand Total</th>
-                        <th className="p-4 text-right">Actions</th>
+                      <tr className="border-b border-border bg-muted/40">
+                        <th className="p-4 table-header-cell">PO Number</th>
+                        <th className="p-4 table-header-cell">Supplier</th>
+                        <th className="p-4 table-header-cell">Date</th>
+                        <th className="p-4 table-header-cell">Supplier Inv #</th>
+                        <th className="p-4 table-header-cell">Status</th>
+                        <th className="p-4 text-right table-header-cell">Grand Total</th>
+                        <th className="p-4 text-right table-header-cell">Actions</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-border">
@@ -727,22 +727,22 @@ function PurchasesPage() {
                         <tr
                           key={p.id}
                           onClick={() => { setSelectedPoId(p.id); setDrawerOpen(true); }}
-                          className="hover:bg-muted/30 transition-colors cursor-pointer"
+                          className="hover:bg-muted/50 transition-colors cursor-pointer group"
                         >
-                          <td className="p-4 font-mono text-xs font-semibold text-primary">{p.po_number || p.purchase_number}</td>
-                          <td className="p-4 font-medium">
+                          <td className="p-4 font-mono text-xs font-bold text-primary group-hover:underline">{p.po_number || p.purchase_number}</td>
+                          <td className="p-4 font-semibold text-foreground">
                             <div>{p.supplier_name || "N/A"}</div>
                             {p.supplier_phone && <div className="text-[10px] text-muted-foreground font-mono">{p.supplier_phone}</div>}
                           </td>
-                          <td className="p-4 text-xs text-muted-foreground">{formatLocalDate(p.purchase_date || p.created_at)}</td>
-                          <td className="p-4 text-xs font-mono">{p.supplier_invoice_number || p.invoice_number || "-"}</td>
+                          <td className="p-4 text-xs font-medium text-muted-foreground">{formatLocalDate(p.purchase_date || p.created_at)}</td>
+                          <td className="p-4 text-xs font-mono text-muted-foreground">{p.supplier_invoice_number || p.invoice_number || "-"}</td>
                           <td className="p-4">
                             <div className="flex items-center gap-1.5">
                               {renderStatusBadge(p)}
-                              <span className="text-[10px] text-muted-foreground">({p.payment_status || "Paid"})</span>
+                              <span className="text-[10px] text-muted-foreground font-medium">({p.payment_status || "Paid"})</span>
                             </div>
                           </td>
-                          <td className="p-4 text-right font-mono font-bold text-foreground">{inr((p.grand_total || 0) / 100.0)}</td>
+                          <td className="p-4 text-right font-mono font-extrabold text-foreground">{inr((p.grand_total || 0) / 100.0)}</td>
                           <td className="p-4 text-right" onClick={(e) => e.stopPropagation()}>
                             <Button
                               variant="outline"

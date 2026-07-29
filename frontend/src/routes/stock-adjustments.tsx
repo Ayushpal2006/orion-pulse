@@ -392,41 +392,41 @@ export function StockAdjustmentsPage() {
             <div className="overflow-x-auto">
               <table className="w-full text-sm text-left border-collapse">
                 <thead>
-                  <tr className="border-b border-border bg-muted/30 text-xs font-semibold text-muted-foreground uppercase">
-                    <th className="p-4">Date</th>
-                    <th className="p-4">Product Name</th>
-                    <th className="p-4">Type</th>
-                    <th className="p-4 text-center">Previous Qty</th>
-                    <th className="p-4 text-center">Change</th>
-                    <th className="p-4 text-center">New Qty</th>
-                    <th className="p-4">Reason</th>
-                    <th className="p-4 text-right">Actions</th>
+                  <tr className="border-b border-border bg-muted/40">
+                    <th className="p-4 table-header-cell">Date</th>
+                    <th className="p-4 table-header-cell">Product Name</th>
+                    <th className="p-4 table-header-cell">Type</th>
+                    <th className="p-4 text-center table-header-cell">Previous Qty</th>
+                    <th className="p-4 text-center table-header-cell">Change</th>
+                    <th className="p-4 text-center table-header-cell">New Qty</th>
+                    <th className="p-4 table-header-cell">Reason</th>
+                    <th className="p-4 text-right table-header-cell">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
                   {paginatedAdjustments.map((a: any) => (
-                    <tr key={a.id} className="hover:bg-muted/10 transition-colors">
-                      <td className="p-4 text-xs text-muted-foreground">{formatLocalDate(a.created_at)}</td>
+                    <tr key={a.id} className="hover:bg-muted/50 transition-colors">
+                      <td className="p-4 text-xs font-medium text-muted-foreground">{formatLocalDate(a.created_at)}</td>
                       <td className="p-4">
-                        <div className="font-semibold text-foreground">{a.product_name}</div>
+                        <div className="font-bold text-foreground">{a.product_name}</div>
                         <div className="text-[10px] text-muted-foreground font-mono">SKU: {a.product_sku}</div>
                       </td>
                       <td className="p-4">
-                        <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[10px] font-semibold ${getBadgeColor(a.adjustment_type)}`}>
+                        <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[10px] font-bold ${getBadgeColor(a.adjustment_type)}`}>
                           {getFormattedType(a.adjustment_type)}
                         </span>
                       </td>
-                      <td className="p-4 text-center font-medium tabular-nums">{a.quantity_before}</td>
-                      <td className={`p-4 text-center font-bold tabular-nums ${a.quantity_change > 0 ? "text-emerald-500" : "text-rose-500"}`}>
+                      <td className="p-4 text-center font-medium tabular">{a.quantity_before}</td>
+                      <td className={`p-4 text-center font-extrabold tabular ${a.quantity_change > 0 ? "text-emerald-500" : "text-rose-500"}`}>
                         {a.quantity_change > 0 ? `+${a.quantity_change}` : a.quantity_change}
                       </td>
-                      <td className="p-4 text-center font-medium tabular-nums">{a.quantity_after}</td>
+                      <td className="p-4 text-center font-bold tabular">{a.quantity_after}</td>
                       <td className="p-4 text-xs truncate max-w-[200px]" title={a.reason}>{a.reason}</td>
                       <td className="p-4 text-right">
                         <Button
                           variant="outline"
                           size="sm"
-                          className="h-8 rounded-lg"
+                          className="h-8 rounded-lg text-xs"
                           onClick={() => setDetailsTarget(a)}
                         >
                           Details

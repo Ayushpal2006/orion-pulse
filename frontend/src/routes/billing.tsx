@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useMemo, useState, useEffect } from "react";
-import { ScanBarcode, Search, X, Plus, Minus, Trash2, User, ArrowRight, CheckCircle2, Loader2, PauseCircle } from "lucide-react";
+import { useMemo, useState, useEffect, useRef, useCallback } from "react";
+import { ScanBarcode, Search, X, Plus, Minus, Trash2, User, ArrowRight, CheckCircle2, Loader2, PauseCircle, Zap, Banknote, Package } from "lucide-react";
 import { toast } from "sonner";
 import { QRCodeSVG } from "qrcode.react";
 import { Input } from "@/components/ui/input";
@@ -16,6 +16,9 @@ import { getPrintAdapter, printPdfFallback } from "@/lib/print-adapter";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+
+// Cash note quick-tender denominations
+const CASH_NOTES = [50, 100, 200, 500, 1000, 2000] as const;
 
 export const Route = createFileRoute("/billing")({
   head: () => ({
@@ -88,6 +91,8 @@ function Billing() {
   const [step, setStep] = useState(-1);
   const [showSlip, setShowSlip] = useState(false);
   const [checkoutResult, setCheckoutResult] = useState<any>(null);
+  const [scanFlash, setScanFlash] = useState(false);
+  const [tenderAmount, setTenderAmount] = useState<string>("");
 
   // Customer search states
   const [customerQuery, setCustomerQuery] = useState("");
@@ -98,6 +103,8 @@ function Billing() {
   const requireCustomerBeforeCheckout = useApp((s) => s.requireCustomerBeforeCheckout);
   const [isChangingCustomer, setIsChangingCustomer] = useState(false);
   const [showCustomerRequiredAlert, setShowCustomerRequiredAlert] = useState(false);
+
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
   const loadProducts = async () => {
     setLoadingProducts(true);
@@ -137,7 +144,57 @@ function Billing() {
 
   useEffect(() => {
     loadProducts();
+    // Auto-focus search bar on mount for instant barcode scanning
+    setTimeout(() => searchInputRef.current?.focus(), 200);
   }, []);
+
+  // Flash green border on search bar when barcode scanner triggers (fast keystroke burst)
+  const triggerScanFlash = useCallback(() => {
+    setScanFlash(true);
+    setTimeout(() => setScanFlash(false), 700);
+  }, []);
+
+  // Global keyboard shortcut system
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement)?.tagName?.toLowerCase();
+      const isInput = tag === "input" || tag === "textarea" || tag === "select";
+
+      // F2 — Focus product search bar
+      if (e.key === "F2") {
+        e.preventDefault();
+        searchInputRef.current?.focus();
+        searchInputRef.current?.select();
+        return;
+      }
+
+      // F8 — Instant cash checkout (only when no modal is open)
+      if (e.key === "F8" && !showSlip && step < 0 && !showCustomerRequiredAlert) {
+        e.preventDefault();
+        if (payment !== "Cash") setPayment("Cash");
+        runCheckout();
+        return;
+      }
+
+      // Escape — Close dialogs / clear search
+      if (e.key === "Escape") {
+        if (showSlip) { return; } // Let dialog handle
+        if (showCustomerRequiredAlert) { setShowCustomerRequiredAlert(false); return; }
+        if (q && !isInput) { setQ(""); return; }
+        return;
+      }
+
+      // Slash (/) — Focus search
+      if (e.key === "/" && !isInput) {
+        e.preventDefault();
+        searchInputRef.current?.focus();
+        return;
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showSlip, step, showCustomerRequiredAlert, payment, q]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -332,6 +389,13 @@ function Billing() {
     toast.success("Sale parked", { description: "Resume anytime from Parked list." });
   };
 
+  const changeAmount = useMemo(() => {
+    const tender = parseFloat(tenderAmount);
+    const total = cartTotals(cart).total;
+    if (!isNaN(tender) && tender >= total && total > 0) return tender - total;
+    return null;
+  }, [tenderAmount, cart]);
+
   return (
     <div className="grid gap-4 lg:grid-cols-[1fr_420px]">
       {/* LEFT: catalog */}
@@ -341,60 +405,113 @@ function Billing() {
             <div className="relative flex-1 min-w-[220px]">
               <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
               <Input
+                ref={searchInputRef}
+                id="billing-search"
                 value={q}
-                onChange={(e) => setQ(e.target.value)}
-                placeholder="Search name, SKU or barcode…"
-                className="h-11 rounded-xl pl-9"
+                onChange={(e) => {
+                  setQ(e.target.value);
+                  // Detect barcode scanner burst input (fast keystrokes > 4 chars with rapid timing)
+                  if (e.target.value.length > 4) triggerScanFlash();
+                }}
+                placeholder="Search name, SKU or barcode… (F2 or /)"
+                className={cn(
+                  "h-11 rounded-xl pl-9 transition-all duration-300",
+                  scanFlash && "animate-scan-flash"
+                )}
+                aria-label="Product search — scan barcode or type name"
               />
               {q && (
                 <button
-                  onClick={() => setQ("")}
+                  onClick={() => { setQ(""); searchInputRef.current?.focus(); }}
                   className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1 text-muted-foreground hover:bg-muted"
+                  aria-label="Clear search"
                 >
                   <X className="size-3.5" />
                 </button>
               )}
             </div>
-            <Button onClick={scan} className="h-11 rounded-xl">
-              <ScanBarcode className="mr-2 size-4" /> Scan barcode
+            <Button onClick={scan} variant="outline" className="h-11 rounded-xl gap-1.5">
+              <ScanBarcode className="size-4" /> Scan demo
             </Button>
             <ParkedSalesPopover />
+          </div>
+          {/* Keyboard shortcut hints */}
+          <div className="mt-2 flex flex-wrap gap-2 text-[10px] text-muted-foreground">
+            <span className="flex items-center gap-1"><span className="kbd">F2</span> Search</span>
+            <span className="flex items-center gap-1"><span className="kbd">F8</span> Cash checkout</span>
+            <span className="flex items-center gap-1"><span className="kbd">/</span> Focus</span>
           </div>
         </div>
 
         {loadingProducts ? (
           <ProductGridSkeleton />
+        ) : products.length === 0 ? (
+          <div className="card-soft flex flex-col items-center justify-center p-12 text-center gap-3">
+            <div className="grid size-16 place-items-center rounded-2xl bg-muted">
+              <Package className="size-7 text-muted-foreground" />
+            </div>
+            <div className="text-sm font-semibold">No products found</div>
+            <div className="text-xs text-muted-foreground max-w-xs">
+              {q ? `No results for “${q}” — try a different name or SKU.` : "Your store catalog is empty. Add products to start billing."}
+            </div>
+            {q && (
+              <button
+                onClick={() => { setQ(""); searchInputRef.current?.focus(); }}
+                className="text-xs font-medium text-primary hover:underline"
+              >
+                Clear search
+              </button>
+            )}
+          </div>
         ) : (
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
             {products.map((p) => {
               const cartItem = cart.find((item) => item.productId === p.id);
               const inCart = !!cartItem;
               const cartQty = cartItem ? cartItem.qty : 0;
+              const isLowStock = p.stock > 0 && p.stock <= 5;
+              const isOutOfStock = p.stock === 0;
 
               return (
                 <button
                   key={p.id}
                   onClick={() => addToCart(p)}
-                  disabled={p.stock === 0}
+                  disabled={isOutOfStock}
                   className={cn(
-                    "card-soft flex flex-col p-4 text-left transition-transform active:scale-[0.98] disabled:opacity-40 relative",
-                    "hover:border-foreground/20 hover:shadow-md",
-                    inCart && "bg-emerald-50/70 border-emerald-500/30 dark:bg-emerald-950/20 dark:border-emerald-500/30"
+                    "card-soft flex flex-col p-4 text-left transition-all active:scale-[0.97] relative touch-manipulation",
+                    "hover:border-foreground/20 hover:shadow-md hover:-translate-y-0.5",
+                    inCart && "bg-emerald-50/70 border-emerald-500/30 dark:bg-emerald-950/20 dark:border-emerald-500/30",
+                    isOutOfStock && "opacity-50 cursor-not-allowed"
                   )}
                 >
                   {inCart && (
                     <span className="absolute right-2 top-2 rounded-full bg-emerald-500 px-2 py-0.5 text-[10px] font-bold text-white shadow-sm animate-scale-in">
-                      Qty: {cartQty}
+                      ×{cartQty}
+                    </span>
+                  )}
+                  {isLowStock && !inCart && (
+                    <span className="absolute right-2 top-2 rounded-full bg-amber-500/90 px-1.5 py-0.5 text-[9px] font-bold text-white shadow-sm">
+                      LOW
+                    </span>
+                  )}
+                  {isOutOfStock && (
+                    <span className="absolute right-2 top-2 rounded-full bg-rose-500/90 px-1.5 py-0.5 text-[9px] font-bold text-white">
+                      OUT
                     </span>
                   )}
                   <div className="grid size-12 place-items-center overflow-hidden rounded-xl bg-muted text-2xl">
                     {p.image ? <img src={p.image} alt="" className="size-full object-cover" /> : p.emoji}
                   </div>
-                  <div className="mt-3 line-clamp-1 text-sm font-medium">{p.name}</div>
+                  <div className="mt-3 line-clamp-1 text-sm font-semibold">{p.name}</div>
                   <div className="text-[11px] text-muted-foreground">{p.sku}</div>
-                  <div className="mt-3 flex items-center justify-between">
-                    <span className="tabular text-sm font-semibold text-money">{inr(p.price)}</span>
-                    <span className="text-[11px] text-muted-foreground tabular">{p.stock} in stock</span>
+                  <div className="mt-2 flex items-center justify-between">
+                    <span className="tabular text-sm font-bold text-money">{inr(p.price)}</span>
+                    <span className={cn(
+                      "text-[11px] tabular font-medium",
+                      isOutOfStock ? "text-rose-500" : isLowStock ? "text-amber-600 dark:text-amber-400" : "text-muted-foreground"
+                    )}>
+                      {isOutOfStock ? "Out of stock" : `${p.stock} left`}
+                    </span>
                   </div>
                 </button>
               );
@@ -429,12 +546,28 @@ function Billing() {
 
           <div className="flex-1 overflow-auto">
             {cart.length === 0 ? (
-              <div className="flex h-full flex-col items-center justify-center p-8 text-center">
-                <div className="grid size-14 place-items-center rounded-2xl bg-muted">
-                  <ScanBarcode className="size-6 text-muted-foreground" />
+              <div className="flex h-full flex-col items-center justify-center p-8 text-center gap-3">
+                <div className="grid size-16 place-items-center rounded-2xl bg-muted">
+                  <ScanBarcode className="size-7 text-muted-foreground" />
                 </div>
-                <div className="mt-3 text-sm font-medium">Cart is empty</div>
-                <div className="mt-1 text-xs text-muted-foreground">Scan or tap a product to begin.</div>
+                <div>
+                  <div className="text-sm font-semibold text-foreground">Cart is empty</div>
+                  <div className="mt-1 text-xs text-muted-foreground max-w-[180px]">
+                    Scan a barcode or tap a product to start billing.
+                  </div>
+                </div>
+                <div className="mt-2 space-y-1.5 text-left">
+                  {[
+                    { step: "1", text: "Search or scan product" },
+                    { step: "2", text: "Select payment method" },
+                    { step: "3", text: "Press F8 to checkout" },
+                  ].map((s) => (
+                    <div key={s.step} className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <span className="grid size-5 place-items-center rounded-full bg-muted text-[10px] font-bold text-foreground shrink-0">{s.step}</span>
+                      {s.text}
+                    </div>
+                  ))}
+                </div>
               </div>
             ) : (
               <ul className="divide-y divide-border">
@@ -638,22 +771,65 @@ function Billing() {
             </div>
 
             <div>
-              <div className="mb-1.5 text-xs font-medium text-muted-foreground">Payment method</div>
+              <div className="mb-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wide">Payment method</div>
               <div className="grid grid-cols-4 gap-1.5">
                 {payments.map((p) => (
                   <button
                     key={p.label}
-                    onClick={() => setPayment(p.label)}
+                    onClick={() => { setPayment(p.label); if (p.label !== "Cash") setTenderAmount(""); }}
                     className={cn(
-                      "rounded-xl border p-2 text-center transition-colors",
-                      payment === p.label ? "border-foreground bg-foreground text-background" : "border-border hover:border-foreground/30",
+                      "rounded-xl border p-2.5 text-center transition-all duration-150 touch-manipulation",
+                      payment === p.label
+                        ? "border-primary bg-primary text-primary-foreground shadow-sm ring-2 ring-primary/20"
+                        : "border-border hover:border-foreground/30 hover:bg-muted/50"
                     )}
                   >
-                    <div className="text-xs font-semibold">{p.label}</div>
-                    <div className="text-[10px] opacity-70">{p.hint}</div>
+                    <div className="text-xs font-bold">{p.label}</div>
+                    <div className={cn("text-[10px] mt-0.5", payment === p.label ? "opacity-80" : "text-muted-foreground")}>{p.hint}</div>
                   </button>
                 ))}
               </div>
+
+              {/* Cash tender chips — only for Cash payment */}
+              {payment === "Cash" && cart.length > 0 && (
+                <div className="mt-3 space-y-2">
+                  <div className="flex items-center gap-1.5">
+                    <Banknote className="size-3.5 text-muted-foreground" />
+                    <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Quick Tender</span>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {CASH_NOTES.map((note) => (
+                      <button
+                        key={note}
+                        className="cash-chip"
+                        onClick={() => setTenderAmount(String(note))}
+                        aria-label={`Tender ₹${note}`}
+                      >
+                        ₹{note}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="relative flex-1">
+                      <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">₹</span>
+                      <input
+                        type="number"
+                        inputMode="numeric"
+                        placeholder="Tender amount"
+                        value={tenderAmount}
+                        onChange={(e) => setTenderAmount(e.target.value)}
+                        className="h-9 w-full rounded-lg border border-border bg-elevated pl-6 pr-3 text-sm font-semibold tabular focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-1"
+                      />
+                    </div>
+                    {changeAmount !== null && (
+                      <div className="animate-count-up rounded-lg bg-emerald-500/10 border border-emerald-500/20 px-3 py-1.5 text-center">
+                        <div className="text-[9px] font-semibold text-emerald-600 dark:text-emerald-400 uppercase tracking-wide">Change</div>
+                        <div className="tabular text-sm font-extrabold text-emerald-600 dark:text-emerald-400">{inr(changeAmount)}</div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="tabular space-y-1 rounded-xl bg-muted/40 p-3 text-sm">
@@ -664,9 +840,23 @@ function Billing() {
               <Row label="Grand total" value={inr(totals.total)} bold />
             </div>
 
-            <Button onClick={runCheckout} className="h-12 w-full rounded-xl text-base font-semibold">
-              Checkout <ArrowRight className="ml-2 size-4" />
-            </Button>
+            <div className="space-y-2">
+              <Button
+                onClick={runCheckout}
+                className="h-14 w-full rounded-xl text-base font-bold gap-2 shadow-md hover:shadow-lg active:scale-[0.99] transition-all duration-150"
+              >
+                <Zap className="size-5" />
+                Checkout
+                <span className="ml-auto flex items-center gap-1 text-xs opacity-70">
+                  <span className="kbd" style={{ background: 'rgba(255,255,255,0.15)', color: 'inherit', borderColor: 'rgba(255,255,255,0.25)' }}>F8</span>
+                </span>
+              </Button>
+              {cart.length > 0 && (
+                <div className="text-center text-[10px] text-muted-foreground">
+                  {cart.length} item{cart.length !== 1 ? 's' : ''} in cart
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>
