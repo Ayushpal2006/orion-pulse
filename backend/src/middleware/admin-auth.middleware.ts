@@ -58,9 +58,11 @@ export function adminAuthMiddleware(req: Request, res: Response, next: NextFunct
   try {
     const decoded = verifyHS256JWT(token, env.JWT_SECRET);
     
-    // Check if the token payload identifies an admin
+    // Check if the token payload identifies an admin or super admin
     const isAdmin = decoded && (
       decoded.role === "admin" || 
+      decoded.role === "super_admin" ||
+      decoded.role === "superadmin" ||
       decoded.isAdmin === true || 
       decoded.user === "admin"
     );

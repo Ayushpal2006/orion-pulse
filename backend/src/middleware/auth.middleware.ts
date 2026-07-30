@@ -177,7 +177,8 @@ export function authorizeSuperAdmin() {
       userRole === "superadmin" ||
       userRole === "super_admin" ||
       (req.user as any).is_super_admin === 1 ||
-      req.user.email === "superadmin@apkabill.com";
+      req.user.email === "superadmin@apkabill.com" ||
+      req.user.email === "superadmin@orion.com";
 
     if (isSuperAdmin) {
       return next();
