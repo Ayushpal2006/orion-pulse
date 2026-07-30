@@ -1,7 +1,8 @@
 import { v2 as cloudinary } from "cloudinary";
-import { IImageStorage } from "../interfaces/IImageStorage";
+import { IImageStorage, ImageUploadOptions } from "../interfaces/IImageStorage";
 import { cloudinaryConfig } from "../config/cloudinary";
 import { logger } from "../logger/logger";
+import { getTenantContext } from "../db/context";
 import fs from "fs";
 
 export class CloudinaryStorage implements IImageStorage {
@@ -15,12 +16,24 @@ export class CloudinaryStorage implements IImageStorage {
     }
   }
 
-  async upload(filePath: string): Promise<string> {
+  async upload(filePath: string, options?: ImageUploadOptions): Promise<string> {
     try {
+      const ctx = getTenantContext();
+      const orgId = options?.organizationId || ctx.organizationId || 1;
+      const storeId = options?.storeId || ctx.currentStoreId || 1;
+      const productId = options?.productId || "";
+      const folderName = `orion_products/org_${orgId}/store_${storeId}`;
+
       const result = await cloudinary.uploader.upload(filePath, {
-        folder: "orion_products",
+        folder: folderName,
         use_filename: true,
         unique_filename: true,
+        context: {
+          organization_id: String(orgId),
+          store_id: String(storeId),
+          product_id: String(productId),
+        },
+        tags: [`org_${orgId}`, `store_${storeId}`],
       });
 
       // Cleanup local temp multer upload file

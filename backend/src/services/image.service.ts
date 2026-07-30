@@ -1,4 +1,4 @@
-import { IImageStorage } from "../interfaces/IImageStorage";
+import { IImageStorage, ImageUploadOptions } from "../interfaces/IImageStorage";
 import { CloudinaryStorage } from "../storage/cloudinary.storage";
 import { LocalStorage } from "../storage/local.storage";
 import { cloudinaryConfig } from "../config/cloudinary";
@@ -17,8 +17,8 @@ export class ImageService implements IImageStorage {
     }
   }
 
-  async upload(filePath: string): Promise<string> {
-    return this.activeStorage.upload(filePath);
+  async upload(filePath: string, options?: ImageUploadOptions): Promise<string> {
+    return this.activeStorage.upload(filePath, options);
   }
 
   async delete(url: string): Promise<void> {

@@ -1,6 +1,7 @@
 import fs from "fs";
 import path from "path";
-import { IImageStorage } from "../interfaces/IImageStorage";
+import { IImageStorage, ImageUploadOptions } from "../interfaces/IImageStorage";
+import { getTenantContext } from "../db/context";
 
 export class LocalStorage implements IImageStorage {
   private targetDir = path.join(__dirname, "../../uploads/products");
@@ -11,7 +12,7 @@ export class LocalStorage implements IImageStorage {
     }
   }
 
-  async upload(filePath: string): Promise<string> {
+  async upload(filePath: string, options?: ImageUploadOptions): Promise<string> {
     const filename = path.basename(filePath);
     const destinationPath = path.join(this.targetDir, filename);
 

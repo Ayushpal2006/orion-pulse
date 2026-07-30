@@ -3,6 +3,7 @@ import { ProductService } from "../services/product.service";
 import { imageService } from "../services/image.service";
 import { logger } from "../logger/logger";
 import fs from "fs";
+import { getTenantContext } from "../db/context";
 
 export class ProductController {
   private service: ProductService;
@@ -163,8 +164,13 @@ export class ProductController {
         }
       }
 
-      // Route image stream/upload to active storage provider
-      const secureUrl = await imageService.upload(req.file.path);
+      // Route image stream/upload to active storage provider with tenant metadata
+      const { organizationId, currentStoreId } = getTenantContext();
+      const secureUrl = await imageService.upload(req.file.path, {
+        organizationId,
+        storeId: currentStoreId,
+        productId: id,
+      });
       logger.info(`[Image Upload] Cloudinary secure_url: ${secureUrl}`);
       const updatedProduct = await this.service.update(id, { image_url: secureUrl });
       logger.info(`[Image Upload] Database image_url updated to: ${updatedProduct.image_url}`);
