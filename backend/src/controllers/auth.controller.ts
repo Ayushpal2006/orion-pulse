@@ -33,10 +33,11 @@ export class AuthController {
           const token = jwt.sign(
             {
               id: "super-admin",
-              email: process.env.SUPER_ADMIN_EMAIL || "superadmin@orion.com",
+              email: "superadmin@orion.com",
               role: "super_admin",
-              organizationId: null,
-              storeId: null,
+              organization_id: 1,
+              store_id: 1,
+              name: "Super Admin",
             },
             env.JWT_SECRET,
             { expiresIn: env.JWT_EXPIRES_IN as any }
@@ -49,10 +50,10 @@ export class AuthController {
               user: {
                 id: "super-admin",
                 name: "Super Admin",
-                email: process.env.SUPER_ADMIN_EMAIL || "superadmin@orion.com",
+                email: "superadmin@orion.com",
                 role: "super_admin",
-                organization_id: null,
-                store_id: null,
+                organization_id: 1,
+                store_id: 1,
               },
               organization: null,
               store: null,

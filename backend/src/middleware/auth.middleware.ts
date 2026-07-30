@@ -54,7 +54,8 @@ export function authenticate() {
     const token = authHeader.split(" ")[1];
     try {
       const decoded = jwt.verify(token, env.JWT_SECRET) as any;
-      if (!decoded || !decoded.organization_id) {
+      const isSuperAdmin = (decoded?.role || "").toLowerCase().includes("super");
+      if (!decoded || (!decoded.organization_id && !isSuperAdmin)) {
         return res.status(401).json({
           success: false,
           error: "Unauthorized: Invalid token payload. Missing organization_id.",
