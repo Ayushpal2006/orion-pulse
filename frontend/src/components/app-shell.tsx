@@ -104,7 +104,7 @@ function StoreSwitcher() {
       setActiveStoreId(store.id);
       setActiveStoreName(store.name);
       toast.success(`Switched to store: ${store.name}`);
-      // Refetch data for newly selected store
+      // Refetch data for newly selected store and refresh tenant cache
       const [prods, custs] = await Promise.all([getProducts(), getCustomers()]);
       setProducts(prods);
       setCustomers(
@@ -114,6 +114,7 @@ function StoreSwitcher() {
           totalSpent: c.total_spent ?? c.totalSpent ?? 0,
         }))
       );
+      window.location.reload();
     } catch (err: any) {
       toast.error(err.message || "Failed to switch store");
     }

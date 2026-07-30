@@ -3,7 +3,7 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { db } from "../db";
 import { users, organizations, stores } from "../db/schema";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { env } from "../config/env";
 import { getTenantContext } from "../db/context";
 import { AuthenticatedRequest } from "../middleware/auth.middleware";
@@ -111,60 +111,54 @@ export class AuthController {
       }
 
       // Organization Status Check & Foreign Key Validation
-      let orgId = user.organization_id || 1;
+      let orgId = user.organization_id;
+      if (!orgId) {
+        res.status(400).json({ success: false, error: "User is not assigned to an organization" });
+        return;
+      }
+
       let [org] = await db
         .select()
         .from(organizations)
         .where(eq(organizations.id, orgId))
         .limit(1);
 
-      // If organization_id is invalid, safely repair the foreign key to a valid organization
       if (!org) {
-        const [validOrg] = await db.select().from(organizations).limit(1);
-        if (validOrg) {
-          org = validOrg;
-          orgId = validOrg.id;
-          await db
-            .update(users)
-            .set({ organization_id: validOrg.id })
-            .where(eq(users.id, user.id));
-          console.log(`[Auth] Repaired invalid organization_id for user ${user.email} -> org ${validOrg.id}`);
-        }
+        res.status(403).json({ success: false, error: "User organization does not exist or has been removed" });
+        return;
       }
 
-      const orgStatus = org ? (org.status || "active").toLowerCase() : "active";
-
+      const orgStatus = (org.status || "active").toLowerCase();
       if (orgStatus === "suspended") {
         res.status(403).json({
           success: false,
-          error: "Your account has been suspended. Please contact Apka Bill.",
+          error: "Your organization account has been suspended. Please contact Apka Bill support.",
         });
         return;
       }
 
-      // Fetch & Validate Current Store
-      let storeId = user.store_id || 1;
-      let [store] = await db
-        .select()
-        .from(stores)
-        .where(eq(stores.id, storeId))
-        .limit(1);
+      let storeId = user.store_id;
+      let [store] = storeId
+        ? await db
+            .select()
+            .from(stores)
+            .where(and(eq(stores.id, storeId), eq(stores.organization_id, orgId)))
+            .limit(1)
+        : [];
 
-      // If store_id is invalid, safely repair store_id to a valid store
-      if (!store && org) {
-        const [validStore] = await db
+      if (!store) {
+        const [primaryStore] = await db
           .select()
           .from(stores)
-          .where(eq(stores.organization_id, org.id))
+          .where(eq(stores.organization_id, orgId))
           .limit(1);
-        if (validStore) {
-          store = validStore;
-          storeId = validStore.id;
-          await db
-            .update(users)
-            .set({ store_id: validStore.id })
-            .where(eq(users.id, user.id));
-          console.log(`[Auth] Repaired invalid store_id for user ${user.email} -> store ${validStore.id}`);
+
+        if (primaryStore) {
+          store = primaryStore;
+          storeId = primaryStore.id;
+        } else {
+          res.status(400).json({ success: false, error: "No active store found for user organization" });
+          return;
         }
       }
 
@@ -272,7 +266,12 @@ export class AuthController {
         return;
       }
 
-      const orgId = user.organization_id || organizationId || 1;
+      const orgId = user.organization_id || organizationId;
+      if (!orgId) {
+        res.status(400).json({ success: false, error: "User is not assigned to an organization" });
+        return;
+      }
+
       const [org] = await db
         .select()
         .from(organizations)
@@ -288,12 +287,14 @@ export class AuthController {
         return;
       }
 
-      const stId = req.user.store_id || currentStoreId || user.store_id || 1;
-      const [store] = await db
-        .select()
-        .from(stores)
-        .where(eq(stores.id, stId))
-        .limit(1);
+      const stId = req.user?.store_id || currentStoreId || user.store_id;
+      const [store] = stId
+        ? await db
+            .select()
+            .from(stores)
+            .where(and(eq(stores.id, stId), eq(stores.organization_id, orgId)))
+            .limit(1)
+        : [];
 
       res.status(200).json({
         success: true,
