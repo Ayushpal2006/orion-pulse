@@ -50,6 +50,7 @@ function OrganizationSwitcher() {
   const handleSelectOrg = (org: any) => {
     setActiveOrg(org);
     localStorage.setItem("currentOrgId", String(org.id));
+    localStorage.removeItem("currentStoreId");
     toast.success(`Organization: ${org.name}`);
     window.location.reload();
   };
@@ -250,6 +251,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       // ignore
     } finally {
       localStorage.removeItem("token");
+      localStorage.removeItem("currentOrgId");
       localStorage.removeItem("currentStoreId");
       window.location.href = "/login";
     }
@@ -318,7 +320,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         });
     }
 
-    // 1. Fetch stores only for non-superadmin organization context
+    // 1. Fetch stores first, validate store ownership for current org, then fetch products & customers
     if (!isAdminRoute) {
       getStores()
         .then((stores) => {
@@ -336,26 +338,22 @@ export function AppShell({ children }: { children: ReactNode }) {
               localStorage.setItem("currentStoreId", String(found.id));
             }
           }
+
+          // Fetch products & customers ONLY AFTER active store context is set
+          Promise.all([
+            getProducts().then(setProducts).catch((err) => console.error("AppShell products fetch failed:", err)),
+            getCustomers().then((data) => {
+              const mapped = data.map((c: any) => ({
+                ...c,
+                loyaltyPoints: c.loyalty_points ?? c.loyaltyPoints ?? 0,
+                totalSpent: c.total_spent ?? c.totalSpent ?? 0,
+              }));
+              setCustomers(mapped);
+            }).catch((err) => console.error("AppShell customers fetch failed:", err))
+          ]);
         })
         .catch((err) => console.error("AppShell stores fetch failed:", err));
     }
-
-    // 2. Fetch products
-    getProducts()
-      .then(setProducts)
-      .catch((err) => console.error("AppShell products fetch failed:", err));
-
-    // 3. Fetch customers
-    getCustomers()
-      .then((data) => {
-        const mapped = data.map((c: any) => ({
-          ...c,
-          loyaltyPoints: c.loyalty_points ?? c.loyaltyPoints ?? 0,
-          totalSpent: c.total_spent ?? c.totalSpent ?? 0,
-        }));
-        setCustomers(mapped);
-      })
-      .catch((err) => console.error("AppShell customers fetch failed:", err));
   }, [pathname, setProducts, setCustomers, setActiveStoreId, setActiveStoreName, setStoresList, setRole]);
 
   const hasRole = (roles?: Role[]) => {

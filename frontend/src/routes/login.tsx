@@ -53,9 +53,16 @@ function LoginPage() {
           const formattedRole = data.user.role.charAt(0).toUpperCase() + data.user.role.slice(1).toLowerCase();
           setRole(formattedRole as any);
         }
+        if (data.user.organization_id) {
+          localStorage.setItem("currentOrgId", String(data.user.organization_id));
+        } else {
+          localStorage.removeItem("currentOrgId");
+        }
         if (data.user.store_id) {
           localStorage.setItem("currentStoreId", String(data.user.store_id));
           setActiveStoreId(Number(data.user.store_id));
+        } else {
+          localStorage.removeItem("currentStoreId");
         }
         if (userRoleLower === "superadmin" || userRoleLower === "super_admin") {
           toast.success("Welcome back, System Super Admin!");

@@ -18,8 +18,8 @@ export const storeStorage = {
   run: <R>(context: { storeId?: number; currentStoreId?: number; organizationId?: number; userId: number; role: string }, callback: () => R): R => {
     const tenantCtx: TenantContext = {
       userId: context.userId,
-      organizationId: context.organizationId ?? 1,
-      currentStoreId: context.currentStoreId ?? context.storeId ?? 1,
+      organizationId: context.organizationId ?? 0,
+      currentStoreId: context.currentStoreId ?? context.storeId ?? 0,
       role: context.role,
     };
     return tenantStorage.run(tenantCtx, callback);

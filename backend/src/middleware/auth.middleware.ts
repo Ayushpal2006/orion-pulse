@@ -28,7 +28,15 @@ function resolveStoreId(req: Request, fallbackStoreId: number): number {
 
 function resolveOrganizationId(req: Request, fallbackOrgId: number, role: string): number {
   const headerVal = req.headers["x-organization-id"] || req.headers["X-Organization-Id"];
-  if (headerVal && ["super_admin", "superadmin", "owner", "admin"].includes((role || "").toLowerCase())) {
+  const roleLower = (role || "").toLowerCase();
+  const isAllowedRole =
+    roleLower.includes("super") ||
+    roleLower.includes("owner") ||
+    roleLower.includes("admin") ||
+    roleLower.includes("manager") ||
+    roleLower.includes("cashier");
+
+  if (headerVal && isAllowedRole) {
     const parsed = parseInt(String(headerVal), 10);
     if (!isNaN(parsed) && parsed > 0) {
       return parsed;
