@@ -1,4 +1,4 @@
-// Universal Document Platform Foundation for Apka Bill V2
+// Universal Document Platform Foundation for Apka Bill V2 (Supports 17 Document Types)
 
 export type DocumentType =
   | "receipt"
@@ -9,8 +9,15 @@ export type DocumentType =
   | "payment_receipt"
   | "credit_note"
   | "debit_note"
+  | "expense_voucher"
+  | "inventory_report"
+  | "purchase_report"
+  | "sales_report"
+  | "customer_statement"
   | "barcode_label"
-  | "expense_voucher";
+  | "shelf_label"
+  | "gift_voucher"
+  | "warranty_card";
 
 export interface UniversalDocumentItem {
   id: string | number;
@@ -57,7 +64,30 @@ export interface UniversalDocumentModel {
 }
 
 export class UniversalDocumentRenderer {
+  static getTitleForDocumentType(type: DocumentType): string {
+    switch (type) {
+      case "receipt": return "THERMAL RECEIPT";
+      case "invoice": return "TAX INVOICE";
+      case "purchase_order": return "PURCHASE ORDER";
+      case "quotation": return "QUOTATION / ESTIMATE";
+      case "delivery_challan": return "DELIVERY CHALLAN";
+      case "payment_receipt": return "PAYMENT RECEIPT";
+      case "credit_note": return "CREDIT NOTE";
+      case "debit_note": return "DEBIT NOTE";
+      case "expense_voucher": return "EXPENSE VOUCHER";
+      case "inventory_report": return "INVENTORY SUMMARY REPORT";
+      case "purchase_report": return "PURCHASE SUMMARY REPORT";
+      case "sales_report": return "SALES SUMMARY REPORT";
+      case "customer_statement": return "CUSTOMER STATEMENT OF ACCOUNT";
+      case "barcode_label": return "BARCODE LABEL";
+      case "shelf_label": return "SHELF EDGE PRICE LABEL";
+      case "gift_voucher": return "GIFT VOUCHER";
+      case "warranty_card": return "WARRANTY CARD";
+    }
+  }
+
   static toHtml(doc: UniversalDocumentModel): string {
+    const title = doc.title || this.getTitleForDocumentType(doc.documentType);
     const itemsTableRows = doc.items
       .map(
         (item, idx) => `
@@ -80,7 +110,7 @@ export class UniversalDocumentRenderer {
             ${doc.issuer.gstin ? `<p style="margin: 2px 0 0 0; font-size: 12px; font-weight: 600;">GSTIN: ${doc.issuer.gstin}</p>` : ""}
           </div>
           <div style="text-align: right;">
-            <span style="display: inline-block; padding: 4px 12px; font-size: 12px; font-weight: 700; text-transform: uppercase; background: #eff6ff; color: #1d4ed8; border-radius: 9999px;">${doc.title}</span>
+            <span style="display: inline-block; padding: 4px 12px; font-size: 12px; font-weight: 700; text-transform: uppercase; background: #eff6ff; color: #1d4ed8; border-radius: 9999px;">${title}</span>
             <p style="margin: 8px 0 0 0; font-size: 14px; font-weight: 700;"># ${doc.documentNumber}</p>
             <p style="margin: 2px 0 0 0; font-size: 12px; color: #6b7280;">Date: ${doc.issueDate}</p>
           </div>
