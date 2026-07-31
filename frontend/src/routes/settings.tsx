@@ -55,7 +55,7 @@ import {
   KeyRound,
 } from "lucide-react";
 import { getPrintAdapter } from "@/lib/print-adapter";
-import { ReceiptData, ReceiptRenderOptions } from "@/lib/receipt-renderer";
+import { printerService } from "@/lib/printer.service";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { testPrinter, API_BASE_URL, apiFetch, resetOnboardingApi, changePasswordApi } from "@/lib/api";
 import { formatToKolkataDateTime } from "@/lib/datetime";
@@ -1480,42 +1480,12 @@ function SettingsV2() {
                   onClick={async () => {
                     setTestingPrint(true);
                     try {
-                      const testReceiptData: ReceiptData = {
-                        shopName: (s as any).shopName || (s as any).shop_name || "APKA BILL STORE",
-                        shopAddress: (s as any).shopAddress || (s as any).shop_address || "123 Business Avenue, Tech Park",
-                        shopPhone: (s as any).shopPhone || (s as any).shop_phone || "9876543210",
-                        shopGst: (s as any).shopGst || (s as any).shop_gstin || "27AAAAA0000A1Z5",
-                        invoiceNumber: "TEST-PRINT-001",
-                        date: new Date().toLocaleDateString("en-IN"),
-                        cashierName: "Admin",
-                        customerName: "Hardware Verification Test",
-                        items: [
-                          { name: "Sample Item A (58/80mm Test)", qty: 1, price: 100, total: 100 },
-                          { name: "Sample Item B (Cut & Drawer Test)", qty: 2, price: 50, total: 100 },
-                        ],
-                        subtotal: 200,
-                        discount: 10,
-                        tax: 9,
-                        total: 199,
-                        paymentMethod: "CASH",
-                        footerText: (s as any).receiptFooter || (s as any).receipt_footer || "Thank you for testing Apka Bill Printer Engine!",
-                        qrCodeUrl: "https://apkabill.in",
-                        barcodeData: "TEST-PRINT-001",
-                      };
-
-                      const renderOpts: ReceiptRenderOptions = {
-                        paperWidth: ((s as any).paperWidth || (s as any).paper_width || "80mm") as any,
-                        showLogo: true,
-                        showQr: true,
-                        showBarcode: true,
-                        autoCut: true,
-                        openDrawer: true,
-                      };
-
                       const printerTypeStr = (s as any).printerType || (s as any).printer_type || "Browser";
-                      const adapter = getPrintAdapter(printerTypeStr);
-                      await adapter.print(testReceiptData, renderOpts);
-                      toast.success(`Real Test Print sent to ${printerTypeStr} printer!`);
+                      const paperWidthStr = (s as any).paperWidth || (s as any).paper_width || "80mm";
+                      const success = await printerService.runTestPrint(printerTypeStr, paperWidthStr);
+                      if (success) {
+                        toast.success(`Universal Test Print sent to ${printerTypeStr} printer!`);
+                      }
                     } catch (e: any) {
                       toast.error("Printer test failed: " + (e.message || e));
                     } finally {

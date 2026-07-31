@@ -1,7 +1,7 @@
 import type { Product } from "./mock-data";
 
 const getApiBaseUrl = (): string => {
-  const rawUrl = import.meta.env.VITE_API_URL || "http://localhost:8080";
+  const rawUrl = (typeof import.meta !== "undefined" && import.meta.env?.VITE_API_URL) || "http://localhost:8080";
   let cleanUrl = rawUrl.trim().replace(/['"]/g, "");
   
   if (cleanUrl && !/^https?:\/\//i.test(cleanUrl)) {

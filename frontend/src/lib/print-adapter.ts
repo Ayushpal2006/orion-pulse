@@ -1,9 +1,10 @@
 import { printSaleReceipt, downloadSalePdf } from "./api";
 import { toast } from "sonner";
-import { ReceiptRenderer, ReceiptData, ReceiptRenderOptions } from "./receipt-renderer";
+import { UniversalReceiptRenderer, RenderOptions } from "./universal-receipt-renderer";
+import { UniversalReceiptModel, createCanonicalReceiptModel } from "./receipt-model";
 
 export interface PrintAdapter {
-  print(receipt: any, options?: ReceiptRenderOptions): Promise<void>;
+  print(receipt: any, options?: RenderOptions): Promise<void>;
   testConnection?(): Promise<boolean>;
 }
 
@@ -47,24 +48,27 @@ export class BrowserPrintAdapter implements PrintAdapter {
     if (!invoiceNumber) {
       throw new Error("Unable to identify receipt invoice number");
     }
-    window.open(`/print/invoice/${invoiceNumber}?autoprint=true`, "_blank");
+    if (typeof window !== "undefined") {
+      window.open(`/print/invoice/${invoiceNumber}?autoprint=true`, "_blank");
+    }
   }
 }
 
 // 2. USB THERMAL PRINTER ADAPTER (WebUSB API)
 export class UsbPrinterAdapter implements PrintAdapter {
-  async print(receipt: any, options?: ReceiptRenderOptions): Promise<void> {
+  async print(receipt: any, options?: RenderOptions): Promise<void> {
     if (typeof navigator === "undefined" || !(navigator as any).usb) {
       throw new Error("WebUSB is not supported in this browser. Please use Chrome or Edge.");
     }
     const toastId = toast.loading("Connecting to USB Thermal Printer...");
     try {
+      const model: UniversalReceiptModel = createCanonicalReceiptModel(receipt);
       const device = await (navigator as any).usb.requestDevice({ filters: [] });
       await device.open();
       if (device.configuration === null) await device.selectConfiguration(1);
       await device.claimInterface(0);
 
-      const commands = ReceiptRenderer.renderEscPosCommands(receipt, options);
+      const commands = UniversalReceiptRenderer.toEscPos(model, options);
       await device.transferOut(1, commands);
       await device.close();
 
@@ -92,12 +96,13 @@ export class UsbPrinterAdapter implements PrintAdapter {
 
 // 3. BLUETOOTH THERMAL PRINTER ADAPTER (WebBluetooth API)
 export class BluetoothPrinterAdapter implements PrintAdapter {
-  async print(receipt: any, options?: ReceiptRenderOptions): Promise<void> {
+  async print(receipt: any, options?: RenderOptions): Promise<void> {
     if (typeof navigator === "undefined" || !(navigator as any).bluetooth) {
       throw new Error("WebBluetooth is not supported in this browser. Please use Chrome on Android or Desktop.");
     }
     const toastId = toast.loading("Searching for Bluetooth Thermal Printer...");
     try {
+      const model: UniversalReceiptModel = createCanonicalReceiptModel(receipt);
       const device = await (navigator as any).bluetooth.requestDevice({
         acceptAllDevices: true,
         optionalServices: ["00001101-0000-1000-8000-00805f9b34fb", "e7810a71-73ae-499d-8c15-faa9aef0c3f2"]
@@ -109,7 +114,7 @@ export class BluetoothPrinterAdapter implements PrintAdapter {
       const characteristics = await services[0].getCharacteristics();
       if (characteristics.length === 0) throw new Error("No writable characteristics found on Bluetooth printer.");
 
-      const commands = ReceiptRenderer.renderEscPosCommands(receipt, options);
+      const commands = UniversalReceiptRenderer.toEscPos(model, options);
       await characteristics[0].writeValue(commands);
 
       toast.dismiss(toastId);
@@ -123,7 +128,7 @@ export class BluetoothPrinterAdapter implements PrintAdapter {
 
 // 4. NETWORK (LAN / WI-FI) PRINTER ADAPTER
 export class NetworkPrinterAdapter implements PrintAdapter {
-  async print(receipt: any, options?: ReceiptRenderOptions): Promise<void> {
+  async print(receipt: any, options?: RenderOptions): Promise<void> {
     const invoiceNumber = receipt?.invoiceNumber || (typeof receipt === "string" ? receipt : null);
     const toastId = toast.loading("Sending job to Network Thermal Printer...");
     try {
@@ -143,7 +148,7 @@ export class NetworkPrinterAdapter implements PrintAdapter {
 
 // 5. ANDROID POS TERMINAL PRINTER ADAPTER (Sunmi / PAX / Verifone / Z91)
 export class AndroidPosPrinterAdapter implements PrintAdapter {
-  async print(receipt: any, options?: ReceiptRenderOptions): Promise<void> {
+  async print(receipt: any, options?: RenderOptions): Promise<void> {
     if (typeof window !== "undefined" && (window as any).Android && typeof (window as any).Android.printReceipt === "function") {
       try {
         (window as any).Android.printReceipt(JSON.stringify(receipt));
