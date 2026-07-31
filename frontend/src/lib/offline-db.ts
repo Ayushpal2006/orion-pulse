@@ -230,6 +230,11 @@ export async function getPendingSalesOffline(): Promise<OfflinePendingSale[]> {
   }
 }
 
+export async function getPendingSalesCountOffline(): Promise<number> {
+  const sales = await getPendingSalesOffline();
+  return sales.length;
+}
+
 export async function updatePendingSaleStatus(offlineId: string, status: "pending" | "syncing" | "synced" | "error", syncError?: string): Promise<void> {
   const db = await openDB();
   const tx = db.transaction("pendingSales", "readwrite");
