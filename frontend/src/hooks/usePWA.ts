@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { subscribeSyncStatus, syncPendingSales, refreshPendingCount, SyncStatusState } from "@/lib/sync-engine";
 
 export function usePWA() {
   const [isOnline, setIsOnline] = useState<boolean>(
@@ -6,9 +7,24 @@ export function usePWA() {
   );
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [isInstalled, setIsInstalled] = useState<boolean>(false);
+  const [syncState, setSyncState] = useState<SyncStatusState>({
+    isOnline: true,
+    isSyncing: false,
+    pendingCount: 0,
+    lastSyncTime: null,
+    lastError: null,
+  });
 
   useEffect(() => {
     if (typeof window === "undefined") return;
+
+    // Subscribe to Sync Engine state updates
+    const unsubscribeSync = subscribeSyncStatus((st) => {
+      setSyncState(st);
+      setIsOnline(st.isOnline);
+    });
+
+    refreshPendingCount();
 
     // Check display-mode standalone
     const checkStandalone = () => {
@@ -43,6 +59,7 @@ export function usePWA() {
     window.addEventListener("appinstalled", handleAppInstalled);
 
     return () => {
+      unsubscribeSync();
       window.removeEventListener("online", handleOnline);
       window.removeEventListener("offline", handleOffline);
       window.removeEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
@@ -66,5 +83,10 @@ export function usePWA() {
     isInstalled,
     isInstallable: deferredPrompt !== null,
     install,
+    isSyncing: syncState.isSyncing,
+    pendingCount: syncState.pendingCount,
+    lastSyncTime: syncState.lastSyncTime,
+    lastError: syncState.lastError,
+    syncNow: syncPendingSales,
   };
 }

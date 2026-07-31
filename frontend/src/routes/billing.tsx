@@ -12,6 +12,8 @@ import { inr } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { ParkedSalesPopover } from "@/components/parked-sales";
 import { getProducts, getCustomers, searchProducts, searchCustomers, checkout as checkoutApi, getSaleReceipt, printSaleReceipt, getWhatsAppShareLink, downloadSalePdf, getSalePublicLink, API_BASE_URL, logSaleAudit } from "@/lib/api";
+import { queueOfflineSale } from "@/lib/offline-db";
+import { refreshPendingCount } from "@/lib/sync-engine";
 import { getPrintAdapter, printPdfFallback } from "@/lib/print-adapter";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
@@ -319,8 +321,53 @@ function Billing() {
 
       setStep(1);
       console.log("[Checkout Flow] API Request");
-      const res = await checkoutApi(dto);
-      console.log("[Checkout Flow] API Response", res);
+      let res: any;
+      try {
+        res = await checkoutApi(dto);
+      } catch (networkErr: any) {
+        console.warn("[Checkout Flow] Online API failed, switching to Offline Sales Queue:", networkErr);
+        const offlineId = `OFF-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+        const offlineInvoice = `INV-OFF-${Date.now()}`;
+        const offlineSalePayload: any = {
+          offlineId,
+          invoice_number: offlineInvoice,
+          customer_id: selectedCustomer?.id ? Number(selectedCustomer.id) : undefined,
+          customer_name: selectedCustomer?.name || (isCustomerMissing ? "Walk-in Customer" : name),
+          items: cart.map((i: any) => ({
+            product_id: Number(i.productId || i.id),
+            name: i.name,
+            unit_price: i.price,
+            quantity: i.qty,
+            subtotal: (i.price || 0) * (i.qty || 1),
+          })),
+          subtotal: totals.subtotal,
+          discount: totals.discount,
+          tax: totals.gst,
+          total_amount: totals.total,
+          payment_method: payment,
+          amount_paid: totals.total,
+          change_amount: 0,
+          created_at: new Date().toISOString(),
+          syncStatus: "pending",
+        };
+
+        await queueOfflineSale(offlineSalePayload);
+        refreshPendingCount();
+
+        res = {
+          success: true,
+          saleId: offlineId,
+          invoice: offlineInvoice,
+          total: totals.total,
+          subtotal: totals.subtotal,
+          tax: totals.gst,
+          discount: totals.discount,
+          paymentMethod: payment,
+          items: cart.map((i: any) => ({ id: i.productId || i.id, name: i.name, qty: i.qty, price: i.price, total: (i.price || 0) * (i.qty || 1) })),
+          offline: true,
+        };
+        toast.info("🔴 Saved to Offline Queue", { description: `Offline Receipt: ${offlineInvoice}` });
+      }
 
       setStep(2);
       await new Promise((r) => setTimeout(r, 200));
@@ -363,10 +410,12 @@ function Billing() {
         setCustomers(mapped);
       }).catch(() => {});
 
-      if (res.whatsappPrepared === false && res.whatsappError) {
-        toast.info(res.whatsappError, { description: `Invoice created: ${res.invoice}` });
-      } else {
-        toast.success("Sale complete", { description: `Invoice created: ${res.invoice}` });
+      if (!res.offline) {
+        if (res.whatsappPrepared === false && res.whatsappError) {
+          toast.info(res.whatsappError, { description: `Invoice created: ${res.invoice}` });
+        } else {
+          toast.success("Sale complete", { description: `Invoice created: ${res.invoice}` });
+        }
       }
       console.log("[Checkout Flow] Receipt Navigation");
       setShowSlip(true);

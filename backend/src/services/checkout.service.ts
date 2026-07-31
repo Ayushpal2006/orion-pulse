@@ -61,9 +61,15 @@ export class CheckoutService {
     return `${prefix}${seqStr}`;
   }
 
-  async executeCheckout(request: CheckoutRequest & { paymentDetails?: any; paidAmount?: number; balance?: number }): Promise<CheckoutResponse> {
+  async executeCheckout(request: CheckoutRequest & { paymentDetails?: any; paidAmount?: number; balance?: number; offlineIdentifier?: string }): Promise<CheckoutResponse> {
     const storeId = getStoreId() || 1;
     const orgId = getOrganizationId() || 1;
+
+    const offlineId = request.offlineIdentifier || (request as any).offline_identifier || (request as any).offlineIdentifier;
+    if (offlineId && idempotencyCache.has(offlineId)) {
+      console.log(`[Checkout Service] Idempotent retry hit for offline sale: ${offlineId}`);
+      return idempotencyCache.get(offlineId)!.response;
+    }
 
     // 1. Load setting
     const reqSetting1 = await settingsRepository.get("require_customer_before_checkout", "0");
@@ -395,6 +401,10 @@ export class CheckoutService {
       whatsappPrepared,
       ...(whatsappError ? { whatsappError } : {}),
     };
+
+    if (offlineId) {
+      idempotencyCache.set(offlineId, { timestamp: Date.now(), response: finalResult });
+    }
 
     // Enqueue background sync/notifications asynchronously outside response thread
     setImmediate(() => {

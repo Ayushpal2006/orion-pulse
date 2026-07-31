@@ -90,6 +90,8 @@ export function mapFrontendProductToBackend(p: Partial<Product>): any {
   return result;
 }
 
+import { saveProductsOffline, getProductsOffline, saveCustomersOffline, getCustomersOffline, saveSettingsOffline, getSettingsOffline } from "./offline-db";
+
 export async function getProducts(): Promise<Product[]> {
   try {
     const res = await apiFetch(`${API_BASE_URL}/products`);
@@ -99,14 +101,17 @@ export async function getProducts(): Promise<Product[]> {
     }
     const payload = await res.json();
     if (payload.success && Array.isArray(payload.data)) {
+      saveProductsOffline(payload.data);
       return payload.data.map(mapBackendProductToFrontend);
     }
     return [];
   } catch (error) {
-    if (error instanceof TypeError && error.message === "Failed to fetch") {
-      throw new Error("Server is unavailable. Please check if the backend server is running on port 8080.");
+    console.warn("getProducts online fetch failed, attempting IndexedDB offline cache:", error);
+    const cached = await getProductsOffline();
+    if (cached && cached.length > 0) {
+      return cached.map(mapBackendProductToFrontend);
     }
-    throw error;
+    return [];
   }
 }
 
@@ -226,14 +231,17 @@ export async function getCustomers(): Promise<any[]> {
     }
     const payload = await res.json();
     if (payload.success && Array.isArray(payload.data)) {
+      saveCustomersOffline(payload.data);
       return payload.data;
     }
     return [];
   } catch (error) {
-    if (error instanceof TypeError && error.message === "Failed to fetch") {
-      throw new Error("Server is unavailable. Please check if the backend server is running on port 8080.");
+    console.warn("getCustomers online fetch failed, attempting IndexedDB offline cache:", error);
+    const cached = await getCustomersOffline();
+    if (cached && cached.length > 0) {
+      return cached;
     }
-    throw error;
+    return [];
   }
 }
 
