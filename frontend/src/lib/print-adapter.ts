@@ -1,17 +1,16 @@
 import { printSaleReceipt, downloadSalePdf } from "./api";
 import { toast } from "sonner";
+import { ReceiptRenderer, ReceiptData, ReceiptRenderOptions } from "./receipt-renderer";
 
 export interface PrintAdapter {
-  print(receipt: any): Promise<void>;
+  print(receipt: any, options?: ReceiptRenderOptions): Promise<void>;
+  testConnection?(): Promise<boolean>;
 }
 
 export async function waitForReceiptResources(container: HTMLElement): Promise<void> {
-  // Wait for all images inside the print container to load/decode
   const images = Array.from(container.querySelectorAll("img"));
   const imagePromises = images.map((img) => {
-    if (img.complete) {
-      return Promise.resolve();
-    }
+    if (img.complete) return Promise.resolve();
     return new Promise<void>((resolve) => {
       img.addEventListener("load", () => resolve(), { once: true });
       img.addEventListener("error", () => resolve(), { once: true });
@@ -19,12 +18,10 @@ export async function waitForReceiptResources(container: HTMLElement): Promise<v
   });
   await Promise.all(imagePromises);
 
-  // Wait for all fonts to load
   if (document.fonts && document.fonts.ready) {
     await document.fonts.ready;
   }
 
-  // Wait two animation frames to guarantee layout paint
   await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
   await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
 }
@@ -34,33 +31,119 @@ export async function printPdfFallback(invoiceNumber: string): Promise<void> {
   try {
     const blob = await downloadSalePdf(invoiceNumber);
     const url = URL.createObjectURL(blob);
-    
-    // Open the PDF blob in a new window/tab for native print spooler
     window.open(url, "_blank");
     toast.dismiss(toastId);
-    toast.success("PDF generated successfully! Open options in browser to print.");
+    toast.success("PDF generated successfully! Open browser options to print.");
   } catch (err: any) {
     toast.dismiss(toastId);
     toast.error("Failed to generate PDF fallback: " + (err.message || err));
   }
 }
 
+// 1. BROWSER PRINT ADAPTER
 export class BrowserPrintAdapter implements PrintAdapter {
   async print(receipt: any): Promise<void> {
     const invoiceNumber = receipt?.invoiceNumber || (typeof receipt === "string" ? receipt : null);
     if (!invoiceNumber) {
       throw new Error("Unable to identify receipt invoice number");
     }
-    // Launch the dedicated print page which acts as the single source of truth
     window.open(`/print/invoice/${invoiceNumber}?autoprint=true`, "_blank");
   }
 }
 
-export class PosPrintAdapter implements PrintAdapter {
-  async print(receipt: any): Promise<void> {
+// 2. USB THERMAL PRINTER ADAPTER (WebUSB API)
+export class UsbPrinterAdapter implements PrintAdapter {
+  async print(receipt: any, options?: ReceiptRenderOptions): Promise<void> {
+    if (typeof navigator === "undefined" || !(navigator as any).usb) {
+      throw new Error("WebUSB is not supported in this browser. Please use Chrome or Edge.");
+    }
+    const toastId = toast.loading("Connecting to USB Thermal Printer...");
+    try {
+      const device = await (navigator as any).usb.requestDevice({ filters: [] });
+      await device.open();
+      if (device.configuration === null) await device.selectConfiguration(1);
+      await device.claimInterface(0);
+
+      const commands = ReceiptRenderer.renderEscPosCommands(receipt, options);
+      await device.transferOut(1, commands);
+      await device.close();
+
+      toast.dismiss(toastId);
+      toast.success("Printed successfully to USB Thermal Printer!");
+    } catch (err: any) {
+      toast.dismiss(toastId);
+      if (err.name === "NotFoundError") {
+        throw new Error("USB Printer connection cancelled by user.");
+      }
+      throw new Error("USB Printer error: " + (err.message || err));
+    }
+  }
+
+  async testConnection(): Promise<boolean> {
+    if (typeof navigator === "undefined" || !(navigator as any).usb) return false;
+    try {
+      const devices = await (navigator as any).usb.getDevices();
+      return devices.length > 0;
+    } catch {
+      return false;
+    }
+  }
+}
+
+// 3. BLUETOOTH THERMAL PRINTER ADAPTER (WebBluetooth API)
+export class BluetoothPrinterAdapter implements PrintAdapter {
+  async print(receipt: any, options?: ReceiptRenderOptions): Promise<void> {
+    if (typeof navigator === "undefined" || !(navigator as any).bluetooth) {
+      throw new Error("WebBluetooth is not supported in this browser. Please use Chrome on Android or Desktop.");
+    }
+    const toastId = toast.loading("Searching for Bluetooth Thermal Printer...");
+    try {
+      const device = await (navigator as any).bluetooth.requestDevice({
+        acceptAllDevices: true,
+        optionalServices: ["00001101-0000-1000-8000-00805f9b34fb", "e7810a71-73ae-499d-8c15-faa9aef0c3f2"]
+      });
+      const server = await device.gatt.connect();
+      const services = await server.getPrimaryServices();
+      if (services.length === 0) throw new Error("No GATT services found on Bluetooth device.");
+
+      const characteristics = await services[0].getCharacteristics();
+      if (characteristics.length === 0) throw new Error("No writable characteristics found on Bluetooth printer.");
+
+      const commands = ReceiptRenderer.renderEscPosCommands(receipt, options);
+      await characteristics[0].writeValue(commands);
+
+      toast.dismiss(toastId);
+      toast.success("Printed successfully via Bluetooth!");
+    } catch (err: any) {
+      toast.dismiss(toastId);
+      throw new Error("Bluetooth Printer error: " + (err.message || err));
+    }
+  }
+}
+
+// 4. NETWORK (LAN / WI-FI) PRINTER ADAPTER
+export class NetworkPrinterAdapter implements PrintAdapter {
+  async print(receipt: any, options?: ReceiptRenderOptions): Promise<void> {
     const invoiceNumber = receipt?.invoiceNumber || (typeof receipt === "string" ? receipt : null);
-    
-    // 1. Android POS WebBridge Integration (Sunmi / Z91 / POS Android Terminals)
+    const toastId = toast.loading("Sending job to Network Thermal Printer...");
+    try {
+      if (invoiceNumber) {
+        const res = await printSaleReceipt(invoiceNumber);
+        toast.dismiss(toastId);
+        toast.success(res?.message || "Network printer spooled successfully!");
+      } else {
+        throw new Error("Missing invoice identifier for network spooler.");
+      }
+    } catch (err: any) {
+      toast.dismiss(toastId);
+      throw new Error("Network printer error: " + (err.message || err));
+    }
+  }
+}
+
+// 5. ANDROID POS TERMINAL PRINTER ADAPTER (Sunmi / PAX / Verifone / Z91)
+export class AndroidPosPrinterAdapter implements PrintAdapter {
+  async print(receipt: any, options?: ReceiptRenderOptions): Promise<void> {
     if (typeof window !== "undefined" && (window as any).Android && typeof (window as any).Android.printReceipt === "function") {
       try {
         (window as any).Android.printReceipt(JSON.stringify(receipt));
@@ -70,33 +153,16 @@ export class PosPrintAdapter implements PrintAdapter {
         console.error("Android POS Native Print Error:", err);
       }
     }
-
-    // 2. Direct ESC/POS Backend Spooler Fallback
-    if (invoiceNumber) {
-      const toastId = toast.loading("Sending job to ESC/POS Thermal Printer...");
-      try {
-        const res = await printSaleReceipt(invoiceNumber);
-        toast.dismiss(toastId);
-        toast.success(res?.message || "Thermal receipt printed successfully!");
-      } catch (err: any) {
-        toast.dismiss(toastId);
-        toast.error("Thermal print error: " + (err.message || "Could not dispatch to printer"));
-        // Fall back to dedicated browser print window
-        window.open(`/print/invoice/${invoiceNumber}?autoprint=true`, "_blank");
-      }
-    }
+    throw new Error("Android POS Printer interface is not detected on this hardware.");
   }
 }
 
-export function isRunningOnWeb(): boolean {
-  if (typeof window === "undefined") return false;
-  // If there's an Android interface injected (e.g. window.Android), it's the POS wrapper.
-  return !(window as any).Android;
-}
-
-export function getPrintAdapter(): PrintAdapter {
-  if (isRunningOnWeb()) {
-    return new BrowserPrintAdapter();
-  }
-  return new PosPrintAdapter();
+// Factory function resolving user's configured printer adapter
+export function getPrintAdapter(configuredType: string = "browser"): PrintAdapter {
+  const typeLower = (configuredType || "browser").toLowerCase();
+  if (typeLower === "usb") return new UsbPrinterAdapter();
+  if (typeLower === "bluetooth") return new BluetoothPrinterAdapter();
+  if (typeLower === "network" || typeLower === "lan") return new NetworkPrinterAdapter();
+  if (typeLower === "pos" || typeLower === "android") return new AndroidPosPrinterAdapter();
+  return new BrowserPrintAdapter();
 }
