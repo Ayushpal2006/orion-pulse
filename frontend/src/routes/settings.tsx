@@ -56,6 +56,7 @@ import {
 } from "lucide-react";
 import { getPrintAdapter } from "@/lib/print-adapter";
 import { printerService } from "@/lib/printer.service";
+import { DEFAULT_RECEIPT_TEMPLATES, saveActiveTemplateConfig } from "@/lib/receipt-template";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { testPrinter, API_BASE_URL, apiFetch, resetOnboardingApi, changePasswordApi } from "@/lib/api";
 import { formatToKolkataDateTime } from "@/lib/datetime";
@@ -1524,19 +1525,27 @@ function SettingsV2() {
               <div className="space-y-2">
                 <Label className="text-xs font-semibold">Select Invoice Theme / Template</Label>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                  {(["Classic", "Retail", "Premium", "Compact"] as const).map((tpl) => (
+                  {(["Classic", "Modern", "Minimal", "Retail", "Wholesale", "GST Professional", "Restaurant", "Medical", "Fashion", "Compact", "Thermal"] as const).map((tpl) => (
                     <button
                       key={tpl}
                       type="button"
-                      onClick={() => { s.setReceiptTemplate(tpl); setIsDirty(true); }}
+                      onClick={() => {
+                        const config = DEFAULT_RECEIPT_TEMPLATES[tpl];
+                        saveActiveTemplateConfig(config);
+                        s.setReceiptTemplate(tpl as any);
+                        setIsDirty(true);
+                        toast.success(`Active Template switched to ${tpl}!`);
+                      }}
                       className={`card-soft p-3.5 text-center cursor-pointer transition-all rounded-xl ${
                         s.receiptTemplate === tpl ? "border-primary ring-2 ring-primary/30 bg-primary/5" : "hover:border-primary/50"
                       }`}
                     >
-                      <div className="text-2xl mb-1">{tpl === "Classic" ? "📜" : tpl === "Retail" ? "🛍️" : tpl === "Premium" ? "✨" : "⚡"}</div>
-                      <div className="text-xs font-bold text-foreground">{tpl} Layout</div>
-                      <div className="text-[10px] text-muted-foreground mt-0.5">
-                        {tpl === "Classic" ? "Standard Thermal" : tpl === "Retail" ? "Modern Banner" : tpl === "Premium" ? "B2B Enterprise" : "58mm Mini"}
+                      <div className="text-xl mb-1">
+                        {tpl === "Classic" ? "📜" : tpl === "Modern" ? "✨" : tpl === "Minimal" ? "⚡" : tpl === "Retail" ? "🛍️" : tpl === "Wholesale" ? "📦" : tpl === "GST Professional" ? "🏛️" : tpl === "Restaurant" ? "🍽️" : tpl === "Medical" ? "💊" : tpl === "Fashion" ? "👗" : tpl === "Compact" ? "📱" : "🖨️"}
+                      </div>
+                      <div className="text-xs font-bold text-foreground truncate">{tpl}</div>
+                      <div className="text-[10px] text-muted-foreground mt-0.5 truncate">
+                        {tpl === "Wholesale" || tpl === "GST Professional" ? "A4 Paper" : tpl === "Compact" ? "58mm Mini" : "80mm Standard"}
                       </div>
                     </button>
                   ))}
