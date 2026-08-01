@@ -464,7 +464,7 @@ export function CompactTemplate({ receipt }: TemplateProps) {
 
 interface ReceiptRendererProps {
   receipt: ReceiptData;
-  template: "Classic" | "Retail" | "Premium" | "Compact";
+  template: "Classic" | "Modern" | "Minimal" | "Retail" | "Wholesale" | "GST Professional" | "Restaurant" | "Medical" | "Fashion" | "Compact" | "Thermal" | string;
   paperWidth?: "58mm" | "80mm" | "A4";
   qrPosition?: "Top" | "Bottom";
 }
@@ -490,9 +490,17 @@ export function ReceiptRenderer({
       case "Retail":
         return <RetailTemplate {...props} />;
       case "Premium":
+      case "GST Professional":
+      case "Wholesale":
         return <PremiumTemplate {...props} />;
       case "Compact":
+      case "Minimal":
         return <CompactTemplate {...props} />;
+      case "Modern":
+      case "Restaurant":
+      case "Medical":
+      case "Fashion":
+      case "Thermal":
       case "Classic":
       default:
         return <ClassicTemplate {...props} />;

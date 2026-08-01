@@ -20,6 +20,8 @@ export interface CheckoutRequest {
 export interface Sale {
   id: number;
   invoice_number: string;
+  organization_id?: number;
+  store_id?: number;
   customer_id: number | null;
   cashier_name: string | null;
   payment_method: string;

@@ -58,7 +58,7 @@ import { getPrintAdapter } from "@/lib/print-adapter";
 import { printerService } from "@/lib/printer.service";
 import { DEFAULT_RECEIPT_TEMPLATES, saveActiveTemplateConfig } from "@/lib/receipt-template";
 import { ThemeToggle } from "@/components/theme-toggle";
-import { testPrinter, API_BASE_URL, apiFetch, resetOnboardingApi, changePasswordApi } from "@/lib/api";
+import { testPrinter, API_BASE_URL, apiFetch, resetOnboardingApi, changePasswordApi, getStoreHeaders } from "@/lib/api";
 import { formatToKolkataDateTime } from "@/lib/datetime";
 import { WhatsAppTemplateManager } from "@/components/whatsapp-template-manager";
 import { BrandingSettings } from "@/components/branding-settings";
@@ -373,10 +373,9 @@ function SettingsV2() {
       localStorage.setItem("orion_default_report_period", defaultReportPeriod);
       localStorage.setItem("orion_export_format", exportFormat);
 
-      // 2. Persist to PostgreSQL Database Settings table via API
       await apiFetch(`${API_BASE_URL}/settings`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...getStoreHeaders() },
         body: JSON.stringify({
           shop_name: s.shopName,
           shop_gstin: s.gstin,

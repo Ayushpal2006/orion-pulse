@@ -4,8 +4,9 @@ import { Sale, SaleDetailResponse } from "../types/checkout.types";
 import { formatToKolkataDate, formatToKolkataTime } from "../utils/datetime";
 import QRCode from "qrcode";
 import { db } from "../db";
-import { sales, sale_items, products, customers, audit_logs, inventory_logs } from "../db/schema";
+import { sales, sale_items, products, customers, audit_logs, inventory_logs, stores } from "../db/schema";
 import { eq, and } from "drizzle-orm";
+import { storeStorage } from "../db/context";
 import { SyncQueueManager } from "./sync.service";
 import { InventoryMovementService } from "./inventory-movement.service";
 
@@ -129,102 +130,114 @@ export class SalesService {
       throw new NotFoundError(`Sale with identifier "${idOrInvoice}" not found`);
     }
 
-    const customer = sale.customer_id ? await this.customerRepo.getById(sale.customer_id) : null;
-    const items = await this.saleRepo.getSaleItems(sale.id);
+    const targetStoreId = sale.store_id || 1;
+    const targetOrgId = sale.organization_id || 1;
 
-    const shop = {
-      name: await settingsRepository.get("shop_name", "Apka Bill Store"),
-      gstin: await settingsRepository.get("shop_gstin", "27AAAAA1111A1Z1"),
-      phone: await settingsRepository.get("shop_phone", "8285068670"),
-      address: await settingsRepository.get("shop_address", "123, POS Center, Sector V, Salt Lake, Kolkata, 700091"),
-      upiId: await settingsRepository.get("shop_upi_id", "apkabill@upi"),
-    };
+    return await storeStorage.run(
+      { organizationId: targetOrgId, currentStoreId: targetStoreId, userId: 1, role: "system" },
+      async () => {
+        const [storeRecord] = await db
+          .select()
+          .from(stores)
+          .where(eq(stores.id, targetStoreId))
+          .limit(1);
 
-    const formattedDate = formatToKolkataDate(sale.created_at);
-    const formattedTime = formatToKolkataTime(sale.created_at);
+        const customer = sale!.customer_id ? await this.customerRepo.getById(sale!.customer_id) : null;
+        const items = await this.saleRepo.getSaleItems(sale!.id);
 
-    const itemsMapped = items.map((i) => ({
-      productId: i.product_id,
-      name: i.product_name,
-      qty: i.quantity,
-      price: i.selling_price / 100.0,
-      discount: (i.discount || 0) / 100.0,
-      lineTotal: i.line_total / 100.0,
-      gst: i.product_gst ?? 18,
-    }));
+        const shop = {
+          name: await settingsRepository.get("shop_name", storeRecord?.name || "Apka Bill Store"),
+          gstin: await settingsRepository.get("shop_gstin", storeRecord?.gst_number || "27AAAAA1111A1Z1"),
+          phone: await settingsRepository.get("shop_phone", storeRecord?.phone || "8285068670"),
+          address: await settingsRepository.get("shop_address", storeRecord?.address || "123, POS Center, Sector V, Salt Lake, Kolkata, 700091"),
+          upiId: await settingsRepository.get("shop_upi_id", "apkabill@upi"),
+          logo: await settingsRepository.get("logo", storeRecord?.logo_url || ""),
+        };
 
-    const upiPayload = `upi://pay?pa=${shop.upiId}&pn=${encodeURIComponent(shop.name)}&am=${(sale.grand_total / 100.0).toFixed(2)}&cu=INR`;
-    const thankYouMessage = await settingsRepository.get("receipt_footer", "Thank you for shopping with us\n*** Thank you — visit again ***");
+        const formattedDate = formatToKolkataDate(sale!.created_at);
+        const formattedTime = formatToKolkataTime(sale!.created_at);
 
-    // Generate UPI QR code offline
-    let upiQrCode = "";
-    if (sale.payment_method === "UPI") {
-      try {
-        upiQrCode = await QRCode.toDataURL(upiPayload);
-      } catch (e) {
-        console.error("Failed to generate UPI QR code:", e);
+        const itemsMapped = items.map((i) => ({
+          productId: i.product_id,
+          name: i.product_name,
+          qty: i.quantity,
+          price: i.selling_price / 100.0,
+          discount: (i.discount || 0) / 100.0,
+          lineTotal: i.line_total / 100.0,
+          gst: i.product_gst ?? 18,
+        }));
+
+        const upiPayload = `upi://pay?pa=${shop.upiId}&pn=${encodeURIComponent(shop.name)}&am=${(sale!.grand_total / 100.0).toFixed(2)}&cu=INR`;
+        const thankYouMessage = await settingsRepository.get("receipt_footer", "Thank you for shopping with us\n*** Thank you — visit again ***");
+
+        // Generate UPI QR code offline
+        let upiQrCode = "";
+        if (sale!.payment_method === "UPI") {
+          try {
+            upiQrCode = await QRCode.toDataURL(upiPayload);
+          } catch (e) {
+            console.error("Failed to generate UPI QR code:", e);
+          }
+        }
+
+        // Create 58mm Thermal JSON Structure
+        const thermalFormat = [
+          { type: "text", value: shop.name, align: "center", bold: true },
+          { type: "text", value: shop.address, align: "center" },
+          { type: "text", value: `GSTIN: ${shop.gstin}`, align: "center" },
+          { type: "text", value: `Phone: ${shop.phone}`, align: "center" },
+          { type: "divider" },
+          { type: "text", value: `Invoice: ${sale!.invoice_number}` },
+          { type: "text", value: `Date: ${formattedDate} ${formattedTime}` },
+          { type: "text", value: `Cashier: ${sale!.cashier_name || "Admin"}` },
+          { type: "text", value: `Customer: ${customer ? customer.name : "Walk-in Customer"}` },
+          { type: "divider" },
+          ...itemsMapped.map((i) => ({
+            type: "item",
+            name: i.name,
+            qty: i.qty,
+            price: i.price,
+            total: i.lineTotal
+          })),
+          { type: "divider" },
+          { type: "text", value: `Subtotal: Rs ${(sale!.subtotal / 100.0).toFixed(2)}`, align: "right" },
+          { type: "text", value: `Discount: Rs ${(sale!.discount / 100.0).toFixed(2)}`, align: "right" },
+          { type: "text", value: `GST: Rs ${(sale!.gst / 100.0).toFixed(2)}`, align: "right" },
+          { type: "text", value: `Grand Total: Rs ${(sale!.grand_total / 100.0).toFixed(2)}`, align: "right", bold: true },
+          { type: "divider" },
+          { type: "text", value: `Payment: ${sale!.payment_method}`, align: "center" },
+          { type: "text", value: thankYouMessage, align: "center", bold: true }
+        ];
+
+        return {
+          invoiceNumber: sale!.invoice_number,
+          date: formattedDate,
+          time: formattedTime,
+          shop,
+          customer: {
+            name: customer ? customer.name : "Walk-in Customer",
+            phone: customer ? (customer.phone || "") : "",
+          },
+          items: itemsMapped,
+          subtotal: sale!.subtotal / 100.0,
+          discount: sale!.discount / 100.0,
+          gst: sale!.gst / 100.0,
+          grandTotal: sale!.grand_total / 100.0,
+          paymentMethod: sale!.payment_method,
+          cashier: sale!.cashier_name || "Admin",
+          upiPayload,
+          thankYouMessage,
+          thermalFormat,
+          publicToken: sale!.public_token || "",
+          pdfUrl: sale!.pdf_url || "",
+          upiQrCode,
+          status: sale!.status,
+          voidReason: sale!.void_reason ?? undefined,
+          voidedBy: sale!.voided_by ?? undefined,
+          voidedAt: sale!.voided_at ? sale!.voided_at : undefined,
+        };
       }
-    }
-
-    // Create 58mm Thermal JSON Structure
-    const thermalFormat = [
-      { type: "text", value: shop.name, align: "center", bold: true },
-      { type: "text", value: shop.address, align: "center" },
-      { type: "text", value: `GSTIN: ${shop.gstin}`, align: "center" },
-      { type: "text", value: `Phone: ${shop.phone}`, align: "center" },
-      { type: "divider" },
-      { type: "text", value: `Invoice: ${sale.invoice_number}` },
-      { type: "text", value: `Date: ${formattedDate} ${formattedTime}` },
-      { type: "text", value: `Cashier: ${sale.cashier_name || "Admin"}` },
-      { type: "text", value: `Customer: ${customer ? customer.name : "Walk-in Customer"}` },
-      { type: "divider" },
-      ...itemsMapped.map((i) => ({
-        type: "item",
-        name: i.name,
-        qty: i.qty,
-        price: i.price,
-        total: i.lineTotal
-      })),
-      { type: "divider" },
-      { type: "text", value: `Subtotal: Rs ${(sale.subtotal / 100.0).toFixed(2)}`, align: "right" },
-      { type: "text", value: `Discount: Rs ${(sale.discount / 100.0).toFixed(2)}`, align: "right" },
-      { type: "text", value: `GST: Rs ${(sale.gst / 100.0).toFixed(2)}`, align: "right" },
-      { type: "text", value: `Grand Total: Rs ${(sale.grand_total / 100.0).toFixed(2)}`, align: "right", bold: true },
-      { type: "divider" },
-      { type: "text", value: `Payment: ${sale.payment_method}`, align: "center" },
-      { type: "text", value: thankYouMessage, align: "center", bold: true }
-    ];
-
-    return {
-      invoiceNumber: sale.invoice_number,
-      date: formattedDate,
-      time: formattedTime,
-      shop: {
-        ...shop,
-        logo: await settingsRepository.get("logo", "")
-      },
-      customer: {
-        name: customer ? customer.name : "Walk-in Customer",
-        phone: customer ? (customer.phone || "") : "",
-      },
-      items: itemsMapped,
-      subtotal: sale.subtotal / 100.0,
-      discount: sale.discount / 100.0,
-      gst: sale.gst / 100.0,
-      grandTotal: sale.grand_total / 100.0,
-      paymentMethod: sale.payment_method,
-      cashier: sale.cashier_name || "Admin",
-      upiPayload,
-      thankYouMessage,
-      thermalFormat,
-      publicToken: sale.public_token || "",
-      pdfUrl: sale.pdf_url || "",
-      upiQrCode,
-      status: sale.status,
-      voidReason: sale.void_reason ?? undefined,
-      voidedBy: sale.voided_by ?? undefined,
-      voidedAt: sale.voided_at ? sale.voided_at : undefined,
-    };
+    );
   }
 
   async voidInvoice(saleId: number, reason: string, voidedBy: string, userId: number): Promise<any> {
