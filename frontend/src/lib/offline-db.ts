@@ -50,6 +50,13 @@ export interface OfflinePendingSale {
 const DB_NAME = "orion_pos_offline_db";
 const DB_VERSION = 1;
 
+const memoryStore: Record<string, Map<string, any>> = {
+  products: new Map(),
+  customers: new Map(),
+  settings: new Map(),
+  pendingSales: new Map(),
+};
+
 function openDB(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
     if (typeof window === "undefined" || !window.indexedDB) {
@@ -190,29 +197,32 @@ export async function getSettingsOffline(): Promise<Record<string, string>> {
 
 // 4. OFFLINE SALES QUEUE
 export async function queueOfflineSale(sale: OfflinePendingSale): Promise<void> {
-  const db = await openDB();
-  const tx = db.transaction(["pendingSales", "products"], "readwrite");
-  const salesStore = tx.objectStore("pendingSales");
-  const prodStore = tx.objectStore("products");
+  try {
+    const db = await openDB();
+    const tx = db.transaction(["pendingSales", "products"], "readwrite");
+    const salesStore = tx.objectStore("pendingSales");
+    const prodStore = tx.objectStore("products");
 
-  salesStore.put(sale);
+    salesStore.put(sale);
 
-  // Instantly deduct stock in local offline database for zero lag UI
-  for (const item of sale.items) {
-    const getReq = prodStore.get(item.product_id);
-    getReq.onsuccess = () => {
-      const prod = getReq.result;
-      if (prod) {
-        prod.stock = Math.max(0, (prod.stock || 0) - item.quantity);
-        prodStore.put(prod);
-      }
-    };
+    for (const item of sale.items) {
+      const getReq = prodStore.get(item.product_id);
+      getReq.onsuccess = () => {
+        const prod = getReq.result;
+        if (prod) {
+          prod.stock = Math.max(0, (prod.stock || 0) - item.quantity);
+          prodStore.put(prod);
+        }
+      };
+    }
+
+    return new Promise((resolve, reject) => {
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  } catch (err) {
+    memoryStore.pendingSales.set(sale.offlineId, sale);
   }
-
-  return new Promise((resolve, reject) => {
-    tx.oncomplete = () => resolve();
-    tx.onerror = () => reject(tx.error);
-  });
 }
 
 export async function getPendingSalesOffline(): Promise<OfflinePendingSale[]> {
@@ -223,10 +233,10 @@ export async function getPendingSalesOffline(): Promise<OfflinePendingSale[]> {
     return new Promise((resolve) => {
       const req = store.getAll();
       req.onsuccess = () => resolve((req.result || []).filter((s) => s.syncStatus !== "synced"));
-      req.onerror = () => resolve([]);
+      req.onerror = () => resolve(Array.from(memoryStore.pendingSales.values()).filter((s) => s.syncStatus !== "synced"));
     });
   } catch (err) {
-    return [];
+    return Array.from(memoryStore.pendingSales.values()).filter((s) => s.syncStatus !== "synced");
   }
 }
 

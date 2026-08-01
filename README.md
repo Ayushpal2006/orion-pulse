@@ -2,7 +2,7 @@
 
 > A professional, offline-first Point-of-Sale system built for Indian retail — featuring sub-12s checkout, A4 PDF invoicing, ESC/POS thermal printing, WhatsApp sharing, live SQLite analytics, and a cloud backup layer via Google Sheets.
 
----
+----
 
 ## Table of Contents
 

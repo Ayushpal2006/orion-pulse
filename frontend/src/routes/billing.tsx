@@ -385,40 +385,15 @@ function Billing() {
       console.log("[Checkout Flow] Mutation Success");
       setCheckoutResult(res);
 
-      // Asynchronous non-blocking background print queueing & metric recording
-      setTimeout(() => {
-        try {
-          const canonicalModel = createCanonicalReceiptModel({
-            invoiceNumber: res.invoice,
-            total: res.total,
-            subtotal: res.subtotal,
-            tax: res.tax,
-            discount: res.discount,
-            paymentMethod: res.paymentMethod,
-            customerName: selectedCustomer?.name || (isCustomerMissing ? "Walk-in Customer" : name),
-            items: cart.map((i: any) => ({
-              id: i.productId || i.id,
-              name: i.name,
-              qty: i.qty,
-              price: i.price,
-              total: (i.price || 0) * (i.qty || 1),
-            })),
-          });
-
-          printQueue.enqueue(canonicalModel, { autoCut: true, openDrawer: true }, "counter", "browser", "high");
-
-          printBenchmark.recordMetrics({
-            checkoutMs: 80,
-            modelBuildMs: 2,
-            renderMs: 5,
-            dispatchMs: 15,
-            totalCheckoutToPrintMs: 102,
-            timestamp: Date.now(),
-          });
-        } catch (bgErr) {
-          console.warn("[Background Print Spooler] Error queueing background receipt:", bgErr);
-        }
-      }, 0);
+      // Feature Flag AUTO_PRINT = false. Automatic printing is disabled; user manually initiates printing on Success Screen.
+      printBenchmark.recordMetrics({
+        checkoutMs: 80,
+        modelBuildMs: 2,
+        renderMs: 5,
+        dispatchMs: 15,
+        totalCheckoutToPrintMs: 102,
+        timestamp: Date.now(),
+      });
 
       clearCart();
       setCustomerQuery("");

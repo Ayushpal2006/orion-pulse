@@ -574,21 +574,70 @@ export async function getSaleReceipt(idOrInvoice: string): Promise<any> {
         headers: getStoreHeaders(),
       });
     }
-    if (!res.ok) {
-      const errorData = await res.json().catch(() => ({}));
-      throw new Error(errorData.error || `HTTP error! status: ${res.status}`);
+    if (res.ok) {
+      const payload = await res.json();
+      if (payload.success && payload.data) {
+        return payload.data;
+      }
     }
-    const payload = await res.json();
-    if (payload.success && payload.data) {
-      return payload.data;
-    }
-    throw new Error("Invalid response format from server");
   } catch (error) {
-    if (error instanceof TypeError && error.message === "Failed to fetch") {
-      throw new Error("Server is unavailable. Please check if the backend server is running on port 8080.");
-    }
-    throw error;
+    console.warn(`[getSaleReceipt] Server fetch failed for "${idOrInvoice}", attempting offline IndexedDB lookup...`);
   }
+
+  // Offline Fallback: Retrieve sale from local IndexedDB queue
+  try {
+    const { getPendingSalesOffline } = await import("./offline-db");
+    const offlineSales = await getPendingSalesOffline();
+    const found = offlineSales.find(
+      (s) => s.invoice_number === idOrInvoice || s.offlineId === idOrInvoice
+    );
+
+    if (found) {
+      const shopName = typeof window !== "undefined" ? localStorage.getItem("orion_shop_name") || "Apka Bill Store" : "Apka Bill Store";
+      const shopGstin = typeof window !== "undefined" ? localStorage.getItem("orion_gstin") || "27AAAAA1111A1Z1" : "27AAAAA1111A1Z1";
+      const shopAddress = typeof window !== "undefined" ? localStorage.getItem("orion_address") || "123, POS Center" : "123, POS Center";
+      const shopPhone = typeof window !== "undefined" ? localStorage.getItem("orion_phone") || "8285068670" : "8285068670";
+      const shopUpi = typeof window !== "undefined" ? localStorage.getItem("orion_upi_id") || "apkabill@upi" : "apkabill@upi";
+
+      return {
+        invoiceNumber: found.invoice_number,
+        date: new Date(found.created_at).toLocaleDateString("en-IN"),
+        time: new Date(found.created_at).toLocaleTimeString("en-IN"),
+        shop: {
+          name: shopName,
+          gstin: shopGstin,
+          phone: shopPhone,
+          address: shopAddress,
+          upiId: shopUpi,
+        },
+        customer: {
+          name: found.customer_name || "Walk-in Customer",
+          phone: "",
+        },
+        items: found.items.map((i: any) => ({
+          productId: i.product_id,
+          name: i.name,
+          qty: i.quantity,
+          price: i.unit_price,
+          lineTotal: i.subtotal,
+          gst: 0,
+        })),
+        subtotal: found.subtotal,
+        discount: found.discount,
+        gst: found.tax,
+        grandTotal: found.total_amount,
+        paymentMethod: found.payment_method,
+        cashier: "Admin",
+        thankYouMessage: "Thank you for shopping with us (Offline Receipt)",
+        publicToken: found.offlineId,
+        offline: true,
+      };
+    }
+  } catch (dbErr) {
+    console.warn("Failed local offline receipt lookup:", dbErr);
+  }
+
+  throw new Error(`Receipt for "${idOrInvoice}" not found locally or on server.`);
 }
 
 export async function printSaleReceipt(idOrInvoice: string): Promise<any> {
