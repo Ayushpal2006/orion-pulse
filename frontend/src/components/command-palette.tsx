@@ -4,10 +4,10 @@ import {
   CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, CommandSeparator,
 } from "@/components/ui/command";
 import {
-  Package, Users, Receipt, LayoutDashboard, ScanBarcode, Plus, Settings, BarChart3, Tag, Sun, Moon, Monitor, Truck, Sliders, TrendingUp, History, CreditCard,
+  Package, Users, Receipt, LayoutDashboard, ScanBarcode, Plus, Settings, BarChart3, Tag, Sun, Moon, Monitor, Truck, Sliders, TrendingUp, History, CreditCard, FileText,
 } from "lucide-react";
 import { useApp } from "@/lib/store";
-import { API_BASE_URL } from "@/lib/api";
+import { API_BASE_URL, apiFetch } from "@/lib/api";
 
 export function CommandPalette() {
   const open = useApp((s) => s.paletteOpen);
@@ -21,7 +21,7 @@ export function CommandPalette() {
 
   useEffect(() => {
     if (open) {
-      fetch(`${API_BASE_URL}/sales`)
+      apiFetch(`${API_BASE_URL}/sales`)
         .then((res) => res.json())
         .then((json) => {
           if (json.success && Array.isArray(json.data)) {
@@ -73,6 +73,7 @@ export function CommandPalette() {
           <CommandItem onSelect={() => go("/customers")}><Users className="mr-2 size-4" /> Customers</CommandItem>
           <CommandItem onSelect={() => go("/suppliers")}><Truck className="mr-2 size-4" /> Suppliers</CommandItem>
           <CommandItem onSelect={() => go("/purchases")}><Receipt className="mr-2 size-4" /> Purchases</CommandItem>
+          <CommandItem onSelect={() => go("/invoice-templates")}><FileText className="mr-2 size-4" /> Invoice Templates</CommandItem>
           <CommandItem onSelect={() => go("/profit")}><TrendingUp className="mr-2 size-4" /> Profit & Margin</CommandItem>
           <CommandItem onSelect={() => go("/expenses")}><CreditCard className="mr-2 size-4" /> Expenses</CommandItem>
           <CommandItem onSelect={() => go("/reports")}><BarChart3 className="mr-2 size-4" /> Reports</CommandItem>

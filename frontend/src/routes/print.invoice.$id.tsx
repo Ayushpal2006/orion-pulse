@@ -5,6 +5,7 @@ import { Loader2 } from "lucide-react";
 import { getSaleReceipt, API_BASE_URL, apiFetch } from "@/lib/api";
 import { waitForReceiptResources } from "@/lib/print-adapter";
 import { Button } from "@/components/ui/button";
+import { printerService } from "@/lib/printer.service";
 import { ReceiptRenderer } from "@/components/receipt-templates";
 
 export const Route = createFileRoute("/print/invoice/$id")({
@@ -242,7 +243,7 @@ function PrintInvoicePage() {
           <span className="text-xs font-semibold font-mono">{receipt.invoiceNumber}</span>
         </div>
         <div className="flex gap-2">
-          <Button onClick={() => window.print()} className="rounded-xl h-8 text-[11px] px-2.5">
+          <Button onClick={() => printerService.print(receipt)} className="rounded-xl h-8 text-[11px] px-2.5">
             Print
           </Button>
           <Button variant="outline" onClick={() => window.history.back()} className="rounded-xl h-8 text-[11px] px-2.5">

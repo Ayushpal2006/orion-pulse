@@ -66,6 +66,7 @@ import { StoresManagementSection } from "@/components/stores-management-section"
 import { UsersManagementSection } from "@/components/users-management-section";
 import { OrganizationSettingsSection } from "@/components/organization-settings-section";
 import { PrinterSettingsSection } from "@/components/printer-settings-section";
+import { InvoiceTemplatesPage } from "@/components/invoice-templates-page";
 
 export const Route = createFileRoute("/settings")({
   head: () => ({
@@ -272,7 +273,7 @@ function SettingsV2() {
       .then((d) => d.success && setStorageStats(d.data))
       .catch(() => {});
 
-    fetch(`${API_BASE_URL}/sync/status`)
+    apiFetch(`${API_BASE_URL}/sync/status`)
       .then((r) => r.json())
       .then((d) => {
         if (d.success && d.data) {
@@ -1440,184 +1441,10 @@ function SettingsV2() {
           )}
 
           {/* 10. WHATSAPP TEMPLATES */}
-          {activeSection === "whatsapp" && <WhatsAppTemplateManager />}
+          {activeSection === "whatsapp" && <WhatsAppTemplateManager currentStore={s.currentStore} />}
 
           {/* 11. INVOICE TEMPLATES & LIVE PREVIEW */}
-          {activeSection === "invoice_templates" && (
-            <div className="card-soft p-5 space-y-6">
-              <div className="border-b border-border pb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <div>
-                  <div className="text-base font-bold text-foreground flex items-center gap-2">
-                    <FileText className="size-5 text-primary" /> Invoice Layout & Real-time Live Preview
-                  </div>
-                  <div className="text-xs text-muted-foreground mt-0.5">
-                    Modifying Logo, Headers, Footers, Prefixes, Theme, or Brand Colors instantly updates the preview without page refresh.
-                  </div>
-                </div>
-                <Badge variant="outline" className="text-[10px] font-mono border-emerald-500 text-emerald-600 bg-emerald-500/10 self-start sm:self-auto">
-                  🟢 Live Dynamic Preview
-                </Badge>
-              </div>
-
-              {/* Template Theme Selector Cards */}
-              <div className="space-y-2">
-                <Label className="text-xs font-semibold">Select Invoice Theme / Template</Label>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                  {(["Classic", "Modern", "Minimal", "Retail", "Wholesale", "GST Professional", "Restaurant", "Medical", "Fashion", "Compact", "Thermal"] as const).map((tpl) => (
-                    <button
-                      key={tpl}
-                      type="button"
-                      onClick={() => {
-                        const config = DEFAULT_RECEIPT_TEMPLATES[tpl];
-                        saveActiveTemplateConfig(config);
-                        s.setReceiptTemplate(tpl as any);
-                        setIsDirty(true);
-                        toast.success(`Active Template switched to ${tpl}!`);
-                      }}
-                      className={`card-soft p-3.5 text-center cursor-pointer transition-all rounded-xl ${
-                        s.receiptTemplate === tpl ? "border-primary ring-2 ring-primary/30 bg-primary/5" : "hover:border-primary/50"
-                      }`}
-                    >
-                      <div className="text-xl mb-1">
-                        {tpl === "Classic" ? "📜" : tpl === "Modern" ? "✨" : tpl === "Minimal" ? "⚡" : tpl === "Retail" ? "🛍️" : tpl === "Wholesale" ? "📦" : tpl === "GST Professional" ? "🏛️" : tpl === "Restaurant" ? "🍽️" : tpl === "Medical" ? "💊" : tpl === "Fashion" ? "👗" : tpl === "Compact" ? "📱" : "🖨️"}
-                      </div>
-                      <div className="text-xs font-bold text-foreground truncate">{tpl}</div>
-                      <div className="text-[10px] text-muted-foreground mt-0.5 truncate">
-                        {tpl === "Wholesale" || tpl === "GST Professional" ? "A4 Paper" : tpl === "Compact" ? "58mm Mini" : "80mm Standard"}
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Live Preview Controls Grid */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-4 rounded-xl bg-muted/20 border border-border/50">
-                <div className="space-y-1">
-                  <Label className="text-xs font-semibold">Invoice Header Notice</Label>
-                  <Input
-                    value={s.invoiceHeader || ""}
-                    onChange={(e) => { s.setInvoiceHeader?.(e.target.value); setIsDirty(true); }}
-                    placeholder="e.g. TAX INVOICE"
-                    className="h-8 rounded-lg text-xs"
-                  />
-                </div>
-
-                <div className="space-y-1">
-                  <Label className="text-xs font-semibold">Invoice Prefix</Label>
-                  <Input
-                    value={invPrefix}
-                    onChange={(e) => { setInvPrefix(e.target.value); setIsDirty(true); }}
-                    placeholder="e.g. INV-"
-                    className="h-8 rounded-lg text-xs font-mono"
-                  />
-                </div>
-
-                <div className="space-y-1">
-                  <Label className="text-xs font-semibold">Receipt Footer Notice</Label>
-                  <Input
-                    value={s.receiptFooter || ""}
-                    onChange={(e) => { s.setReceiptFooter(e.target.value); setIsDirty(true); }}
-                    placeholder="e.g. Thank you for shopping with us!"
-                    className="h-8 rounded-lg text-xs"
-                  />
-                </div>
-
-                <div className="space-y-1 sm:col-span-2">
-                  <Label className="text-xs font-semibold">Terms & Conditions / Invoice Footer</Label>
-                  <Input
-                    value={s.invoiceFooter || s.termsAndConditions || ""}
-                    onChange={(e) => {
-                      s.setInvoiceFooter?.(e.target.value);
-                      s.setTermsAndConditions?.(e.target.value);
-                      setIsDirty(true);
-                    }}
-                    placeholder="e.g. Goods once sold can be exchanged within 7 days."
-                    className="h-8 rounded-lg text-xs"
-                  />
-                </div>
-
-                {/* Brand Color Selector */}
-                <div className="space-y-1">
-                  <Label className="text-xs font-semibold">Brand Accent Color</Label>
-                  <div className="flex items-center gap-1.5 pt-0.5">
-                    {["#2563eb", "#059669", "#7c3aed", "#d97706", "#dc2626", "#1e293b"].map((c) => (
-                      <button
-                        key={c}
-                        type="button"
-                        onClick={() => { s.setPrimaryColor?.(c); setIsDirty(true); }}
-                        className={`size-6 rounded-full border-2 transition-transform ${
-                          (s.primaryColor || "#2563eb") === c ? "scale-110 border-foreground shadow-sm" : "border-transparent opacity-80 hover:opacity-100"
-                        }`}
-                        style={{ backgroundColor: c }}
-                      />
-                    ))}
-                  </div>
-                </div>
-
-                {/* Require Customer Selection Toggle */}
-                <div className="space-y-1 sm:col-span-2 pt-1 flex items-center justify-between border-t border-border/40">
-                  <div className="space-y-0.5">
-                    <Label className="text-xs font-semibold">Require Customer Selection</Label>
-                    <div className="text-[10px] text-muted-foreground">When disabled, checkout automatically resolves to System Walk-in Customer.</div>
-                  </div>
-                  <input
-                    type="checkbox"
-                    checked={s.requireCustomerBeforeCheckout}
-                    onChange={(e) => { s.setRequireCustomerBeforeCheckout(e.target.checked); setIsDirty(true); }}
-                    className="size-4 accent-primary cursor-pointer rounded"
-                  />
-                </div>
-              </div>
-
-              {/* Dynamic Live Preview Canvas Specimen */}
-              <div className="space-y-3 pt-2">
-                <div className="text-xs font-bold uppercase tracking-wider text-foreground flex items-center justify-between">
-                  <div className="flex items-center gap-1.5">
-                    <CheckCircle className="size-4 text-emerald-500" /> Dynamic Live Specimen ({s.receiptTemplate} Theme)
-                  </div>
-                  <span className="text-[11px] font-mono text-muted-foreground">
-                    Format: <span className="font-bold text-foreground">{invPrefix}00125</span>
-                  </span>
-                </div>
-
-                <div className="rounded-2xl border border-border/80 bg-white p-5 shadow-lg max-w-xl mx-auto transition-all text-black">
-                  <ReceiptRenderer
-                    receipt={{
-                      shop: {
-                        name: s.shopName || "Apka Bill Store",
-                        address: s.storeAddress || "123 POS Center, Salt Lake, Kolkata",
-                        phone: s.storePhone || "8285068670",
-                        gstin: s.gstin || "27AAAAA1111A1Z1",
-                        logo: s.logo,
-                        upiId: s.upiId || "apkabill@upi",
-                      },
-                      invoiceNumber: `${invPrefix}00125`,
-                      date: "01/08/2026",
-                      time: "02:45 PM",
-                      cashier: "Admin",
-                      customer: {
-                        name: s.requireCustomerBeforeCheckout ? "Rahul Verma (Required)" : "Walk-in Customer",
-                        phone: "9876543210",
-                      },
-                      items: [
-                        { name: "Wireless Optical Mouse", qty: 2, price: 999, lineTotal: 1998, gst: 18 },
-                        { name: "USB-C Mechanical Keyboard", qty: 1, price: 2450, lineTotal: 2450, gst: 18 },
-                      ],
-                      subtotal: 4448,
-                      discount: 200,
-                      gst: 764.64,
-                      grandTotal: 5012.64,
-                      paymentMethod: "UPI",
-                      thankYouMessage: s.receiptFooter || "Thank you for shopping with us!",
-                    }}
-                    template={s.receiptTemplate}
-                    paperWidth={s.receiptTemplate === "Compact" ? "58mm" : "80mm"}
-                    qrPosition={s.qrPosition || "Bottom"}
-                  />
-                </div>
-              </div>
-            </div>
-          )}
+          {activeSection === "invoice_templates" && <InvoiceTemplatesPage />}
 
           {/* 12. TAXES & GST */}
           {activeSection === "taxes" && (
@@ -1748,7 +1575,7 @@ function SettingsV2() {
                       }
                       setTestingConnection(true);
                       try {
-                        const res = await fetch(`${API_BASE_URL}/sync/test`, {
+                        const res = await apiFetch(`${API_BASE_URL}/sync/test`, {
                           method: "POST",
                           headers: { "Content-Type": "application/json" },
                           body: JSON.stringify({ sheetId: sheetId.trim() }),
@@ -1784,7 +1611,7 @@ function SettingsV2() {
                     onClick={async () => {
                       setSyncingNow(true);
                       try {
-                        const res = await fetch(`${API_BASE_URL}/sync/trigger`, { method: "POST" });
+                        const res = await apiFetch(`${API_BASE_URL}/sync/trigger`, { method: "POST" });
                         const data = await res.json();
                         if (data.success) {
                           const nowTime = new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" });
@@ -1820,7 +1647,7 @@ function SettingsV2() {
                       }
                       setTestingConnection(true);
                       try {
-                        const res = await fetch(`${API_BASE_URL}/sync/test`, {
+                        const res = await apiFetch(`${API_BASE_URL}/sync/test`, {
                           method: "POST",
                           headers: { "Content-Type": "application/json" },
                           body: JSON.stringify({ sheetId: sheetId.trim() }),

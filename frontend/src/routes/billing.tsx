@@ -11,7 +11,7 @@ import { cartTotals, useApp, type Payment } from "@/lib/store";
 import { inr } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { ParkedSalesPopover } from "@/components/parked-sales";
-import { getProducts, getCustomers, searchProducts, searchCustomers, checkout as checkoutApi, getSaleReceipt, printSaleReceipt, getWhatsAppShareLink, downloadSalePdf, getSalePublicLink, API_BASE_URL, logSaleAudit } from "@/lib/api";
+import { getProducts, getCustomers, searchProducts, searchCustomers, checkout as checkoutApi, getSaleReceipt, printSaleReceipt, getWhatsAppShareLink, downloadSalePdf, getSalePublicLink, API_BASE_URL, apiFetch, logSaleAudit } from "@/lib/api";
 import { queueOfflineSale } from "@/lib/offline-db";
 import { refreshPendingCount } from "@/lib/sync-engine";
 import { printQueue } from "@/lib/print-queue";
@@ -230,7 +230,7 @@ function Billing() {
       if (found) {
         setSelectedCustomer(found);
       } else {
-        fetch(`${API_BASE_URL}/customers/phone/${mobile}`)
+        apiFetch(`${API_BASE_URL}/customers/phone/${mobile}`)
           .then((res) => res.json())
           .then((json) => {
             if (json.success && json.data) {
@@ -1146,11 +1146,10 @@ export function SlipDialog({
     }
     setVoiding(true);
     try {
-      const res = await fetch(`${API_BASE_URL}/invoices/${receipt.invoiceNumber}/void`, {
+      const res = await apiFetch(`${API_BASE_URL}/invoices/${receipt.invoiceNumber}/void`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${localStorage.getItem("token") || ""}`,
         },
         body: JSON.stringify({ reason: voidReason }),
       });

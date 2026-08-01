@@ -9,7 +9,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import {
   Printer,
-  Sliders,
   CheckCircle2,
   AlertCircle,
   Activity,
@@ -24,9 +23,10 @@ import {
   Monitor,
   Smartphone,
   Sparkles,
+  Building2,
+  Layers,
 } from "lucide-react";
-import { printerService, PrinterProfile, DEFAULT_PRINTER_PROFILES } from "@/lib/printer.service";
-import { apiFetch, API_BASE_URL } from "@/lib/api";
+import { printerService, PrinterProfile, DEFAULT_PRINTER_PROFILES, printerProfileService } from "@/lib/printer.service";
 import { toast } from "sonner";
 
 interface PrinterSettingsSectionProps {
@@ -39,7 +39,7 @@ export function PrinterSettingsSection({ currentStore, onSaveSuccess }: PrinterS
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
 
-  // Store's Profiles List
+  // Store's Profiles List & Active Profile
   const [profiles, setProfiles] = useState<PrinterProfile[]>(DEFAULT_PRINTER_PROFILES);
   const [activeProfileId, setActiveProfileId] = useState<string>("prof-counter-01");
 
@@ -48,9 +48,9 @@ export function PrinterSettingsSection({ currentStore, onSaveSuccess }: PrinterS
   const [editingProfile, setEditingProfile] = useState<PrinterProfile | null>(null);
 
   // Diagnostics State
-  const [diagnostics, setDiagnostics] = useState(printerService.getDiagnostics());
+  const [diagnostics, setDiagnostics] = useState(printerService.getDiagnostics(undefined, currentStore));
 
-  // Load Settings from Backend per Store
+  // Load Settings from Backend per Store Context
   useEffect(() => {
     loadStorePrinterSettings();
   }, [currentStore?.id]);
@@ -58,29 +58,10 @@ export function PrinterSettingsSection({ currentStore, onSaveSuccess }: PrinterS
   const loadStorePrinterSettings = async () => {
     setLoading(true);
     try {
-      const res = await apiFetch(`${API_BASE_URL}/settings`);
-      if (res.ok) {
-        const json = await res.json();
-        if (json.success && json.data) {
-          const rawProfiles = json.data.printer_profiles;
-          const rawActiveId = json.data.active_printer_profile_id;
-
-          if (rawProfiles) {
-            try {
-              const parsed = typeof rawProfiles === "string" ? JSON.parse(rawProfiles) : rawProfiles;
-              if (Array.isArray(parsed) && parsed.length > 0) {
-                setProfiles(parsed);
-              }
-            } catch (e) {
-              console.warn("Failed to parse printer_profiles JSON from store settings:", e);
-            }
-          }
-
-          if (rawActiveId) {
-            setActiveProfileId(rawActiveId);
-          }
-        }
-      }
+      const { profiles: loadedProfiles, activeProfile: loadedActive } = await printerProfileService.getStorePrinterConfig(currentStore?.id);
+      setProfiles(loadedProfiles);
+      setActiveProfileId(loadedActive.id);
+      setDiagnostics(printerService.getDiagnostics(loadedActive, currentStore));
     } catch (err) {
       console.error("Error loading store printer settings:", err);
     } finally {
@@ -91,30 +72,16 @@ export function PrinterSettingsSection({ currentStore, onSaveSuccess }: PrinterS
   const activeProfile = profiles.find((p) => p.id === activeProfileId) || profiles[0] || DEFAULT_PRINTER_PROFILES[0];
 
   useEffect(() => {
-    setDiagnostics(printerService.getDiagnostics(activeProfile));
-  }, [activeProfile, activeProfileId]);
+    setDiagnostics(printerService.getDiagnostics(activeProfile, currentStore));
+  }, [activeProfile, activeProfileId, currentStore]);
 
   const handleSavePrinterSettings = async (updatedProfiles: PrinterProfile[], activeId: string) => {
     setSaving(true);
     try {
-      const payload = {
-        printer_profiles: JSON.stringify(updatedProfiles),
-        active_printer_profile_id: activeId,
-        printer_type: activeProfile.connectionType,
-        paper_width: activeProfile.paperWidth,
-        receipt_template: activeProfile.receiptTemplate,
-        auto_cut: activeProfile.autoCut ? "1" : "0",
-      };
+      const ok = await printerProfileService.saveStorePrinterConfig(updatedProfiles, activeId, currentStore?.id);
+      if (!ok) throw new Error("Could not persist configuration to store database");
 
-      const res = await apiFetch(`${API_BASE_URL}/settings`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-
-      toast.success("Printer profile settings saved for this store!");
+      toast.success(`Printer settings saved for ${currentStore?.name || "current store"}!`);
       if (onSaveSuccess) onSaveSuccess();
     } catch (err: any) {
       toast.error("Failed to save printer settings: " + (err.message || err));
@@ -189,9 +156,9 @@ export function PrinterSettingsSection({ currentStore, onSaveSuccess }: PrinterS
     setTesting(true);
     try {
       const ok = await printerService.runTestPrint(activeProfile, currentStore);
-      setDiagnostics(printerService.getDiagnostics(activeProfile));
+      setDiagnostics(printerService.getDiagnostics(activeProfile, currentStore));
       if (ok) {
-        toast.success("Test print dispatched to hardware!");
+        toast.success("REAL Test Print dispatched to hardware via active adapter!");
       }
     } catch (e: any) {
       toast.error("Test print error: " + (e.message || e));
@@ -222,11 +189,11 @@ export function PrinterSettingsSection({ currentStore, onSaveSuccess }: PrinterS
             <div className="flex items-center gap-2">
               <h2 className="text-lg font-bold text-foreground">Printer Platform & Hardware</h2>
               <Badge variant="outline" className="text-[10px] uppercase font-mono tracking-wider border-primary/30 text-primary">
-                Store Isolated
+                Store Isolated ({currentStore?.name || "Main Store"})
               </Badge>
             </div>
             <p className="text-xs text-muted-foreground">
-              Configure thermal printers, ESC/POS adapters, zero-popup browser printing & hardware profiles.
+              Configure hardware profiles, paper formats, ESC/POS adapters, and live diagnostics per store.
             </p>
           </div>
         </div>
@@ -239,7 +206,7 @@ export function PrinterSettingsSection({ currentStore, onSaveSuccess }: PrinterS
             className="rounded-xl border-neutral-700 bg-neutral-900 text-xs font-semibold gap-2"
           >
             {testing ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Zap className="h-4 w-4 text-amber-500" />}
-            {testing ? "Testing..." : "⚡ REAL Test Print"}
+            {testing ? "Testing Hardware..." : "⚡ REAL Test Print"}
           </Button>
           <Button
             onClick={() => handleSavePrinterSettings(profiles, activeProfileId)}
@@ -260,9 +227,9 @@ export function PrinterSettingsSection({ currentStore, onSaveSuccess }: PrinterS
           <Card className="rounded-2xl border-neutral-800 bg-neutral-900/60 shadow-lg">
             <CardHeader className="flex flex-row items-center justify-between pb-3">
               <div>
-                <CardTitle className="text-sm font-semibold">Printer Profiles ({profiles.length})</CardTitle>
+                <CardTitle className="text-sm font-semibold">Store Printer Profiles ({profiles.length})</CardTitle>
                 <CardDescription className="text-xs text-muted-foreground">
-                  Store hardware profiles (Counter, Office, Kitchen)
+                  Multi-profile hardware configs (Counter, Office, Kitchen, Packing)
                 </CardDescription>
               </div>
               <Button onClick={handleOpenAddDialog} size="sm" variant="outline" className="rounded-xl text-xs gap-1 border-neutral-700">
@@ -347,10 +314,10 @@ export function PrinterSettingsSection({ currentStore, onSaveSuccess }: PrinterS
               <div className="flex items-center justify-between">
                 <div>
                   <CardTitle className="text-sm font-semibold">
-                    Profile Setup: <span className="text-primary">{activeProfile.name}</span>
+                    Profile Parameters: <span className="text-primary">{activeProfile.name}</span>
                   </CardTitle>
                   <CardDescription className="text-xs text-muted-foreground">
-                    Hardware protocol, paper width, margins & output parameters
+                    Adapter type, paper width, layout design, margins & toggles
                   </CardDescription>
                 </div>
                 <Badge variant="outline" className="text-[10px] font-mono border-neutral-700">
@@ -362,7 +329,7 @@ export function PrinterSettingsSection({ currentStore, onSaveSuccess }: PrinterS
               {/* Connection & Paper Width Row */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <Label className="text-xs font-semibold">Connection Protocol / Adapter</Label>
+                  <Label className="text-xs font-semibold">Connection Adapter / Protocol</Label>
                   <Select
                     value={activeProfile.connectionType}
                     onValueChange={(val: any) => updateActiveProfileField("connectionType", val)}
@@ -371,7 +338,7 @@ export function PrinterSettingsSection({ currentStore, onSaveSuccess }: PrinterS
                       <SelectValue placeholder="Select Connection" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="browser">🌐 Browser Printing (Zero-Popup Iframe / Fallback)</SelectItem>
+                      <SelectItem value="browser">🌐 Browser Printing (Zero-Popup Iframe)</SelectItem>
                       <SelectItem value="escpos">⚡ ESC/POS Direct Thermal Payload</SelectItem>
                       <SelectItem value="usb">🔌 WebUSB Thermal Printer</SelectItem>
                       <SelectItem value="bluetooth">📡 WebBluetooth Thermal Printer</SelectItem>
@@ -423,7 +390,7 @@ export function PrinterSettingsSection({ currentStore, onSaveSuccess }: PrinterS
                 <div className="flex items-center justify-between rounded-xl bg-neutral-900/80 p-3 border border-neutral-800">
                   <div className="space-y-0.5">
                     <Label className="text-xs font-semibold">Automatic Paper Cut</Label>
-                    <p className="text-[10px] text-muted-foreground">Generates ESC/POS cut signal (`GS V 0`)</p>
+                    <p className="text-[10px] text-muted-foreground">Generates ESC/POS cut command (`GS V 0`)</p>
                   </div>
                   <Switch
                     checked={activeProfile.autoCut}
@@ -522,7 +489,7 @@ export function PrinterSettingsSection({ currentStore, onSaveSuccess }: PrinterS
               <div className="flex items-center justify-between">
                 <CardTitle className="text-sm font-semibold flex items-center gap-2">
                   <Activity className="h-4 w-4 text-emerald-400" />
-                  Hardware Diagnostics
+                  Live Hardware Diagnostics
                 </CardTitle>
                 <Badge className="bg-emerald-500/10 text-emerald-400 border-emerald-500/20 text-[10px]">
                   {diagnostics.status}
@@ -535,16 +502,20 @@ export function PrinterSettingsSection({ currentStore, onSaveSuccess }: PrinterS
             <CardContent className="space-y-4">
               <div className="p-3 rounded-xl bg-neutral-900/90 border border-neutral-800 space-y-2.5">
                 <div className="flex justify-between items-center text-xs">
-                  <span className="text-muted-foreground">Active Store</span>
-                  <span className="font-semibold text-foreground">{currentStore?.name || "Main Store"}</span>
+                  <span className="text-muted-foreground flex items-center gap-1">
+                    <Building2 className="h-3 w-3 text-primary" /> Active Store
+                  </span>
+                  <span className="font-semibold text-foreground">{diagnostics.storeName}</span>
                 </div>
                 <div className="flex justify-between items-center text-xs">
-                  <span className="text-muted-foreground">Current Profile</span>
+                  <span className="text-muted-foreground flex items-center gap-1">
+                    <Layers className="h-3 w-3 text-primary" /> Current Profile
+                  </span>
                   <span className="font-semibold text-primary">{diagnostics.activeProfileName}</span>
                 </div>
                 <div className="flex justify-between items-center text-xs">
-                  <span className="text-muted-foreground">Connection Method</span>
-                  <Badge variant="outline" className="text-[10px] border-neutral-700">
+                  <span className="text-muted-foreground">Connection Adapter</span>
+                  <Badge variant="outline" className="text-[10px] border-neutral-700 font-mono">
                     {diagnostics.connectionType}
                   </Badge>
                 </div>
@@ -576,7 +547,7 @@ export function PrinterSettingsSection({ currentStore, onSaveSuccess }: PrinterS
                 </span>
               </div>
 
-              {diagnostics.lastError ? (
+              {diagnostics.lastError !== "None" ? (
                 <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-xs flex items-start gap-2">
                   <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
                   <div>

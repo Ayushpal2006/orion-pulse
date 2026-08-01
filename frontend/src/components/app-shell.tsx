@@ -1,7 +1,7 @@
 import { useEffect, useState, useMemo, type ReactNode } from "react";
 import { Link, useRouterState } from "@tanstack/react-router";
 import {
-  LayoutDashboard, ShoppingCart, Package, Users, BarChart3, Search, Wifi, WifiOff, Settings, LogOut, UserCog, Truck, Receipt, Sliders, TrendingUp, History, CreditCard, Wallet, ChevronDown, ChevronRight, Menu, X, Store, Check, Building2, RefreshCw
+  LayoutDashboard, ShoppingCart, Package, Users, BarChart3, Search, Wifi, WifiOff, Settings, LogOut, UserCog, Truck, Receipt, Sliders, TrendingUp, History, CreditCard, Wallet, ChevronDown, ChevronRight, Menu, X, Store, Check, Building2, RefreshCw, FileText
 } from "lucide-react";
 import { usePWA } from "@/hooks/usePWA";
 import { Button } from "@/components/ui/button";
@@ -204,6 +204,7 @@ const navTree: NavElement[] = [
     ],
   },
   { to: "/purchases", label: "Purchases", icon: Receipt, roles: ["Super Admin", "Admin", "Manager"] },
+  { to: "/invoice-templates", label: "Invoice Templates", icon: FileText, roles: ["Super Admin", "Admin", "Manager"] },
   { to: "/reports", label: "Reports", icon: BarChart3, roles: ["Super Admin", "Admin", "Manager"] },
   {
     label: "Finance",

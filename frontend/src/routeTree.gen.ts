@@ -20,6 +20,7 @@ import { Route as PurchasesRouteImport } from './routes/purchases'
 import { Route as ProfitRouteImport } from './routes/profit'
 import { Route as ProductsRouteImport } from './routes/products'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as InvoiceTemplatesRouteImport } from './routes/invoice-templates'
 import { Route as InventoryRouteImport } from './routes/inventory'
 import { Route as ExpensesRouteImport } from './routes/expenses'
 import { Route as DashboardRouteImport } from './routes/dashboard'
@@ -87,6 +88,11 @@ const ProductsRoute = ProductsRouteImport.update({
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const InvoiceTemplatesRoute = InvoiceTemplatesRouteImport.update({
+  id: '/invoice-templates',
+  path: '/invoice-templates',
   getParentRoute: () => rootRouteImport,
 } as any)
 const InventoryRoute = InventoryRouteImport.update({
@@ -165,6 +171,7 @@ export interface FileRoutesByFullPath {
   '/dashboard': typeof DashboardRoute
   '/expenses': typeof ExpensesRoute
   '/inventory': typeof InventoryRouteWithChildren
+  '/invoice-templates': typeof InvoiceTemplatesRoute
   '/login': typeof LoginRoute
   '/products': typeof ProductsRoute
   '/profit': typeof ProfitRoute
@@ -191,6 +198,7 @@ export interface FileRoutesByTo {
   '/dashboard': typeof DashboardRoute
   '/expenses': typeof ExpensesRoute
   '/inventory': typeof InventoryRouteWithChildren
+  '/invoice-templates': typeof InvoiceTemplatesRoute
   '/login': typeof LoginRoute
   '/products': typeof ProductsRoute
   '/profit': typeof ProfitRoute
@@ -218,6 +226,7 @@ export interface FileRoutesById {
   '/dashboard': typeof DashboardRoute
   '/expenses': typeof ExpensesRoute
   '/inventory': typeof InventoryRouteWithChildren
+  '/invoice-templates': typeof InvoiceTemplatesRoute
   '/login': typeof LoginRoute
   '/products': typeof ProductsRoute
   '/profit': typeof ProfitRoute
@@ -246,6 +255,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/expenses'
     | '/inventory'
+    | '/invoice-templates'
     | '/login'
     | '/products'
     | '/profit'
@@ -272,6 +282,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/expenses'
     | '/inventory'
+    | '/invoice-templates'
     | '/login'
     | '/products'
     | '/profit'
@@ -298,6 +309,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/expenses'
     | '/inventory'
+    | '/invoice-templates'
     | '/login'
     | '/products'
     | '/profit'
@@ -325,6 +337,7 @@ export interface RootRouteChildren {
   DashboardRoute: typeof DashboardRoute
   ExpensesRoute: typeof ExpensesRoute
   InventoryRoute: typeof InventoryRouteWithChildren
+  InvoiceTemplatesRoute: typeof InvoiceTemplatesRoute
   LoginRoute: typeof LoginRoute
   ProductsRoute: typeof ProductsRoute
   ProfitRoute: typeof ProfitRoute
@@ -419,6 +432,13 @@ declare module '@tanstack/react-router' {
       path: '/login'
       fullPath: '/login'
       preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/invoice-templates': {
+      id: '/invoice-templates'
+      path: '/invoice-templates'
+      fullPath: '/invoice-templates'
+      preLoaderRoute: typeof InvoiceTemplatesRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/inventory': {
@@ -536,6 +556,7 @@ const rootRouteChildren: RootRouteChildren = {
   DashboardRoute: DashboardRoute,
   ExpensesRoute: ExpensesRoute,
   InventoryRoute: InventoryRouteWithChildren,
+  InvoiceTemplatesRoute: InvoiceTemplatesRoute,
   LoginRoute: LoginRoute,
   ProductsRoute: ProductsRoute,
   ProfitRoute: ProfitRoute,

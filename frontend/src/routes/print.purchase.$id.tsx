@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { Loader2, Printer, ArrowLeft } from "lucide-react";
 import { getPurchaseById, API_BASE_URL, apiFetch } from "@/lib/api";
+import { printerService } from "@/lib/printer.service";
 import { waitForReceiptResources } from "@/lib/print-adapter";
 import { Button } from "@/components/ui/button";
 import { inr } from "@/lib/format";
@@ -165,7 +166,7 @@ function PrintPurchasePage() {
           <span className="text-xs font-semibold font-mono">{poNumber}</span>
         </div>
         <div className="flex gap-2">
-          <Button onClick={() => window.print()} className="rounded-xl h-8 text-[11px] px-3 gap-1.5">
+          <Button onClick={() => printerService.print({ invoiceNumber: poNumber, ...purchase })} className="rounded-xl h-8 text-[11px] px-3 gap-1.5">
             <Printer className="size-3.5" /> Print
           </Button>
           <Button variant="outline" onClick={() => window.history.back()} className="rounded-xl h-8 text-[11px] px-3 gap-1.5">

@@ -5,6 +5,7 @@ import {
   ChevronLeft, Loader2, Calendar, Sliders, Search, ArrowUpDown, FileText, Download, RefreshCw, Landmark, ArrowUpRight
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { printerService } from "@/lib/printer.service";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -82,7 +83,19 @@ function SupplierLedgerPage() {
   };
 
   const handlePrint = () => {
-    window.print();
+    printerService.print({
+      invoiceNumber: `LEDGER-${supplierId}-${Date.now().toString().slice(-4)}`,
+      businessName: supplier?.name || "Supplier Ledger",
+      customerName: supplier?.contact_person || "Supplier Account",
+      items: (ledgerData?.transactions || []).map((t: any, i: number) => ({
+        id: i + 1,
+        name: `${t.type || "Txn"}: ${t.notes || "Statement entry"}`,
+        qty: 1,
+        price: Number(t.amount || 0),
+        total: Number(t.amount || 0),
+      })),
+      total: Number(ledgerData?.summary?.balance || 0),
+    });
   };
 
   if (isLoadingSuppliers || isLoadingLedger) {
