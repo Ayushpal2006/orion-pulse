@@ -65,6 +65,7 @@ import { BrandingSettings } from "@/components/branding-settings";
 import { StoresManagementSection } from "@/components/stores-management-section";
 import { UsersManagementSection } from "@/components/users-management-section";
 import { OrganizationSettingsSection } from "@/components/organization-settings-section";
+import { PrinterSettingsSection } from "@/components/printer-settings-section";
 
 export const Route = createFileRoute("/settings")({
   head: () => ({
@@ -1432,72 +1433,10 @@ function SettingsV2() {
 
           {/* 9. PRINTING */}
           {activeSection === "printing" && (
-            <div className="card-soft p-5 space-y-5">
-              <div className="border-b border-border pb-3">
-                <div className="text-base font-bold text-foreground flex items-center gap-2">
-                  <Printer className="size-5 text-primary" /> Thermal Printing & Hardware Setup
-                </div>
-                <div className="text-xs text-muted-foreground mt-0.5">Paper widths (58mm/80mm), printer drivers and print flags.</div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <Label className="text-xs font-semibold">Thermal Paper Width</Label>
-                  <Select value={s.paperWidth} onValueChange={(v: any) => { s.setPaperWidth(v); setIsDirty(true); }}>
-                    <SelectTrigger className="rounded-xl h-9 text-xs">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent className="rounded-xl">
-                      <SelectItem value="58mm">58mm (Small Thermal)</SelectItem>
-                      <SelectItem value="80mm">80mm (Standard POS Thermal)</SelectItem>
-                      <SelectItem value="A4">A4 Full Page Document</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-1.5">
-                  <Label className="text-xs font-semibold">Printer Interface</Label>
-                  <Select value={s.printer} onValueChange={(v: any) => { s.setPrinter(v); setIsDirty(true); }}>
-                    <SelectTrigger className="rounded-xl h-9 text-xs">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent className="rounded-xl">
-                      <SelectItem value="Internal POS">Internal POS Thermal Printer</SelectItem>
-                      <SelectItem value="Bluetooth">Bluetooth Wireless Printer</SelectItem>
-                      <SelectItem value="USB">USB Cable Direct Printer</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              <div className="flex gap-2 pt-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="rounded-xl h-9 text-xs"
-                  disabled={testingPrint}
-                  onClick={async () => {
-                    setTestingPrint(true);
-                    try {
-                      const printerTypeStr = (s as any).printerType || (s as any).printer_type || "Browser";
-                      const paperWidthStr = (s as any).paperWidth || (s as any).paper_width || "80mm";
-                      const success = await printerService.runTestPrint(printerTypeStr, paperWidthStr);
-                      if (success) {
-                        toast.success(`Universal Test Print sent to ${printerTypeStr} printer!`);
-                      }
-                    } catch (e: any) {
-                      toast.error("Printer test failed: " + (e.message || e));
-                    } finally {
-                      setTestingPrint(false);
-                    }
-                  }}
-                >
-                  {testingPrint ? <Loader2 className="size-3.5 animate-spin mr-1.5" /> : <Printer className="size-3.5 mr-1.5" />}
-                  Test Printer Page
-                </Button>
-              </div>
-            </div>
+            <PrinterSettingsSection
+              currentStore={s.currentStore}
+              onSaveSuccess={() => setIsDirty(false)}
+            />
           )}
 
           {/* 10. WHATSAPP TEMPLATES */}

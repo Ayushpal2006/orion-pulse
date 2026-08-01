@@ -1033,10 +1033,11 @@ export function SlipDialog({
     if (!receipt) return;
     setPrinting(true);
     try {
-      const adapter = getPrintAdapter();
-      await adapter.print(receipt);
-      toast.success("Receipt printed successfully");
-      await logSaleAudit(receipt.invoiceNumber, "INVOICE_PRINT", `${role} printed Invoice ${receipt.invoiceNumber}`);
+      const ok = await printerService.print(receipt);
+      if (ok) {
+        toast.success("Receipt printed successfully");
+        await logSaleAudit(receipt.invoiceNumber, "INVOICE_PRINT", `${role} printed Invoice ${receipt.invoiceNumber}`);
+      }
     } catch (err: any) {
       toast.error(err.message || "Failed to print receipt");
     } finally {

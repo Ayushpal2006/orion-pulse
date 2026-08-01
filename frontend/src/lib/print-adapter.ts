@@ -41,16 +41,82 @@ export async function printPdfFallback(invoiceNumber: string): Promise<void> {
   }
 }
 
-// 1. BROWSER PRINT ADAPTER
+// 1. BROWSER PRINT ADAPTER (Zero-popup iframe print)
 export class BrowserPrintAdapter implements PrintAdapter {
-  async print(receipt: any): Promise<void> {
-    const invoiceNumber = receipt?.invoiceNumber || (typeof receipt === "string" ? receipt : null);
-    if (!invoiceNumber) {
-      throw new Error("Unable to identify receipt invoice number");
+  async print(receipt: any, options?: RenderOptions): Promise<void> {
+    const model = createCanonicalReceiptModel(receipt);
+    const htmlContent = UniversalReceiptRenderer.toHtml(model, options);
+
+    if (typeof window === "undefined") return;
+
+    let iframe = document.getElementById("orion-silent-print-iframe") as HTMLIFrameElement;
+    if (!iframe) {
+      iframe = document.createElement("iframe");
+      iframe.id = "orion-silent-print-iframe";
+      iframe.style.position = "fixed";
+      iframe.style.right = "0";
+      iframe.style.bottom = "0";
+      iframe.style.width = "0px";
+      iframe.style.height = "0px";
+      iframe.style.border = "none";
+      document.body.appendChild(iframe);
     }
-    if (typeof window !== "undefined") {
-      window.open(`/print/invoice/${invoiceNumber}?autoprint=true`, "_blank");
+
+    const doc = iframe.contentWindow?.document || iframe.contentDocument;
+    if (!doc) {
+      throw new Error("Unable to access browser print frame context.");
     }
+
+    const paperWidth = options?.paperWidth || "80mm";
+    const sizeValue = paperWidth === "80mm" ? "80mm auto" : paperWidth === "A4" ? "A4 portrait" : "58mm auto";
+    const marginTop = options?.marginTop ?? 0;
+    const marginBottom = options?.marginBottom ?? 0;
+    const marginLeft = options?.marginLeft ?? 0;
+    const marginRight = options?.marginRight ?? 0;
+
+    const fullDocHtml = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Print Receipt - ${model.invoiceNumber}</title>
+          <style>
+            @page {
+              size: ${sizeValue};
+              margin: ${marginTop}mm ${marginRight}mm ${marginBottom}mm ${marginLeft}mm;
+            }
+            body {
+              margin: 0;
+              padding: 0;
+              background: #fff;
+              color: #000;
+              font-family: monospace;
+            }
+            * { box-sizing: border-box; }
+          </style>
+        </head>
+        <body>
+          ${htmlContent}
+        </body>
+      </html>
+    `;
+
+    doc.open();
+    doc.write(fullDocHtml);
+    doc.close();
+
+    await new Promise<void>((resolve) => setTimeout(resolve, 200));
+
+    try {
+      iframe.contentWindow?.focus();
+      iframe.contentWindow?.print();
+    } catch (err: any) {
+      console.warn("Iframe print error, falling back to window print popup:", err);
+      window.open(`/print/invoice/${model.invoiceNumber}?autoprint=true`, "_blank");
+    }
+  }
+
+  async testConnection(): Promise<boolean> {
+    return true;
   }
 }
 

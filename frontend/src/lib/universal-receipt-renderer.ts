@@ -11,6 +11,10 @@ export interface RenderOptions {
   autoCut?: boolean;
   openDrawer?: boolean;
   copies?: number;
+  marginTop?: number;
+  marginBottom?: number;
+  marginLeft?: number;
+  marginRight?: number;
 }
 
 import { getActiveTemplateConfig, ReceiptTemplateConfig } from "./receipt-template";

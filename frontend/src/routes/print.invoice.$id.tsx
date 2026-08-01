@@ -91,7 +91,7 @@ function PrintInvoicePage() {
   const { data: settings } = useQuery({
     queryKey: ["settings"],
     queryFn: async () => {
-      const res = await fetch(`${API_BASE_URL}/settings`);
+      const res = await apiFetch(`${API_BASE_URL}/settings`);
       const json = await res.json();
       return json.success ? json.data : {};
     },
