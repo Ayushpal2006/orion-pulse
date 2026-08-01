@@ -62,7 +62,7 @@ async function runRealExecutionTests() {
       .returning();
   }
 
-  await storeStorage.run({ storeId, userId: 1, role: "Admin" }, async () => {
+  await storeStorage.run({ storeId, organizationId: 1, userId: 1, role: "Admin" }, async () => {
     const startStockP1 = product1.stock;
 
     // -------------------------------------------------------------

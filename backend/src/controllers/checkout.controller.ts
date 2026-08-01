@@ -11,7 +11,12 @@ export class CheckoutController {
   checkout = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       console.log("[Checkout Flow] Checkout Started");
-      const result = await this.service.executeCheckout(req.body);
+      const offlineHeader = (req.headers["x-offline-id"] as string) || (req.headers["offline-id"] as string);
+      const payload = {
+        ...req.body,
+        offlineIdentifier: req.body.offlineIdentifier || offlineHeader,
+      };
+      const result = await this.service.executeCheckout(payload);
       console.log("[Checkout Flow] Response Built");
       res.status(201).json(result);
       console.log("[Checkout Flow] Response Returned");

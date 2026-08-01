@@ -148,10 +148,19 @@ export async function searchProducts(q: string): Promise<Product[]> {
     }
     return [];
   } catch (error) {
-    if (error instanceof TypeError && error.message === "Failed to fetch") {
-      throw new Error("Server is unavailable. Please check if the backend server is running on port 8080.");
+    console.warn("searchProducts online fetch failed, searching IndexedDB offline cache:", error);
+    const cached = await getProductsOffline();
+    if (cached && cached.length > 0) {
+      const lower = q.toLowerCase();
+      const filtered = cached.filter(
+        (p) =>
+          p.name.toLowerCase().includes(lower) ||
+          p.sku.toLowerCase().includes(lower) ||
+          (p.barcode && p.barcode.toLowerCase().includes(lower))
+      );
+      return filtered.map(mapBackendProductToFrontend);
     }
-    throw error;
+    return [];
   }
 }
 
@@ -258,10 +267,18 @@ export async function searchCustomers(q: string): Promise<any[]> {
     }
     return [];
   } catch (error) {
-    if (error instanceof TypeError && error.message === "Failed to fetch") {
-      throw new Error("Server is unavailable. Please check if the backend server is running on port 8080.");
+    console.warn("searchCustomers online fetch failed, searching IndexedDB offline cache:", error);
+    const cached = await getCustomersOffline();
+    if (cached && cached.length > 0) {
+      const lower = q.toLowerCase();
+      return cached.filter(
+        (c) =>
+          c.name.toLowerCase().includes(lower) ||
+          (c.phone && c.phone.includes(lower)) ||
+          (c.email && c.email.toLowerCase().includes(lower))
+      );
     }
-    throw error;
+    return [];
   }
 }
 

@@ -4,7 +4,7 @@ import { Sale, SaleDetailResponse } from "../types/checkout.types";
 import { formatToKolkataDate, formatToKolkataTime } from "../utils/datetime";
 import QRCode from "qrcode";
 import { db } from "../db";
-import { sales, sale_items, products, customers, audit_logs, inventory_logs, stores } from "../db/schema";
+import { sales, sale_items, products, customers, audit_logs, inventory_logs, stores, organizations } from "../db/schema";
 import { eq, and } from "drizzle-orm";
 import { storeStorage } from "../db/context";
 import { SyncQueueManager } from "./sync.service";
@@ -142,16 +142,22 @@ export class SalesService {
           .where(eq(stores.id, targetStoreId))
           .limit(1);
 
+        const [orgRecord] = await db
+          .select()
+          .from(organizations)
+          .where(eq(organizations.id, targetOrgId))
+          .limit(1);
+
         const customer = sale!.customer_id ? await this.customerRepo.getById(sale!.customer_id) : null;
         const items = await this.saleRepo.getSaleItems(sale!.id);
 
         const shop = {
-          name: await settingsRepository.get("shop_name", storeRecord?.name || "Apka Bill Store"),
-          gstin: await settingsRepository.get("shop_gstin", storeRecord?.gst_number || "27AAAAA1111A1Z1"),
-          phone: await settingsRepository.get("shop_phone", storeRecord?.phone || "8285068670"),
-          address: await settingsRepository.get("shop_address", storeRecord?.address || "123, POS Center, Sector V, Salt Lake, Kolkata, 700091"),
+          name: await settingsRepository.get("shop_name", storeRecord?.name || orgRecord?.name || "Apka Bill Store"),
+          gstin: await settingsRepository.get("shop_gstin", storeRecord?.gst_number || orgRecord?.gst_number || "27AAAAA1111A1Z1"),
+          phone: await settingsRepository.get("shop_phone", storeRecord?.phone || orgRecord?.phone || "8285068670"),
+          address: await settingsRepository.get("shop_address", storeRecord?.address || orgRecord?.address || "123, POS Center, Sector V, Salt Lake, Kolkata, 700091"),
           upiId: await settingsRepository.get("shop_upi_id", "apkabill@upi"),
-          logo: await settingsRepository.get("logo", storeRecord?.logo_url || ""),
+          logo: await settingsRepository.get("logo", storeRecord?.logo_url || orgRecord?.logo_url || ""),
         };
 
         const formattedDate = formatToKolkataDate(sale!.created_at);
@@ -169,6 +175,7 @@ export class SalesService {
 
         const upiPayload = `upi://pay?pa=${shop.upiId}&pn=${encodeURIComponent(shop.name)}&am=${(sale!.grand_total / 100.0).toFixed(2)}&cu=INR`;
         const thankYouMessage = await settingsRepository.get("receipt_footer", "Thank you for shopping with us\n*** Thank you — visit again ***");
+        const template = await settingsRepository.get("receipt_template", "Classic");
 
         // Generate UPI QR code offline
         let upiQrCode = "";
@@ -213,6 +220,7 @@ export class SalesService {
           invoiceNumber: sale!.invoice_number,
           date: formattedDate,
           time: formattedTime,
+          template,
           shop,
           customer: {
             name: customer ? customer.name : "Walk-in Customer",

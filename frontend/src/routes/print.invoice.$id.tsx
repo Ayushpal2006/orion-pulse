@@ -154,9 +154,9 @@ function PrintInvoicePage() {
     };
   }, [receipt]);
 
-  // Handle printing and window auto-closing
+  // Handle printing and window auto-closing (AUTO_PRINT = false by default)
   useEffect(() => {
-    if (isReady && autoprint !== "false") {
+    if (isReady && autoprint === "true") {
       console.log("PRINT STEP 9: window.print() called");
 
       // Ensure print inject styles exist

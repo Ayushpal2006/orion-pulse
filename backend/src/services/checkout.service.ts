@@ -66,9 +66,30 @@ export class CheckoutService {
     const orgId = getOrganizationId() || 1;
 
     const offlineId = request.offlineIdentifier || (request as any).offline_identifier || (request as any).offlineIdentifier;
+    const offlineInvoice = (request as any).offlineInvoiceNumber || (request as any).offline_invoice_number;
+
     if (offlineId && idempotencyCache.has(offlineId)) {
       console.log(`[Checkout Service] Idempotent retry hit for offline sale: ${offlineId}`);
       return idempotencyCache.get(offlineId)!.response;
+    }
+
+    if (offlineInvoice) {
+      const [existingSale] = await db.select().from(sales).where(eq(sales.invoice_number, offlineInvoice)).limit(1);
+      if (existingSale) {
+        console.log(`[Checkout Service] Database idempotency hit for existing invoice: ${offlineInvoice}`);
+        const resp: CheckoutResponse = {
+          success: true,
+          saleId: existingSale.id,
+          invoice: existingSale.invoice_number,
+          grandTotal: existingSale.grand_total,
+          subtotal: existingSale.subtotal,
+          gst: existingSale.gst,
+          discount: existingSale.discount,
+          items: [],
+        };
+        if (offlineId) idempotencyCache.set(offlineId, { timestamp: Date.now(), response: resp });
+        return resp;
+      }
     }
 
     // 1. Load setting
@@ -110,9 +131,11 @@ export class CheckoutService {
       throw new ValidationError("Please select a customer before completing checkout.");
     }
 
-    const idempotencyKey = `${storeId}-${isExplicitCustomer ? (sanitizedPhone || customerId) : "walkin"}-${request.paymentMethod}-${request.items
-      .map((i) => `${i.productId}:${i.quantity}`)
-      .join(",")}`;
+    const idempotencyKey = offlineId
+      ? `offline-${offlineId}`
+      : `${storeId}-${isExplicitCustomer ? (sanitizedPhone || customerId) : "walkin"}-${request.paymentMethod}-${request.items
+          .map((i) => `${i.productId}:${i.quantity}`)
+          .join(",")}`;
 
     const now = Date.now();
     const cached = idempotencyCache.get(idempotencyKey);

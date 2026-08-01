@@ -51,6 +51,20 @@ function OrganizationSwitcher() {
     setActiveOrg(org);
     localStorage.setItem("currentOrgId", String(org.id));
     localStorage.removeItem("currentStoreId");
+
+    // Clear stale organization settings from localStorage
+    localStorage.removeItem("orion_shop_name");
+    localStorage.removeItem("orion_gstin");
+    localStorage.removeItem("orion_logo");
+    localStorage.removeItem("orion_address");
+    localStorage.removeItem("orion_phone");
+    localStorage.removeItem("orion_email");
+    localStorage.removeItem("orion_upi_id");
+    localStorage.removeItem("orion_inv_prefix");
+    localStorage.removeItem("orion_po_prefix");
+    localStorage.removeItem("orion_receipt_footer");
+    localStorage.removeItem("orion_receipt_template");
+
     toast.success(`Organization: ${org.name}`);
     window.location.reload();
   };

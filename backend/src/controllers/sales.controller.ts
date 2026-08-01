@@ -257,27 +257,24 @@ export class SalesController {
       const pdfPath = path.join(subFolder, pdfFilename);
       const pdfUrl = `/storage/invoices/${year}/${month}/${pdfFilename}`;
 
-      if (!fs.existsSync(pdfPath)) {
-        const pdfService = new PdfService();
-        try {
-          await pdfService.generateInvoicePdf(receipt, pdfPath);
+      const pdfService = new PdfService();
+      try {
+        await pdfService.generateInvoicePdf(receipt, pdfPath);
 
-          try {
-            await this.saleRepo.updatePdfUrlByInvoice(receipt.invoiceNumber, pdfUrl);
-          } catch (e) {
-            console.error("Failed to update sales pdf_url:", e);
-          }
-        } catch (genError) {
-          // Clean up incomplete/partially written files to prevent sending corrupted files next time
-          if (fs.existsSync(pdfPath)) {
-            try {
-              fs.unlinkSync(pdfPath);
-            } catch (unlinkErr) {
-              console.error("Failed to clean up incomplete PDF file:", unlinkErr);
-            }
-          }
-          throw genError;
+        try {
+          await this.saleRepo.updatePdfUrlByInvoice(receipt.invoiceNumber, pdfUrl);
+        } catch (e) {
+          console.error("Failed to update sales pdf_url:", e);
         }
+      } catch (genError) {
+        if (fs.existsSync(pdfPath)) {
+          try {
+            fs.unlinkSync(pdfPath);
+          } catch (unlinkErr) {
+            console.error("Failed to clean up incomplete PDF file:", unlinkErr);
+          }
+        }
+        throw genError;
       }
 
       res.download(pdfPath, pdfFilename, (err) => {

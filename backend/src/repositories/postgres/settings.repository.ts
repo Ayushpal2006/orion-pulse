@@ -1,14 +1,19 @@
 import { ISettingsRepository } from "../interfaces/ISettingsRepository";
 import { db } from "../../db";
-import { settings, stores } from "../../db/schema";
+import { settings, stores, organizations } from "../../db/schema";
 import { eq, and, desc } from "drizzle-orm";
 import { getTenantContext, TenantContext } from "../../db/context";
 
 async function resolveStoreIdForContext(ctx: TenantContext, client: any): Promise<number> {
-  if (ctx.currentStoreId && ctx.currentStoreId > 0) {
-    return ctx.currentStoreId;
-  }
   if (ctx.organizationId && ctx.organizationId > 0) {
+    if (ctx.currentStoreId && ctx.currentStoreId > 0) {
+      const [stMatch] = await client
+        .select({ id: stores.id })
+        .from(stores)
+        .where(and(eq(stores.id, ctx.currentStoreId), eq(stores.organization_id, ctx.organizationId)))
+        .limit(1);
+      if (stMatch) return stMatch.id;
+    }
     const [st] = await client
       .select({ id: stores.id })
       .from(stores)
@@ -32,17 +37,36 @@ export class PostgresSettingsRepository implements ISettingsRepository {
       .where(eq(stores.id, storeId))
       .limit(1);
 
+    let orgRecord: any = null;
+    if (storeRecord?.organization_id) {
+      const [org] = await client
+        .select()
+        .from(organizations)
+        .where(eq(organizations.id, storeRecord.organization_id))
+        .limit(1);
+      orgRecord = org;
+    } else if (ctx.organizationId && ctx.organizationId > 0) {
+      const [org] = await client
+        .select()
+        .from(organizations)
+        .where(eq(organizations.id, ctx.organizationId))
+        .limit(1);
+      orgRecord = org;
+    }
+
     const rows = await client
       .select()
       .from(settings)
       .where(eq(settings.store_id, storeId));
 
     const settingsObj: Record<string, string> = {
-      shop_name: storeRecord?.name || "",
-      shop_gstin: storeRecord?.gst_number || "",
-      shop_phone: storeRecord?.phone || "",
-      shop_address: storeRecord?.address || "",
-      logo: storeRecord?.logo_url || "",
+      shop_name: storeRecord?.name || orgRecord?.name || "",
+      shop_gstin: storeRecord?.gst_number || orgRecord?.gst_number || "",
+      shop_phone: storeRecord?.phone || orgRecord?.phone || "",
+      shop_address: storeRecord?.address || orgRecord?.address || "",
+      shop_email: orgRecord?.email || "",
+      logo: storeRecord?.logo_url || orgRecord?.logo_url || "",
+      inv_prefix: orgRecord?.invoice_prefix || "INV-",
     };
 
     for (const row of rows) {
@@ -77,6 +101,23 @@ export class PostgresSettingsRepository implements ISettingsRepository {
         if (key === "shop_phone" && st.phone) return st.phone;
         if (key === "shop_address" && st.address) return st.address;
         if (key === "logo" && st.logo_url) return st.logo_url;
+
+        if (st.organization_id) {
+          const [org] = await client
+            .select()
+            .from(organizations)
+            .where(eq(organizations.id, st.organization_id))
+            .limit(1);
+          if (org) {
+            if (key === "shop_name" && org.name) return org.name;
+            if (key === "shop_gstin" && org.gst_number) return org.gst_number;
+            if (key === "shop_phone" && org.phone) return org.phone;
+            if (key === "shop_address" && org.address) return org.address;
+            if (key === "shop_email" && org.email) return org.email;
+            if (key === "inv_prefix" && org.invoice_prefix) return org.invoice_prefix;
+            if (key === "logo" && org.logo_url) return org.logo_url;
+          }
+        }
       }
     }
 
@@ -96,7 +137,7 @@ export class PostgresSettingsRepository implements ISettingsRepository {
         set: { value },
       });
 
-    // Also update stores table row if matching core identity attributes
+    // Also update stores / organizations table row if matching core identity attributes
     if (storeId > 0) {
       if (key === "shop_name") await client.update(stores).set({ name: value, updated_at: new Date() }).where(eq(stores.id, storeId));
       else if (key === "shop_gstin") await client.update(stores).set({ gst_number: value, updated_at: new Date() }).where(eq(stores.id, storeId));
@@ -133,3 +174,4 @@ export class PostgresSettingsRepository implements ISettingsRepository {
     });
   }
 }
+

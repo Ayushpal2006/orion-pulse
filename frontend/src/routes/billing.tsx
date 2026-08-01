@@ -295,10 +295,6 @@ function Billing() {
 
   const runCheckout = async () => {
     console.log("[Checkout Flow] Checkout Started");
-    if (typeof window !== "undefined" && !window.navigator.onLine) {
-      toast.error("Network connection lost. Checkouts are disabled until connection is restored.");
-      return;
-    }
     if (cart.length === 0) { toast.error("Cart is empty"); return; }
 
     const isCustomerMissing = mobile.length < 10;

@@ -1580,148 +1580,40 @@ function SettingsV2() {
                   </span>
                 </div>
 
-                <div
-                  className="rounded-2xl border border-border/80 bg-background p-6 shadow-lg space-y-4 max-w-xl mx-auto transition-all"
-                  style={{
-                    borderTop: `4px solid ${s.primaryColor || "#2563eb"}`,
-                  }}
-                >
-                  {/* Specimen Header Banner */}
-                  {s.receiptTemplate === "Retail" ? (
-                    <div
-                      className="p-4 rounded-xl text-white space-y-1"
-                      style={{ backgroundColor: s.primaryColor || "#2563eb" }}
-                    >
-                      <div className="flex justify-between items-start">
-                        <div>
-                          {s.logo && <img src={s.logo} alt="Logo" className="h-9 max-w-[140px] object-contain mb-1.5 bg-white/90 p-1 rounded-md" />}
-                          <div className="text-lg font-bold tracking-tight">{s.shopName || "Apka Bill Store"}</div>
-                          <div className="text-[11px] opacity-90">{s.storeAddress || "123 Commercial Hub, Main Market, Mumbai"}</div>
-                        </div>
-                        <div className="text-right">
-                          <div className="text-xs font-extrabold uppercase bg-white/20 px-2 py-0.5 rounded text-white inline-block">
-                            {s.invoiceHeader || "TAX INVOICE"}
-                          </div>
-                          <div className="text-xs font-mono font-bold mt-1">{invPrefix}00125</div>
-                          <div className="text-[10px] opacity-80">25 Jul 2026, 02:45 PM</div>
-                        </div>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="flex items-center justify-between border-b border-border/60 pb-3">
-                      <div className="space-y-0.5">
-                        {s.logo ? (
-                          <img src={s.logo} alt="Logo" className="h-9 max-w-[130px] object-contain mb-1.5" />
-                        ) : (
-                          <div className="text-xs text-muted-foreground font-mono italic">No logo uploaded</div>
-                        )}
-                        <div className="text-base font-bold text-foreground">{s.shopName || "Apka Bill Store"}</div>
-                        <div className="text-[11px] text-muted-foreground">{s.storeAddress || "123 Commercial Hub, Main Market, Mumbai"}</div>
-                        <div className="text-[10px] text-muted-foreground font-mono">GSTIN: {s.gstin || "27ABCDE1234F1Z5"}</div>
-                      </div>
-                      <div className="text-right space-y-0.5">
-                        <div
-                          className="text-xs font-extrabold uppercase tracking-wide"
-                          style={{ color: s.primaryColor || "#2563eb" }}
-                        >
-                          {s.invoiceHeader || "TAX INVOICE"}
-                        </div>
-                        <div className="text-sm font-mono font-bold text-foreground">{invPrefix}00125</div>
-                        <div className="text-[10px] text-muted-foreground">Date: 25 Jul 2026</div>
-                        <div className="text-[10px] text-muted-foreground">Mode: UPI / QR Code</div>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Customer Info & Checkout Policy Banner */}
-                  <div className="grid grid-cols-2 text-[11px] p-2.5 rounded-xl bg-muted/20 border border-border/40">
-                    <div>
-                      <div className="text-[10px] font-bold uppercase text-muted-foreground">Customer Billed To</div>
-                      <div className="font-semibold text-foreground">
-                        {s.requireCustomerBeforeCheckout ? "Rahul Verma (Required)" : "Walk-in Customer"}
-                      </div>
-                      <div className="text-muted-foreground">
-                        {s.requireCustomerBeforeCheckout ? "+91 98765 43210" : "System Walk-in Customer (Auto)"}
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <div className="text-[10px] font-bold uppercase text-muted-foreground">Checkout Requirement</div>
-                      <div className="font-mono text-foreground font-semibold">
-                        {s.requireCustomerBeforeCheckout ? "Mandatory Selection" : "Walk-in Allowed (Optional)"}
-                      </div>
-                      <div className="text-muted-foreground">
-                        {s.requireCustomerBeforeCheckout ? "Customer Attach Required" : "Auto System Resolution"}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Sample Items Table */}
-                  <table className="w-full text-[11px] border-collapse">
-                    <thead>
-                      <tr
-                        className="border-b border-border text-muted-foreground text-left"
-                        style={
-                          s.receiptTemplate === "Retail" || s.receiptTemplate === "Premium"
-                            ? { backgroundColor: `${s.primaryColor || "#2563eb"}15` }
-                            : {}
-                        }
-                      >
-                        <th className="py-1.5 px-2">Item Description</th>
-                        <th className="py-1.5 px-1 text-right">Qty</th>
-                        <th className="py-1.5 px-2 text-right">Rate</th>
-                        <th className="py-1.5 px-1 text-right">GST</th>
-                        <th className="py-1.5 px-2 text-right">Total</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-border/40">
-                      <tr>
-                        <td className="py-2 px-2 font-medium">
-                          Wireless Optical Mouse
-                          <div className="text-[9px] text-muted-foreground font-mono">HSN: 8471</div>
-                        </td>
-                        <td className="py-2 px-1 text-right font-mono">2</td>
-                        <td className="py-2 px-2 text-right font-mono">₹ 999.00</td>
-                        <td className="py-2 px-1 text-right font-mono">18%</td>
-                        <td className="py-2 px-2 text-right font-mono font-semibold">₹ 2,357.64</td>
-                      </tr>
-                      <tr>
-                        <td className="py-2 px-2 font-medium">
-                          USB-C Mechanical Keyboard
-                          <div className="text-[9px] text-muted-foreground font-mono">HSN: 8504</div>
-                        </td>
-                        <td className="py-2 px-1 text-right font-mono">1</td>
-                        <td className="py-2 px-2 text-right font-mono">₹ 2,450.00</td>
-                        <td className="py-2 px-1 text-right font-mono">18%</td>
-                        <td className="py-2 px-2 text-right font-mono font-semibold">₹ 2,891.00</td>
-                      </tr>
-                    </tbody>
-                  </table>
-
-                  {/* Calculations Summary */}
-                  <div className="border-t border-border pt-2 text-[11px] space-y-1 text-right font-mono">
-                    <div className="flex justify-between text-muted-foreground">
-                      <span>Item Subtotal:</span> <span>₹ 4,448.00</span>
-                    </div>
-                    <div className="flex justify-between text-muted-foreground">
-                      <span>CGST (9%):</span> <span>₹ 395.82</span>
-                    </div>
-                    <div className="flex justify-between text-muted-foreground">
-                      <span>SGST (9%):</span> <span>₹ 395.82</span>
-                    </div>
-                    <div className="flex justify-between text-sm font-bold text-foreground border-t border-border pt-1.5">
-                      <span>Grand Total:</span>
-                      <span className="text-base" style={{ color: s.primaryColor || "#2563eb" }}>
-                        ₹ 5,248.64
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Footer Notice & Terms */}
-                  <div className="text-center pt-3 text-[10px] text-muted-foreground border-t border-border/40 space-y-1">
-                    <div className="font-semibold text-foreground">{s.receiptFooter || "Thank you for shopping with us!"}</div>
-                    <div className="italic">{s.invoiceFooter || s.termsAndConditions || "Terms: Goods once sold can be exchanged within 7 days."}</div>
-                    <div className="text-[9px] font-mono text-muted-foreground pt-1">UPI: {s.upiId || "shop@upi"}</div>
-                  </div>
+                <div className="rounded-2xl border border-border/80 bg-white p-5 shadow-lg max-w-xl mx-auto transition-all text-black">
+                  <ReceiptRenderer
+                    receipt={{
+                      shop: {
+                        name: s.shopName || "Apka Bill Store",
+                        address: s.storeAddress || "123 POS Center, Salt Lake, Kolkata",
+                        phone: s.storePhone || "8285068670",
+                        gstin: s.gstin || "27AAAAA1111A1Z1",
+                        logo: s.logo,
+                        upiId: s.upiId || "apkabill@upi",
+                      },
+                      invoiceNumber: `${invPrefix}00125`,
+                      date: "01/08/2026",
+                      time: "02:45 PM",
+                      cashier: "Admin",
+                      customer: {
+                        name: s.requireCustomerBeforeCheckout ? "Rahul Verma (Required)" : "Walk-in Customer",
+                        phone: "9876543210",
+                      },
+                      items: [
+                        { name: "Wireless Optical Mouse", qty: 2, price: 999, lineTotal: 1998, gst: 18 },
+                        { name: "USB-C Mechanical Keyboard", qty: 1, price: 2450, lineTotal: 2450, gst: 18 },
+                      ],
+                      subtotal: 4448,
+                      discount: 200,
+                      gst: 764.64,
+                      grandTotal: 5012.64,
+                      paymentMethod: "UPI",
+                      thankYouMessage: s.receiptFooter || "Thank you for shopping with us!",
+                    }}
+                    template={s.receiptTemplate}
+                    paperWidth={s.receiptTemplate === "Compact" ? "58mm" : "80mm"}
+                    qrPosition={s.qrPosition || "Bottom"}
+                  />
                 </div>
               </div>
             </div>

@@ -18,7 +18,8 @@ export class PdfService {
     const theme = await settingsRepository.get("invoice_theme", "classic");
     const website = await settingsRepository.get("business_website", "https://apkabill.in");
     const rawTemplate = await settingsRepository.get("receipt_template", "Classic");
-    const template = (rawTemplate && ["Classic", "Retail", "Premium", "Compact"].includes(rawTemplate.trim())) ? rawTemplate.trim() : "Classic";
+    const validTemplates = ["Classic", "Modern", "Retail", "Compact", "Minimal", "GST Professional", "Wholesale", "Restaurant", "Medical", "Fashion", "Thermal", "Premium"];
+    const template = (rawTemplate && validTemplates.includes(rawTemplate.trim())) ? rawTemplate.trim() : "Classic";
     const qrPosition = await settingsRepository.get("qr_position", "Bottom");
     const invoiceHeader = await settingsRepository.get("invoice_header", "");
     const termsAndConditions = await settingsRepository.get("terms_and_conditions", "");
@@ -39,17 +40,20 @@ export class PdfService {
 
         configurePdfFonts(doc);
 
-        // Color theme palette
+        // Color theme palette based on template
         let primaryColor = "#0f172a"; // Classic slate
-        if (theme === "clean" || template === "Premium") primaryColor = "#2563eb"; // Vibrant blue
+        if (template === "Modern" || theme === "clean" || template === "Premium") primaryColor = "#2563eb"; // Vibrant blue
+        if (template === "GST Professional" || template === "Wholesale") primaryColor = "#047857"; // Emerald Green
+        if (template === "Retail") primaryColor = "#7c3aed"; // Violet / Retail
+        if (template === "Minimal") primaryColor = "#334155"; // Dark Slate
         if (theme === "dark") primaryColor = "#1e293b"; // Charcoal
 
-        // Top Accent Banner for Premium template
-        if (template === "Premium") {
+        // Top Accent Banner for Premium, Modern, and GST Professional templates
+        if (template === "Premium" || template === "Modern" || template === "GST Professional") {
           doc.rect(0, 0, pageWidth, 10).fill(primaryColor);
         }
 
-        const startY = template === "Premium" ? 30 : 40;
+        const startY = (template === "Premium" || template === "Modern" || template === "GST Professional") ? 30 : 40;
 
         // Header Notice Tag
         if (invoiceHeader) {

@@ -462,6 +462,243 @@ export function CompactTemplate({ receipt }: TemplateProps) {
   );
 }
 
+export function ModernTemplate({ receipt, qrPosition }: TemplateProps) {
+  const formatInr = (val: number) => `₹${val.toFixed(2)}`;
+
+  const qr = (
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", margin: "6px 0" }}>
+      <div style={{ background: "#ffffff", padding: "6px", border: "1px solid #2563eb", display: "inline-block", marginBottom: "2px" }}>
+        {receipt.upiQrCode ? (
+          <img src={receipt.upiQrCode} style={{ width: "130px", height: "130px", display: "block" }} alt="UPI QR Code" />
+        ) : (
+          <QRCodeSVG value={receipt.upiPayload || ""} size={130} />
+        )}
+      </div>
+      <span style={{ fontSize: "8px", color: "#2563eb", fontWeight: "bold" }}>Scan to Pay via UPI</span>
+    </div>
+  );
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", width: "100%", boxSizing: "border-box", fontFamily: "sans-serif" }}>
+      {/* Modern Banner Header */}
+      <div style={{ backgroundColor: "#2563eb", color: "#ffffff", padding: "10px", borderRadius: "6px", textAlign: "center", marginBottom: "8px" }}>
+        {receipt.shop.logo && (
+          <img src={receipt.shop.logo} alt="Store Logo" style={{ maxHeight: "36px", objectFit: "contain", marginBottom: "4px", backgroundColor: "#ffffff", padding: "2px", borderRadius: "4px" }} />
+        )}
+        <div style={{ fontSize: "15px", fontWeight: "bold", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+          {receipt.shop.name}
+        </div>
+        <div style={{ fontSize: "9px", opacity: 0.9, marginTop: "2px" }}>{receipt.shop.address}</div>
+        <div style={{ fontSize: "9px", opacity: 0.9 }}>Ph: {receipt.shop.phone} | GSTIN: {receipt.shop.gstin}</div>
+      </div>
+
+      {/* Invoice Meta Grid */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "4px", fontSize: "9px", backgroundColor: "#f1f5f9", padding: "6px", borderRadius: "4px", margin: "4px 0" }}>
+        <div><strong>Invoice #:</strong> {receipt.invoiceNumber}</div>
+        <div style={{ textAlign: "right" }}><strong>Date:</strong> {receipt.date}</div>
+        <div><strong>Customer:</strong> {receipt.customer.name}</div>
+        <div style={{ textAlign: "right" }}><strong>Cashier:</strong> {receipt.cashier}</div>
+      </div>
+
+      {qrPosition === "Top" && receipt.paymentMethod === "UPI" && qr}
+
+      {/* Items Table */}
+      <table style={{ width: "100%", fontSize: "10px", borderCollapse: "collapse", margin: "6px 0" }}>
+        <thead>
+          <tr style={{ backgroundColor: "#2563eb", color: "#ffffff" }}>
+            <th align="left" style={{ padding: "4px 6px", borderRadius: "3px 0 0 3px" }}>Item Description</th>
+            <th align="right" style={{ padding: "4px 6px" }}>Qty</th>
+            <th align="right" style={{ padding: "4px 6px", borderRadius: "0 3px 3px 0" }}>Amount</th>
+          </tr>
+        </thead>
+        <tbody>
+          {receipt.items.map((item, idx) => (
+            <tr key={idx} style={{ borderBottom: "1px solid #e2e8f0" }}>
+              <td style={{ padding: "4px 6px" }}>{item.name}</td>
+              <td align="right" style={{ padding: "4px 6px" }}>{item.qty}</td>
+              <td align="right" style={{ padding: "4px 6px", fontWeight: "bold" }}>{formatInr(item.lineTotal)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+
+      {/* Totals */}
+      <div style={{ backgroundColor: "#f8fafc", padding: "6px 8px", borderRadius: "4px", margin: "4px 0", fontSize: "10px" }}>
+        <div style={{ display: "flex", justify: "space-between", marginBottom: "2px" }}>
+          <span>Subtotal:</span><span>{formatInr(receipt.subtotal)}</span>
+        </div>
+        {receipt.discount > 0 && (
+          <div style={{ display: "flex", justify: "space-between", color: "#dc2626", marginBottom: "2px" }}>
+            <span>Discount:</span><span>-{formatInr(receipt.discount)}</span>
+          </div>
+        )}
+        <div style={{ display: "flex", justify: "space-between", marginBottom: "2px" }}>
+          <span>Tax:</span><span>{formatInr(receipt.gst)}</span>
+        </div>
+        <div style={{ display: "flex", justify: "space-between", fontWeight: "bold", fontSize: "12px", color: "#2563eb", borderTop: "1px solid #cbd5e1", paddingTop: "4px", marginTop: "4px" }}>
+          <span>GRAND TOTAL:</span><span>{formatInr(receipt.grandTotal)}</span>
+        </div>
+      </div>
+
+      <div style={{ textAlign: "center", fontSize: "9px", margin: "6px 0" }}>
+        <div style={{ fontWeight: "bold", color: "#2563eb" }}>Paid via {receipt.paymentMethod}</div>
+        {qrPosition === "Bottom" && receipt.paymentMethod === "UPI" && qr}
+        <div style={{ marginTop: "4px", color: "#475569" }}>{receipt.thankYouMessage}</div>
+      </div>
+    </div>
+  );
+}
+
+export function MinimalTemplate({ receipt }: TemplateProps) {
+  const formatInr = (val: number) => `₹${val.toFixed(2)}`;
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", width: "100%", boxSizing: "border-box", fontFamily: "monospace", fontSize: "10px" }}>
+      <div style={{ textAlign: "center", marginBottom: "8px" }}>
+        <div style={{ fontSize: "14px", fontWeight: "bold" }}>{receipt.shop.name}</div>
+        <div style={{ fontSize: "9px", color: "#666" }}>{receipt.shop.phone} | GST: {receipt.shop.gstin}</div>
+      </div>
+
+      <div style={{ borderTop: "1px solid #ccc", margin: "4px 0" }}></div>
+
+      <div style={{ display: "flex", justify: "space-between", fontSize: "9px" }}>
+        <span>Inv: {receipt.invoiceNumber}</span>
+        <span>{receipt.date}</span>
+      </div>
+
+      <div style={{ borderTop: "1px solid #ccc", margin: "4px 0" }}></div>
+
+      <table style={{ width: "100%", fontSize: "10px", borderCollapse: "collapse" }}>
+        <tbody>
+          {receipt.items.map((item, idx) => (
+            <tr key={idx}>
+              <td style={{ padding: "2px 0" }}>{item.qty}x {item.name}</td>
+              <td align="right" style={{ padding: "2px 0" }}>{formatInr(item.lineTotal)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+
+      <div style={{ borderTop: "1px solid #ccc", margin: "4px 0" }}></div>
+
+      <div style={{ display: "flex", justify: "space-between", fontWeight: "bold", fontSize: "12px" }}>
+        <span>TOTAL:</span><span>{formatInr(receipt.grandTotal)}</span>
+      </div>
+
+      <div style={{ textAlign: "center", fontSize: "9px", marginTop: "8px", color: "#666" }}>
+        <div>Paid via {receipt.paymentMethod}</div>
+        <div>{receipt.thankYouMessage}</div>
+      </div>
+    </div>
+  );
+}
+
+export function GstProfessionalTemplate({ receipt, qrPosition }: TemplateProps) {
+  const formatInr = (val: number) => `₹${val.toFixed(2)}`;
+
+  const qr = (
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", margin: "6px 0" }}>
+      <div style={{ background: "#ffffff", padding: "6px", border: "1px solid #047857", display: "inline-block", marginBottom: "2px" }}>
+        {receipt.upiQrCode ? (
+          <img src={receipt.upiQrCode} style={{ width: "120px", height: "120px", display: "block" }} alt="UPI QR Code" />
+        ) : (
+          <QRCodeSVG value={receipt.upiPayload || ""} size={120} />
+        )}
+      </div>
+      <span style={{ fontSize: "8px", color: "#047857", fontWeight: "bold" }}>Scan to Pay via UPI</span>
+    </div>
+  );
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", width: "100%", boxSizing: "border-box", fontFamily: "sans-serif" }}>
+      {/* GST B2B Banner */}
+      <div style={{ border: "2px solid #047857", borderRadius: "6px", padding: "8px", marginBottom: "8px" }}>
+        <div style={{ textAlign: "center", borderBottom: "1px solid #047857", pb: "4px", marginBottom: "6px" }}>
+          <div style={{ fontSize: "11px", fontWeight: "bold", color: "#047857", textTransform: "uppercase", letterSpacing: "1px" }}>TAX INVOICE</div>
+          <div style={{ fontSize: "15px", fontWeight: "bold", color: "#0f172a" }}>{receipt.shop.name}</div>
+          <div style={{ fontSize: "9px", color: "#475569" }}>{receipt.shop.address}</div>
+          <div style={{ fontSize: "9px", fontWeight: "bold", color: "#047857" }}>GSTIN: {receipt.shop.gstin} | PH: {receipt.shop.phone}</div>
+        </div>
+
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "6px", fontSize: "9px" }}>
+          <div>
+            <div style={{ fontWeight: "bold", color: "#047857" }}>DETAILS OF RECEIVER / BUYER</div>
+            <div><strong>Name:</strong> {receipt.customer.name}</div>
+            {receipt.customer.phone && <div><strong>Phone:</strong> +91 {receipt.customer.phone}</div>}
+          </div>
+          <div style={{ textAlign: "right" }}>
+            <div style={{ fontWeight: "bold", color: "#047857" }}>INVOICE SPECIFICATION</div>
+            <div><strong>Invoice No:</strong> {receipt.invoiceNumber}</div>
+            <div><strong>Date & Time:</strong> {receipt.date} {receipt.time}</div>
+            <div><strong>Cashier:</strong> {receipt.cashier}</div>
+          </div>
+        </div>
+      </div>
+
+      {qrPosition === "Top" && receipt.paymentMethod === "UPI" && qr}
+
+      {/* Itemized Table with GST Tax Column */}
+      <table style={{ width: "100%", fontSize: "9px", borderCollapse: "collapse", margin: "4px 0", border: "1px solid #cbd5e1" }}>
+        <thead>
+          <tr style={{ backgroundColor: "#047857", color: "#ffffff" }}>
+            <th align="left" style={{ padding: "4px" }}>Item Description</th>
+            <th align="right" style={{ padding: "4px" }}>Qty</th>
+            <th align="right" style={{ padding: "4px" }}>Rate</th>
+            <th align="right" style={{ padding: "4px" }}>Tax %</th>
+            <th align="right" style={{ padding: "4px" }}>Total</th>
+          </tr>
+        </thead>
+        <tbody>
+          {receipt.items.map((item, idx) => (
+            <tr key={idx} style={{ borderBottom: "1px solid #e2e8f0" }}>
+              <td style={{ padding: "4px" }}>{item.name}</td>
+              <td align="right" style={{ padding: "4px" }}>{item.qty}</td>
+              <td align="right" style={{ padding: "4px" }}>{formatInr(item.price)}</td>
+              <td align="right" style={{ padding: "4px" }}>{item.gst || 18}%</td>
+              <td align="right" style={{ padding: "4px", fontWeight: "bold" }}>{formatInr(item.lineTotal)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+
+      {/* Tax Breakdown & Grand Total Box */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px", margin: "6px 0", fontSize: "9px" }}>
+        <div style={{ border: "1px solid #e2e8f0", padding: "6px", borderRadius: "4px" }}>
+          <div style={{ fontWeight: "bold", color: "#047857", marginBottom: "2px" }}>TAX SUMMARY</div>
+          <div>Taxable Amount: {formatInr(receipt.subtotal - receipt.discount)}</div>
+          <div>CGST + SGST (GST): {formatInr(receipt.gst)}</div>
+          <div style={{ marginTop: "4px", fontSize: "8px", color: "#64748b" }}>Tax Invoice issued under GST Rules.</div>
+        </div>
+        <div style={{ border: "1px solid #047857", padding: "6px", borderRadius: "4px", backgroundColor: "#f0fdf4" }}>
+          <div style={{ display: "flex", justify: "space-between", marginBottom: "2px" }}><span>Subtotal:</span><span>{formatInr(receipt.subtotal)}</span></div>
+          {receipt.discount > 0 && <div style={{ display: "flex", justify: "space-between", color: "#dc2626", marginBottom: "2px" }}><span>Discount:</span><span>-{formatInr(receipt.discount)}</span></div>}
+          <div style={{ display: "flex", justify: "space-between", marginBottom: "2px" }}><span>Total Tax:</span><span>{formatInr(receipt.gst)}</span></div>
+          <div style={{ display: "flex", justify: "space-between", fontWeight: "bold", fontSize: "11px", color: "#047857", borderTop: "1px solid #047857", paddingTop: "4px", marginTop: "4px" }}>
+            <span>GRAND TOTAL:</span><span>{formatInr(receipt.grandTotal)}</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Signatory & Footer */}
+      <div style={{ display: "flex", justify: "space-between", alignItems: "flex-end", margin: "8px 0", fontSize: "9px" }}>
+        <div style={{ textAlign: "center" }}>
+          {qrPosition === "Bottom" && receipt.paymentMethod === "UPI" && qr}
+          <div style={{ color: "#047857", fontWeight: "bold" }}>Paid via {receipt.paymentMethod}</div>
+        </div>
+        <div style={{ textAlign: "right", borderTop: "1px solid #94a3b8", paddingTop: "4px", width: "120px" }}>
+          <div style={{ fontWeight: "bold", fontSize: "8px", textTransform: "uppercase" }}>FOR {receipt.shop.name}</div>
+          <div style={{ fontSize: "8px", color: "#64748b", marginTop: "16px" }}>Authorized Signatory</div>
+        </div>
+      </div>
+      <div style={{ textAlign: "center", fontSize: "8px", color: "#475569", marginTop: "4px" }}>{receipt.thankYouMessage}</div>
+    </div>
+  );
+}
+
+export function ThermalTemplate({ receipt, qrPosition }: TemplateProps) {
+  return <ClassicTemplate receipt={receipt} paperWidth="58mm" qrPosition={qrPosition} />;
+}
+
 interface ReceiptRendererProps {
   receipt: ReceiptData;
   template: "Classic" | "Modern" | "Minimal" | "Retail" | "Wholesale" | "GST Professional" | "Restaurant" | "Medical" | "Fashion" | "Compact" | "Thermal" | string;
@@ -487,21 +724,24 @@ export function ReceiptRenderer({
 
   const renderTemplate = () => {
     switch (template) {
+      case "Modern":
+        return <ModernTemplate {...props} />;
       case "Retail":
         return <RetailTemplate {...props} />;
-      case "Premium":
+      case "Minimal":
+        return <MinimalTemplate {...props} />;
       case "GST Professional":
       case "Wholesale":
-        return <PremiumTemplate {...props} />;
+      case "Premium":
+        return <GstProfessionalTemplate {...props} />;
       case "Compact":
-      case "Minimal":
         return <CompactTemplate {...props} />;
-      case "Modern":
+      case "Thermal":
+        return <ThermalTemplate {...props} />;
+      case "Classic":
       case "Restaurant":
       case "Medical":
       case "Fashion":
-      case "Thermal":
-      case "Classic":
       default:
         return <ClassicTemplate {...props} />;
     }
@@ -556,3 +796,4 @@ export function ReceiptRenderer({
     </div>
   );
 }
+

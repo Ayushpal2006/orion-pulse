@@ -1,5 +1,5 @@
 import { getPendingSalesOffline, updatePendingSaleStatus, OfflinePendingSale } from "./offline-db";
-import { apiFetch } from "./api";
+import { apiFetch, API_BASE_URL } from "./api";
 import { toast } from "sonner";
 
 export interface SyncStatusState {
@@ -92,7 +92,7 @@ export async function syncPendingSales(): Promise<{ successCount: number; failed
           offlineInvoiceNumber: sale.invoice_number,
         };
 
-        const res = await apiFetch("/api/checkout", {
+        const res = await apiFetch(`${API_BASE_URL}/checkout`, {
           method: "POST",
           headers: { "Content-Type": "application/json", "X-Offline-Id": sale.offlineId },
           body: JSON.stringify(payload),

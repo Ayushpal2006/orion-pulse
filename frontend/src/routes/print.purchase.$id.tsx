@@ -84,9 +84,9 @@ function PrintPurchasePage() {
     };
   }, [purchase]);
 
-  // Handle auto printing
+  // Handle auto printing (AUTO_PRINT = false by default)
   useEffect(() => {
-    if (isReady && autoprint !== "false") {
+    if (isReady && autoprint === "true") {
       let styleEl = document.getElementById("orion-print-style-inject") as HTMLStyleElement;
       if (!styleEl) {
         styleEl = document.createElement("style");
