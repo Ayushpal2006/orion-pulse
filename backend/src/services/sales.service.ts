@@ -151,13 +151,26 @@ export class SalesService {
         const customer = sale!.customer_id ? await this.customerRepo.getById(sale!.customer_id) : null;
         const items = await this.saleRepo.getSaleItems(sale!.id);
 
+        // Load store-scoped settings for targetStoreId directly from settings table
+        const storeSettingsRows = await db
+          .select()
+          .from(settings)
+          .where(eq(settings.store_id, targetStoreId));
+        const storeSettingsMap: Record<string, string> = {};
+        for (const row of storeSettingsRows) {
+          storeSettingsMap[row.key] = row.value;
+        }
+
         const shop = {
-          name: await settingsRepository.get("shop_name", storeRecord?.name || orgRecord?.name || "Apka Bill Store"),
-          gstin: await settingsRepository.get("shop_gstin", storeRecord?.gst_number || orgRecord?.gst_number || "27AAAAA1111A1Z1"),
-          phone: await settingsRepository.get("shop_phone", storeRecord?.phone || orgRecord?.phone || "8285068670"),
-          address: await settingsRepository.get("shop_address", storeRecord?.address || orgRecord?.address || "123, POS Center, Sector V, Salt Lake, Kolkata, 700091"),
-          upiId: await settingsRepository.get("shop_upi_id", "apkabill@upi"),
-          logo: await settingsRepository.get("logo", storeRecord?.logo_url || orgRecord?.logo_url || ""),
+          storeId: targetStoreId,
+          organizationId: targetOrgId,
+          name: storeSettingsMap.shop_name || storeRecord?.name || orgRecord?.name || "Apka Bill Store",
+          gstin: storeSettingsMap.shop_gstin || storeRecord?.gst_number || orgRecord?.gst_number || "27AAAAA1111A1Z1",
+          phone: storeSettingsMap.shop_phone || storeRecord?.phone || orgRecord?.phone || "8285068670",
+          address: storeSettingsMap.shop_address || storeRecord?.address || orgRecord?.address || "123, POS Center, Sector V, Salt Lake, Kolkata, 700091",
+          email: orgRecord?.email || "support@apkabill.in",
+          upiId: storeSettingsMap.shop_upi_id || "apkabill@upi",
+          logo: storeSettingsMap.logo || storeRecord?.logo_url || orgRecord?.logo_url || "",
         };
 
         const formattedDate = formatToKolkataDate(sale!.created_at);
@@ -174,8 +187,11 @@ export class SalesService {
         }));
 
         const upiPayload = `upi://pay?pa=${shop.upiId}&pn=${encodeURIComponent(shop.name)}&am=${(sale!.grand_total / 100.0).toFixed(2)}&cu=INR`;
-        const thankYouMessage = await settingsRepository.get("receipt_footer", "Thank you for shopping with us\n*** Thank you — visit again ***");
-        const template = await settingsRepository.get("receipt_template", "Classic");
+        const thankYouMessage = storeSettingsMap.receipt_footer || "Thank you for shopping with us\n*** Thank you — visit again ***";
+        const template = storeSettingsMap.receipt_template || "Classic";
+        const termsAndConditions = storeSettingsMap.terms_and_conditions || storeSettingsMap.invoice_footer || storeSettingsMap.exchange_policy || "";
+        const invoiceHeader = storeSettingsMap.invoice_header || "";
+        const qrPosition = storeSettingsMap.qr_position || "Bottom";
 
         // Generate UPI QR code offline
         let upiQrCode = "";
@@ -235,6 +251,9 @@ export class SalesService {
           cashier: sale!.cashier_name || "Admin",
           upiPayload,
           thankYouMessage,
+          termsAndConditions,
+          invoiceHeader,
+          qrPosition,
           thermalFormat,
           publicToken: sale!.public_token || "",
           pdfUrl: sale!.pdf_url || "",

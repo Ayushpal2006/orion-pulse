@@ -2,19 +2,26 @@ import { IProductRepository } from "../interfaces/IProductRepository";
 import { Product, CreateProductDTO, UpdateProductDTO } from "../../types/product.types";
 import { db } from "../../db";
 import { products } from "../../db/schema";
-import { eq, and, desc, like, or } from "drizzle-orm";
+import { eq, and, desc, like, or, isNull, sql } from "drizzle-orm";
 import { getTenantContext } from "../../db/context";
 import { inventoryCostService } from "../../services/inventory-cost.service";
+
+function buildTenantCondition(organizationId: number, currentStoreId: number, extraCond?: any) {
+  const storeCond = or(
+    eq(products.store_id, currentStoreId),
+    eq(products.store_id, 0),
+    isNull(products.store_id),
+    sql`${currentStoreId} = 0`
+  );
+  const orgCond = eq(products.organization_id, organizationId);
+  return extraCond ? and(orgCond, storeCond, extraCond) : and(orgCond, storeCond);
+}
 
 export class PostgresProductRepository implements IProductRepository {
   async getAll(tx?: any): Promise<Product[]> {
     const client = tx || db;
     const { organizationId, currentStoreId } = getTenantContext();
-    let cond = and(
-      eq(products.is_active, 1),
-      eq(products.organization_id, organizationId),
-      eq(products.store_id, currentStoreId)
-    );
+    const cond = buildTenantCondition(organizationId, currentStoreId, eq(products.is_active, 1));
 
     const rows = await client
       .select()
@@ -32,11 +39,7 @@ export class PostgresProductRepository implements IProductRepository {
   async getById(id: number, tx?: any): Promise<Product | null> {
     const client = tx || db;
     const { organizationId, currentStoreId } = getTenantContext();
-    let cond = and(
-      eq(products.id, id),
-      eq(products.organization_id, organizationId),
-      eq(products.store_id, currentStoreId)
-    );
+    const cond = buildTenantCondition(organizationId, currentStoreId, eq(products.id, id));
 
     const rows = await client
       .select()
@@ -56,11 +59,7 @@ export class PostgresProductRepository implements IProductRepository {
   async getBySku(sku: string, tx?: any): Promise<Product | null> {
     const client = tx || db;
     const { organizationId, currentStoreId } = getTenantContext();
-    let cond = and(
-      eq(products.sku, sku),
-      eq(products.organization_id, organizationId),
-      eq(products.store_id, currentStoreId)
-    );
+    const cond = buildTenantCondition(organizationId, currentStoreId, eq(products.sku, sku));
 
     const rows = await client
       .select()
@@ -80,11 +79,7 @@ export class PostgresProductRepository implements IProductRepository {
   async getByBarcode(barcode: string, tx?: any): Promise<Product | null> {
     const client = tx || db;
     const { organizationId, currentStoreId } = getTenantContext();
-    let cond = and(
-      eq(products.barcode, barcode),
-      eq(products.organization_id, organizationId),
-      eq(products.store_id, currentStoreId)
-    );
+    const cond = buildTenantCondition(organizationId, currentStoreId, eq(products.barcode, barcode));
 
     const rows = await client
       .select()
@@ -175,12 +170,7 @@ export class PostgresProductRepository implements IProductRepository {
     }
 
     updateData.updated_at = new Date();
-
-    let cond = and(
-      eq(products.id, id),
-      eq(products.organization_id, organizationId),
-      eq(products.store_id, currentStoreId)
-    );
+    const cond = buildTenantCondition(organizationId, currentStoreId, eq(products.id, id));
 
     const [updatedProduct] = await client
       .update(products)
@@ -200,12 +190,7 @@ export class PostgresProductRepository implements IProductRepository {
   async delete(id: number, tx?: any): Promise<boolean> {
     const client = tx || db;
     const { organizationId, currentStoreId } = getTenantContext();
-
-    let cond = and(
-      eq(products.id, id),
-      eq(products.organization_id, organizationId),
-      eq(products.store_id, currentStoreId)
-    );
+    const cond = buildTenantCondition(organizationId, currentStoreId, eq(products.id, id));
 
     const [updatedProduct] = await client
       .update(products)
@@ -224,16 +209,13 @@ export class PostgresProductRepository implements IProductRepository {
     const { organizationId, currentStoreId } = getTenantContext();
     const likeQuery = `%${query}%`;
 
-    let cond = and(
-      eq(products.is_active, 1),
-      eq(products.organization_id, organizationId),
-      eq(products.store_id, currentStoreId),
-      or(
-        like(products.name, likeQuery),
-        like(products.sku, likeQuery),
-        like(products.barcode, likeQuery)
-      )
+    const searchCond = or(
+      like(products.name, likeQuery),
+      like(products.sku, likeQuery),
+      like(products.barcode, likeQuery)
     );
+
+    const cond = buildTenantCondition(organizationId, currentStoreId, and(eq(products.is_active, 1), searchCond));
 
     const rows = await client
       .select()
@@ -251,12 +233,7 @@ export class PostgresProductRepository implements IProductRepository {
   async getProductsExport(tx?: any): Promise<any[]> {
     const client = tx || db;
     const { organizationId, currentStoreId } = getTenantContext();
-
-    let cond = and(
-      eq(products.is_active, 1),
-      eq(products.organization_id, organizationId),
-      eq(products.store_id, currentStoreId)
-    );
+    const cond = buildTenantCondition(organizationId, currentStoreId, eq(products.is_active, 1));
 
     const rows = await client
       .select()

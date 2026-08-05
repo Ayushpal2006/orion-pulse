@@ -14,15 +14,16 @@ function getPDFDocument() {
 export class PdfService {
   async generateInvoicePdf(receipt: any, outputPath: string): Promise<string> {
     const signature = await settingsRepository.get("signature", "Authorized Signatory");
-    const exchangePolicy = await settingsRepository.get("exchange_policy", "Items can be exchanged within 7 days in original condition.");
-    const theme = await settingsRepository.get("invoice_theme", "classic");
     const website = await settingsRepository.get("business_website", "https://apkabill.in");
-    const rawTemplate = await settingsRepository.get("receipt_template", "Classic");
+    
+    // Store-scoped template and settings resolution
+    const rawTemplate = receipt.template || (await settingsRepository.get("receipt_template", "Classic"));
     const validTemplates = ["Classic", "Modern", "Retail", "Compact", "Minimal", "GST Professional", "Wholesale", "Restaurant", "Medical", "Fashion", "Thermal", "Premium"];
-    const template = (rawTemplate && validTemplates.includes(rawTemplate.trim())) ? rawTemplate.trim() : "Classic";
-    const qrPosition = await settingsRepository.get("qr_position", "Bottom");
-    const invoiceHeader = await settingsRepository.get("invoice_header", "");
-    const termsAndConditions = await settingsRepository.get("terms_and_conditions", "");
+    const template = (rawTemplate && validTemplates.includes(String(rawTemplate).trim())) ? String(rawTemplate).trim() : "Classic";
+    
+    const qrPosition = receipt.qrPosition || (await settingsRepository.get("qr_position", "Bottom"));
+    const invoiceHeader = receipt.invoiceHeader !== undefined ? receipt.invoiceHeader : (await settingsRepository.get("invoice_header", ""));
+    const termsAndConditions = receipt.termsAndConditions !== undefined ? receipt.termsAndConditions : (await settingsRepository.get("terms_and_conditions", ""));
 
     return new Promise((resolve, reject) => {
       try {
@@ -40,84 +41,92 @@ export class PdfService {
 
         configurePdfFonts(doc);
 
-        // Color theme palette based on template
-        let primaryColor = "#0f172a"; // Classic slate
-        if (template === "Modern" || theme === "clean" || template === "Premium") primaryColor = "#2563eb"; // Vibrant blue
-        if (template === "GST Professional" || template === "Wholesale") primaryColor = "#047857"; // Emerald Green
-        if (template === "Retail") primaryColor = "#7c3aed"; // Violet / Retail
-        if (template === "Minimal") primaryColor = "#334155"; // Dark Slate
-        if (theme === "dark") primaryColor = "#1e293b"; // Charcoal
+        // Color theme palette based on selected store template
+        let primaryColor = "#0f172a"; // Classic slate navy
+        if (template === "Modern") primaryColor = "#2563eb"; // Vibrant Royal Blue
+        else if (template === "GST Professional") primaryColor = "#047857"; // Emerald Green
+        else if (template === "Retail") primaryColor = "#7c3aed"; // Violet / Retail
+        else if (template === "Minimal") primaryColor = "#334155"; // Dark Graphite Slate
+        else if (template === "Wholesale") primaryColor = "#1e3a8a"; // Deep Navy Blue
+        else if (template === "Restaurant") primaryColor = "#d97706"; // Amber Gold
+        else if (template === "Medical") primaryColor = "#0891b2"; // Cyan Teal
+        else if (template === "Fashion") primaryColor = "#be185d"; // Rose Pink / Magenta
+        else if (template === "Thermal") primaryColor = "#18181b"; // Monochrome High-Contrast
+        else if (template === "Premium") primaryColor = "#1d4ed8"; // Premium Indigo
 
-        // Top Accent Banner for Premium, Modern, and GST Professional templates
+        // Top Decorative Accent Banner for Modern, Premium, and GST Professional templates
         if (template === "Premium" || template === "Modern" || template === "GST Professional") {
-          doc.rect(0, 0, pageWidth, 10).fill(primaryColor);
+          doc.rect(0, 0, pageWidth, 8).fill(primaryColor);
         }
 
-        const startY = (template === "Premium" || template === "Modern" || template === "GST Professional") ? 30 : 40;
+        const startY = (template === "Premium" || template === "Modern" || template === "GST Professional") ? 25 : 35;
 
         // Header Notice Tag
         if (invoiceHeader) {
-          doc.font("Outfit-Bold").fontSize(8).fillColor("#64748b").text(invoiceHeader.toUpperCase(), margin, startY - 10);
+          doc.font("Outfit-Bold").fontSize(8).fillColor("#64748b").text(String(invoiceHeader).toUpperCase(), margin, startY - 10);
         }
 
-        // Business Logo at top right if configured
-        if (receipt.shop.logo && receipt.shop.logo.startsWith("data:image/")) {
+        // Store Logo placement on top right (fit within max 120x50, keeping aspect ratio, preventing overlap)
+        if (receipt.shop?.logo && receipt.shop.logo.startsWith("data:image/")) {
           try {
             const base64Data = receipt.shop.logo.split(",")[1];
             if (base64Data) {
               const logoBuffer = Buffer.from(base64Data, "base64");
-              doc.image(logoBuffer, pageWidth - margin - 100, startY, { width: 100 });
+              doc.image(logoBuffer, pageWidth - margin - 125, startY, { fit: [125, 50], align: "right", valign: "top" });
             }
           } catch (e) {
             console.error("Failed to render logo in PDF invoice:", e);
           }
         }
 
-        // Title Block
-        doc.font("Outfit-Bold").fontSize(template === "Premium" ? 24 : 20).fillColor(primaryColor).text(receipt.shop.name, margin, startY, { width: 380 });
-        doc.font("Outfit").fontSize(9).fillColor("#475569");
-        doc.text(receipt.shop.address, { width: 380 });
-        doc.text(`Phone: ${receipt.shop.phone} | Email: ${receipt.shop.email || "support@apkabill.in"} | GSTIN: ${receipt.shop.gstin}`, { width: 380 });
+        // Store Title & Header Metadata
+        const shopTitleWidth = 350;
+        doc.font("Outfit-Bold").fontSize(template === "Premium" ? 22 : 18).fillColor(primaryColor).text(receipt.shop?.name || "APKA BILL STORE", margin, startY, { width: shopTitleWidth });
+        doc.font("Outfit").fontSize(8.5).fillColor("#475569");
+        doc.text(receipt.shop?.address || "", { width: shopTitleWidth });
+        doc.text(`Phone: ${receipt.shop?.phone || "-"} | Email: ${receipt.shop?.email || "support@apkabill.in"} | GSTIN: ${receipt.shop?.gstin || "-"}`, { width: shopTitleWidth });
 
-        doc.moveDown(1);
-
-        // Divider Line
-        doc.strokeColor(template === "Premium" ? primaryColor : "#cbd5e1").lineWidth(template === "Premium" ? 2 : 1).moveTo(margin, doc.y).lineTo(pageWidth - margin, doc.y).stroke();
         doc.moveDown(0.8);
 
-        // Customer & Invoice Details Metadata
+        // Header Divider Line
+        doc.strokeColor(template === "Premium" ? primaryColor : "#cbd5e1").lineWidth(template === "Premium" ? 1.5 : 1).moveTo(margin, doc.y).lineTo(pageWidth - margin, doc.y).stroke();
+        doc.moveDown(0.6);
+
+        // Two-Column Area: BILL TO (Left) vs INVOICE DETAILS (Right)
         const metaY = doc.y;
-        doc.font("Outfit-Bold").fontSize(10).fillColor(primaryColor).text("BILL TO:", margin, metaY);
-        doc.font("Outfit").fillColor("#000000").text(receipt.customer.name, margin, metaY + 14);
-        if (receipt.customer.phone) {
-          doc.text(`Phone: +91 ${receipt.customer.phone}`, margin, metaY + 26);
+        const leftMetaWidth = 250;
+        doc.font("Outfit-Bold").fontSize(9.5).fillColor(primaryColor).text("BILL TO:", margin, metaY);
+        doc.font("Outfit").fontSize(9).fillColor("#000000").text(receipt.customer?.name || "Walk-in Customer", margin, metaY + 14, { width: leftMetaWidth });
+        if (receipt.customer?.phone) {
+          doc.text(`Phone: +91 ${receipt.customer.phone}`, margin, metaY + 26, { width: leftMetaWidth });
         }
 
-        const rightMetaX = 350;
-        doc.font("Outfit-Bold").fillColor(primaryColor).text("INVOICE DETAILS:", rightMetaX, metaY);
-        doc.font("Outfit").fillColor("#000000").text(`Invoice Number: ${receipt.invoiceNumber}`, rightMetaX, metaY + 14);
-        doc.text(`Date & Time: ${receipt.date} ${receipt.time}`, rightMetaX, metaY + 26);
-        doc.text(`Cashier: ${receipt.cashier}`, rightMetaX, metaY + 38);
+        const rightMetaX = 330;
+        const rightMetaWidth = pageWidth - margin - rightMetaX;
+        doc.font("Outfit-Bold").fontSize(9.5).fillColor(primaryColor).text("INVOICE DETAILS:", rightMetaX, metaY);
+        doc.font("Outfit").fontSize(9).fillColor("#000000").text(`Invoice #: ${receipt.invoiceNumber}`, rightMetaX, metaY + 14, { width: rightMetaWidth });
+        doc.text(`Date & Time: ${receipt.date} ${receipt.time}`, rightMetaX, metaY + 26, { width: rightMetaWidth });
+        doc.text(`Cashier: ${receipt.cashier || "Admin"}`, rightMetaX, metaY + 38, { width: rightMetaWidth });
 
         if (receipt.status === "VOID") {
-          doc.font("Outfit-Bold").fillColor("#ef4444").text("STATUS: VOID", rightMetaX, metaY + 50);
-          doc.font("Outfit").fillColor("#ef4444").text(`Reason: ${receipt.voidReason || "N/A"}`, rightMetaX, metaY + 62);
+          doc.font("Outfit-Bold").fillColor("#ef4444").text("STATUS: VOID (Cancelled)", rightMetaX, metaY + 50, { width: rightMetaWidth });
+          doc.font("Outfit").fillColor("#ef4444").text(`Reason: ${receipt.voidReason || "N/A"}`, rightMetaX, metaY + 62, { width: rightMetaWidth });
           doc.fillColor("#000000");
         }
 
-        const metaHeight = receipt.status === "VOID" ? 80 : 55;
-        doc.y = metaY + metaHeight + 15;
+        const metaHeight = receipt.status === "VOID" ? 78 : 52;
+        doc.y = metaY + metaHeight + 12;
 
-        // Top QR Position option
+        // Top Payment QR Position Option
         if (qrPosition === "Top" && receipt.paymentMethod === "UPI" && receipt.upiQrCode) {
           try {
             const base64Data = receipt.upiQrCode.split(",")[1];
             if (base64Data) {
               const qrBuffer = Buffer.from(base64Data, "base64");
               const qrY = doc.y;
-              doc.image(qrBuffer, margin, qrY, { width: 65 });
-              doc.font("Outfit").fontSize(8).fillColor("#64748b").text("Scan to Pay via UPI", margin, qrY + 68);
-              doc.y = qrY + 80;
+              doc.image(qrBuffer, margin, qrY, { width: 60 });
+              doc.font("Outfit").fontSize(8).fillColor("#64748b").text("Scan to Pay via UPI", margin, qrY + 63);
+              doc.y = qrY + 75;
             }
           } catch (e) {
             console.error("Failed to render top QR code in PDF:", e);
@@ -127,10 +136,10 @@ export class PdfService {
         // Table Header Generator
         const drawTableHeader = () => {
           const tableY = doc.y;
-          const bgHeader = template === "Premium" ? primaryColor : "#f1f5f9";
-          const fgHeader = template === "Premium" ? "#ffffff" : primaryColor;
+          const bgHeader = (template === "Premium" || template === "GST Professional") ? primaryColor : "#f1f5f9";
+          const fgHeader = (template === "Premium" || template === "GST Professional") ? "#ffffff" : primaryColor;
           doc.rect(margin, tableY - 4, contentWidth, 20).fill(bgHeader);
-          doc.font("Outfit-Bold").fontSize(9).fillColor(fgHeader);
+          doc.font("Outfit-Bold").fontSize(8.5).fillColor(fgHeader);
 
           doc.text("Item Details", margin + 5, tableY + 1, { width: 205 });
           doc.text("Qty", margin + 215, tableY + 1, { width: 40, align: "right" });
@@ -140,13 +149,13 @@ export class PdfService {
           doc.text("Total Amount", margin + 430, tableY + 1, { width: 80, align: "right" });
 
           doc.moveDown(0.8);
-          doc.font("Outfit").fontSize(9).fillColor("#000000");
+          doc.font("Outfit").fontSize(8.5).fillColor("#000000");
         };
 
         drawTableHeader();
 
         // Table Rows Loop
-        for (const item of receipt.items) {
+        for (const item of (receipt.items || [])) {
           if (doc.y > 670) {
             doc.addPage();
             doc.y = margin;
@@ -154,8 +163,8 @@ export class PdfService {
           }
 
           const rowY = doc.y;
-          doc.text(item.name, margin + 5, rowY, { width: 205 });
-          doc.text(String(item.qty), margin + 215, rowY, { width: 40, align: "right" });
+          doc.text(item.name || "Item", margin + 5, rowY, { width: 205 });
+          doc.text(String(item.qty || 1), margin + 215, rowY, { width: 40, align: "right" });
           doc.text(formatInrPdf(item.price), margin + 260, rowY, { width: 65, align: "right" });
           doc.text(`${item.discount || 0}%`, margin + 330, rowY, { width: 45, align: "right" });
           doc.text(`${item.gst || 0}%`, margin + 380, rowY, { width: 45, align: "right" });
@@ -167,33 +176,33 @@ export class PdfService {
         doc.strokeColor("#e2e8f0").lineWidth(1).moveTo(margin, doc.y).lineTo(pageWidth - margin, doc.y).stroke();
         doc.moveDown(0.5);
 
-        // Page break for Summary if needed
+        // Summary Block Page Break Check
         if (doc.y > 640) {
           doc.addPage();
           doc.y = margin;
         }
 
-        const summaryStartY = doc.y + 10;
+        const summaryStartY = doc.y + 8;
 
         // Left Block: Payment Details & QR Code
         doc.font("Outfit-Bold").fontSize(9).fillColor(primaryColor).text("PAYMENT & TRANSACTION DETAILS", margin, summaryStartY);
-        doc.font("Outfit").fontSize(9).fillColor("#000000").text(`Method: ${receipt.paymentMethod}`, margin, summaryStartY + 14);
+        doc.font("Outfit").fontSize(8.5).fillColor("#000000").text(`Method: ${receipt.paymentMethod || "Cash"}`, margin, summaryStartY + 14);
         doc.text(`Status: ${receipt.status === "VOID" ? "VOID (Cancelled)" : "Paid"}`, margin, summaryStartY + 26);
 
         let leftBlockHeight = 45;
         if (receipt.paymentMethod === "UPI") {
-          doc.text(`UPI ID: ${receipt.shop.upiId || "apkabill@upi"}`, margin, summaryStartY + 38, { width: 220 });
-          leftBlockHeight = 55;
+          doc.text(`UPI ID: ${receipt.shop?.upiId || "apkabill@upi"}`, margin, summaryStartY + 38, { width: 220 });
+          leftBlockHeight = 52;
 
           if (qrPosition === "Bottom" && receipt.upiQrCode) {
             try {
               const base64Data = receipt.upiQrCode.split(",")[1];
               if (base64Data) {
                 const qrBuffer = Buffer.from(base64Data, "base64");
-                const qrY = summaryStartY + 52;
-                doc.image(qrBuffer, margin, qrY, { width: 65 });
-                doc.font("Outfit").fontSize(8).fillColor("#64748b").text("Scan to Pay via UPI", margin, qrY + 68);
-                leftBlockHeight = 135;
+                const qrY = summaryStartY + 50;
+                doc.image(qrBuffer, margin, qrY, { width: 60 });
+                doc.font("Outfit").fontSize(7.5).fillColor("#64748b").text("Scan to Pay via UPI", margin, qrY + 63);
+                leftBlockHeight = 125;
               }
             } catch (e) {
               console.error("Failed to render QR code in PDF:", e);
@@ -206,7 +215,7 @@ export class PdfService {
         const rightValueX = 440;
         const valWidth = 105;
 
-        doc.font("Outfit").fontSize(9).fillColor("#475569");
+        doc.font("Outfit").fontSize(8.5).fillColor("#475569");
         doc.text("Subtotal:", rightLabelX, summaryStartY);
         doc.text(formatInrPdf(receipt.subtotal), rightValueX, summaryStartY, { align: "right", width: valWidth });
 
@@ -216,15 +225,15 @@ export class PdfService {
         doc.text("GST Tax:", rightLabelX, summaryStartY + 28);
         doc.text(`+${formatInrPdf(receipt.gst)}`, rightValueX, summaryStartY + 28, { align: "right", width: valWidth });
 
-        // Styled Grand Total Box
-        const grandTotalBoxY = summaryStartY + 45;
-        doc.rect(rightLabelX - 5, grandTotalBoxY, 220, 26).fill(primaryColor);
-        doc.font("Outfit-Bold").fontSize(11).fillColor("#ffffff").text("Grand Total:", rightLabelX + 5, grandTotalBoxY + 7);
-        doc.text(formatInrPdf(receipt.grandTotal), rightValueX, grandTotalBoxY + 7, { align: "right", width: valWidth });
+        // Grand Total Box Styling
+        const grandTotalBoxY = summaryStartY + 44;
+        doc.rect(rightLabelX - 5, grandTotalBoxY, 220, 24).fill(primaryColor);
+        doc.font("Outfit-Bold").fontSize(10.5).fillColor("#ffffff").text("Grand Total:", rightLabelX + 5, grandTotalBoxY + 6);
+        doc.text(formatInrPdf(receipt.grandTotal), rightValueX, grandTotalBoxY + 6, { align: "right", width: valWidth });
 
-        const rightBlockHeight = 80;
+        const rightBlockHeight = 78;
         const summaryHeight = Math.max(leftBlockHeight, rightBlockHeight);
-        doc.y = summaryStartY + summaryHeight + 15;
+        doc.y = summaryStartY + summaryHeight + 12;
 
         // Terms and Signature Section
         if (doc.y > 670) {
@@ -234,19 +243,22 @@ export class PdfService {
 
         const footerBlockY = doc.y;
 
-        // Left Side: Policy & Terms
-        doc.font("Outfit-Bold").fontSize(8).fillColor(primaryColor).text("EXCHANGE POLICY & TERMS:", margin, footerBlockY);
-        doc.font("Outfit").fontSize(8).fillColor("#475569").text(termsAndConditions || exchangePolicy, margin, footerBlockY + 12, { width: 270 });
+        // Left Side: Terms and Conditions / Store Policy (Render ONLY if configured)
+        if (termsAndConditions && String(termsAndConditions).trim().length > 0) {
+          doc.font("Outfit-Bold").fontSize(8).fillColor(primaryColor).text("TERMS & CONDITIONS:", margin, footerBlockY);
+          doc.font("Outfit").fontSize(7.5).fillColor("#475569").text(String(termsAndConditions).trim(), margin, footerBlockY + 12, { width: 270 });
+        }
         if (website) {
-          doc.text(`Website: ${website}`, margin, footerBlockY + 40);
+          const webY = (termsAndConditions && String(termsAndConditions).trim().length > 0) ? footerBlockY + 38 : footerBlockY;
+          doc.font("Outfit").fontSize(7.5).fillColor("#475569").text(`Website: ${website}`, margin, webY);
         }
 
         // Right Side: Authorized Signature (Strictly right-aligned)
         const sigX = 350;
         const sigWidth = 205;
-        doc.font("Outfit-Bold").fontSize(9).fillColor(primaryColor).text(`FOR ${receipt.shop.name.toUpperCase()}`, sigX, footerBlockY, { align: "right", width: sigWidth });
-        doc.strokeColor("#cbd5e1").lineWidth(0.5).moveTo(sigX + 30, footerBlockY + 38).lineTo(sigX + sigWidth, footerBlockY + 38).stroke();
-        doc.font("Outfit").fontSize(8).fillColor("#64748b").text(signature, sigX, footerBlockY + 43, { align: "right", width: sigWidth });
+        doc.font("Outfit-Bold").fontSize(8.5).fillColor(primaryColor).text(`FOR ${(receipt.shop?.name || "STORE").toUpperCase()}`, sigX, footerBlockY, { align: "right", width: sigWidth });
+        doc.strokeColor("#cbd5e1").lineWidth(0.5).moveTo(sigX + 30, footerBlockY + 35).lineTo(sigX + sigWidth, footerBlockY + 35).stroke();
+        doc.font("Outfit").fontSize(7.5).fillColor("#64748b").text(signature, sigX, footerBlockY + 40, { align: "right", width: sigWidth });
 
         // Bottom Page Footers
         const range = doc.bufferedPageRange();
@@ -261,8 +273,8 @@ export class PdfService {
             doc.restore();
           }
 
-          const footerY = pageHeight - 65;
-          doc.font("Outfit-Bold").fontSize(8).fillColor(primaryColor).text(receipt.thankYouMessage, margin, footerY, { align: "center", width: contentWidth, lineBreak: false });
+          const footerY = pageHeight - 55;
+          doc.font("Outfit-Bold").fontSize(8).fillColor(primaryColor).text(receipt.thankYouMessage || "Thank you for your business!", margin, footerY, { align: "center", width: contentWidth, lineBreak: false });
           doc.font("Outfit").fontSize(7).fillColor("#94a3b8").text("Generated automatically via Apka Bill POS ecosystem.", margin, footerY + 12, { align: "center", width: contentWidth, lineBreak: false });
           doc.text(`Page ${i + 1} of ${range.count}`, margin, footerY + 22, { align: "center", width: contentWidth, lineBreak: false });
         }
