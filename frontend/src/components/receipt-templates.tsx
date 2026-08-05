@@ -45,7 +45,7 @@ interface TemplateProps {
 }
 
 export function ClassicTemplate({ receipt, qrPosition }: TemplateProps) {
-  const formatInr = (val: number) => `₹${val.toFixed(2)}`;
+const formatInr = (val: any) => `₹${(Number.isFinite(Number(val)) ? Number(val) : 0).toFixed(2)}`;
 
   const qr = (
     <div style={{ display: "flex", flexDirection: "column", alignItems: "center", margin: "6px 0" }}>
@@ -154,7 +154,7 @@ export function ClassicTemplate({ receipt, qrPosition }: TemplateProps) {
 }
 
 export function RetailTemplate({ receipt, qrPosition }: TemplateProps) {
-  const formatInr = (val: number) => `₹${val.toFixed(2)}`;
+const formatInr = (val: any) => `₹${(Number.isFinite(Number(val)) ? Number(val) : 0).toFixed(2)}`;
 
   const qr = (
     <div style={{ display: "flex", flexDirection: "column", alignItems: "center", margin: "6px 0" }}>
@@ -274,7 +274,7 @@ export function RetailTemplate({ receipt, qrPosition }: TemplateProps) {
 }
 
 export function PremiumTemplate({ receipt, qrPosition }: TemplateProps) {
-  const formatInr = (val: number) => `₹${val.toFixed(2)}`;
+const formatInr = (val: any) => `₹${(Number.isFinite(Number(val)) ? Number(val) : 0).toFixed(2)}`;
 
   const qr = (
     <div style={{ display: "flex", flexDirection: "column", alignItems: "center", margin: "8px 0" }}>
@@ -386,7 +386,7 @@ export function PremiumTemplate({ receipt, qrPosition }: TemplateProps) {
 }
 
 export function CompactTemplate({ receipt }: TemplateProps) {
-  const formatInr = (val: number) => `₹${val.toFixed(2)}`;
+const formatInr = (val: any) => `₹${(Number.isFinite(Number(val)) ? Number(val) : 0).toFixed(2)}`;
 
   return (
     <div style={{ display: "flex", flexDirection: "column", width: "100%", boxSizing: "border-box", fontSize: "9px", lineHeight: "1.1" }}>
@@ -463,7 +463,7 @@ export function CompactTemplate({ receipt }: TemplateProps) {
 }
 
 export function ModernTemplate({ receipt, qrPosition }: TemplateProps) {
-  const formatInr = (val: number) => `₹${val.toFixed(2)}`;
+const formatInr = (val: any) => `₹${(Number.isFinite(Number(val)) ? Number(val) : 0).toFixed(2)}`;
 
   const qr = (
     <div style={{ display: "flex", flexDirection: "column", alignItems: "center", margin: "6px 0" }}>
@@ -550,7 +550,7 @@ export function ModernTemplate({ receipt, qrPosition }: TemplateProps) {
 }
 
 export function MinimalTemplate({ receipt }: TemplateProps) {
-  const formatInr = (val: number) => `₹${val.toFixed(2)}`;
+const formatInr = (val: any) => `₹${(Number.isFinite(Number(val)) ? Number(val) : 0).toFixed(2)}`;
 
   return (
     <div style={{ display: "flex", flexDirection: "column", width: "100%", boxSizing: "border-box", fontFamily: "monospace", fontSize: "10px" }}>
@@ -594,7 +594,7 @@ export function MinimalTemplate({ receipt }: TemplateProps) {
 }
 
 export function GstProfessionalTemplate({ receipt, qrPosition }: TemplateProps) {
-  const formatInr = (val: number) => `₹${val.toFixed(2)}`;
+const formatInr = (val: any) => `₹${(Number.isFinite(Number(val)) ? Number(val) : 0).toFixed(2)}`;
 
   const qr = (
     <div style={{ display: "flex", flexDirection: "column", alignItems: "center", margin: "6px 0" }}>
@@ -706,6 +706,72 @@ interface ReceiptRendererProps {
   qrPosition?: "Top" | "Bottom";
 }
 
+const safeNumber = (val: any, fallback = 0): number => {
+  const num = Number(val);
+  return Number.isFinite(num) ? num : fallback;
+};
+
+export function normalizeReceiptData(raw: any): ReceiptData {
+  const rawItems = Array.isArray(raw?.items) ? raw.items : [];
+  const items: ReceiptItem[] = rawItems.map((item: any) => {
+    const qty = safeNumber(item?.qty ?? item?.quantity, 1);
+    const price = safeNumber(item?.price ?? item?.unitPrice ?? item?.unit_price, 0);
+    const lineTotal = safeNumber(
+      item?.lineTotal ?? item?.total ?? item?.totalAmount ?? item?.subtotal,
+      qty * price
+    );
+    return {
+      name: String(item?.name || "Item"),
+      qty,
+      price,
+      discount: safeNumber(item?.discount, 0),
+      gst: safeNumber(item?.gst ?? item?.taxRate, 0),
+      lineTotal,
+    };
+  });
+
+  const subtotal = safeNumber(
+    raw?.subtotal,
+    items.reduce((acc, i) => acc + i.lineTotal, 0)
+  );
+  const discount = safeNumber(raw?.discount ?? raw?.discountTotal, 0);
+  const gst = safeNumber(raw?.gst ?? raw?.tax, 0);
+  const grandTotal = safeNumber(
+    raw?.grandTotal ?? raw?.total ?? raw?.totalAmount,
+    Math.max(0, subtotal - discount + gst)
+  );
+
+  return {
+    shop: {
+      name: String(raw?.shop?.name || "Apka Bill Store"),
+      address: String(raw?.shop?.address || "Store Address"),
+      phone: String(raw?.shop?.phone || "0000000000"),
+      gstin: String(raw?.shop?.gstin || "N/A"),
+      logo: raw?.shop?.logo,
+      upiId: raw?.shop?.upiId || "apkabill@upi",
+    },
+    invoiceNumber: String(raw?.invoiceNumber || raw?.invoice_number || "INV-00001"),
+    date: String(raw?.date || new Date().toLocaleDateString("en-IN")),
+    time: String(raw?.time || new Date().toLocaleTimeString("en-IN")),
+    cashier: String(raw?.cashier || "Admin"),
+    customer: {
+      name: String(raw?.customer?.name || "Walk-in Customer"),
+      phone: String(raw?.customer?.phone || ""),
+    },
+    items,
+    subtotal,
+    discount,
+    gst,
+    grandTotal,
+    paymentMethod: String(raw?.paymentMethod || raw?.paymentMode || raw?.payment_method || "CASH"),
+    upiQrCode: raw?.upiQrCode,
+    upiPayload: raw?.upiPayload,
+    thankYouMessage: String(
+      raw?.thankYouMessage || raw?.termsAndConditions || raw?.receipt_footer || "Thank you for shopping with us!"
+    ),
+  };
+}
+
 export function ReceiptRenderer({
   receipt,
   template,
@@ -713,9 +779,10 @@ export function ReceiptRenderer({
   qrPosition = "Bottom"
 }: ReceiptRendererProps) {
   const normWidth = paperWidth === "A4" ? "80mm" : paperWidth;
+  const safeReceipt = normalizeReceiptData(receipt);
 
   const props = {
-    receipt,
+    receipt: safeReceipt,
     paperWidth: normWidth,
     qrPosition
   };

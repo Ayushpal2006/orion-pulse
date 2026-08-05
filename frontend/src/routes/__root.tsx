@@ -141,6 +141,7 @@ function RootComponent() {
           .register("/sw.js")
           .then((reg) => {
             console.log("Orion POS: Service Worker successfully loaded:", reg.scope);
+            reg.update();
           })
           .catch((err) => {
             console.error("Orion POS: Service Worker registration failed:", err);

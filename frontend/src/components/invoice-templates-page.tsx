@@ -292,6 +292,7 @@ export function InvoiceTemplatesPage() {
 
           <div className="rounded-2xl border border-border/80 bg-white p-5 shadow-lg max-w-xl mx-auto transition-all text-black">
             <ReceiptRenderer
+              template={s.receiptTemplate}
               receipt={{
                 shop: {
                   name: s.shopName || "Apka Bill Store",
@@ -310,17 +311,17 @@ export function InvoiceTemplatesPage() {
                   phone: "9876543210",
                 },
                 items: [
-                  { name: "Basmati Rice 5kg", qty: 2, price: 450, total: 900, taxRate: 5 },
-                  { name: "Sunflower Cooking Oil 1L", qty: 3, price: 165, total: 495, taxRate: 12 },
-                  { name: "Organic Whole Wheat Atta 10kg", qty: 1, price: 420, total: 420, taxRate: 0 },
+                  { name: "Basmati Rice 5kg", qty: 2, price: 450, lineTotal: 900, gst: 5 },
+                  { name: "Sunflower Cooking Oil 1L", qty: 3, price: 165, lineTotal: 495, gst: 12 },
+                  { name: "Organic Whole Wheat Atta 10kg", qty: 1, price: 420, lineTotal: 420, gst: 0 },
                 ],
                 subtotal: 1815,
-                tax: 104.4,
+                gst: 104.4,
                 discount: 50,
-                total: 1869.4,
-                paymentMode: "UPI",
-                termsAndConditions: s.termsAndConditions || s.invoiceFooter || "Goods once sold cannot be returned without original receipt.",
-              }}
+                grandTotal: 1869.4,
+                paymentMethod: "UPI",
+                thankYouMessage: s.termsAndConditions || s.invoiceFooter || "Goods once sold cannot be returned without original receipt.",
+              } as any}
             />
           </div>
         </div>

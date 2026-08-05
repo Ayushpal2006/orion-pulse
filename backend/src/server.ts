@@ -77,17 +77,42 @@ app.use(helmet({
 
 app.use(compression());
 
-// CORS configuration (no wildcards in production)
-const allowedOrigins = env.ALLOWED_ORIGINS.split(",");
+// CORS configuration (deploy-safe, handles preflight OPTIONS & mobile origins)
+const parseAllowedOrigins = (originsStr: string): string[] => {
+  return originsStr.split(",").map((o) => o.trim().replace(/\/+$/, "")).filter(Boolean);
+};
+
 app.use(cors({
   origin: (origin, callback) => {
+    // Allow non-browser requests (mobile native apps, curl, server-to-server) where origin is undefined
     if (!origin) return callback(null, true);
-    if (allowedOrigins.indexOf(origin) !== -1 || env.NODE_ENV === "development") {
+
+    const cleanOrigin = origin.trim().replace(/\/+$/, "");
+    const allowed = parseAllowedOrigins(env.ALLOWED_ORIGINS);
+
+    if (
+      env.NODE_ENV === "development" ||
+      allowed.includes(cleanOrigin) ||
+      allowed.includes("*") ||
+      allowed.some((a) => a.startsWith("*.") && cleanOrigin.endsWith(a.slice(1)))
+    ) {
       return callback(null, true);
     }
-    return callback(new Error("Not allowed by CORS"));
+
+    // Pass false to omit CORS headers without throwing an Express error that breaks preflight OPTIONS with 400/500
+    return callback(null, false);
   },
   credentials: true,
+  methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+  allowedHeaders: [
+    "Content-Type",
+    "Authorization",
+    "X-Store-Id",
+    "X-Organization-Id",
+    "Accept",
+    "Origin",
+    "X-Requested-With",
+  ],
 }));
 
 // Request body payload limits

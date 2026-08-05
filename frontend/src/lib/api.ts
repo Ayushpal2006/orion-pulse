@@ -1,9 +1,18 @@
 import type { Product } from "./mock-data";
 
 const getApiBaseUrl = (): string => {
-  const rawUrl = (typeof import.meta !== "undefined" && import.meta.env?.VITE_API_URL) || "http://localhost:8080";
+  const windowEnv = typeof window !== "undefined"
+    ? ((window as any).__ENV__?.VITE_API_URL || (window as any).VITE_API_URL || (window as any).API_BASE_URL || localStorage.getItem("VITE_API_URL"))
+    : undefined;
+
+  const rawUrl = windowEnv || (typeof import.meta !== "undefined" && import.meta.env?.VITE_API_URL) || "http://localhost:8080";
   let cleanUrl = rawUrl.trim().replace(/['"]/g, "");
-  
+
+  // Strip trailing /api or /api/ if provided in VITE_API_URL to prevent /api/api double prefixing
+  cleanUrl = cleanUrl.replace(/\/api\/?$/i, "");
+  // Strip trailing slashes
+  cleanUrl = cleanUrl.replace(/\/+$/, "");
+
   if (cleanUrl && !/^https?:\/\//i.test(cleanUrl)) {
     if (cleanUrl.startsWith("localhost") || cleanUrl.startsWith("127.0.0.1")) {
       cleanUrl = `http://${cleanUrl}`;
@@ -11,6 +20,14 @@ const getApiBaseUrl = (): string => {
       cleanUrl = `https://${cleanUrl}`;
     }
   }
+
+  // Force HTTPS if frontend is loaded over HTTPS and target is not localhost/127.0.0.1 (Mixed Content prevention)
+  if (typeof window !== "undefined" && window.location.protocol === "https:" && cleanUrl.startsWith("http://")) {
+    if (!cleanUrl.includes("localhost") && !cleanUrl.includes("127.0.0.1")) {
+      cleanUrl = cleanUrl.replace(/^http:\/\//i, "https://");
+    }
+  }
+
   return cleanUrl;
 };
 
@@ -20,10 +37,11 @@ export function buildImageUrl(imageUrl: string | null | undefined): string | und
   if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
     return trimmed;
   }
-  return `${API_BASE_URL}${trimmed}`;
+  return `${API_BASE_URL}${trimmed.startsWith("/") ? "" : "/"}${trimmed}`;
 }
 
 export const API_BASE_URL = getApiBaseUrl();
+console.log("API BASE URL:", API_BASE_URL);
 
 export async function apiFetch(input: RequestInfo | URL, init: RequestInit = {}): Promise<Response> {
   const token = typeof window !== "undefined" ? localStorage.getItem("token") || "" : "";
@@ -41,7 +59,13 @@ export async function apiFetch(input: RequestInfo | URL, init: RequestInit = {})
     headers.set("X-Organization-Id", currentOrgId);
   }
 
-  return fetch(input, { ...init, headers });
+  try {
+    return await fetch(input, { ...init, headers });
+  } catch (error: any) {
+    const urlStr = typeof input === "string" ? input : input instanceof URL ? input.toString() : (input as Request).url;
+    console.error(`[apiFetch Error] ${init.method || "GET"} ${urlStr} failed:`, error);
+    throw error;
+  }
 }
 
 export function mapBackendProductToFrontend(p: any): Product {
@@ -549,6 +573,44 @@ export async function getReportsData(
     }
     throw error;
   }
+}
+
+export async function downloadReportPdfApi(
+  filter: string,
+  startDate?: string,
+  endDate?: string,
+  showVoidInvoices: boolean = false
+): Promise<Blob> {
+  let url = `${API_BASE_URL}/reports/pdf?filter=${encodeURIComponent(filter)}`;
+  if (startDate) url += `&startDate=${encodeURIComponent(startDate)}`;
+  if (endDate) url += `&endDate=${encodeURIComponent(endDate)}`;
+  if (showVoidInvoices) url += `&showVoidInvoices=true`;
+
+  const res = await apiFetch(url);
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.error || errorData.message || `PDF export failed with status: ${res.status}`);
+  }
+  return res.blob();
+}
+
+export async function downloadReportExcelApi(
+  filter: string,
+  startDate?: string,
+  endDate?: string,
+  showVoidInvoices: boolean = false
+): Promise<Blob> {
+  let url = `${API_BASE_URL}/reports/excel?filter=${encodeURIComponent(filter)}`;
+  if (startDate) url += `&startDate=${encodeURIComponent(startDate)}`;
+  if (endDate) url += `&endDate=${encodeURIComponent(endDate)}`;
+  if (showVoidInvoices) url += `&showVoidInvoices=true`;
+
+  const res = await apiFetch(url);
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.error || errorData.message || `Excel export failed with status: ${res.status}`);
+  }
+  return res.blob();
 }
 
 export async function uploadProductImage(productId: string, file: File): Promise<string> {
@@ -1703,16 +1765,26 @@ export async function getOrganizationStats(): Promise<any> {
 // ─── AUTHENTICATION V1 APIS ──────────────────────────────────────────────────
 
 export async function loginApi(email: string, password: string): Promise<any> {
-  const res = await apiFetch(`${API_BASE_URL}/api/auth/login`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email, password }),
-  });
-  const json = await res.json().catch(() => ({}));
-  if (!res.ok || !json.success) {
-    throw new Error(json.error || "Login failed");
+  const loginUrl = `${API_BASE_URL}/api/auth/login`;
+  console.log(`[Auth] Executing POST login to: ${loginUrl}`);
+  try {
+    const res = await apiFetch(loginUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password }),
+    });
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok || !json.success) {
+      throw new Error(json.error || json.message || "Login failed");
+    }
+    return json.data;
+  } catch (error: any) {
+    if (error instanceof TypeError && error.message === "Failed to fetch") {
+      console.error(`[API Network Error] POST ${loginUrl} - Failed to fetch. Check backend reachability, HTTPS, and CORS configuration.`);
+      throw new Error(`Unable to connect to backend server (${API_BASE_URL}). Please verify network connectivity.`);
+    }
+    throw error;
   }
-  return json.data;
 }
 
 export async function logoutApi(): Promise<any> {

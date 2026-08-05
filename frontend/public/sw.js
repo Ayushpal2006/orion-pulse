@@ -1,4 +1,4 @@
-const CACHE_NAME = "orion-pos-v1";
+const CACHE_NAME = "orion-pos-v3";
 const PRECACHE_ASSETS = [
   "/offline.html",
   "/manifest.json",
@@ -45,9 +45,16 @@ self.addEventListener("fetch", (event) => {
   const request = event.request;
   const url = new URL(request.url);
 
-  // 1. STRICT API BYPASS: Never cache or intercept dynamic transactions/reports/status routes
-  const isDynamicRoute =
+  // 1. STRICT NETWORK ONLY BYPASS:
+  // Non-GET requests (POST, PUT, DELETE), auth, login/logout, API routes, or cross-origin backend calls
+  // MUST NOT be intercepted or served from SW cache. Returning early lets browser execute native network fetch.
+  const isAuthOrApi =
+    request.method !== "GET" ||
+    url.origin !== self.location.origin ||
     url.pathname.startsWith("/api") ||
+    url.pathname.includes("/auth") ||
+    url.pathname.includes("/login") ||
+    url.pathname.includes("/logout") ||
     url.pathname.includes("/products") ||
     url.pathname.includes("/customers") ||
     url.pathname.includes("/checkout") ||
@@ -59,18 +66,26 @@ self.addEventListener("fetch", (event) => {
     url.pathname.includes("/printer") ||
     url.pathname.includes("/health");
 
-  if (isDynamicRoute && !url.pathname.startsWith("/assets")) {
-    event.respondWith(fetch(request));
-    return;
+  if (isAuthOrApi && !url.pathname.startsWith("/assets")) {
+    return; // Native browser network request
   }
 
   // 2. PAGE NAVIGATION: Return network response first, fallback to cached offline screen on disconnect
   if (request.mode === "navigate") {
     event.respondWith(
-      fetch(request).catch(() => {
-        console.warn("Service Worker: Network offline. Serving offline fallback screen.");
-        return caches.match("/offline.html");
-      })
+      fetch(request)
+        .then((response) => {
+          // If network response is valid and non-redirected, return directly
+          if (response && response.status === 200 && !response.redirected) {
+            return response;
+          }
+          // On network redirect or non-200 status when navigating, serve cached offline shell directly
+          return caches.match("/offline.html").then((offlineRes) => offlineRes || response);
+        })
+        .catch(() => {
+          console.warn("Service Worker: Network offline. Serving offline fallback screen.");
+          return caches.match("/offline.html");
+        })
     );
     return;
   }

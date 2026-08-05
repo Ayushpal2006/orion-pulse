@@ -204,7 +204,6 @@ const navTree: NavElement[] = [
     ],
   },
   { to: "/purchases", label: "Purchases", icon: Receipt, roles: ["Super Admin", "Admin", "Manager"] },
-  { to: "/invoice-templates", label: "Invoice Templates", icon: FileText, roles: ["Super Admin", "Admin", "Manager"] },
   { to: "/reports", label: "Reports", icon: BarChart3, roles: ["Super Admin", "Admin", "Manager"] },
   {
     label: "Finance",

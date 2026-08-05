@@ -15,7 +15,7 @@ import { inr } from "@/lib/format";
 import { useCan } from "@/components/role-gate";
 import { cn } from "@/lib/utils";
 import type { DateRange } from "react-day-picker";
-import { getReportsData, getSupplierReports, API_BASE_URL } from "@/lib/api";
+import { getReportsData, getSupplierReports, downloadReportPdfApi, downloadReportExcelApi } from "@/lib/api";
 import { InvoiceHistory } from "@/components/invoice-history";
 
 export const Route = createFileRoute("/reports")({
@@ -84,13 +84,30 @@ function Reports() {
     queryFn: getSupplierReports,
   });
 
-  const handleExport = (type: "pdf" | "excel") => {
-    const q = new URLSearchParams();
-    q.append("filter", filter);
-    if (startDateStr) q.append("startDate", startDateStr);
-    if (endDateStr) q.append("endDate", endDateStr);
-    if (showVoidInvoices) q.append("showVoidInvoices", "true");
-    window.open(`${API_BASE_URL}/reports/${type}?${q.toString()}`, "_blank");
+  const [exporting, setExporting] = useState<"pdf" | "excel" | null>(null);
+
+  const handleExport = async (type: "pdf" | "excel") => {
+    try {
+      setExporting(type);
+      toast.info(`Preparing ${type.toUpperCase()} report...`);
+      const blob = type === "pdf"
+        ? await downloadReportPdfApi(filter, startDateStr, endDateStr, showVoidInvoices)
+        : await downloadReportExcelApi(filter, startDateStr, endDateStr, showVoidInvoices);
+
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `Report_${filter}_${new Date().toISOString().slice(0, 10)}.${type === "pdf" ? "pdf" : "xlsx"}`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      toast.success(`${type.toUpperCase()} report downloaded successfully!`);
+    } catch (err: any) {
+      toast.error(`Failed to export ${type.toUpperCase()} report: ` + (err.message || "Unknown error"));
+    } finally {
+      setExporting(null);
+    }
   };
 
   if (isLoading) {
