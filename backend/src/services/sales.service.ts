@@ -4,7 +4,7 @@ import { Sale, SaleDetailResponse } from "../types/checkout.types";
 import { formatToKolkataDate, formatToKolkataTime } from "../utils/datetime";
 import QRCode from "qrcode";
 import { db } from "../db";
-import { sales, sale_items, products, customers, audit_logs, inventory_logs, stores, organizations } from "../db/schema";
+import { sales, sale_items, products, customers, audit_logs, inventory_logs, stores, organizations, settings } from "../db/schema";
 import { eq, and } from "drizzle-orm";
 import { storeStorage } from "../db/context";
 import { SyncQueueManager } from "./sync.service";
