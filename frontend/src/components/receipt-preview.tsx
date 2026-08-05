@@ -58,7 +58,7 @@ export function ReceiptPreview() {
     >
       <ReceiptRenderer
         receipt={normReceipt}
-        template={receiptTemplate}
+        templateName={receiptTemplate}
         paperWidth={paperWidth === "A4" ? "80mm" : paperWidth}
         qrPosition={qrPosition}
       />

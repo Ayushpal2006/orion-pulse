@@ -292,7 +292,7 @@ export function InvoiceTemplatesPage() {
 
           <div className="rounded-2xl border border-border/80 bg-white p-5 shadow-lg max-w-xl mx-auto transition-all text-black">
             <ReceiptRenderer
-              template={s.receiptTemplate}
+              templateName={s.receiptTemplate}
               receipt={{
                 shop: {
                   name: s.shopName || "Apka Bill Store",

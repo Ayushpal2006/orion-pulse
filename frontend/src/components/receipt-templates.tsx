@@ -554,8 +554,16 @@ export function ThermalTemplate(props: TemplateProps) {
 }
 
 // CANONICAL TEMPLATE DISPATCHER
-export function ReceiptRenderer({ templateName, receipt, qrPosition = "Bottom" }: { templateName: string; receipt: ReceiptData; qrPosition?: "Top" | "Bottom" }) {
-  const t = String(templateName || "Classic").trim();
+export interface ReceiptRendererProps {
+  templateName?: string;
+  template?: string;
+  receipt: ReceiptData;
+  qrPosition?: "Top" | "Bottom";
+  paperWidth?: "58mm" | "80mm" | "A4";
+}
+
+export function ReceiptRenderer({ templateName, template, receipt, qrPosition = "Bottom" }: ReceiptRendererProps) {
+  const t = String(templateName || template || "Classic").trim();
   if (t === "Modern") return <ModernTemplate receipt={receipt} qrPosition={qrPosition} />;
   if (t === "Minimal") return <MinimalTemplate receipt={receipt} qrPosition={qrPosition} />;
   if (t === "Retail") return <RetailTemplate receipt={receipt} qrPosition={qrPosition} />;

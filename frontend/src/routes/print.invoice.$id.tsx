@@ -58,7 +58,7 @@ function ThermalReceipt({ receipt, template, paperWidth, qrPosition }: ThermalRe
     >
       <ReceiptRenderer
         receipt={receipt}
-        template={template}
+        templateName={template}
         paperWidth={paperWidth}
         qrPosition={qrPosition}
       />
