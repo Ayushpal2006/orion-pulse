@@ -1,7 +1,7 @@
 import { db } from "../db";
 import { products, inventory_adjustments, inventory_logs, suppliers } from "../db/schema";
 import { eq, and, sql } from "drizzle-orm";
-import { getStoreId } from "../db/context";
+import { getTenantContext } from "../db/context";
 import { NotFoundError, ValidationError } from "../utils/errors";
 import { InventoryMovementService } from "./inventory-movement.service";
 
@@ -9,9 +9,10 @@ export class InventoryService {
   private movementService = new InventoryMovementService();
 
   async adjustStock(productId: number, quantity: number, type: "ADD" | "REMOVE", reason: string): Promise<any> {
-    const storeId = getStoreId();
-    if (storeId === undefined) {
-      throw new ValidationError("Store context is required");
+    const { organizationId, currentStoreId } = getTenantContext();
+    const storeId = currentStoreId;
+    if (!currentStoreId || !organizationId) {
+      throw new ValidationError("Store and Organization context are required");
     }
 
     if (quantity <= 0) {
@@ -22,7 +23,7 @@ export class InventoryService {
       const [product] = await tx
         .select()
         .from(products)
-        .where(and(eq(products.id, productId), eq(products.store_id, storeId)))
+        .where(and(eq(products.id, productId), eq(products.organization_id, organizationId), eq(products.store_id, currentStoreId)))
         .for("update");
 
       if (!product) {
@@ -87,9 +88,9 @@ export class InventoryService {
   }
 
   async getReorderSuggestions(): Promise<any[]> {
-    const storeId = getStoreId();
-    if (storeId === undefined) {
-      throw new ValidationError("Store context is required");
+    const { organizationId, currentStoreId } = getTenantContext();
+    if (!currentStoreId || !organizationId) {
+      throw new ValidationError("Store and Organization context are required");
     }
 
     const rows = await db
@@ -107,7 +108,8 @@ export class InventoryService {
       .where(
         and(
           eq(products.is_active, 1),
-          eq(products.store_id, storeId),
+          eq(products.organization_id, organizationId),
+          eq(products.store_id, currentStoreId),
           sql`${products.stock} <= ${products.minimum_stock}`
         )
       );
@@ -116,9 +118,9 @@ export class InventoryService {
   }
 
   async getInventoryValuation(): Promise<any> {
-    const storeId = getStoreId();
-    if (storeId === undefined) {
-      throw new ValidationError("Store context is required");
+    const { organizationId, currentStoreId } = getTenantContext();
+    if (!currentStoreId || !organizationId) {
+      throw new ValidationError("Store and Organization context are required");
     }
 
     const [summary] = await db
@@ -129,7 +131,7 @@ export class InventoryService {
         sellingValue: sql<string>`COALESCE(SUM(${products.stock} * ${products.selling_price}), 0)`,
       })
       .from(products)
-      .where(and(eq(products.is_active, 1), eq(products.store_id, storeId)));
+      .where(and(eq(products.is_active, 1), eq(products.organization_id, organizationId), eq(products.store_id, currentStoreId)));
 
     const costVal = Number(summary?.costValue || 0);
     const sellVal = Number(summary?.sellingValue || 0);

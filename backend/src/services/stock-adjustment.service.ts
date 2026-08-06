@@ -1,7 +1,7 @@
 import { db } from "../db";
 import { products } from "../db/schema";
 import { eq, and } from "drizzle-orm";
-import { getStoreId } from "../db/context";
+import { getStoreId, getTenantContext } from "../db/context";
 import { NotFoundError, ValidationError } from "../utils/errors";
 import { InventoryMovementService } from "./inventory-movement.service";
 import { stockAdjustmentRepository } from "../repositories";
@@ -11,9 +11,10 @@ export class StockAdjustmentService {
   private movementService = new InventoryMovementService();
 
   async create(data: CreateStockAdjustmentDTO): Promise<StockAdjustment> {
-    const storeId = getStoreId();
-    if (storeId === undefined) {
-      throw new ValidationError("Store context is required");
+    const { organizationId, currentStoreId } = getTenantContext();
+    const storeId = currentStoreId || getStoreId();
+    if (storeId === undefined || !organizationId) {
+      throw new ValidationError("Store and Organization context are required");
     }
 
     if (!data.product_id) {
@@ -33,7 +34,7 @@ export class StockAdjustmentService {
       const [product] = await tx
         .select()
         .from(products)
-        .where(and(eq(products.id, data.product_id), eq(products.store_id, storeId)))
+        .where(and(eq(products.id, data.product_id), eq(products.organization_id, organizationId), eq(products.store_id, storeId)))
         .for("update");
 
       if (!product) {

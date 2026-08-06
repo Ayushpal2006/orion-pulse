@@ -152,7 +152,7 @@ export function EditProductDialog({
             </Field>
           </div>
           <Field label="Category">
-            <Input value={form.category} onChange={(e) => upd("category", e.target.value)} placeholder="Shirts" disabled={submitting} />
+            <Input value={form.category} onChange={(e) => upd("category", e.target.value)} placeholder="e.g. Beverages, Main Course" disabled={submitting} />
           </Field>
           <div className="grid grid-cols-2 gap-3">
             <Field label="Purchase price">

@@ -56,8 +56,6 @@ export const Route = createFileRoute("/inventory")({
 type StatusFilter = "all" | "ok" | "low" | "out";
 type SortKey = "newest" | "name" | "price" | "stock";
 
-const DEFAULT_CATEGORIES = ["All", "Shirts", "Jeans", "T-Shirts", "Shoes", "Accessories"];
-
 function InventorySkeleton() {
   return (
     <div className="card-soft overflow-hidden animate-pulse">
@@ -145,8 +143,14 @@ export function Inventory() {
   }, [q]);
 
   const categories = useMemo(() => {
-    const found = Array.from(new Set(products.map((p) => p.category)));
-    return Array.from(new Set([...DEFAULT_CATEGORIES, ...found]));
+    const found = Array.from(
+      new Set(
+        products
+          .map((p) => p.category?.trim())
+          .filter((c): c is string => Boolean(c))
+      )
+    );
+    return ["All", ...found];
   }, [products]);
 
   const filtered = useMemo(() => {

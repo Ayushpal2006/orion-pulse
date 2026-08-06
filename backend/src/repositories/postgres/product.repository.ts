@@ -7,14 +7,14 @@ import { getTenantContext } from "../../db/context";
 import { inventoryCostService } from "../../services/inventory-cost.service";
 
 function buildTenantCondition(organizationId: number, currentStoreId: number, extraCond?: any) {
-  const storeCond = or(
+  const conditions = [
+    eq(products.organization_id, organizationId),
     eq(products.store_id, currentStoreId),
-    eq(products.store_id, 0),
-    isNull(products.store_id),
-    sql`${currentStoreId} = 0`
-  );
-  const orgCond = eq(products.organization_id, organizationId);
-  return extraCond ? and(orgCond, storeCond, extraCond) : and(orgCond, storeCond);
+  ];
+  if (extraCond) {
+    conditions.push(extraCond);
+  }
+  return and(...conditions);
 }
 
 export class PostgresProductRepository implements IProductRepository {
