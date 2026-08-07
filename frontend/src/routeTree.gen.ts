@@ -39,7 +39,7 @@ const SuppliersRoute = SuppliersRouteImport.update({
   id: '/suppliers',
   path: '/suppliers',
   getParentRoute: () => rootRouteImport,
-} as any)
+} as any).lazy(() => import('./routes/suppliers.lazy').then((d) => d.Route))
 const SuperAdminRoute = SuperAdminRouteImport.update({
   id: '/super-admin',
   path: '/super-admin',
@@ -64,22 +64,22 @@ const SettingsRoute = SettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
   getParentRoute: () => rootRouteImport,
-} as any)
+} as any).lazy(() => import('./routes/settings.lazy').then((d) => d.Route))
 const ReportsRoute = ReportsRouteImport.update({
   id: '/reports',
   path: '/reports',
   getParentRoute: () => rootRouteImport,
-} as any)
+} as any).lazy(() => import('./routes/reports.lazy').then((d) => d.Route))
 const PurchasesRoute = PurchasesRouteImport.update({
   id: '/purchases',
   path: '/purchases',
   getParentRoute: () => rootRouteImport,
-} as any)
+} as any).lazy(() => import('./routes/purchases.lazy').then((d) => d.Route))
 const ProfitRoute = ProfitRouteImport.update({
   id: '/profit',
   path: '/profit',
   getParentRoute: () => rootRouteImport,
-} as any)
+} as any).lazy(() => import('./routes/profit.lazy').then((d) => d.Route))
 const ProductsRoute = ProductsRouteImport.update({
   id: '/products',
   path: '/products',
@@ -99,12 +99,12 @@ const InventoryRoute = InventoryRouteImport.update({
   id: '/inventory',
   path: '/inventory',
   getParentRoute: () => rootRouteImport,
-} as any)
+} as any).lazy(() => import('./routes/inventory.lazy').then((d) => d.Route))
 const ExpensesRoute = ExpensesRouteImport.update({
   id: '/expenses',
   path: '/expenses',
   getParentRoute: () => rootRouteImport,
-} as any)
+} as any).lazy(() => import('./routes/expenses.lazy').then((d) => d.Route))
 const DashboardRoute = DashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
@@ -119,7 +119,7 @@ const BillingRoute = BillingRouteImport.update({
   id: '/billing',
   path: '/billing',
   getParentRoute: () => rootRouteImport,
-} as any)
+} as any).lazy(() => import('./routes/billing.lazy').then((d) => d.Route))
 const AdminRoute = AdminRouteImport.update({
   id: '/admin',
   path: '/admin',

@@ -30,50 +30,38 @@ export class PostgresDashboardRepository implements IDashboardRepository {
       eq(products.store_id, currentStoreId)
     );
 
-    // 1. Revenue Today
-    const [revRow] = await client
-      .select({ total: sql<string>`COALESCE(SUM(${sales.grand_total}), 0)` })
-      .from(sales)
-      .where(salesCond);
-    const revenue = Number(revRow?.total || 0);
-
-    // 2. Orders Today
-    const [orderRow] = await client
-      .select({ count: sql<string>`COUNT(*)` })
-      .from(sales)
-      .where(salesCond);
-    const orders = Number(orderRow?.count || 0);
-
-    // 3. Profit Today
-    let profitCond = and(
-      gte(sales.created_at, start),
-      lte(sales.created_at, end),
-      ne(sales.status, "VOID"),
-      eq(sales.organization_id, organizationId),
-      eq(sales.store_id, currentStoreId)
-    );
-    const [profitRow] = await client
-      .select({ profit: sql<string>`COALESCE(SUM(${sale_items.line_total} - (${products.purchase_price} * ${sale_items.quantity})), 0)` })
-      .from(sale_items)
-      .innerJoin(sales, eq(sale_items.sale_id, sales.id))
-      .innerJoin(products, eq(sale_items.product_id, products.id))
-      .where(profitCond);
-    const profit = Number(profitRow?.profit || 0);
-
-    // 4. Inventory Count
-    const [invRow] = await client
-      .select({ count: sql<string>`COUNT(*)` })
-      .from(products)
-      .where(productsCond);
-    const inventoryCount = Number(invRow?.count || 0);
-
-    // 5. Low Stock Count
     const lowStockCond = and(productsCond, sql`${products.stock} <= ${products.minimum_stock}`);
-    const [lowStockRow] = await client
-      .select({ count: sql<string>`COUNT(*)` })
-      .from(products)
-      .where(lowStockCond);
-    const lowStockCount = Number(lowStockRow?.count || 0);
+
+    // Execute independent queries concurrently via Promise.all
+    const [salesStatsRow, profitRow, invRow, lowStockRow] = await Promise.all([
+      client
+        .select({
+          total: sql<string>`COALESCE(SUM(${sales.grand_total}), 0)`,
+          count: sql<string>`COUNT(*)`
+        })
+        .from(sales)
+        .where(salesCond),
+      client
+        .select({ profit: sql<string>`COALESCE(SUM(${sale_items.line_total} - (${products.purchase_price} * ${sale_items.quantity})), 0)` })
+        .from(sale_items)
+        .innerJoin(sales, eq(sale_items.sale_id, sales.id))
+        .innerJoin(products, eq(sale_items.product_id, products.id))
+        .where(salesCond),
+      client
+        .select({ count: sql<string>`COUNT(*)` })
+        .from(products)
+        .where(productsCond),
+      client
+        .select({ count: sql<string>`COUNT(*)` })
+        .from(products)
+        .where(lowStockCond),
+    ]);
+
+    const revenue = Number(salesStatsRow[0]?.total || 0);
+    const orders = Number(salesStatsRow[0]?.count || 0);
+    const profit = Number(profitRow[0]?.profit || 0);
+    const inventoryCount = Number(invRow[0]?.count || 0);
+    const lowStockCount = Number(lowStockRow[0]?.count || 0);
 
     return {
       todayRevenue: revenue / 100.0,

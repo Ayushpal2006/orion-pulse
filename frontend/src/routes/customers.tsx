@@ -54,31 +54,34 @@ function Customers() {
     return () => clearTimeout(handler);
   }, [q]);
 
-  // Load all customers for stats computation
-  const { data: allCustomers = [], refetch: refetchAll } = useQuery({
-    queryKey: ["customers-all"],
+  // Single canonical query for initial customers list (prevents duplicate GET /customers calls)
+  const { data: allCustomers = [], isLoading: isLoadingAll, isError, refetch: refetchAll } = useQuery({
+    queryKey: ["customers"],
     queryFn: getCustomers,
   });
 
-  // Query customers using debounced query filter
-  const { data: filtered = [], isLoading, isError, refetch: refetchFiltered } = useQuery({
-    queryKey: ["customers", debouncedQ],
-    queryFn: () => debouncedQ ? searchCustomers(debouncedQ) : getCustomers(),
+  // Query search results only when search query is typed
+  const { data: searchResults = [], isLoading: isLoadingSearch } = useQuery({
+    queryKey: ["customers-search", debouncedQ],
+    queryFn: () => searchCustomers(debouncedQ),
+    enabled: Boolean(debouncedQ.trim()),
   });
+
+  const rawFiltered = debouncedQ.trim() ? searchResults : allCustomers;
+  const isLoading = debouncedQ.trim() ? isLoadingSearch : isLoadingAll;
 
   const [openId, setOpenId] = useState<string | null>(null);
 
   // Auto-refresh lists helper
   const handleRefresh = () => {
     refetchAll();
-    refetchFiltered();
     queryClient.invalidateQueries({ queryKey: ["customers"] });
-    queryClient.invalidateQueries({ queryKey: ["customers-all"] });
+    queryClient.invalidateQueries({ queryKey: ["customers-search"] });
   };
 
   // Convert backend Customer object schema to frontend Customer object schema
   const mappedFiltered: Customer[] = useMemo(() => {
-    return filtered.map((c: any) => ({
+    return rawFiltered.map((c: any) => ({
       id: String(c.id),
       name: c.name,
       mobile: c.phone,
@@ -90,7 +93,7 @@ function Customers() {
       address: c.address || undefined,
       notes: c.notes || undefined,
     }));
-  }, [filtered]);
+  }, [rawFiltered]);
 
   // Compute live statistics cards from all database customer records
   const stats = useMemo(() => {
@@ -175,7 +178,7 @@ function Customers() {
         <div className="flex h-32 flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-border bg-muted/20 p-6 text-center">
           <div className="text-sm font-semibold text-foreground">Customers could not be loaded</div>
           <div className="max-w-md text-xs text-muted-foreground">The backend database is not responding. Please retry.</div>
-          <Button variant="outline" size="sm" onClick={() => refetchFiltered()}>
+          <Button variant="outline" size="sm" onClick={() => refetchAll()}>
             <RefreshCw className="mr-2 size-4" /> Retry
           </Button>
         </div>

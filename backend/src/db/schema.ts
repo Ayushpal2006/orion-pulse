@@ -68,6 +68,7 @@ export const products = pgTable(
     barcodeIdx: index("idx_products_barcode").on(table.store_id, table.barcode),
     nameIdx: index("idx_products_name").on(table.name),
     categoryIdx: index("idx_products_category").on(table.category),
+    storeActiveIdx: index("idx_products_store_active").on(table.store_id, table.is_active),
   })
 );
 
@@ -131,6 +132,8 @@ export const sales = pgTable(
     publicTokenIdx: uniqueIndex("idx_sales_public_token").on(table.public_token),
     createdIdx: index("idx_sales_created_at").on(table.created_at),
     customerIdx: index("idx_sales_customer_id").on(table.customer_id),
+    storeCreatedIdx: index("idx_sales_store_created").on(table.store_id, table.created_at),
+    storeStatusCreatedIdx: index("idx_sales_store_status_created").on(table.store_id, table.status, table.created_at),
   })
 );
 
@@ -156,6 +159,7 @@ export const sale_items = pgTable(
     storeIdx: index("idx_sale_items_store_id").on(table.store_id),
     saleIdx: index("idx_sale_items_sale_id").on(table.sale_id),
     productIdx: index("idx_sale_items_product_id").on(table.product_id),
+    saleProdIdx: index("idx_sale_items_sale_product").on(table.sale_id, table.product_id),
   })
 );
 

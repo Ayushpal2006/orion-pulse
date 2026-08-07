@@ -4,9 +4,11 @@ export class DashboardService {
   private repo = dashboardRepository;
 
   async getDashboardData() {
-    const summary = await this.repo.getTodaySummary();
-    const topProducts = await this.repo.getTopProducts();
-    const recentSales = await this.repo.getRecentSales();
+    const [summary, topProducts, recentSales] = await Promise.all([
+      this.repo.getTodaySummary(),
+      this.repo.getTopProducts(),
+      this.repo.getRecentSales(),
+    ]);
 
     return {
       ...summary,

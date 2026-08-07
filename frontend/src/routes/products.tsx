@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { Inventory } from "./inventory";
+import { Inventory } from "./inventory.lazy";
 
 export const Route = createFileRoute("/products")({
   head: () => ({

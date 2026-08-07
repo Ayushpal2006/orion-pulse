@@ -34,28 +34,25 @@ export class PostgresReportsRepository implements IReportsRepository {
     const client = tx || db;
     let cond = this.getDateCondition(sales.created_at, filter, startDate, endDate, showVoid);
 
-    // 1. Revenue
-    const [revRow] = await client
-      .select({ total: sql<string>`COALESCE(SUM(${sales.grand_total}), 0)` })
-      .from(sales)
-      .where(cond);
-    const revenue = Number(revRow?.total || 0);
+    const [salesStatsRow, profitRow] = await Promise.all([
+      client
+        .select({
+          total: sql<string>`COALESCE(SUM(${sales.grand_total}), 0)`,
+          count: sql<string>`COUNT(*)`
+        })
+        .from(sales)
+        .where(cond),
+      client
+        .select({ profit: sql<string>`COALESCE(SUM(${sale_items.line_total} - (${products.purchase_price} * ${sale_items.quantity})), 0)` })
+        .from(sale_items)
+        .innerJoin(sales, eq(sale_items.sale_id, sales.id))
+        .innerJoin(products, eq(sale_items.product_id, products.id))
+        .where(cond),
+    ]);
 
-    // 2. Orders
-    const [orderRow] = await client
-      .select({ count: sql<string>`COUNT(*)` })
-      .from(sales)
-      .where(cond);
-    const orders = Number(orderRow?.count || 0);
-
-    // 3. Profit
-    const [profitRow] = await client
-      .select({ profit: sql<string>`COALESCE(SUM(${sale_items.line_total} - (${products.purchase_price} * ${sale_items.quantity})), 0)` })
-      .from(sale_items)
-      .innerJoin(sales, eq(sale_items.sale_id, sales.id))
-      .innerJoin(products, eq(sale_items.product_id, products.id))
-      .where(cond);
-    const profit = Number(profitRow?.profit || 0);
+    const revenue = Number(salesStatsRow[0]?.total || 0);
+    const orders = Number(salesStatsRow[0]?.count || 0);
+    const profit = Number(profitRow[0]?.profit || 0);
 
     return {
       revenue: revenue / 100.0,
