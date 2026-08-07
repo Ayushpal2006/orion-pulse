@@ -141,6 +141,77 @@ export class PdfRenderer {
   }
 }
 
+// 4. DANTSU FORMATTED TEXT RENDERER FOR NATIVE ANDROID ESC/POS
+export class DantsuFormattedRenderer {
+  static render(model: UniversalReceiptModel, options?: RenderOptions): string {
+    const paperWidth = options?.paperWidth || "80mm";
+    const maxLen = options?.charsPerLine || (paperWidth === "58mm" ? 32 : 48);
+    const divider = "-".repeat(maxLen);
+
+    const sb: string[] = [];
+
+    // Header
+    if (model.business.name) sb.push(`[C]<b><font size='big'>${model.business.name}</font></b>`);
+    if (model.store?.name) sb.push(`[C]${model.store.name}`);
+    if (model.business.address) sb.push(`[C]${model.business.address}`);
+    if (model.business.phone) sb.push(`[C]Ph: ${model.business.phone}`);
+    if (model.business.gstin) sb.push(`[C]GSTIN: ${model.business.gstin}`);
+
+    sb.push(`[C]${divider}`);
+
+    // Invoice details
+    sb.push(`[L]Inv: ${model.invoiceNumber}[R]${model.date}`);
+    if (model.customer?.name) sb.push(`[L]Customer: ${model.customer.name}`);
+    if (model.cashierName) sb.push(`[L]Cashier: ${model.cashierName}`);
+
+    sb.push(`[C]${divider}`);
+
+    // Table Header
+    sb.push(`[L]Item[R]Amount`);
+
+    // Items
+    for (const item of model.items) {
+      const itemName = item.name.substring(0, Math.floor(maxLen * 0.6));
+      sb.push(`[L]${itemName}`);
+      sb.push(`[L]  ${item.qty} x ₹${item.price.toFixed(2)}[R]₹${item.total.toFixed(2)}`);
+    }
+
+    sb.push(`[C]${divider}`);
+
+    // Summary
+    sb.push(`[L]Subtotal:[R]₹${model.subtotal.toFixed(2)}`);
+    if (model.discount > 0) sb.push(`[L]Discount:[R]-₹${model.discount.toFixed(2)}`);
+    if (model.tax > 0) sb.push(`[L]Tax:[R]₹${model.tax.toFixed(2)}`);
+
+    sb.push(`[C]--------------------------------`);
+    sb.push(`[L]<b><font size='tall'>TOTAL:</font></b>[R]<b><font size='tall'>₹${model.grandTotal.toFixed(2)}</font></b>`);
+    sb.push(`[C]--------------------------------`);
+
+    if (model.payment?.method) {
+      sb.push(`[L]Payment Method:[R]${model.payment.method}`);
+    }
+
+    sb.push(`[C]${divider}`);
+
+    // QR Code
+    if (options?.showQr !== false && (model.qrCodeUrl || model.invoiceNumber)) {
+      const qrData = model.qrCodeUrl || `https://apkabill.in/v/${model.invoiceNumber}`;
+      sb.push(`[C]<qrcode size='25'>${qrData}</qrcode>`);
+    }
+
+    // Footer
+    sb.push(`[C]${model.footerText || "Thank you for your business!"}`);
+    sb.push(`[C]Powered by Apka Bill POS`);
+    sb.push(`\n`);
+
+    if (options?.autoCut !== false) {
+      sb.push(`[C]<cut/>`);
+    }
+
+    return sb.join("\n");
+  }
+}
+
 // UNIVERSAL RECEIPT RENDERER FACADE
 export class UniversalReceiptRenderer {
   static toHtml(model: UniversalReceiptModel, options?: RenderOptions): string {
@@ -149,6 +220,10 @@ export class UniversalReceiptRenderer {
 
   static toEscPos(model: UniversalReceiptModel, options?: RenderOptions): Uint8Array {
     return EscPosRenderer.render(model, options);
+  }
+
+  static toDantsuFormattedText(model: UniversalReceiptModel, options?: RenderOptions): string {
+    return DantsuFormattedRenderer.render(model, options);
   }
 
   static async toPdfBlob(invoiceNumber: string): Promise<Blob> {

@@ -76,7 +76,15 @@ export function savePrinterCalibrationConfig(config: PrinterCalibrationConfig): 
 
 export async function runCalibrationTest(printerType: string, config: PrinterCalibrationConfig): Promise<{ success: boolean; report: PrinterDiagnosticsReport }> {
   const startTime = performance.now();
-  const success = await printerService.runTestPrint(printerType, config.paperWidth);
+  const testProfile: any = {
+    id: "calibration-test",
+    name: "Calibration Test",
+    connectionType: printerType as any,
+    paperWidth: config.paperWidth === "Custom" ? "80mm" : config.paperWidth,
+    autoCut: config.autoCut,
+    charsPerLine: config.charsPerLine,
+  };
+  const success = await printerService.runTestPrint(testProfile);
   const endTime = performance.now();
   const latency = Math.round(endTime - startTime);
 

@@ -13,7 +13,7 @@ import {
   deleteInvoice,
   voidSaleInvoice,
 } from "@/lib/api";
-import { getPrintAdapter } from "@/lib/print-adapter";
+import { printerService } from "@/lib/printer.service";
 import { EditInvoiceDialog } from "@/components/edit-invoice-dialog";
 import { Eye, Printer, FileText, Share2, Link, Copy, Trash2, Edit3, AlertTriangle, RefreshCw, Mail } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -55,10 +55,11 @@ export function InvoiceActionsMenu({
   const handlePrint = async () => {
     setPrinting(true);
     try {
-      const adapter = getPrintAdapter();
-      await adapter.print(receipt);
-      toast.success("Receipt printed successfully");
-      await logSaleAudit(invoiceNumber, "INVOICE_PRINT", `${role} printed Invoice ${invoiceNumber}`);
+      const ok = await printerService.print(receipt);
+      if (ok) {
+        toast.success("Receipt printed successfully");
+        await logSaleAudit(invoiceNumber, "INVOICE_PRINT", `${role} printed Invoice ${invoiceNumber}`);
+      }
     } catch (err: any) {
       toast.error(err.message || "Failed to print receipt");
     } finally {

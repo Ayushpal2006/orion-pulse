@@ -1435,13 +1435,13 @@ function SettingsV2() {
           {/* 9. PRINTING */}
           {activeSection === "printing" && (
             <PrinterSettingsSection
-              currentStore={s.currentStore}
+              currentStore={(s as any).currentStore}
               onSaveSuccess={() => setIsDirty(false)}
             />
           )}
 
           {/* 10. WHATSAPP TEMPLATES */}
-          {activeSection === "whatsapp" && <WhatsAppTemplateManager currentStore={s.currentStore} />}
+          {activeSection === "whatsapp" && <WhatsAppTemplateManager currentStore={(s as any).currentStore} />}
 
           {/* 11. INVOICE TEMPLATES & LIVE PREVIEW */}
           {activeSection === "invoice_templates" && <InvoiceTemplatesPage />}

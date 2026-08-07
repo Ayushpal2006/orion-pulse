@@ -18,6 +18,7 @@ import { printQueue } from "@/lib/print-queue";
 import { printBenchmark } from "@/lib/print-benchmark";
 import { createCanonicalReceiptModel } from "@/lib/receipt-model";
 import { getPrintAdapter, printPdfFallback } from "@/lib/print-adapter";
+import { printerService } from "@/lib/printer.service";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";

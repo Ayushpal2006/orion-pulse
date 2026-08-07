@@ -111,7 +111,7 @@ export class PrinterService {
     } catch (err: any) {
       job.status = "failed";
       job.error = err.message || "Print failure";
-      this.lastError = job.error;
+      this.lastError = job.error || null;
 
       // Keep failed job in queue for diagnostic inspection
       console.error(`[PrinterService] Job ${job.id} failed:`, err);
@@ -127,44 +127,41 @@ export class PrinterService {
     const activeProf = profile || DEFAULT_PRINTER_PROFILES[0];
     const nowStr = new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" });
 
-    const storeName = storeInfo?.name || storeInfo?.shop_name || "APKA BILL MAIN OUTLET";
-    const orgName = orgInfo?.name || "ORION RETAIL SYSTEMS";
-    const address = storeInfo?.address || storeInfo?.shop_address || "123 POS Center, Salt Lake, Kolkata";
-    const phone = storeInfo?.phone || storeInfo?.shop_phone || "8285068670";
-    const gstin = storeInfo?.gst_number || storeInfo?.shop_gstin || "27AAAAA1111A1Z1";
-    const logoUrl = storeInfo?.logo || storeInfo?.shop_logo || "";
+    const storeName = storeInfo?.name || storeInfo?.shop_name || "Apka Bill Store";
+    const orgName = orgInfo?.name || "APKA BILL";
+    const connMethod = activeProf.connectionType.toUpperCase();
+    const paperWidth = activeProf.paperWidth;
 
     const testInput = {
       invoiceNumber: `TEST-${Date.now().toString().slice(-6)}`,
       date: nowStr.split(",")[0] || "Today",
       time: nowStr.split(",")[1] || "Now",
       businessName: orgName,
-      businessAddress: address,
-      businessPhone: phone,
-      businessGst: gstin,
-      logoUrl: logoUrl,
+      businessAddress: "Printer Diagnostic Test",
+      businessPhone: storeInfo?.phone || "",
+      businessGst: storeInfo?.gst_number || "",
+      logoUrl: "",
       store: { name: storeName },
       cashierName: "Diagnostics Engine",
       customerName: "Hardware Test Verification",
       items: [
-        { id: 1, name: `Profile: ${activeProf.name}`, qty: 1, price: 0, total: 0 },
-        { id: 2, name: `Connection: ${activeProf.connectionType.toUpperCase()}`, qty: 1, price: 0, total: 0 },
-        { id: 3, name: `Width: ${activeProf.paperWidth} | Cut: ${activeProf.autoCut ? "ON" : "OFF"}`, qty: 1, price: 100, total: 100 },
-        { id: 4, name: `Margins: Top ${activeProf.marginTop}mm / Bot ${activeProf.marginBottom}mm`, qty: 1, price: 50, total: 50 },
+        { id: 1, name: `Store: ${storeName}`, qty: 1, price: 0, total: 0 },
+        { id: 2, name: `Printer: ${connMethod}`, qty: 1, price: 0, total: 0 },
+        { id: 3, name: `Paper: ${paperWidth}`, qty: 1, price: 0, total: 0 },
       ],
-      subtotal: 150,
-      discount: 10,
-      tax: 25.2,
-      total: 165.2,
-      paymentMethod: "TEST_MODE",
-      footerText: `Test Print Successful! Timestamp: ${nowStr}. Auto-Cut Test: ${activeProf.autoCut ? "Passed" : "Disabled"}.`,
+      subtotal: 0,
+      discount: 0,
+      tax: 0,
+      total: 0,
+      paymentMethod: "DIAGNOSTIC",
+      footerText: `--------------------------------\nTest successful\n--------------------------------\n${nowStr}`,
     };
 
     const renderOpts: RenderOptions = {
       paperWidth: activeProf.paperWidth,
-      showLogo: activeProf.showLogo,
-      showQr: activeProf.showQr,
-      showBarcode: activeProf.showBarcode,
+      showLogo: false,
+      showQr: false,
+      showBarcode: false,
       autoCut: activeProf.autoCut,
       marginTop: activeProf.marginTop,
       marginBottom: activeProf.marginBottom,
@@ -172,7 +169,7 @@ export class PrinterService {
       marginRight: activeProf.marginRight,
     };
 
-    toast.info(`Executing REAL Test Print for ${activeProf.name} (${activeProf.paperWidth})...`);
+    toast.info(`Executing Test Print for ${activeProf.name} (${activeProf.connectionType.toUpperCase()})...`);
     return await this.print(testInput, activeProf, renderOpts);
   }
 

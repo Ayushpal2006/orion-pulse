@@ -21,6 +21,10 @@ export interface PrinterProfile {
   usbVendorId?: string;
   usbProductId?: string;
   bluetoothDeviceName?: string;
+  bluetoothMac?: string;
+  charactersPerLine?: number;
+  printerDpi?: number;
+  printableWidthMm?: number;
 }
 
 export const DEFAULT_PRINTER_PROFILES: PrinterProfile[] = [
@@ -90,6 +94,7 @@ export class PrinterProfileService {
    */
   async getStorePrinterConfig(storeId?: number): Promise<{ profiles: PrinterProfile[]; activeProfile: PrinterProfile }> {
     const cacheKey = `store_${storeId || "active"}`;
+    const storageKey = `orion_printer_config_${cacheKey}`;
     
     try {
       const res = await apiFetch(`${API_BASE_URL}/settings`);
@@ -115,17 +120,33 @@ export class PrinterProfileService {
           const activeProfile = loadedProfiles.find((p) => p.id === activeId) || loadedProfiles[0];
 
           this.profileCache.set(cacheKey, { profiles: loadedProfiles, activeId });
+          if (typeof window !== "undefined" && window.localStorage) {
+            window.localStorage.setItem(storageKey, JSON.stringify({ profiles: loadedProfiles, activeId }));
+          }
           return { profiles: loadedProfiles, activeProfile };
         }
       }
     } catch (err) {
-      console.warn("[PrinterProfileService] Error fetching store settings, returning cached/default:", err);
+      console.warn("[PrinterProfileService] Error fetching store settings, returning cached/local:", err);
     }
 
     const cached = this.profileCache.get(cacheKey);
     if (cached) {
       const activeProf = cached.profiles.find((p) => p.id === cached.activeId) || cached.profiles[0];
       return { profiles: cached.profiles, activeProfile: activeProf };
+    }
+
+    if (typeof window !== "undefined" && window.localStorage) {
+      const localData = window.localStorage.getItem(storageKey);
+      if (localData) {
+        try {
+          const parsed = JSON.parse(localData);
+          if (parsed.profiles && parsed.activeId) {
+            const activeProf = parsed.profiles.find((p: PrinterProfile) => p.id === parsed.activeId) || parsed.profiles[0];
+            return { profiles: parsed.profiles, activeProfile: activeProf };
+          }
+        } catch (e) {}
+      }
     }
 
     return { profiles: DEFAULT_PRINTER_PROFILES, activeProfile: DEFAULT_PRINTER_PROFILES[0] };
@@ -140,6 +161,7 @@ export class PrinterProfileService {
     storeId?: number
   ): Promise<boolean> {
     const cacheKey = `store_${storeId || "active"}`;
+    const storageKey = `orion_printer_config_${cacheKey}`;
     const activeProf = profiles.find((p) => p.id === activeProfileId) || profiles[0];
 
     const updatedProfiles = profiles.map((p) => ({
@@ -148,6 +170,10 @@ export class PrinterProfileService {
     }));
 
     this.profileCache.set(cacheKey, { profiles: updatedProfiles, activeId: activeProfileId });
+
+    if (typeof window !== "undefined" && window.localStorage) {
+      window.localStorage.setItem(storageKey, JSON.stringify({ profiles: updatedProfiles, activeId: activeProfileId }));
+    }
 
     try {
       const payload = {
@@ -167,8 +193,8 @@ export class PrinterProfileService {
 
       return res.ok;
     } catch (err) {
-      console.error("[PrinterProfileService] Save error:", err);
-      return false;
+      console.error("[PrinterProfileService] Save error (saved locally):", err);
+      return true; // Still return true as it's saved locally for offline operation
     }
   }
 

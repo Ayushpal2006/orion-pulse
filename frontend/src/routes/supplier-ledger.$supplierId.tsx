@@ -87,14 +87,14 @@ function SupplierLedgerPage() {
       invoiceNumber: `LEDGER-${supplierId}-${Date.now().toString().slice(-4)}`,
       businessName: supplier?.name || "Supplier Ledger",
       customerName: supplier?.contact_person || "Supplier Account",
-      items: (ledgerData?.transactions || []).map((t: any, i: number) => ({
+      items: (ledger || []).map((t: any, i: number) => ({
         id: i + 1,
-        name: `${t.type || "Txn"}: ${t.notes || "Statement entry"}`,
+        name: `${t.transaction_type || "Txn"}: ${t.notes || t.reference || "Statement entry"}`,
         qty: 1,
         price: Number(t.amount || 0),
         total: Number(t.amount || 0),
       })),
-      total: Number(ledgerData?.summary?.balance || 0),
+      total: (ledger || []).reduce((acc: number, t: any) => acc + Number(t.amount || 0), 0),
     });
   };
 

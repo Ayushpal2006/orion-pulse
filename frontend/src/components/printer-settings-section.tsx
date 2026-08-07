@@ -27,6 +27,7 @@ import {
   Layers,
 } from "lucide-react";
 import { printerService, PrinterProfile, DEFAULT_PRINTER_PROFILES, printerProfileService } from "@/lib/printer.service";
+import { ThermalPrinterBridge, BluetoothDeviceItem } from "@/lib/thermal-printer-plugin";
 import { toast } from "sonner";
 
 interface PrinterSettingsSectionProps {
@@ -46,6 +47,48 @@ export function PrinterSettingsSection({ currentStore, onSaveSuccess }: PrinterS
   // Profile Dialog State for Add/Edit
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingProfile, setEditingProfile] = useState<PrinterProfile | null>(null);
+
+  const [btDevices, setBtDevices] = useState<BluetoothDeviceItem[]>([]);
+  const [scanningBt, setScanningBt] = useState(false);
+  const [testingConnection, setTestingConnection] = useState(false);
+
+  const handleScanBluetoothDevices = async () => {
+    setScanningBt(true);
+    try {
+      const devices = await ThermalPrinterBridge.listBluetoothDevices();
+      setBtDevices(devices);
+      if (devices.length === 0) {
+        toast.info("No paired Bluetooth printers found. Please pair your KP307 printer in Android Bluetooth Settings first.");
+      } else {
+        toast.success(`Found ${devices.length} paired Bluetooth device(s).`);
+      }
+    } catch (err: any) {
+      toast.error("Failed to list Bluetooth devices: " + (err.message || err));
+    } finally {
+      setScanningBt(false);
+    }
+  };
+
+  const handleTestConnection = async () => {
+    setTestingConnection(true);
+    try {
+      const res = await ThermalPrinterBridge.testConnection({
+        connectionType: activeProfile.connectionType as any,
+        bluetoothMac: activeProfile.bluetoothMac,
+        ip: activeProfile.printerIp,
+        port: activeProfile.printerPort || 9100,
+      });
+      if (res.success) {
+        toast.success(res.message || "Connection to KP307 printer verified!");
+      } else {
+        toast.error(res.message || "Printer connection test failed.");
+      }
+    } catch (err: any) {
+      toast.error("Connection test error: " + (err.message || err));
+    } finally {
+      setTestingConnection(false);
+    }
+  };
 
   // Diagnostics State
   const [diagnostics, setDiagnostics] = useState(printerService.getDiagnostics(undefined, currentStore));
@@ -338,12 +381,11 @@ export function PrinterSettingsSection({ currentStore, onSaveSuccess }: PrinterS
                       <SelectValue placeholder="Select Connection" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="browser">🌐 Browser Printing (Zero-Popup Iframe)</SelectItem>
-                      <SelectItem value="escpos">⚡ ESC/POS Direct Thermal Payload</SelectItem>
-                      <SelectItem value="usb">🔌 WebUSB Thermal Printer</SelectItem>
-                      <SelectItem value="bluetooth">📡 WebBluetooth Thermal Printer</SelectItem>
+                      <SelectItem value="android_pos">📱 Built-in Android POS Printer (Sunmi/iMin/PAX)</SelectItem>
+                      <SelectItem value="usb">🔌 USB ESC/POS Thermal Printer (Direct WebUSB)</SelectItem>
+                      <SelectItem value="bluetooth">📡 Bluetooth ESC/POS Thermal Printer (WebBluetooth)</SelectItem>
                       <SelectItem value="lan">🌐 LAN / Network TCP Printer (Port 9100)</SelectItem>
-                      <SelectItem value="android_pos">📱 Android POS Hardware SDK</SelectItem>
+                      <SelectItem value="browser">🌐 Browser Fallback (Silent Hidden Frame)</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -365,6 +407,164 @@ export function PrinterSettingsSection({ currentStore, onSaveSuccess }: PrinterS
                   </Select>
                 </div>
               </div>
+
+              {/* Conditional Connection Details Parameters */}
+              {(activeProfile.connectionType === "lan" || activeProfile.connectionType === "escpos") && (
+                <div className="p-3.5 rounded-xl bg-neutral-900/80 border border-neutral-800 space-y-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <Label className="text-xs text-muted-foreground">Network Printer IP Address</Label>
+                      <Input
+                        placeholder="e.g. 192.168.1.150"
+                        value={activeProfile.printerIp || ""}
+                        onChange={(e) => updateActiveProfileField("printerIp", e.target.value)}
+                        className="rounded-xl bg-neutral-900 border-neutral-800 text-xs h-8 font-mono"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs text-muted-foreground">TCP Raw Port</Label>
+                      <Input
+                        type="number"
+                        placeholder="9100"
+                        value={activeProfile.printerPort || 9100}
+                        onChange={(e) => updateActiveProfileField("printerPort", Number(e.target.value))}
+                        className="rounded-xl bg-neutral-900 border-neutral-800 text-xs h-8 font-mono"
+                      />
+                    </div>
+                  </div>
+                  <Button
+                    onClick={handleTestConnection}
+                    disabled={testingConnection}
+                    size="sm"
+                    variant="outline"
+                    className="w-full rounded-xl text-xs h-8 border-neutral-700 gap-1.5"
+                  >
+                    {testingConnection ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Wifi className="h-3.5 w-3.5 text-blue-400" />}
+                    Test Network Connection
+                  </Button>
+                </div>
+              )}
+
+              {activeProfile.connectionType === "bluetooth" && (
+                <div className="p-3.5 rounded-xl bg-neutral-900/80 border border-neutral-800 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs text-muted-foreground">Bluetooth Device Identifier / MAC Address</Label>
+                    <Button
+                      onClick={handleScanBluetoothDevices}
+                      disabled={scanningBt}
+                      size="sm"
+                      variant="ghost"
+                      className="h-6 text-[10px] text-primary hover:text-primary/80 px-2 gap-1"
+                    >
+                      {scanningBt ? <RefreshCw className="h-3 w-3 animate-spin" /> : <Bluetooth className="h-3 w-3" />}
+                      Scan Paired Devices
+                    </Button>
+                  </div>
+
+                  {btDevices.length > 0 ? (
+                    <Select
+                      value={activeProfile.bluetoothMac || ""}
+                      onValueChange={(val) => {
+                        const dev = btDevices.find((d) => d.address === val);
+                        updateActiveProfileField("bluetoothMac", val);
+                        if (dev) updateActiveProfileField("bluetoothDeviceName", dev.name);
+                      }}
+                    >
+                      <SelectTrigger className="rounded-xl bg-neutral-900 border-neutral-800 text-xs h-8">
+                        <SelectValue placeholder="Select Paired Bluetooth Printer" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {btDevices.map((d) => (
+                          <SelectItem key={d.address} value={d.address}>
+                            {d.name} ({d.address})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <Input
+                      placeholder="e.g. 00:11:22:33:44:55 (MAC Address)"
+                      value={activeProfile.bluetoothMac || activeProfile.bluetoothDeviceName || ""}
+                      onChange={(e) => {
+                        updateActiveProfileField("bluetoothMac", e.target.value);
+                        updateActiveProfileField("bluetoothDeviceName", e.target.value);
+                      }}
+                      className="rounded-xl bg-neutral-900 border-neutral-800 text-xs h-8 font-mono"
+                    />
+                  )}
+
+                  <Button
+                    onClick={handleTestConnection}
+                    disabled={testingConnection}
+                    size="sm"
+                    variant="outline"
+                    className="w-full rounded-xl text-xs h-8 border-neutral-700 gap-1.5"
+                  >
+                    {testingConnection ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Bluetooth className="h-3.5 w-3.5 text-blue-400" />}
+                    Test Bluetooth Connection
+                  </Button>
+                </div>
+              )}
+
+              {/* Hardware Parameters (KP307 Specs) */}
+              <div className="p-3 rounded-xl bg-neutral-900/40 border border-neutral-800 grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="space-y-1">
+                  <Label className="text-[11px] text-muted-foreground">Chars / Line (KP307=48)</Label>
+                  <Input
+                    type="number"
+                    value={activeProfile.charactersPerLine || (activeProfile.paperWidth === "58mm" ? 32 : 48)}
+                    onChange={(e) => updateActiveProfileField("charactersPerLine", Number(e.target.value))}
+                    className="rounded-xl bg-neutral-900 border-neutral-800 text-xs h-8 font-mono"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[11px] text-muted-foreground">Resolution DPI (KP307=203)</Label>
+                  <Input
+                    type="number"
+                    value={activeProfile.printerDpi || 203}
+                    onChange={(e) => updateActiveProfileField("printerDpi", Number(e.target.value))}
+                    className="rounded-xl bg-neutral-900 border-neutral-800 text-xs h-8 font-mono"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[11px] text-muted-foreground">Printable Width (mm)</Label>
+                  <Input
+                    type="number"
+                    value={activeProfile.printableWidthMm || (activeProfile.paperWidth === "58mm" ? 48 : 72)}
+                    onChange={(e) => updateActiveProfileField("printableWidthMm", Number(e.target.value))}
+                    className="rounded-xl bg-neutral-900 border-neutral-800 text-xs h-8 font-mono"
+                  />
+                </div>
+              </div>
+
+              {activeProfile.connectionType === "usb" && (
+                <div className="p-3 rounded-xl bg-neutral-900/80 border border-neutral-800 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">USB Vendor ID (Hex / Optional)</Label>
+                    <Input
+                      placeholder="e.g. 0x0fe6"
+                      value={activeProfile.usbVendorId || ""}
+                      onChange={(e) => updateActiveProfileField("usbVendorId", e.target.value)}
+                      className="rounded-xl bg-neutral-900 border-neutral-800 text-xs h-8 font-mono"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">USB Product ID (Hex / Optional)</Label>
+                    <Input
+                      placeholder="e.g. 0x811e"
+                      value={activeProfile.usbProductId || ""}
+                      onChange={(e) => updateActiveProfileField("usbProductId", e.target.value)}
+                      className="rounded-xl bg-neutral-900 border-neutral-800 text-xs h-8 font-mono"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {activeProfile.connectionType === "android_pos" && (
+                <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs flex items-center gap-2">
+                  <span>📱 Uses native Android POS thermal printer SDK (Sunmi / iMin / PAX / Z91) via Android Web Bridge.</span>
+                </div>
+              )}
 
               {/* Receipt Template & Auto Cut Row */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
