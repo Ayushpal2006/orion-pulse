@@ -1,5 +1,6 @@
 import fs from "fs";
 import path from "path";
+import QRCode from "qrcode";
 import { settingsRepository } from "../repositories";
 import { configurePdfFonts, formatInrPdf } from "./pdf-font.helper";
 
@@ -13,46 +14,24 @@ function getPDFDocument() {
 
 export class PdfService {
   async generateInvoicePdf(receipt: any, outputPath: string): Promise<string> {
-    const signature = await settingsRepository.get("signature", "Authorized Signatory");
+    const signature = receipt.signature || (await settingsRepository.get("signature", "Authorized Signatory"));
     const dbPrimaryColor = await settingsRepository.get("primary_color", "");
-    
-    // Store-scoped template and settings resolution
-    const rawTemplate = receipt.template || (await settingsRepository.get("receipt_template", "Classic"));
-    const validTemplates = ["Classic", "Modern", "Retail", "Compact", "Minimal", "GST Professional", "Wholesale", "Restaurant", "Medical", "Fashion", "Thermal", "Premium"];
-    const template = (rawTemplate && validTemplates.includes(String(rawTemplate).trim())) ? String(rawTemplate).trim() : "Classic";
-    
-    const qrPosition = receipt.qrPosition || (await settingsRepository.get("qr_position", "Bottom"));
-    const invoiceHeader = receipt.invoiceHeader !== undefined ? receipt.invoiceHeader : (await settingsRepository.get("invoice_header", ""));
-    const termsAndConditions = receipt.termsAndConditions !== undefined ? receipt.termsAndConditions : (await settingsRepository.get("terms_and_conditions", ""));
+    const pdfTemplate = receipt.pdfTemplate || (await settingsRepository.get("pdf_invoice_template", "Professional A4"));
 
-    return new Promise((resolve, reject) => {
+    const termsAndConditions =
+      receipt.termsAndConditions !== undefined && receipt.termsAndConditions !== null
+        ? receipt.termsAndConditions
+        : await settingsRepository.get("terms_and_conditions", "");
+
+    return new Promise(async (resolve, reject) => {
       try {
         const PDFDocument = getPDFDocument();
-        
-        const isA4 = template === "Wholesale" || template === "GST Professional";
-        const is58mm = template === "Compact";
-        
-        // Paper Dimensions Configuration
-        let pdfSize: any = [226.77, 650]; // Default 80mm thermal roll width
-        let margin = 8;
-        let pageWidth = 226.77;
 
-        if (isA4) {
-          pdfSize = "A4";
-          margin = 35;
-          pageWidth = 595.28;
-        } else if (is58mm) {
-          pdfSize = [164.4, 450]; // 58mm width
-          margin = 5;
-          pageWidth = 164.4;
-        }
-
-        const contentWidth = pageWidth - 2 * margin;
-
+        // Standard A4 dimensions in PDF points: 595.28 x 841.89 pt
         const doc = new PDFDocument({
-          size: pdfSize,
-          margins: { top: margin, bottom: margin, left: margin, right: margin },
-          bufferPages: true
+          size: "A4",
+          margins: { top: 35, bottom: 15, left: 35, right: 35 },
+          bufferPages: true,
         });
 
         const stream = fs.createWriteStream(outputPath);
@@ -61,404 +40,346 @@ export class PdfService {
 
         configurePdfFonts(doc);
 
-        let primaryColor = dbPrimaryColor || "#0f172a";
-        if (template === "Modern") primaryColor = dbPrimaryColor || "#2563eb";
-        else if (template === "GST Professional" || template === "Wholesale") primaryColor = dbPrimaryColor || "#047857";
-        else if (template === "Retail") primaryColor = dbPrimaryColor || "#7c3aed";
+        const primaryColor =
+          dbPrimaryColor ||
+          (pdfTemplate === "GST Invoice A4"
+            ? "#047857"
+            : pdfTemplate === "Standard A4"
+            ? "#1e40af"
+            : "#0f172a");
+        const secondaryColor = "#475569";
+        const margin = 35;
+        const pageWidth = 595.28;
+        const pageHeight = 841.89;
+        const contentWidth = pageWidth - 2 * margin; // 525.28 pt
 
-        // =========================================================
-        // 1. A4 TEMPLATES (Wholesale & GST Professional) — SCREENSHOT 5
-        // =========================================================
-        if (isA4) {
-          // Outer Border Box
-          doc.rect(margin, margin, contentWidth, 770).strokeColor(primaryColor).lineWidth(1.5).stroke();
+        let curY = margin;
 
-          let curY = margin + 12;
+        // -------------------------------------------------------------
+        // HEADER BAR / LOGO & STORE INFO
+        // -------------------------------------------------------------
+        doc.rect(margin, curY, contentWidth, 4).fill(primaryColor);
+        curY += 12;
 
-          // Header Title
-          doc.font("Outfit-Bold").fontSize(13).fillColor(primaryColor).text("TAX INVOICE", margin, curY, { align: "center", width: contentWidth });
-          curY += 18;
-          doc.font("Outfit-Bold").fontSize(16).fillColor("#000000").text(receipt.shop?.name || "STORE", margin, curY, { align: "center", width: contentWidth });
-          curY += 20;
-          doc.font("Outfit").fontSize(8.5).fillColor("#475569").text(receipt.shop?.address || "", margin, curY, { align: "center", width: contentWidth });
-          curY += 14;
+        const headerTopY = curY;
 
-          // Green Banner Bar
-          doc.rect(margin + 10, curY, contentWidth - 20, 18).fill(primaryColor);
-          doc.font("Outfit-Bold").fontSize(9).fillColor("#ffffff").text(`GSTIN: ${receipt.shop?.gstin || "-"} | PH: ${receipt.shop?.phone || "-"}`, margin + 10, curY + 4, { align: "center", width: contentWidth - 20 });
-          curY += 26;
-
-          // 2-Column Info Grid
-          const gridW = (contentWidth - 30) / 2;
-          const leftX = margin + 10;
-          const rightX = margin + 20 + gridW;
-
-          doc.rect(leftX, curY, gridW, 46).strokeColor(primaryColor).lineWidth(1).stroke();
-          doc.font("Outfit-Bold").fontSize(8.5).fillColor(primaryColor).text("DETAILS OF RECEIVER / BUYER", leftX + 6, curY + 6);
-          doc.font("Outfit").fontSize(8).fillColor("#000").text(`Name: ${receipt.customer?.name || "Walk-in Customer"}`, leftX + 6, curY + 18);
-          doc.text(`Phone: +91 ${receipt.customer?.phone || "-"}`, leftX + 6, curY + 30);
-
-          doc.rect(rightX, curY, gridW, 46).strokeColor(primaryColor).lineWidth(1).stroke();
-          doc.font("Outfit-Bold").fontSize(8.5).fillColor(primaryColor).text("INVOICE SPECIFICATION", rightX + 6, curY + 6);
-          doc.font("Outfit").fontSize(8).fillColor("#000").text(`Invoice No: ${receipt.invoiceNumber}`, rightX + 6, curY + 18);
-          doc.text(`Date & Time: ${receipt.date} ${receipt.time}`, rightX + 6, curY + 30);
-
-          curY += 56;
-
-          // Table Header
-          doc.rect(margin + 10, curY, contentWidth - 20, 20).fill(primaryColor);
-          doc.font("Outfit-Bold").fontSize(8.5).fillColor("#ffffff");
-          doc.text("Item Description", margin + 16, curY + 5, { width: 220 });
-          doc.text("Qty", margin + 240, curY + 5, { width: 35, align: "center" });
-          doc.text("Rate", margin + 280, curY + 5, { width: 65, align: "right" });
-          doc.text("Tax %", margin + 350, curY + 5, { width: 45, align: "right" });
-          doc.text("Total", margin + 400, curY + 5, { width: 95, align: "right" });
-
-          curY += 20;
-
-          // Item Rows
-          doc.font("Outfit").fontSize(8.5).fillColor("#000");
-          for (const item of (receipt.items || [])) {
-            doc.text(item.name || "Item", margin + 16, curY + 4, { width: 220 });
-            doc.text(String(item.qty || 1), margin + 240, curY + 4, { width: 35, align: "center" });
-            doc.text(formatInrPdf(item.price), margin + 280, curY + 4, { width: 65, align: "right" });
-            doc.text(`${item.gst || 0}%`, margin + 350, curY + 4, { width: 45, align: "right" });
-            doc.text(formatInrPdf(item.lineTotal), margin + 400, curY + 4, { width: 95, align: "right" });
-
-            curY += 16;
-            doc.strokeColor("#e2e8f0").lineWidth(0.5).moveTo(margin + 10, curY).lineTo(margin + contentWidth - 10, curY).stroke();
-          }
-
-          curY += 10;
-
-          // 2-Column Summary Box
-          const sumBoxW = (contentWidth - 30) / 2;
-          doc.rect(leftX, curY, sumBoxW, 58).strokeColor("#cbd5e1").lineWidth(1).stroke();
-          doc.font("Outfit-Bold").fontSize(8.5).fillColor(primaryColor).text("TAX SUMMARY", leftX + 6, curY + 6);
-          doc.font("Outfit").fontSize(8).fillColor("#000").text(`Taxable Amount: ${formatInrPdf(receipt.subtotal - receipt.discount)}`, leftX + 6, curY + 18);
-          doc.text(`CGST + SGST (GST): ${formatInrPdf(receipt.gst)}`, leftX + 6, curY + 30);
-          doc.font("Outfit").fontSize(7.5).fillColor("#64748b").text("Tax Invoice issued under GST Rules.", leftX + 6, curY + 42);
-
-          doc.rect(rightX, curY, sumBoxW, 58).fillAndStroke("#f0fdf4", primaryColor);
-          doc.font("Outfit").fontSize(8).fillColor("#000").text("Subtotal:", rightX + 6, curY + 6);
-          doc.text(formatInrPdf(receipt.subtotal), rightX + sumBoxW - 85, curY + 6, { align: "right", width: 75 });
-
-          doc.fillColor("#dc2626").text("Discount:", rightX + 6, curY + 18);
-          doc.text(`-${formatInrPdf(receipt.discount)}`, rightX + sumBoxW - 85, curY + 18, { align: "right", width: 75 });
-
-          doc.fillColor("#000").text("Total Tax:", rightX + 6, curY + 30);
-          doc.text(formatInrPdf(receipt.gst), rightX + sumBoxW - 85, curY + 30, { align: "right", width: 75 });
-
-          doc.font("Outfit-Bold").fontSize(10).fillColor(primaryColor).text("GRAND TOTAL:", rightX + 6, curY + 44);
-          doc.text(formatInrPdf(receipt.grandTotal), rightX + sumBoxW - 95, curY + 44, { align: "right", width: 85 });
-
-          curY += 75;
-
-          // QR Code + Signatory
-          if (receipt.paymentMethod === "UPI" && receipt.upiQrCode) {
-            try {
-              const base64Data = receipt.upiQrCode.split(",")[1];
-              if (base64Data) {
-                const qrBuffer = Buffer.from(base64Data, "base64");
-                doc.image(qrBuffer, leftX, curY, { width: 65 });
-                doc.font("Outfit-Bold").fontSize(8).fillColor(primaryColor).text("Paid via UPI", leftX, curY + 68);
-              }
-            } catch (e) {}
-          }
-
-          doc.font("Outfit-Bold").fontSize(8.5).fillColor(primaryColor).text(`FOR ${(receipt.shop?.name || "STORE").toUpperCase()}`, rightX, curY, { align: "right", width: sumBoxW });
-          doc.strokeColor("#cbd5e1").lineWidth(0.5).moveTo(rightX + 30, curY + 45).lineTo(rightX + sumBoxW, curY + 45).stroke();
-          doc.font("Outfit").fontSize(7.5).fillColor("#64748b").text(signature, rightX, curY + 50, { align: "right", width: sumBoxW });
-
-          const footerY = 760;
-          doc.font("Outfit").fontSize(7.5).fillColor("#64748b").text(receipt.thankYouMessage || "Goods once sold cannot be returned without original receipt.", margin, footerY, { align: "center", width: contentWidth });
-        }
-        // =========================================================
-        // 2. MODERN TEMPLATE (80mm) — SCREENSHOT 2
-        // =========================================================
-        else if (template === "Modern") {
-          let curY = margin;
-
-          doc.rect(margin, curY, contentWidth, 42).fill(primaryColor);
-          if (receipt.shop?.logo && receipt.shop.logo.startsWith("data:image/")) {
-            try {
+        // Left Side: Logo & Business Info
+        let leftX = margin;
+        if (receipt.shop?.logo && typeof receipt.shop.logo === "string") {
+          try {
+            let logoBuffer: Buffer | null = null;
+            if (receipt.shop.logo.startsWith("data:image/")) {
               const base64Data = receipt.shop.logo.split(",")[1];
-              if (base64Data) {
-                const logoBuffer = Buffer.from(base64Data, "base64");
-                doc.image(logoBuffer, margin + 8, curY + 6, { fit: [30, 30] });
+              if (base64Data) logoBuffer = Buffer.from(base64Data, "base64");
+            } else {
+              const cleanPath = receipt.shop.logo.replace(/^\//, "");
+              const candidatePaths = [
+                path.resolve(process.cwd(), cleanPath),
+                path.resolve(process.cwd(), "uploads", path.basename(cleanPath)),
+                path.resolve(process.cwd(), "storage/uploads", path.basename(cleanPath)),
+              ];
+              for (const p of candidatePaths) {
+                if (fs.existsSync(p)) {
+                  logoBuffer = fs.readFileSync(p);
+                  break;
+                }
               }
-            } catch (e) {}
-          }
-
-          doc.font("Outfit-Bold").fontSize(11).fillColor("#ffffff").text((receipt.shop?.name || "STORE").toUpperCase(), margin, curY + 6, { align: "center", width: contentWidth });
-          doc.font("Outfit").fontSize(7).fillColor("#ffffff").text(`${receipt.shop?.phone || "-"} | GSTIN: ${receipt.shop?.gstin || "-"}`, margin, curY + 22, { align: "center", width: contentWidth });
-          curY += 48;
-
-          // Grey Metadata Grid
-          doc.rect(margin, curY, contentWidth, 24).fillAndStroke("#f1f5f9", "#e2e8f0");
-          doc.font("Outfit-Bold").fontSize(7.5).fillColor("#000000");
-          doc.text(`INV #: ${receipt.invoiceNumber}`, margin + 4, curY + 4);
-          doc.text(`DATE: ${receipt.date}`, margin + 110, curY + 4, { align: "right", width: 90 });
-          doc.text(`CUST: ${receipt.customer?.name || "Walk-in Customer"}`, margin + 4, curY + 14);
-          doc.text(`CASH: ${receipt.cashier || "Admin"}`, margin + 110, curY + 14, { align: "right", width: 90 });
-          curY += 28;
-
-          // Item Table
-          doc.rect(margin, curY, contentWidth, 14).fill(primaryColor);
-          doc.font("Outfit-Bold").fontSize(7.5).fillColor("#ffffff");
-          doc.text("Item Description", margin + 4, curY + 3);
-          doc.text("Qty", margin + 120, curY + 3, { width: 25, align: "center" });
-          doc.text("Amount", margin + contentWidth - 45, curY + 3, { width: 45, align: "right" });
-          curY += 14;
-
-          let rIdx = 0;
-          doc.font("Outfit").fontSize(7.5).fillColor("#000");
-          for (const item of (receipt.items || [])) {
-            if (rIdx % 2 === 1) {
-              doc.rect(margin, curY, contentWidth, 12).fill("#f8fafc");
-              doc.fillColor("#000");
             }
-            doc.text(item.name || "Item", margin + 4, curY + 2, { width: 115 });
-            doc.text(String(item.qty || 1), margin + 120, curY + 2, { width: 25, align: "center" });
-            doc.text(formatInrPdf(item.lineTotal), margin + contentWidth - 45, curY + 2, { width: 45, align: "right" });
-            curY += 12;
-            rIdx++;
+            if (logoBuffer) {
+              doc.image(logoBuffer, leftX, curY, { fit: [55, 55] });
+              leftX += 65;
+            }
+          } catch (e) {
+            console.error("Failed to render store logo in A4 PDF:", e);
+          }
+        }
+
+        const rightWidth = 190;
+        const rightX = margin + contentWidth - rightWidth; // 370.28 pt
+        const maxLeftWidth = rightX - leftX - 15;
+
+        const storeName = (receipt.shop?.name || "STORE INVOICE").toUpperCase();
+        doc.font("Outfit-Bold").fontSize(14).fillColor(primaryColor).text(storeName, leftX, curY, { width: maxLeftWidth });
+        const storeNameHeight = doc.heightOfString(storeName, { width: maxLeftWidth });
+        let storeInfoY = curY + storeNameHeight + 3;
+
+        doc.font("Outfit").fontSize(8.5).fillColor(secondaryColor);
+        if (receipt.shop?.address) {
+          doc.text(receipt.shop.address, leftX, storeInfoY, { width: maxLeftWidth });
+          storeInfoY += doc.heightOfString(receipt.shop.address, { width: maxLeftWidth }) + 2;
+        }
+
+        const contactLine = [
+          receipt.shop?.phone ? `Phone: ${receipt.shop.phone}` : "",
+          receipt.shop?.email ? `Email: ${receipt.shop.email}` : "",
+        ]
+          .filter(Boolean)
+          .join("  |  ");
+
+        if (contactLine) {
+          doc.text(contactLine, leftX, storeInfoY, { width: maxLeftWidth });
+          storeInfoY += 12;
+        }
+
+        if (receipt.shop?.gstin) {
+          doc.font("Outfit-Bold").fontSize(8.5).fillColor(primaryColor).text(`GSTIN: ${receipt.shop.gstin}`, leftX, storeInfoY, { width: maxLeftWidth });
+          storeInfoY += 14;
+        }
+
+        // Right Side: Tax Invoice Badge & Key Invoice Metadata
+        const badgeTitle = pdfTemplate === "GST Invoice A4" ? "GST TAX INVOICE" : "TAX INVOICE";
+        doc.rect(rightX, headerTopY, rightWidth, 24).fill(primaryColor);
+        doc.font("Outfit-Bold").fontSize(11).fillColor("#ffffff").text(badgeTitle, rightX, headerTopY + 6, { align: "center", width: rightWidth });
+
+        let invMetaY = headerTopY + 30;
+        doc.font("Outfit-Bold").fontSize(9.5).fillColor("#000000").text(`Invoice #: ${receipt.invoiceNumber}`, rightX, invMetaY, { align: "right", width: rightWidth });
+        invMetaY += 14;
+        doc.font("Outfit").fontSize(8.5).fillColor(secondaryColor).text(`Date: ${receipt.date} ${receipt.time}`, rightX, invMetaY, { align: "right", width: rightWidth });
+        invMetaY += 12;
+        doc.text(`Payment: ${receipt.paymentMethod || "CASH"}`, rightX, invMetaY, { align: "right", width: rightWidth });
+        invMetaY += 12;
+        if (receipt.status) {
+          doc.font("Outfit-Bold").fontSize(8.5).fillColor(receipt.status === "VOID" ? "#dc2626" : "#166534").text(`Status: ${receipt.status}`, rightX, invMetaY, { align: "right", width: rightWidth });
+          invMetaY += 14;
+        }
+
+        curY = Math.max(storeInfoY, invMetaY) + 10;
+
+        // Divider Line
+        doc.strokeColor("#cbd5e1").lineWidth(0.8).moveTo(margin, curY).lineTo(margin + contentWidth, curY).stroke();
+        curY += 12;
+
+        // -------------------------------------------------------------
+        // CUSTOMER & INVOICE DETAILS 2-COLUMN GRID
+        // -------------------------------------------------------------
+        const colW = (contentWidth - 15) / 2; // 255.14 pt
+        const col1X = margin;
+        const col2X = margin + colW + 15;
+
+        // Calculate dynamic height for customer & invoice info boxes
+        let custInnerHeight = 22; // header height (16) + padding (6)
+        doc.font("Outfit-Bold").fontSize(8.5);
+        custInnerHeight += doc.heightOfString(receipt.customer?.name || "Walk-in Customer", { width: colW - 16 }) + 2;
+        doc.font("Outfit").fontSize(8);
+        if (receipt.customer?.phone) {
+          custInnerHeight += 11;
+        }
+        if (receipt.customer?.address) {
+          custInnerHeight += doc.heightOfString(`Address: ${receipt.customer.address}`, { width: colW - 16 }) + 2;
+        }
+        if (receipt.customer?.gstin) {
+          custInnerHeight += 11;
+        }
+        custInnerHeight += 8;
+
+        const infoInnerHeight = 22 + 11 + 11 + 11 + (receipt.status ? 14 : 0) + 8;
+        const custBoxHeight = Math.max(68, custInnerHeight, infoInnerHeight);
+
+        // Column 1: Billed To / Customer
+        doc.rect(col1X, curY, colW, custBoxHeight).strokeColor("#cbd5e1").lineWidth(1).stroke();
+        doc.rect(col1X, curY, colW, 16).fill(primaryColor);
+        doc.font("Outfit-Bold").fontSize(8.5).fillColor("#ffffff").text("BILLED TO / CUSTOMER", col1X + 8, curY + 4);
+
+        let custY = curY + 22;
+        doc.font("Outfit-Bold").fontSize(8.5).fillColor("#000000").text(receipt.customer?.name || "Walk-in Customer", col1X + 8, custY, { width: colW - 16 });
+        custY += doc.heightOfString(receipt.customer?.name || "Walk-in Customer", { width: colW - 16 }) + 2;
+        doc.font("Outfit").fontSize(8).fillColor(secondaryColor);
+        if (receipt.customer?.phone) {
+          doc.text(`Phone: ${receipt.customer.phone}`, col1X + 8, custY, { width: colW - 16 });
+          custY += 11;
+        }
+        if (receipt.customer?.address) {
+          doc.text(`Address: ${receipt.customer.address}`, col1X + 8, custY, { width: colW - 16 });
+          custY += doc.heightOfString(`Address: ${receipt.customer.address}`, { width: colW - 16 }) + 2;
+        }
+        if (receipt.customer?.gstin) {
+          doc.text(`GSTIN: ${receipt.customer.gstin}`, col1X + 8, custY, { width: colW - 16 });
+        }
+
+        // Column 2: Invoice Info & Cashier
+        doc.rect(col2X, curY, colW, custBoxHeight).strokeColor("#cbd5e1").lineWidth(1).stroke();
+        doc.rect(col2X, curY, colW, 16).fill(primaryColor);
+        doc.font("Outfit-Bold").fontSize(8.5).fillColor("#ffffff").text("INVOICE DETAILS", col2X + 8, curY + 4);
+
+        let infoY = curY + 22;
+        doc.font("Outfit").fontSize(8).fillColor("#000000");
+        doc.text(`Invoice No: ${receipt.invoiceNumber}`, col2X + 8, infoY);
+        infoY += 11;
+        doc.text(`Date & Time: ${receipt.date} ${receipt.time}`, col2X + 8, infoY);
+        infoY += 11;
+        doc.text(`Cashier / User: ${receipt.cashier || "Admin"}`, col2X + 8, infoY);
+        infoY += 11;
+        doc.text(`Payment Mode: ${receipt.paymentMethod || "CASH"}`, col2X + 8, infoY);
+
+        curY += custBoxHeight + 12;
+
+        // -------------------------------------------------------------
+        // ITEM TABLE WITH MULTI-PAGE & HEADER REPEATING SUPPORT
+        // -------------------------------------------------------------
+        const drawTableHeader = (y: number) => {
+          doc.rect(margin, y, contentWidth, 20).fill(primaryColor);
+          doc.font("Outfit-Bold").fontSize(8.5).fillColor("#ffffff");
+          doc.text("#", margin + 4, y + 5, { width: 18, align: "left" });
+          doc.text("Item Description", margin + 24, y + 5, { width: 180, align: "left" });
+          doc.text("Qty", margin + 206, y + 5, { width: 32, align: "center" });
+          doc.text("Rate", margin + 240, y + 5, { width: 55, align: "right" });
+          doc.text("Discount", margin + 298, y + 5, { width: 50, align: "right" });
+          doc.text("GST %", margin + 350, y + 5, { width: 38, align: "right" });
+          doc.text("Tax Amt", margin + 390, y + 5, { width: 55, align: "right" });
+          doc.text("Total", margin + 448, y + 5, { width: 72, align: "right" });
+          return y + 20;
+        };
+
+        curY = drawTableHeader(curY);
+
+        const items = receipt.items || [];
+        let rIndex = 0;
+
+        for (const item of items) {
+          const nameStr = item.name || "Product Item";
+          doc.font("Outfit").fontSize(8.5);
+          const nameHeight = doc.heightOfString(nameStr, { width: 180 });
+          const rowHeight = Math.max(18, nameHeight + 6);
+
+          // Page Overflow Check
+          if (curY + rowHeight > pageHeight - 120) {
+            doc.font("Outfit").fontSize(7.5).fillColor(secondaryColor).text("Continued on next page...", margin, pageHeight - 30, { align: "right", width: contentWidth });
+            doc.addPage();
+            curY = margin;
+            doc.rect(margin, curY, contentWidth, 3).fill(primaryColor);
+            curY += 8;
+            curY = drawTableHeader(curY);
           }
 
-          curY += 4;
+          // Alternating row background
+          if (rIndex % 2 === 1) {
+            doc.rect(margin, curY, contentWidth, rowHeight).fill("#f8fafc");
+          }
 
-          // Totals Box
-          doc.rect(margin, curY, contentWidth, 42).fillAndStroke("#f8fafc", "#e2e8f0");
-          doc.font("Outfit").fontSize(7.5).fillColor("#000");
-          doc.text("Subtotal:", margin + 4, curY + 4);
-          doc.text(formatInrPdf(receipt.subtotal), margin + contentWidth - 55, curY + 4, { align: "right", width: 50 });
+          const gstPct = Number(item.gst) || 0;
+          const lineTot = Number(item.lineTotal) || 0;
+          const taxAmt = gstPct > 0 ? (lineTot * (gstPct / (100 + gstPct))) : 0;
 
-          doc.fillColor("#dc2626").text("Discount:", margin + 4, curY + 14);
-          doc.text(`-${formatInrPdf(receipt.discount)}`, margin + contentWidth - 55, curY + 14, { align: "right", width: 50 });
+          doc.font("Outfit").fontSize(8.5).fillColor("#000000");
+          doc.text(String(rIndex + 1), margin + 4, curY + 4, { width: 18, align: "left" });
+          doc.text(nameStr, margin + 24, curY + 4, { width: 180, align: "left" });
+          doc.text(String(item.qty || 1), margin + 206, curY + 4, { width: 32, align: "center" });
+          doc.text(formatInrPdf(item.price), margin + 240, curY + 4, { width: 55, align: "right" });
+          doc.text(item.discount ? formatInrPdf(item.discount) : "-", margin + 298, curY + 4, { width: 50, align: "right" });
+          doc.text(`${gstPct}%`, margin + 350, curY + 4, { width: 38, align: "right" });
+          doc.text(taxAmt > 0 ? formatInrPdf(taxAmt) : "-", margin + 390, curY + 4, { width: 55, align: "right" });
+          doc.text(formatInrPdf(lineTot), margin + 448, curY + 4, { width: 72, align: "right" });
 
-          doc.fillColor("#000").text("Tax:", margin + 4, curY + 24);
-          doc.text(formatInrPdf(receipt.gst), margin + contentWidth - 55, curY + 24, { align: "right", width: 50 });
+          curY += rowHeight;
+          doc.strokeColor("#e2e8f0").lineWidth(0.5).moveTo(margin, curY).lineTo(margin + contentWidth, curY).stroke();
+          rIndex++;
+        }
 
-          doc.strokeColor(primaryColor).lineWidth(1).moveTo(margin + 4, curY + 34).lineTo(margin + contentWidth - 4, curY + 34).stroke();
-          doc.font("Outfit-Bold").fontSize(9).fillColor(primaryColor).text("GRAND TOTAL:", margin + 4, curY + 35);
-          doc.text(formatInrPdf(receipt.grandTotal), margin + contentWidth - 65, curY + 35, { align: "right", width: 60 });
-          curY += 48;
+        curY += 12;
 
-          // QR Code
-          if (receipt.paymentMethod === "UPI" && receipt.upiQrCode) {
-            try {
+        // Page Overflow Check before rendering totals summary block
+        if (curY + 150 > pageHeight - 40) {
+          doc.addPage();
+          curY = margin + 10;
+        }
+
+        // -------------------------------------------------------------
+        // TAX SUMMARY & GRAND TOTALS SECTION
+        // -------------------------------------------------------------
+        const sumBoxW = (contentWidth - 15) / 2; // 255.14 pt
+        const leftSumX = margin;
+        const rightSumX = margin + sumBoxW + 15;
+
+        // Left Summary: Tax & Policy Info
+        doc.rect(leftSumX, curY, sumBoxW, 75).strokeColor("#cbd5e1").lineWidth(1).stroke();
+        doc.font("Outfit-Bold").fontSize(8.5).fillColor(primaryColor).text("TAX BREAKDOWN & NOTES", leftSumX + 8, curY + 6);
+        doc.font("Outfit").fontSize(8).fillColor("#000000");
+        const taxableAmt = (receipt.subtotal || 0) - (receipt.discount || 0);
+        doc.text(`Taxable Value: ${formatInrPdf(taxableAmt)}`, leftSumX + 8, curY + 20);
+        doc.text(`CGST + SGST (GST): ${formatInrPdf(receipt.gst || 0)}`, leftSumX + 8, curY + 32);
+        doc.font("Outfit").fontSize(7.5).fillColor(secondaryColor).text("Tax Invoice issued under Applicable GST Rules.", leftSumX + 8, curY + 46);
+        if (termsAndConditions) {
+          doc.text(termsAndConditions, leftSumX + 8, curY + 57, { width: sumBoxW - 16, height: 14, ellipsis: true });
+        }
+
+        // Right Summary: Amounts Breakdown
+        doc.rect(rightSumX, curY, sumBoxW, 75).fillAndStroke("#f8fafc", "#cbd5e1");
+
+        let sumY = curY + 6;
+        doc.font("Outfit").fontSize(8).fillColor("#000000").text("Subtotal:", rightSumX + 8, sumY);
+        doc.text(formatInrPdf(receipt.subtotal || 0), rightSumX + sumBoxW - 95, sumY, { align: "right", width: 85 });
+        sumY += 13;
+
+        doc.fillColor("#dc2626").text("Discount:", rightSumX + 8, sumY);
+        doc.text(`-${formatInrPdf(receipt.discount || 0)}`, rightSumX + sumBoxW - 95, sumY, { align: "right", width: 85 });
+        sumY += 13;
+
+        doc.fillColor("#000000").text("GST Tax:", rightSumX + 8, sumY);
+        doc.text(formatInrPdf(receipt.gst || 0), rightSumX + sumBoxW - 95, sumY, { align: "right", width: 85 });
+        sumY += 15;
+
+        // Grand Total Highlight Bar
+        doc.rect(rightSumX, sumY, sumBoxW, 25).fillAndStroke("#f0fdf4", primaryColor);
+        doc.font("Outfit-Bold").fontSize(10).fillColor(primaryColor).text("GRAND TOTAL:", rightSumX + 8, sumY + 7);
+        doc.text(formatInrPdf(receipt.grandTotal || 0), rightSumX + sumBoxW - 105, sumY + 7, { align: "right", width: 95 });
+
+        curY += 88;
+
+        // -------------------------------------------------------------
+        // QR CODE, SIGNATORY & FOOTER SECTION
+        // -------------------------------------------------------------
+        if (curY + 70 > pageHeight - 30) {
+          doc.addPage();
+          curY = margin + 10;
+        }
+
+        const footLeftX = margin;
+        const footRightX = margin + contentWidth - 180;
+
+        // UPI QR Code
+        if (receipt.paymentMethod === "UPI" && (receipt.upiQrCode || receipt.upiPayload)) {
+          try {
+            let qrBuffer: Buffer | null = null;
+            if (receipt.upiQrCode && receipt.upiQrCode.startsWith("data:image/")) {
               const base64Data = receipt.upiQrCode.split(",")[1];
-              if (base64Data) {
-                const qrBuffer = Buffer.from(base64Data, "base64");
-                doc.font("Outfit-Bold").fontSize(7.5).fillColor(primaryColor).text("Paid via UPI", margin, curY, { align: "center", width: contentWidth });
-                curY += 10;
-                doc.image(qrBuffer, margin + (contentWidth - 60) / 2, curY, { width: 60 });
-                curY += 65;
-              }
-            } catch (e) {}
+              if (base64Data) qrBuffer = Buffer.from(base64Data, "base64");
+            } else if (receipt.upiPayload) {
+              qrBuffer = await QRCode.toBuffer(receipt.upiPayload, { margin: 1, width: 120 });
+            }
+            if (qrBuffer) {
+              doc.image(qrBuffer, footLeftX, curY, { width: 55 });
+              doc.font("Outfit-Bold").fontSize(7.5).fillColor(primaryColor).text("Scan to Pay via UPI", footLeftX, curY + 58);
+            }
+          } catch (e) {
+            console.error("Failed to draw UPI QR in A4 PDF:", e);
           }
-
-          doc.font("Outfit").fontSize(7).fillColor("#64748b").text(receipt.thankYouMessage || "Goods once sold cannot be returned without original receipt.", margin, curY, { align: "center", width: contentWidth });
         }
-        // =========================================================
-        // 3. MINIMAL TEMPLATE (80mm) — SCREENSHOT 3
-        // =========================================================
-        else if (template === "Minimal") {
-          let curY = margin;
-          doc.font("Outfit-Bold").fontSize(11).fillColor("#000").text(receipt.shop?.name || "STORE", margin, curY, { align: "center", width: contentWidth });
-          curY += 14;
-          doc.font("Outfit").fontSize(7.5).fillColor("#555").text(`${receipt.shop?.phone || "-"} | GST: ${receipt.shop?.gstin || "-"}`, margin, curY, { align: "center", width: contentWidth });
-          curY += 12;
 
-          doc.strokeColor("#ccc").lineWidth(0.5).moveTo(margin, curY).lineTo(margin + contentWidth, curY).stroke();
-          curY += 4;
+        // Signature Box
+        doc.font("Outfit-Bold").fontSize(8.5).fillColor(primaryColor).text(`FOR ${(receipt.shop?.name || "STORE").toUpperCase()}`, footRightX, curY, { align: "right", width: 180 });
+        doc.strokeColor("#cbd5e1").lineWidth(0.5).moveTo(footRightX + 20, curY + 42).lineTo(footRightX + 180, curY + 42).stroke();
+        doc.font("Outfit").fontSize(7.5).fillColor(secondaryColor).text(signature || "Authorized Signatory", footRightX, curY + 46, { align: "right", width: 180 });
 
-          doc.font("Outfit").fontSize(7.5).fillColor("#000").text(`Inv: ${receipt.invoiceNumber} ${receipt.date}`, margin, curY);
-          curY += 10;
+        // Temporarily clear bottom margin so footer text does not auto-trigger new pages
+        const oldBottomMargin = doc.page.margins.bottom;
+        doc.page.margins.bottom = 0;
 
-          doc.strokeColor("#ccc").lineWidth(0.5).moveTo(margin, curY).lineTo(margin + contentWidth, curY).stroke();
-          curY += 4;
+        // Thank you footer line across bottom
+        const footerY = pageHeight - 32;
+        doc.font("Outfit").fontSize(7.5).fillColor(secondaryColor).text(receipt.thankYouMessage || "Thank you for your business!", margin, footerY, { align: "center", width: contentWidth, lineBreak: false });
 
-          for (const item of (receipt.items || [])) {
-            doc.text(`${item.qty}x ${item.name}`, margin, curY, { width: 140 });
-            doc.text(formatInrPdf(item.lineTotal), margin + contentWidth - 50, curY, { align: "right", width: 50 });
-            curY += 11;
-          }
-
-          doc.strokeColor("#ccc").lineWidth(0.5).moveTo(margin, curY).lineTo(margin + contentWidth, curY).stroke();
-          curY += 4;
-
-          doc.font("Outfit-Bold").fontSize(9).fillColor("#000").text(`TOTAL:${formatInrPdf(receipt.grandTotal)}`, margin, curY);
-          curY += 14;
-
-          doc.font("Outfit").fontSize(7).fillColor("#666").text(`Paid via ${receipt.paymentMethod || "UPI"}`, margin, curY, { align: "center", width: contentWidth });
-          curY += 10;
-          doc.text(receipt.thankYouMessage || "Goods once sold cannot be returned without original receipt.", margin, curY, { align: "center", width: contentWidth });
+        // Page Numbering Loop (Page X of Y)
+        const pages = doc.bufferedPageRange();
+        for (let i = 0; i < pages.count; i++) {
+          doc.switchToPage(i);
+          doc.font("Outfit").fontSize(7).fillColor("#94a3b8").text(`Page ${i + 1} of ${pages.count}`, margin + contentWidth - 70, pageHeight - 20, { align: "right", width: 70, lineBreak: false });
         }
-        // =========================================================
-        // 4. COMPACT TEMPLATE (58mm) — SCREENSHOT 11
-        // =========================================================
-        else if (template === "Compact") {
-          let curY = margin;
-          doc.font("Outfit-Bold").fontSize(9.5).fillColor("#000").text(receipt.shop?.name || "STORE", margin, curY, { align: "center", width: contentWidth });
-          curY += 12;
-          doc.font("Outfit").fontSize(6.5).fillColor("#444").text(`${receipt.shop?.phone || "-"} | GST:${receipt.shop?.gstin || "-"}`, margin, curY, { align: "center", width: contentWidth });
-          curY += 10;
 
-          doc.strokeColor("#000").lineWidth(0.5).moveTo(margin, curY).lineTo(margin + contentWidth, curY).stroke();
-          curY += 3;
-
-          doc.font("Outfit").fontSize(6.5).fillColor("#000");
-          doc.text(`INV: ${receipt.invoiceNumber}`, margin, curY);
-          curY += 8;
-          doc.text(`DAT: ${receipt.date} ${receipt.time}`, margin, curY);
-          curY += 8;
-          doc.text(`CUST: ${receipt.customer?.name || "Walk-in Custome"}`, margin, curY);
-          curY += 9;
-
-          doc.strokeColor("#000").lineWidth(0.5).moveTo(margin, curY).lineTo(margin + contentWidth, curY).stroke();
-          curY += 3;
-
-          for (const item of (receipt.items || [])) {
-            doc.text(`${item.qty}x ${item.name}`, margin, curY, { width: 105 });
-            doc.text(formatInrPdf(item.lineTotal), margin + contentWidth - 40, curY, { align: "right", width: 40 });
-            curY += 9;
-          }
-
-          doc.strokeColor("#000").lineWidth(0.5).moveTo(margin, curY).lineTo(margin + contentWidth, curY).stroke();
-          curY += 3;
-
-          doc.font("Outfit").fontSize(6.5).fillColor("#000");
-          doc.text("Sub / GST", margin, curY);
-          doc.text(`${formatInrPdf(receipt.subtotal)} / ${formatInrPdf(receipt.gst)}`, margin + contentWidth - 65, curY, { align: "right", width: 65 });
-          curY += 8;
-
-          doc.text("Discount", margin, curY);
-          doc.text(`-${formatInrPdf(receipt.discount)}`, margin + contentWidth - 40, curY, { align: "right", width: 40 });
-          curY += 8;
-
-          doc.font("Outfit-Bold").fontSize(8.5).fillColor("#000");
-          doc.text("TOTAL", margin, curY);
-          doc.text(formatInrPdf(receipt.grandTotal), margin + contentWidth - 50, curY, { align: "right", width: 50 });
-          curY += 11;
-
-          doc.strokeColor("#000").lineWidth(0.5).moveTo(margin, curY).lineTo(margin + contentWidth, curY).stroke();
-          curY += 3;
-
-          doc.font("Outfit").fontSize(6).fillColor("#444").text(`Paid: ${receipt.paymentMethod || "UPI"}`, margin, curY, { align: "center", width: contentWidth });
-          curY += 7;
-          doc.text(receipt.thankYouMessage || "Goods once sold cannot be returned without original receipt.", margin, curY, { align: "center", width: contentWidth });
-        }
-        // =========================================================
-        // 5. CLASSIC / RETAIL / OTHER THERMAL TEMPLATES (80mm)
-        // =========================================================
-        else {
-          let curY = margin;
-
-          if (receipt.shop?.logo && receipt.shop.logo.startsWith("data:image/")) {
-            try {
-              const base64Data = receipt.shop.logo.split(",")[1];
-              if (base64Data) {
-                const logoBuffer = Buffer.from(base64Data, "base64");
-                doc.image(logoBuffer, margin + (contentWidth - 36) / 2, curY, { fit: [36, 36] });
-                curY += 38;
-              }
-            } catch (e) {}
-          }
-
-          doc.font("Outfit-Bold").fontSize(11).fillColor("#000").text((receipt.shop?.name || "STORE").toUpperCase(), margin, curY, { align: "center", width: contentWidth });
-          curY += 14;
-          doc.font("Outfit").fontSize(7.5).fillColor("#333").text(receipt.shop?.address || "", margin, curY, { align: "center", width: contentWidth });
-          curY += 10;
-          doc.text(`PH: ${receipt.shop?.phone || "-"}`, margin, curY, { align: "center", width: contentWidth });
-          curY += 10;
-          doc.text(`GSTIN: ${receipt.shop?.gstin || "-"}`, margin, curY, { align: "center", width: contentWidth });
-          curY += 12;
-
-          doc.strokeColor("#000").dash(3, { space: 2 }).moveTo(margin, curY).lineTo(margin + contentWidth, curY).stroke().undash();
-          curY += 5;
-
-          doc.font("Outfit").fontSize(7.5).fillColor("#000");
-          doc.text(`INV : ${receipt.invoiceNumber}`, margin, curY);
-          curY += 9;
-          doc.text(`DATE : ${receipt.date}`, margin, curY);
-          curY += 9;
-          doc.text(`TIME : ${receipt.time}`, margin, curY);
-          curY += 9;
-          doc.text(`CASH : ${receipt.cashier || "Admin"}`, margin, curY);
-          curY += 9;
-          doc.text(`CUST : ${receipt.customer?.name || "Walk-in Customer"}`, margin, curY);
-          curY += 9;
-          if (receipt.customer?.phone) {
-            doc.text(`PHONE: +91 ${receipt.customer.phone}`, margin, curY);
-            curY += 9;
-          }
-
-          doc.strokeColor("#000").dash(3, { space: 2 }).moveTo(margin, curY).lineTo(margin + contentWidth, curY).stroke().undash();
-          curY += 5;
-
-          doc.font("Outfit-Bold").fontSize(7.5).fillColor("#000");
-          doc.text("Item", margin, curY);
-          doc.text("Total", margin + contentWidth - 45, curY, { align: "right", width: 45 });
-          curY += 10;
-          doc.strokeColor("#000").dash(3, { space: 2 }).moveTo(margin, curY).lineTo(margin + contentWidth, curY).stroke().undash();
-          curY += 4;
-
-          doc.font("Outfit").fontSize(7.5).fillColor("#000");
-          for (const item of (receipt.items || [])) {
-            doc.text(`${item.qty}x ${item.name}`, margin, curY, { width: 145 });
-            doc.text(formatInrPdf(item.lineTotal), margin + contentWidth - 45, curY, { align: "right", width: 45 });
-            curY += 11;
-          }
-
-          doc.strokeColor("#000").dash(3, { space: 2 }).moveTo(margin, curY).lineTo(margin + contentWidth, curY).stroke().undash();
-          curY += 5;
-
-          doc.font("Outfit").fontSize(7.5).fillColor("#000");
-          doc.text("Subtotal", margin, curY);
-          doc.text(formatInrPdf(receipt.subtotal), margin + contentWidth - 50, curY, { align: "right", width: 50 });
-          curY += 10;
-
-          doc.text("Discount", margin, curY);
-          doc.text(`-${formatInrPdf(receipt.discount)}`, margin + contentWidth - 50, curY, { align: "right", width: 50 });
-          curY += 10;
-
-          doc.text("GST Tax", margin, curY);
-          doc.text(formatInrPdf(receipt.gst), margin + contentWidth - 50, curY, { align: "right", width: 50 });
-          curY += 12;
-
-          doc.font("Outfit-Bold").fontSize(9.5).fillColor("#000");
-          doc.text("GRAND TOTAL", margin, curY);
-          doc.text(formatInrPdf(receipt.grandTotal), margin + contentWidth - 65, curY, { align: "right", width: 65 });
-          curY += 14;
-
-          doc.strokeColor("#000").dash(3, { space: 2 }).moveTo(margin, curY).lineTo(margin + contentWidth, curY).stroke().undash();
-          curY += 5;
-
-          if (receipt.paymentMethod === "UPI" && receipt.upiQrCode) {
-            try {
-              const base64Data = receipt.upiQrCode.split(",")[1];
-              if (base64Data) {
-                const qrBuffer = Buffer.from(base64Data, "base64");
-                doc.font("Outfit-Bold").fontSize(7.5).fillColor("#000").text("Paid via UPI", margin, curY, { align: "center", width: contentWidth });
-                curY += 10;
-                doc.image(qrBuffer, margin + (contentWidth - 65) / 2, curY, { width: 65 });
-                curY += 70;
-              }
-            } catch (e) {}
-          }
-
-          doc.font("Outfit").fontSize(7).fillColor("#444").text(receipt.thankYouMessage || "Goods once sold cannot be returned without original receipt.", margin, curY, { align: "center", width: contentWidth });
-        }
+        doc.page.margins.bottom = oldBottomMargin;
 
         doc.end();
-
-        stream.on("finish", () => {
-          resolve(outputPath);
-        });
-        stream.on("error", (err) => {
-          reject(err);
-        });
+        stream.on("finish", () => resolve(outputPath));
+        stream.on("error", (err: any) => reject(err));
       } catch (err) {
         reject(err);
       }

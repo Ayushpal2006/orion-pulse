@@ -13,6 +13,7 @@ import { API_BASE_URL, apiFetch } from "@/lib/api";
 export function InvoiceTemplatesPage() {
   const s = useApp();
   const [invPrefix, setInvPrefix] = useState(() => localStorage.getItem("orion_inv_prefix") || "INV-");
+  const [pdfInvoiceTemplate, setPdfInvoiceTemplate] = useState("Professional A4");
   const [isDirty, setIsDirty] = useState(false);
   const [saving, setSaving] = useState(false);
 
@@ -33,6 +34,7 @@ export function InvoiceTemplatesPage() {
           if (cfg.inv_prefix) setInvPrefix(cfg.inv_prefix);
           if (cfg.receipt_footer) s.setReceiptFooter(cfg.receipt_footer);
           if (cfg.receipt_template) s.setReceiptTemplate(cfg.receipt_template as any);
+          if (cfg.pdf_invoice_template) setPdfInvoiceTemplate(cfg.pdf_invoice_template);
           if (cfg.primary_color && s.setPrimaryColor) s.setPrimaryColor(cfg.primary_color);
           if (cfg.invoice_header && s.setInvoiceHeader) s.setInvoiceHeader(cfg.invoice_header);
           if (cfg.invoice_footer && s.setInvoiceFooter) s.setInvoiceFooter(cfg.invoice_footer);
@@ -52,6 +54,7 @@ export function InvoiceTemplatesPage() {
         inv_prefix: invPrefix,
         receipt_footer: s.receiptFooter,
         receipt_template: s.receiptTemplate,
+        pdf_invoice_template: pdfInvoiceTemplate,
         primary_color: s.primaryColor,
         invoice_header: s.invoiceHeader,
         invoice_footer: s.invoiceFooter,
@@ -124,9 +127,14 @@ export function InvoiceTemplatesPage() {
       </div>
 
       <div className="card-soft p-5 space-y-6">
-        {/* Template Theme Selector Cards */}
+        {/* Separation Section 1: Receipt / Thermal Template */}
         <div className="space-y-2">
-          <Label className="text-xs font-semibold">Select Invoice Theme / Template</Label>
+          <div className="flex items-center justify-between">
+            <Label className="text-xs font-semibold">1. Thermal / Receipt Template (Controls View Receipt & POS Thermal Print)</Label>
+            <Badge variant="outline" className="text-[10px] text-muted-foreground font-mono">
+              Selected: {s.receiptTemplate}
+            </Badge>
+          </div>
           <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-3">
             {templatePresets.map((tpl) => (
               <button
@@ -137,7 +145,7 @@ export function InvoiceTemplatesPage() {
                   saveActiveTemplateConfig(config);
                   s.setReceiptTemplate(tpl as any);
                   setIsDirty(true);
-                  toast.success(`Active Template switched to ${tpl}!`);
+                  toast.success(`Active Receipt Template switched to ${tpl}!`);
                 }}
                 className={`card-soft p-3.5 text-center cursor-pointer transition-all rounded-xl ${
                   s.receiptTemplate === tpl
@@ -171,10 +179,65 @@ export function InvoiceTemplatesPage() {
                 <div className="text-xs font-bold text-foreground truncate">{tpl}</div>
                 <div className="text-[10px] text-muted-foreground mt-0.5 truncate">
                   {tpl === "Wholesale" || tpl === "GST Professional"
-                    ? "A4 Paper"
+                    ? "Thermal Wide"
                     : tpl === "Compact"
                     ? "58mm Mini"
                     : "80mm Standard"}
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Separation Section 2: PDF Invoice Template */}
+        <div className="space-y-2 pt-3 border-t border-border/40">
+          <div className="flex items-center justify-between">
+            <Label className="text-xs font-semibold">2. PDF Invoice Template (Controls Dedicated A4 PDF Downloads & WhatsApp PDF)</Label>
+            <Badge variant="outline" className="text-[10px] text-emerald-600 border-emerald-500/30 bg-emerald-500/10 font-bold">
+              Active: {pdfInvoiceTemplate}
+            </Badge>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            {[
+              {
+                id: "Professional A4",
+                name: "Professional A4",
+                icon: "📄",
+                desc: "Dark slate header, modern typography, vector layout with logo & QR",
+              },
+              {
+                id: "Standard A4",
+                name: "Standard A4",
+                icon: "📋",
+                desc: "Classic blue business invoice header with clean itemized breakdown",
+              },
+              {
+                id: "GST Invoice A4",
+                name: "GST Invoice A4",
+                icon: "🏛️",
+                desc: "Emerald green header, GST tax breakdown table & compliance notes",
+              },
+            ].map((tpl) => (
+              <button
+                key={tpl.id}
+                type="button"
+                onClick={() => {
+                  setPdfInvoiceTemplate(tpl.id);
+                  setIsDirty(true);
+                  toast.success(`Active PDF Invoice Template set to ${tpl.name}!`);
+                }}
+                className={`card-soft p-4 text-left cursor-pointer transition-all rounded-xl border ${
+                  pdfInvoiceTemplate === tpl.id
+                    ? "border-primary ring-2 ring-primary/30 bg-primary/5"
+                    : "hover:border-primary/50"
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <div className="text-2xl">{tpl.icon}</div>
+                  <div>
+                    <div className="text-xs font-bold text-foreground">{tpl.name}</div>
+                    <div className="text-[10px] text-muted-foreground mt-0.5">{tpl.desc}</div>
+                  </div>
                 </div>
               </button>
             ))}

@@ -164,12 +164,12 @@ export class SalesService {
         const shop = {
           storeId: targetStoreId,
           organizationId: targetOrgId,
-          name: storeSettingsMap.shop_name || storeRecord?.name || orgRecord?.name || "Apka Bill Store",
-          gstin: storeSettingsMap.shop_gstin || storeRecord?.gst_number || orgRecord?.gst_number || "27AAAAA1111A1Z1",
-          phone: storeSettingsMap.shop_phone || storeRecord?.phone || orgRecord?.phone || "8285068670",
-          address: storeSettingsMap.shop_address || storeRecord?.address || orgRecord?.address || "123, POS Center, Sector V, Salt Lake, Kolkata, 700091",
-          email: orgRecord?.email || "support@apkabill.in",
-          upiId: storeSettingsMap.shop_upi_id || "apkabill@upi",
+          name: storeSettingsMap.shop_name || storeRecord?.name || orgRecord?.name || "Store Invoice",
+          gstin: storeSettingsMap.shop_gstin || storeRecord?.gst_number || orgRecord?.gst_number || "",
+          phone: storeSettingsMap.shop_phone || storeRecord?.phone || orgRecord?.phone || "",
+          address: storeSettingsMap.shop_address || storeRecord?.address || orgRecord?.address || "",
+          email: storeSettingsMap.shop_email || orgRecord?.email || "",
+          upiId: storeSettingsMap.shop_upi_id || "",
           logo: storeSettingsMap.logo || storeRecord?.logo_url || orgRecord?.logo_url || "",
         };
 
@@ -186,16 +186,20 @@ export class SalesService {
           gst: i.product_gst ?? 18,
         }));
 
-        const upiPayload = `upi://pay?pa=${shop.upiId}&pn=${encodeURIComponent(shop.name)}&am=${(sale!.grand_total / 100.0).toFixed(2)}&cu=INR`;
+        const upiPayload = shop.upiId
+          ? `upi://pay?pa=${shop.upiId}&pn=${encodeURIComponent(shop.name)}&am=${(sale!.grand_total / 100.0).toFixed(2)}&cu=INR`
+          : "";
         const thankYouMessage = storeSettingsMap.receipt_footer || "Thank you for shopping with us\n*** Thank you — visit again ***";
         const template = storeSettingsMap.receipt_template || "Classic";
+        const pdfTemplate = storeSettingsMap.pdf_invoice_template || "Professional A4";
+        const signature = storeSettingsMap.signature || "Authorized Signatory";
         const termsAndConditions = storeSettingsMap.terms_and_conditions || storeSettingsMap.invoice_footer || storeSettingsMap.exchange_policy || "";
         const invoiceHeader = storeSettingsMap.invoice_header || "";
         const qrPosition = storeSettingsMap.qr_position || "Bottom";
 
-        // Generate UPI QR code offline
+        // Generate UPI QR code offline if upiPayload exists
         let upiQrCode = "";
-        if (sale!.payment_method === "UPI") {
+        if (sale!.payment_method === "UPI" && upiPayload) {
           try {
             upiQrCode = await QRCode.toDataURL(upiPayload);
           } catch (e) {
@@ -207,8 +211,8 @@ export class SalesService {
         const thermalFormat = [
           { type: "text", value: shop.name, align: "center", bold: true },
           { type: "text", value: shop.address, align: "center" },
-          { type: "text", value: `GSTIN: ${shop.gstin}`, align: "center" },
-          { type: "text", value: `Phone: ${shop.phone}`, align: "center" },
+          ...(shop.gstin ? [{ type: "text", value: `GSTIN: ${shop.gstin}`, align: "center" }] : []),
+          ...(shop.phone ? [{ type: "text", value: `Phone: ${shop.phone}`, align: "center" }] : []),
           { type: "divider" },
           { type: "text", value: `Invoice: ${sale!.invoice_number}` },
           { type: "text", value: `Date: ${formattedDate} ${formattedTime}` },
@@ -237,10 +241,15 @@ export class SalesService {
           date: formattedDate,
           time: formattedTime,
           template,
+          pdfTemplate,
+          signature,
           shop,
           customer: {
             name: customer ? customer.name : "Walk-in Customer",
             phone: customer ? (customer.phone || "") : "",
+            address: customer ? (customer.address || "") : "",
+            email: customer ? (customer.email || "") : "",
+            gstin: customer ? ((customer as any).gstin || "") : "",
           },
           items: itemsMapped,
           subtotal: sale!.subtotal / 100.0,
