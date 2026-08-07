@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -155,7 +155,6 @@ function SettingsV2() {
   const [searchQuery, setSearchQuery] = useState("");
   const [focusedNavIndex, setFocusedNavIndex] = useState(0);
   const searchInputRef = useRef<HTMLInputElement>(null);
-  const [isDirty, setIsDirty] = useState(false);
   const [saving, setSaving] = useState(false);
   const [lastSaved, setLastSaved] = useState<string>("Today, 02:40 AM");
 
@@ -206,6 +205,103 @@ function SettingsV2() {
     { id: "2", name: "Auto-Nightly-2026-07-24.json", timestamp: "2026-07-24 12:00 AM", size: "2.3 MB", type: "Auto", status: "Success" },
     { id: "3", name: "Restore-Point-Pre-Sprint.json", timestamp: "2026-07-23 04:15 PM", size: "2.1 MB", type: "Restore Point", status: "Success" },
   ]);
+
+  // Deep Dirty State Snapshot System
+  const [savedSettings, setSavedSettings] = useState<any>(null);
+
+  const getSettingsSnapshot = () => ({
+    shopName: s.shopName || "",
+    gstin: s.gstin || "",
+    storePhone: s.storePhone || "",
+    storeEmail: s.storeEmail || "",
+    storeAddress: s.storeAddress || "",
+    upiId: s.upiId || "",
+    invoiceHeader: s.invoiceHeader || "",
+    invoiceFooter: s.invoiceFooter || "",
+    receiptFooter: s.receiptFooter || "",
+    receiptTemplate: s.receiptTemplate || "",
+    primaryColor: s.primaryColor || "",
+    tagline: s.tagline || "",
+    website: s.website || "",
+    termsAndConditions: s.termsAndConditions || "",
+    whatsappSignature: s.whatsappSignature || "",
+    invPrefix: invPrefix || "",
+    invStartNo: invStartNo || "",
+    allowNegativeStock: Boolean(allowNegativeStock),
+    quickBilling: Boolean(quickBilling),
+    poPrefix: poPrefix || "",
+    poStartNo: poStartNo || "",
+    autofillPurchaseCost: Boolean(autofillPurchaseCost),
+    autoSaveDraft: Boolean(autoSaveDraft),
+    lowStockThreshold: Number(lowStockThreshold) || 10,
+    autoGenSku: Boolean(autoGenSku),
+    defaultReportPeriod: defaultReportPeriod || "Month",
+    exportFormat: exportFormat || "PDF",
+    sheetId: sheetId || "",
+    autoBackupEnabled: Boolean(autoBackupEnabled),
+    requireCustomerBeforeCheckout: Boolean(s.requireCustomerBeforeCheckout),
+  });
+
+  const draftSettings = getSettingsSnapshot();
+
+  const isDirty = useMemo(() => {
+    if (!savedSettings) return false;
+    for (const key of Object.keys(draftSettings)) {
+      const dVal = (draftSettings as any)[key];
+      const sVal = (savedSettings as any)[key];
+      if (typeof dVal === "string") {
+        if (dVal.trim() !== (sVal ?? "").toString().trim()) return true;
+      } else if (dVal !== sVal) {
+        return true;
+      }
+    }
+    return false;
+  }, [draftSettings, savedSettings]);
+
+  // Section switcher with Unsaved Changes warning guard
+  const handleSelectSection = (nextId: SettingsSectionId) => {
+    if (isDirty) {
+      if (!window.confirm("You have unsaved changes. Discard them?")) {
+        return;
+      }
+      if (savedSettings) {
+        s.setShopName(savedSettings.shopName);
+        s.setGstin(savedSettings.gstin);
+        s.setStorePhone(savedSettings.storePhone);
+        s.setStoreEmail(savedSettings.storeEmail);
+        s.setStoreAddress(savedSettings.storeAddress);
+        s.setUpiId(savedSettings.upiId);
+        if (savedSettings.invoiceHeader && s.setInvoiceHeader) s.setInvoiceHeader(savedSettings.invoiceHeader);
+        if (savedSettings.invoiceFooter && s.setInvoiceFooter) s.setInvoiceFooter(savedSettings.invoiceFooter);
+        if (savedSettings.receiptFooter) s.setReceiptFooter(savedSettings.receiptFooter);
+        if (savedSettings.receiptTemplate) s.setReceiptTemplate(savedSettings.receiptTemplate);
+        if (savedSettings.primaryColor && s.setPrimaryColor) s.setPrimaryColor(savedSettings.primaryColor);
+        if (savedSettings.tagline && s.setTagline) s.setTagline(savedSettings.tagline);
+        if (savedSettings.website && s.setWebsite) s.setWebsite(savedSettings.website);
+        if (savedSettings.termsAndConditions && s.setTermsAndConditions) s.setTermsAndConditions(savedSettings.termsAndConditions);
+        if (savedSettings.whatsappSignature && s.setWhatsappSignature) s.setWhatsappSignature(savedSettings.whatsappSignature);
+        setInvPrefix(savedSettings.invPrefix);
+        setPoPrefix(savedSettings.poPrefix);
+        setLowStockThreshold(savedSettings.lowStockThreshold);
+        setDefaultReportPeriod(savedSettings.defaultReportPeriod);
+        setExportFormat(savedSettings.exportFormat);
+        setSheetId(savedSettings.sheetId);
+      }
+    }
+    setActiveSection(nextId);
+  };
+
+  // Browser BeforeUnload Safety Guard
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (isDirty) {
+        e.preventDefault();
+        e.returnValue = "";
+      }
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [isDirty]);
 
   // Load Initial Storage Stats, Connection, and Restore Production Settings
   useEffect(() => {
@@ -265,7 +361,10 @@ function SettingsV2() {
           }
         }
       })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => {
+        setSavedSettings(getSettingsSnapshot());
+      });
 
     // 3. Load Storage & Sync Status
     apiFetch(`${API_BASE_URL}/settings/storage`)
@@ -375,7 +474,7 @@ function SettingsV2() {
       localStorage.setItem("orion_default_report_period", defaultReportPeriod);
       localStorage.setItem("orion_export_format", exportFormat);
 
-      await apiFetch(`${API_BASE_URL}/settings`, {
+      const res = await apiFetch(`${API_BASE_URL}/settings`, {
         method: "PUT",
         headers: { "Content-Type": "application/json", ...getStoreHeaders() },
         body: JSON.stringify({
@@ -408,15 +507,18 @@ function SettingsV2() {
         }),
       });
 
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}`);
+      }
+
+      // Success: update saved snapshot to match draft settings
+      setSavedSettings(getSettingsSnapshot());
       const nowFormatted = new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" });
       setLastSaved(`Today, ${nowFormatted}`);
 
-      toast.success("Settings saved successfully!", {
-        description: "All configuration updates are now active across Orion POS database and storage.",
-      });
-      setIsDirty(false);
-    } catch (e) {
-      toast.error("Failed to save settings.");
+      toast.success("Settings saved successfully");
+    } catch (e: any) {
+      toast.error("Failed to save settings: " + (e.message || e));
     } finally {
       setSaving(false);
     }
@@ -733,7 +835,7 @@ function SettingsV2() {
       default:
         break;
     }
-    setIsDirty(true);
+
     toast.success(`Restored factory default settings for ${SECTIONS.find((x) => x.id === activeSection)?.name}.`);
   };
 
@@ -855,7 +957,7 @@ function SettingsV2() {
               role="tab"
               aria-selected={isActive}
               aria-controls={`panel-${sec.id}`}
-              onClick={() => setActiveSection(sec.id)}
+              onClick={() => handleSelectSection(sec.id)}
               className={`shrink-0 flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all min-h-[44px] touch-target active:scale-95 ${
                 isActive
                   ? "bg-primary text-primary-foreground shadow-xs"
@@ -898,7 +1000,7 @@ function SettingsV2() {
                   aria-selected={isActive}
                   aria-controls={`panel-${sec.id}`}
                   onClick={() => {
-                    setActiveSection(sec.id);
+                    handleSelectSection(sec.id);
                     setFocusedNavIndex(idx);
                   }}
                   className={`w-full text-left px-3 py-2.5 rounded-xl text-xs font-semibold transition-all flex items-center justify-between group ${
@@ -999,14 +1101,14 @@ function SettingsV2() {
                   <Label className="text-xs font-semibold">Business / Company Name</Label>
                   <Input
                     value={s.shopName}
-                    onChange={(e) => { s.setShopName(e.target.value); setIsDirty(true); }}
+                    onChange={(e) => s.setShopName(e.target.value)}
                     className="rounded-xl h-9 text-xs"
                   />
                 </div>
 
                 <div className="space-y-1.5">
                   <Label className="text-xs font-semibold">Default Currency</Label>
-                  <Select value={s.currency} onValueChange={(v) => { s.setCurrency(v); setIsDirty(true); }}>
+                  <Select value={s.currency} onValueChange={(v) => s.setCurrency(v)}>
                     <SelectTrigger className="rounded-xl h-9 text-xs">
                       <SelectValue />
                     </SelectTrigger>
@@ -1105,7 +1207,7 @@ function SettingsV2() {
                   <Label className="text-xs font-semibold">Shop Name *</Label>
                   <Input
                     value={s.shopName}
-                    onChange={(e) => { s.setShopName(e.target.value); setIsDirty(true); }}
+                    onChange={(e) => s.setShopName(e.target.value)}
                     className="rounded-xl h-9 text-xs"
                   />
                 </div>
@@ -1114,7 +1216,7 @@ function SettingsV2() {
                   <Label className="text-xs font-semibold">GSTIN / Tax Registration</Label>
                   <Input
                     value={s.gstin}
-                    onChange={(e) => { s.setGstin(e.target.value); setIsDirty(true); }}
+                    onChange={(e) => s.setGstin(e.target.value)}
                     className="rounded-xl h-9 text-xs font-mono"
                   />
                 </div>
@@ -1123,7 +1225,7 @@ function SettingsV2() {
                   <Label className="text-xs font-semibold">Phone Number</Label>
                   <Input
                     value={s.storePhone}
-                    onChange={(e) => { s.setStorePhone(e.target.value); setIsDirty(true); }}
+                    onChange={(e) => s.setStorePhone(e.target.value)}
                     className="rounded-xl h-9 text-xs"
                   />
                 </div>
@@ -1132,7 +1234,7 @@ function SettingsV2() {
                   <Label className="text-xs font-semibold">Email Address</Label>
                   <Input
                     value={s.storeEmail}
-                    onChange={(e) => { s.setStoreEmail(e.target.value); setIsDirty(true); }}
+                    onChange={(e) => s.setStoreEmail(e.target.value)}
                     className="rounded-xl h-9 text-xs"
                   />
                 </div>
@@ -1143,7 +1245,7 @@ function SettingsV2() {
                 <Textarea
                   rows={3}
                   value={s.storeAddress}
-                  onChange={(e) => { s.setStoreAddress(e.target.value); setIsDirty(true); }}
+                  onChange={(e) => s.setStoreAddress(e.target.value)}
                   className="rounded-xl text-xs leading-relaxed"
                 />
               </div>
@@ -1171,7 +1273,7 @@ function SettingsV2() {
                   <Label className="text-xs font-semibold">Invoice Number Prefix</Label>
                   <Input
                     value={invPrefix}
-                    onChange={(e) => { setInvPrefix(e.target.value); setIsDirty(true); }}
+                    onChange={(e) => setInvPrefix(e.target.value)}
                     className="rounded-xl h-9 text-xs font-mono"
                     placeholder="e.g. INV-"
                   />
@@ -1181,14 +1283,14 @@ function SettingsV2() {
                   <Label className="text-xs font-semibold">Starting Invoice Sequence Number</Label>
                   <Input
                     value={invStartNo}
-                    onChange={(e) => { setInvStartNo(e.target.value); setIsDirty(true); }}
+                    onChange={(e) => setInvStartNo(e.target.value)}
                     className="rounded-xl h-9 text-xs font-mono"
                   />
                 </div>
 
                 <div className="space-y-1.5">
                   <Label className="text-xs font-semibold">Default Payment Method</Label>
-                  <Select value={s.payment} onValueChange={(v: any) => { s.setPayment(v); setIsDirty(true); }}>
+                  <Select value={s.payment} onValueChange={(v: any) => s.setPayment(v)}>
                     <SelectTrigger className="rounded-xl h-9 text-xs">
                       <SelectValue />
                     </SelectTrigger>
@@ -1203,7 +1305,7 @@ function SettingsV2() {
 
                 <div className="space-y-1.5">
                   <Label className="text-xs font-semibold">Receipt Template</Label>
-                  <Select value={s.receiptTemplate} onValueChange={(v: any) => { s.setReceiptTemplate(v); setIsDirty(true); }}>
+                  <Select value={s.receiptTemplate} onValueChange={(v: any) => s.setReceiptTemplate(v)}>
                     <SelectTrigger className="rounded-xl h-9 text-xs">
                       <SelectValue />
                     </SelectTrigger>
@@ -1226,7 +1328,7 @@ function SettingsV2() {
                   <input
                     type="checkbox"
                     checked={allowNegativeStock}
-                    onChange={(e) => { setAllowNegativeStock(e.target.checked); setIsDirty(true); }}
+                    onChange={(e) => setAllowNegativeStock(e.target.checked)}
                     className="size-4 accent-primary cursor-pointer rounded"
                   />
                 </div>
@@ -1239,7 +1341,7 @@ function SettingsV2() {
                   <input
                     type="checkbox"
                     checked={s.requireCustomerBeforeCheckout}
-                    onChange={(e) => { s.setRequireCustomerBeforeCheckout(e.target.checked); setIsDirty(true); }}
+                    onChange={(e) => s.setRequireCustomerBeforeCheckout(e.target.checked)}
                     className="size-4 accent-primary cursor-pointer rounded"
                   />
                 </div>
@@ -1265,7 +1367,7 @@ function SettingsV2() {
                   <Label className="text-xs font-semibold">Purchase Order Prefix</Label>
                   <Input
                     value={poPrefix}
-                    onChange={(e) => { setPoPrefix(e.target.value); setIsDirty(true); }}
+                    onChange={(e) => setPoPrefix(e.target.value)}
                     className="rounded-xl h-9 text-xs font-mono"
                     placeholder="e.g. PO-"
                   />
@@ -1275,7 +1377,7 @@ function SettingsV2() {
                   <Label className="text-xs font-semibold">Starting PO Sequence Number</Label>
                   <Input
                     value={poStartNo}
-                    onChange={(e) => { setPoStartNo(e.target.value); setIsDirty(true); }}
+                    onChange={(e) => setPoStartNo(e.target.value)}
                     className="rounded-xl h-9 text-xs font-mono"
                   />
                 </div>
@@ -1290,7 +1392,7 @@ function SettingsV2() {
                   <input
                     type="checkbox"
                     checked={autofillPurchaseCost}
-                    onChange={(e) => { setAutofillPurchaseCost(e.target.checked); setIsDirty(true); }}
+                    onChange={(e) => setAutofillPurchaseCost(e.target.checked)}
                     className="size-4 accent-primary cursor-pointer rounded"
                   />
                 </div>
@@ -1303,7 +1405,7 @@ function SettingsV2() {
                   <input
                     type="checkbox"
                     checked={autoSaveDraft}
-                    onChange={(e) => { setAutoSaveDraft(e.target.checked); setIsDirty(true); }}
+                    onChange={(e) => setAutoSaveDraft(e.target.checked)}
                     className="size-4 accent-primary cursor-pointer rounded"
                   />
                 </div>
@@ -1330,7 +1432,7 @@ function SettingsV2() {
                   <Input
                     type="number"
                     value={lowStockThreshold}
-                    onChange={(e) => { setLowStockThreshold(Number(e.target.value)); setIsDirty(true); }}
+                    onChange={(e) => setLowStockThreshold(Number(e.target.value))}
                     className="rounded-xl h-9 text-xs"
                   />
                 </div>
@@ -1359,7 +1461,7 @@ function SettingsV2() {
                   <input
                     type="checkbox"
                     checked={autoGenSku}
-                    onChange={(e) => { setAutoGenSku(e.target.checked); setIsDirty(true); }}
+                    onChange={(e) => setAutoGenSku(e.target.checked)}
                     className="size-4 accent-primary cursor-pointer rounded"
                   />
                 </div>
@@ -1402,7 +1504,7 @@ function SettingsV2() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <Label className="text-xs font-semibold">Default Report Date Filter</Label>
-                  <Select value={defaultReportPeriod} onValueChange={(v) => { setDefaultReportPeriod(v); setIsDirty(true); }}>
+                  <Select value={defaultReportPeriod} onValueChange={(v) => setDefaultReportPeriod(v)}>
                     <SelectTrigger className="rounded-xl h-9 text-xs">
                       <SelectValue />
                     </SelectTrigger>
@@ -1417,7 +1519,7 @@ function SettingsV2() {
 
                 <div className="space-y-1.5">
                   <Label className="text-xs font-semibold">Default Export Format</Label>
-                  <Select value={exportFormat} onValueChange={(v) => { setExportFormat(v); setIsDirty(true); }}>
+                  <Select value={exportFormat} onValueChange={(v) => setExportFormat(v)}>
                     <SelectTrigger className="rounded-xl h-9 text-xs">
                       <SelectValue />
                     </SelectTrigger>
@@ -1436,7 +1538,9 @@ function SettingsV2() {
           {activeSection === "printing" && (
             <PrinterSettingsSection
               currentStore={(s as any).currentStore}
-              onSaveSuccess={() => setIsDirty(false)}
+              onSaveSuccess={() => {
+                setSavedSettings(getSettingsSnapshot());
+              }}
             />
           )}
 
@@ -1465,7 +1569,7 @@ function SettingsV2() {
                   <Input
                     type="number"
                     value={s.taxRate}
-                    onChange={(e) => { s.setTaxRate(Number(e.target.value)); setIsDirty(true); }}
+                    onChange={(e) => s.setTaxRate(Number(e.target.value))}
                     className="rounded-xl h-9 text-xs"
                   />
                 </div>
@@ -1474,7 +1578,7 @@ function SettingsV2() {
                   <Label className="text-xs font-semibold">Store GSTIN</Label>
                   <Input
                     value={s.gstin}
-                    onChange={(e) => { s.setGstin(e.target.value); setIsDirty(true); }}
+                    onChange={(e) => s.setGstin(e.target.value)}
                     className="rounded-xl h-9 text-xs font-mono"
                   />
                 </div>
@@ -1545,7 +1649,7 @@ function SettingsV2() {
                     <Label className="text-xs font-semibold">Spreadsheet ID</Label>
                     <Input
                       value={sheetId}
-                      onChange={(e) => { setSheetId(e.target.value); setIsDirty(true); }}
+                      onChange={(e) => setSheetId(e.target.value)}
                       placeholder="Enter Google Spreadsheet ID..."
                       className="h-9 rounded-xl text-xs font-mono"
                     />
@@ -2209,47 +2313,61 @@ function SettingsV2() {
         </DialogContent>
       </Dialog>
 
-      {/* Task 9: Sticky Bottom Action & Save Status Bar */}
-      <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 bg-background/95 backdrop-blur-md border border-primary/40 rounded-2xl shadow-xl px-5 py-3 flex items-center gap-6 animate-in fade-in slide-in-from-bottom-3">
-        <div className="text-xs font-semibold flex items-center gap-2">
-          {isDirty ? (
-            <>
-              <span className="size-2 rounded-full bg-amber-500 animate-pulse" />
-              <span className="text-foreground font-bold">Unsaved Changes</span>
-            </>
-          ) : (
-            <>
-              <span className="size-2 rounded-full bg-emerald-500" />
-              <span className="text-emerald-600 font-bold">Saved Successfully</span>
-              <span className="text-[10px] text-muted-foreground font-mono">({lastSaved})</span>
-            </>
-          )}
-        </div>
+      {/* Sticky Bottom Action & Save Status Bar - Rendered ONLY when there are unsaved changes */}
+      {isDirty && (
+        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 bg-background/95 backdrop-blur-md border border-primary/40 rounded-2xl shadow-xl px-5 py-3 flex items-center gap-6 animate-in fade-in slide-in-from-bottom-3">
+          <div className="text-xs font-semibold flex items-center gap-2">
+            <span className="size-2 rounded-full bg-amber-500 animate-pulse" />
+            <span className="text-foreground font-bold">Unsaved Changes</span>
+          </div>
 
-        <div className="flex items-center gap-2">
-          {isDirty && (
+          <div className="flex items-center gap-2">
             <Button
               type="button"
               variant="outline"
               size="sm"
-              onClick={() => setIsDirty(false)}
+              onClick={() => {
+                if (savedSettings) {
+                  s.setShopName(savedSettings.shopName);
+                  s.setGstin(savedSettings.gstin);
+                  s.setStorePhone(savedSettings.storePhone);
+                  s.setStoreEmail(savedSettings.storeEmail);
+                  s.setStoreAddress(savedSettings.storeAddress);
+                  s.setUpiId(savedSettings.upiId);
+                  if (savedSettings.invoiceHeader && s.setInvoiceHeader) s.setInvoiceHeader(savedSettings.invoiceHeader);
+                  if (savedSettings.invoiceFooter && s.setInvoiceFooter) s.setInvoiceFooter(savedSettings.invoiceFooter);
+                  if (savedSettings.receiptFooter) s.setReceiptFooter(savedSettings.receiptFooter);
+                  if (savedSettings.receiptTemplate) s.setReceiptTemplate(savedSettings.receiptTemplate);
+                  if (savedSettings.primaryColor && s.setPrimaryColor) s.setPrimaryColor(savedSettings.primaryColor);
+                  if (savedSettings.tagline && s.setTagline) s.setTagline(savedSettings.tagline);
+                  if (savedSettings.website && s.setWebsite) s.setWebsite(savedSettings.website);
+                  if (savedSettings.termsAndConditions && s.setTermsAndConditions) s.setTermsAndConditions(savedSettings.termsAndConditions);
+                  if (savedSettings.whatsappSignature && s.setWhatsappSignature) s.setWhatsappSignature(savedSettings.whatsappSignature);
+                  setInvPrefix(savedSettings.invPrefix);
+                  setPoPrefix(savedSettings.poPrefix);
+                  setLowStockThreshold(savedSettings.lowStockThreshold);
+                  setDefaultReportPeriod(savedSettings.defaultReportPeriod);
+                  setExportFormat(savedSettings.exportFormat);
+                  setSheetId(savedSettings.sheetId);
+                }
+              }}
               className="rounded-xl h-8 text-xs"
             >
               Cancel
             </Button>
-          )}
-          <Button
-            type="button"
-            size="sm"
-            onClick={handleGlobalSave}
-            disabled={saving}
-            className="rounded-xl h-8 text-xs font-bold bg-primary text-primary-foreground px-4 shadow-sm"
-          >
-            {saving ? <Loader2 className="size-3 animate-spin mr-1.5" /> : <Check className="size-3.5 mr-1.5" />}
-            {saving ? "Saving..." : "Save All Changes"}
-          </Button>
+            <Button
+              type="button"
+              size="sm"
+              onClick={handleGlobalSave}
+              disabled={saving}
+              className="rounded-xl h-8 text-xs font-bold bg-primary text-primary-foreground px-4 shadow-sm"
+            >
+              {saving ? <Loader2 className="size-3 animate-spin mr-1.5" /> : <Check className="size-3.5 mr-1.5" />}
+              {saving ? "Saving..." : "Save All Changes"}
+            </Button>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

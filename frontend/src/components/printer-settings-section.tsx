@@ -69,27 +69,6 @@ export function PrinterSettingsSection({ currentStore, onSaveSuccess }: PrinterS
     }
   };
 
-  const handleTestConnection = async () => {
-    setTestingConnection(true);
-    try {
-      const res = await ThermalPrinterBridge.testConnection({
-        connectionType: activeProfile.connectionType as any,
-        bluetoothMac: activeProfile.bluetoothMac,
-        ip: activeProfile.printerIp,
-        port: activeProfile.printerPort || 9100,
-      });
-      if (res.success) {
-        toast.success(res.message || "Connection to KP307 printer verified!");
-      } else {
-        toast.error(res.message || "Printer connection test failed.");
-      }
-    } catch (err: any) {
-      toast.error("Connection test error: " + (err.message || err));
-    } finally {
-      setTestingConnection(false);
-    }
-  };
-
   // Diagnostics State
   const [diagnostics, setDiagnostics] = useState(printerService.getDiagnostics(undefined, currentStore));
 
@@ -133,6 +112,27 @@ export function PrinterSettingsSection({ currentStore, onSaveSuccess }: PrinterS
     }
   };
 
+  const handleTestConnection = async () => {
+    setTestingConnection(true);
+    try {
+      const res = await ThermalPrinterBridge.testConnection({
+        connectionType: activeProfile.connectionType as any,
+        bluetoothMac: activeProfile.bluetoothMac,
+        ip: activeProfile.printerIp,
+        port: activeProfile.printerPort || 9100,
+      });
+      if (res.success) {
+        toast.success(res.message || "Connection to KP307 printer verified!");
+      } else {
+        toast.error(res.message || "Printer connection test failed.");
+      }
+    } catch (err: any) {
+      toast.error("Connection test error: " + (err.message || err));
+    } finally {
+      setTestingConnection(false);
+    }
+  };
+
   const handleSetDefaultProfile = (id: string) => {
     const updated = profiles.map((p) => ({
       ...p,
@@ -159,6 +159,9 @@ export function PrinterSettingsSection({ currentStore, onSaveSuccess }: PrinterS
       marginBottom: 0,
       marginLeft: 0,
       marginRight: 0,
+      charactersPerLine: 48,
+      printerDpi: 203,
+      printableWidthMm: 72,
     };
     setEditingProfile(newProf);
     setDialogOpen(true);
@@ -223,7 +226,7 @@ export function PrinterSettingsSection({ currentStore, onSaveSuccess }: PrinterS
   return (
     <div className="space-y-6">
       {/* Header & Quick Action */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between rounded-2xl bg-neutral-900/40 p-5 border border-neutral-800 backdrop-blur-md">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between rounded-2xl bg-card p-5 border border-border shadow-sm">
         <div className="flex items-center gap-3">
           <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary border border-primary/20">
             <Printer className="h-6 w-6" />
@@ -246,7 +249,7 @@ export function PrinterSettingsSection({ currentStore, onSaveSuccess }: PrinterS
             onClick={handleRunRealTestPrint}
             disabled={testing || loading}
             variant="outline"
-            className="rounded-xl border-neutral-700 bg-neutral-900 text-xs font-semibold gap-2"
+            className="rounded-xl text-xs font-semibold gap-2 border-border"
           >
             {testing ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Zap className="h-4 w-4 text-amber-500" />}
             {testing ? "Testing Hardware..." : "⚡ REAL Test Print"}
@@ -267,7 +270,7 @@ export function PrinterSettingsSection({ currentStore, onSaveSuccess }: PrinterS
         {/* Left Column (2 cols): Profiles & Controls */}
         <div className="lg:col-span-2 space-y-6">
           {/* Printer Profiles List Card */}
-          <Card className="rounded-2xl border-neutral-800 bg-neutral-900/60 shadow-lg">
+          <Card className="rounded-2xl border-border bg-card shadow-sm">
             <CardHeader className="flex flex-row items-center justify-between pb-3">
               <div>
                 <CardTitle className="text-sm font-semibold">Store Printer Profiles ({profiles.length})</CardTitle>
@@ -275,7 +278,7 @@ export function PrinterSettingsSection({ currentStore, onSaveSuccess }: PrinterS
                   Multi-profile hardware configs (Counter, Office, Kitchen, Packing)
                 </CardDescription>
               </div>
-              <Button onClick={handleOpenAddDialog} size="sm" variant="outline" className="rounded-xl text-xs gap-1 border-neutral-700">
+              <Button onClick={handleOpenAddDialog} size="sm" variant="outline" className="rounded-xl text-xs gap-1 border-border">
                 <Plus className="h-3.5 w-3.5" /> Add Profile
               </Button>
             </CardHeader>
@@ -289,11 +292,11 @@ export function PrinterSettingsSection({ currentStore, onSaveSuccess }: PrinterS
                     className={`flex items-center justify-between p-3.5 rounded-xl border transition-all cursor-pointer ${
                       isActive
                         ? "border-primary bg-primary/5 shadow-sm"
-                        : "border-neutral-800 bg-neutral-900/40 hover:border-neutral-700"
+                        : "border-border bg-card hover:bg-muted/40"
                     }`}
                   >
                     <div className="flex items-center gap-3">
-                      <div className={`p-2.5 rounded-xl ${isActive ? "bg-primary/20 text-primary" : "bg-neutral-800 text-muted-foreground"}`}>
+                      <div className={`p-2.5 rounded-xl ${isActive ? "bg-primary/20 text-primary" : "bg-muted text-muted-foreground"}`}>
                         {prof.connectionType === "browser" && <Monitor className="h-4 w-4" />}
                         {prof.connectionType === "usb" && <Usb className="h-4 w-4" />}
                         {prof.connectionType === "bluetooth" && <Bluetooth className="h-4 w-4" />}
@@ -304,7 +307,7 @@ export function PrinterSettingsSection({ currentStore, onSaveSuccess }: PrinterS
                         <div className="flex items-center gap-2">
                           <span className="text-xs font-bold text-foreground">{prof.name}</span>
                           {prof.isDefault && (
-                            <Badge className="text-[9px] py-0 px-1.5 bg-emerald-500/10 text-emerald-400 border-emerald-500/20">
+                            <Badge className="text-[9px] py-0 px-1.5 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20">
                               Active Store Default
                             </Badge>
                           )}
@@ -352,7 +355,7 @@ export function PrinterSettingsSection({ currentStore, onSaveSuccess }: PrinterS
           </Card>
 
           {/* Active Profile Configuration Form */}
-          <Card className="rounded-2xl border-neutral-800 bg-neutral-900/60 shadow-lg">
+          <Card className="rounded-2xl border-border bg-card shadow-sm">
             <CardHeader className="pb-4">
               <div className="flex items-center justify-between">
                 <div>
@@ -363,7 +366,7 @@ export function PrinterSettingsSection({ currentStore, onSaveSuccess }: PrinterS
                     Adapter type, paper width, layout design, margins & toggles
                   </CardDescription>
                 </div>
-                <Badge variant="outline" className="text-[10px] font-mono border-neutral-700">
+                <Badge variant="outline" className="text-[10px] font-mono border-border">
                   ID: {activeProfile.id}
                 </Badge>
               </div>
@@ -377,13 +380,13 @@ export function PrinterSettingsSection({ currentStore, onSaveSuccess }: PrinterS
                     value={activeProfile.connectionType}
                     onValueChange={(val: any) => updateActiveProfileField("connectionType", val)}
                   >
-                    <SelectTrigger className="rounded-xl bg-neutral-900 border-neutral-800 text-xs">
+                    <SelectTrigger className="rounded-xl bg-background border-border text-xs">
                       <SelectValue placeholder="Select Connection" />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="android_pos">📱 Built-in Android POS Printer (Sunmi/iMin/PAX)</SelectItem>
-                      <SelectItem value="usb">🔌 USB ESC/POS Thermal Printer (Direct WebUSB)</SelectItem>
-                      <SelectItem value="bluetooth">📡 Bluetooth ESC/POS Thermal Printer (WebBluetooth)</SelectItem>
+                      <SelectItem value="usb">🔌 USB ESC/POS Thermal Printer (Direct WebUSB / Android Native)</SelectItem>
+                      <SelectItem value="bluetooth">📡 Bluetooth ESC/POS Thermal Printer (KP307 / Android Native)</SelectItem>
                       <SelectItem value="lan">🌐 LAN / Network TCP Printer (Port 9100)</SelectItem>
                       <SelectItem value="browser">🌐 Browser Fallback (Silent Hidden Frame)</SelectItem>
                     </SelectContent>
@@ -396,12 +399,12 @@ export function PrinterSettingsSection({ currentStore, onSaveSuccess }: PrinterS
                     value={activeProfile.paperWidth}
                     onValueChange={(val: any) => updateActiveProfileField("paperWidth", val)}
                   >
-                    <SelectTrigger className="rounded-xl bg-neutral-900 border-neutral-800 text-xs">
+                    <SelectTrigger className="rounded-xl bg-background border-border text-xs">
                       <SelectValue placeholder="Select Paper Width" />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="58mm">58mm (2-inch Compact Thermal Roll)</SelectItem>
-                      <SelectItem value="80mm">80mm (3-inch Standard Thermal Roll)</SelectItem>
+                      <SelectItem value="80mm">80mm (3-inch Standard Thermal Roll - KP307)</SelectItem>
                       <SelectItem value="A4">A4 (Standard Full Sheet Document)</SelectItem>
                     </SelectContent>
                   </Select>
@@ -410,7 +413,7 @@ export function PrinterSettingsSection({ currentStore, onSaveSuccess }: PrinterS
 
               {/* Conditional Connection Details Parameters */}
               {(activeProfile.connectionType === "lan" || activeProfile.connectionType === "escpos") && (
-                <div className="p-3.5 rounded-xl bg-neutral-900/80 border border-neutral-800 space-y-3">
+                <div className="p-3.5 rounded-xl bg-muted/40 border border-border space-y-3">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div className="space-y-1">
                       <Label className="text-xs text-muted-foreground">Network Printer IP Address</Label>
@@ -418,7 +421,7 @@ export function PrinterSettingsSection({ currentStore, onSaveSuccess }: PrinterS
                         placeholder="e.g. 192.168.1.150"
                         value={activeProfile.printerIp || ""}
                         onChange={(e) => updateActiveProfileField("printerIp", e.target.value)}
-                        className="rounded-xl bg-neutral-900 border-neutral-800 text-xs h-8 font-mono"
+                        className="rounded-xl bg-background border-border text-xs h-8 font-mono"
                       />
                     </div>
                     <div className="space-y-1">
@@ -428,7 +431,7 @@ export function PrinterSettingsSection({ currentStore, onSaveSuccess }: PrinterS
                         placeholder="9100"
                         value={activeProfile.printerPort || 9100}
                         onChange={(e) => updateActiveProfileField("printerPort", Number(e.target.value))}
-                        className="rounded-xl bg-neutral-900 border-neutral-800 text-xs h-8 font-mono"
+                        className="rounded-xl bg-background border-border text-xs h-8 font-mono"
                       />
                     </div>
                   </div>
@@ -437,16 +440,16 @@ export function PrinterSettingsSection({ currentStore, onSaveSuccess }: PrinterS
                     disabled={testingConnection}
                     size="sm"
                     variant="outline"
-                    className="w-full rounded-xl text-xs h-8 border-neutral-700 gap-1.5"
+                    className="w-full rounded-xl text-xs h-8 border-border gap-1.5"
                   >
-                    {testingConnection ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Wifi className="h-3.5 w-3.5 text-blue-400" />}
+                    {testingConnection ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Wifi className="h-3.5 w-3.5 text-blue-500" />}
                     Test Network Connection
                   </Button>
                 </div>
               )}
 
               {activeProfile.connectionType === "bluetooth" && (
-                <div className="p-3.5 rounded-xl bg-neutral-900/80 border border-neutral-800 space-y-3">
+                <div className="p-3.5 rounded-xl bg-muted/40 border border-border space-y-3">
                   <div className="flex items-center justify-between">
                     <Label className="text-xs text-muted-foreground">Bluetooth Device Identifier / MAC Address</Label>
                     <Button
@@ -470,7 +473,7 @@ export function PrinterSettingsSection({ currentStore, onSaveSuccess }: PrinterS
                         if (dev) updateActiveProfileField("bluetoothDeviceName", dev.name);
                       }}
                     >
-                      <SelectTrigger className="rounded-xl bg-neutral-900 border-neutral-800 text-xs h-8">
+                      <SelectTrigger className="rounded-xl bg-background border-border text-xs h-8">
                         <SelectValue placeholder="Select Paired Bluetooth Printer" />
                       </SelectTrigger>
                       <SelectContent>
@@ -489,7 +492,7 @@ export function PrinterSettingsSection({ currentStore, onSaveSuccess }: PrinterS
                         updateActiveProfileField("bluetoothMac", e.target.value);
                         updateActiveProfileField("bluetoothDeviceName", e.target.value);
                       }}
-                      className="rounded-xl bg-neutral-900 border-neutral-800 text-xs h-8 font-mono"
+                      className="rounded-xl bg-background border-border text-xs h-8 font-mono"
                     />
                   )}
 
@@ -498,23 +501,23 @@ export function PrinterSettingsSection({ currentStore, onSaveSuccess }: PrinterS
                     disabled={testingConnection}
                     size="sm"
                     variant="outline"
-                    className="w-full rounded-xl text-xs h-8 border-neutral-700 gap-1.5"
+                    className="w-full rounded-xl text-xs h-8 border-border gap-1.5"
                   >
-                    {testingConnection ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Bluetooth className="h-3.5 w-3.5 text-blue-400" />}
+                    {testingConnection ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Bluetooth className="h-3.5 w-3.5 text-blue-500" />}
                     Test Bluetooth Connection
                   </Button>
                 </div>
               )}
 
               {/* Hardware Parameters (KP307 Specs) */}
-              <div className="p-3 rounded-xl bg-neutral-900/40 border border-neutral-800 grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="p-3 rounded-xl bg-muted/40 border border-border grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div className="space-y-1">
                   <Label className="text-[11px] text-muted-foreground">Chars / Line (KP307=48)</Label>
                   <Input
                     type="number"
                     value={activeProfile.charactersPerLine || (activeProfile.paperWidth === "58mm" ? 32 : 48)}
                     onChange={(e) => updateActiveProfileField("charactersPerLine", Number(e.target.value))}
-                    className="rounded-xl bg-neutral-900 border-neutral-800 text-xs h-8 font-mono"
+                    className="rounded-xl bg-background border-border text-xs h-8 font-mono"
                   />
                 </div>
                 <div className="space-y-1">
@@ -523,7 +526,7 @@ export function PrinterSettingsSection({ currentStore, onSaveSuccess }: PrinterS
                     type="number"
                     value={activeProfile.printerDpi || 203}
                     onChange={(e) => updateActiveProfileField("printerDpi", Number(e.target.value))}
-                    className="rounded-xl bg-neutral-900 border-neutral-800 text-xs h-8 font-mono"
+                    className="rounded-xl bg-background border-border text-xs h-8 font-mono"
                   />
                 </div>
                 <div className="space-y-1">
@@ -532,20 +535,20 @@ export function PrinterSettingsSection({ currentStore, onSaveSuccess }: PrinterS
                     type="number"
                     value={activeProfile.printableWidthMm || (activeProfile.paperWidth === "58mm" ? 48 : 72)}
                     onChange={(e) => updateActiveProfileField("printableWidthMm", Number(e.target.value))}
-                    className="rounded-xl bg-neutral-900 border-neutral-800 text-xs h-8 font-mono"
+                    className="rounded-xl bg-background border-border text-xs h-8 font-mono"
                   />
                 </div>
               </div>
 
               {activeProfile.connectionType === "usb" && (
-                <div className="p-3 rounded-xl bg-neutral-900/80 border border-neutral-800 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="p-3 rounded-xl bg-muted/40 border border-border grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div className="space-y-1">
                     <Label className="text-xs text-muted-foreground">USB Vendor ID (Hex / Optional)</Label>
                     <Input
                       placeholder="e.g. 0x0fe6"
                       value={activeProfile.usbVendorId || ""}
                       onChange={(e) => updateActiveProfileField("usbVendorId", e.target.value)}
-                      className="rounded-xl bg-neutral-900 border-neutral-800 text-xs h-8 font-mono"
+                      className="rounded-xl bg-background border-border text-xs h-8 font-mono"
                     />
                   </div>
                   <div className="space-y-1">
@@ -554,14 +557,14 @@ export function PrinterSettingsSection({ currentStore, onSaveSuccess }: PrinterS
                       placeholder="e.g. 0x811e"
                       value={activeProfile.usbProductId || ""}
                       onChange={(e) => updateActiveProfileField("usbProductId", e.target.value)}
-                      className="rounded-xl bg-neutral-900 border-neutral-800 text-xs h-8 font-mono"
+                      className="rounded-xl bg-background border-border text-xs h-8 font-mono"
                     />
                   </div>
                 </div>
               )}
 
               {activeProfile.connectionType === "android_pos" && (
-                <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs flex items-center gap-2">
+                <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-xs flex items-center gap-2">
                   <span>📱 Uses native Android POS thermal printer SDK (Sunmi / iMin / PAX / Z91) via Android Web Bridge.</span>
                 </div>
               )}
@@ -574,7 +577,7 @@ export function PrinterSettingsSection({ currentStore, onSaveSuccess }: PrinterS
                     value={activeProfile.receiptTemplate}
                     onValueChange={(val: any) => updateActiveProfileField("receiptTemplate", val)}
                   >
-                    <SelectTrigger className="rounded-xl bg-neutral-900 border-neutral-800 text-xs">
+                    <SelectTrigger className="rounded-xl bg-background border-border text-xs">
                       <SelectValue placeholder="Select Template" />
                     </SelectTrigger>
                     <SelectContent>
@@ -587,7 +590,7 @@ export function PrinterSettingsSection({ currentStore, onSaveSuccess }: PrinterS
                   </Select>
                 </div>
 
-                <div className="flex items-center justify-between rounded-xl bg-neutral-900/80 p-3 border border-neutral-800">
+                <div className="flex items-center justify-between rounded-xl bg-muted/40 p-3 border border-border">
                   <div className="space-y-0.5">
                     <Label className="text-xs font-semibold">Automatic Paper Cut</Label>
                     <p className="text-[10px] text-muted-foreground">Generates ESC/POS cut command (`GS V 0`)</p>
@@ -600,24 +603,24 @@ export function PrinterSettingsSection({ currentStore, onSaveSuccess }: PrinterS
               </div>
 
               {/* Display Element Toggles */}
-              <div className="pt-2 border-t border-neutral-800">
+              <div className="pt-2 border-t border-border">
                 <Label className="text-xs font-semibold mb-3 block">Receipt Components & Branding Elements</Label>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <div className="flex items-center justify-between rounded-xl bg-neutral-900/60 p-2.5 border border-neutral-800">
+                  <div className="flex items-center justify-between rounded-xl bg-muted/40 p-2.5 border border-border">
                     <span className="text-xs text-muted-foreground">Store Logo</span>
                     <Switch
                       checked={activeProfile.showLogo}
                       onCheckedChange={(chk) => updateActiveProfileField("showLogo", chk)}
                     />
                   </div>
-                  <div className="flex items-center justify-between rounded-xl bg-neutral-900/60 p-2.5 border border-neutral-800">
+                  <div className="flex items-center justify-between rounded-xl bg-muted/40 p-2.5 border border-border">
                     <span className="text-xs text-muted-foreground">UPI / Verification QR</span>
                     <Switch
                       checked={activeProfile.showQr}
                       onCheckedChange={(chk) => updateActiveProfileField("showQr", chk)}
                     />
                   </div>
-                  <div className="flex items-center justify-between rounded-xl bg-neutral-900/60 p-2.5 border border-neutral-800">
+                  <div className="flex items-center justify-between rounded-xl bg-muted/40 p-2.5 border border-border">
                     <span className="text-xs text-muted-foreground">Invoice Barcode</span>
                     <Switch
                       checked={activeProfile.showBarcode}
@@ -628,7 +631,7 @@ export function PrinterSettingsSection({ currentStore, onSaveSuccess }: PrinterS
               </div>
 
               {/* Margins Calibration Section */}
-              <div className="pt-2 border-t border-neutral-800">
+              <div className="pt-2 border-t border-border">
                 <Label className="text-xs font-semibold mb-3 block">Margin Calibration (mm)</Label>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                   <div className="space-y-1">
@@ -639,7 +642,7 @@ export function PrinterSettingsSection({ currentStore, onSaveSuccess }: PrinterS
                       max={50}
                       value={activeProfile.marginTop}
                       onChange={(e) => updateActiveProfileField("marginTop", Number(e.target.value))}
-                      className="rounded-xl bg-neutral-900 border-neutral-800 text-xs h-8"
+                      className="rounded-xl bg-background border-border text-xs h-8"
                     />
                   </div>
                   <div className="space-y-1">
@@ -650,7 +653,7 @@ export function PrinterSettingsSection({ currentStore, onSaveSuccess }: PrinterS
                       max={50}
                       value={activeProfile.marginBottom}
                       onChange={(e) => updateActiveProfileField("marginBottom", Number(e.target.value))}
-                      className="rounded-xl bg-neutral-900 border-neutral-800 text-xs h-8"
+                      className="rounded-xl bg-background border-border text-xs h-8"
                     />
                   </div>
                   <div className="space-y-1">
@@ -661,7 +664,7 @@ export function PrinterSettingsSection({ currentStore, onSaveSuccess }: PrinterS
                       max={50}
                       value={activeProfile.marginLeft}
                       onChange={(e) => updateActiveProfileField("marginLeft", Number(e.target.value))}
-                      className="rounded-xl bg-neutral-900 border-neutral-800 text-xs h-8"
+                      className="rounded-xl bg-background border-border text-xs h-8"
                     />
                   </div>
                   <div className="space-y-1">
@@ -672,7 +675,7 @@ export function PrinterSettingsSection({ currentStore, onSaveSuccess }: PrinterS
                       max={50}
                       value={activeProfile.marginRight}
                       onChange={(e) => updateActiveProfileField("marginRight", Number(e.target.value))}
-                      className="rounded-xl bg-neutral-900 border-neutral-800 text-xs h-8"
+                      className="rounded-xl bg-background border-border text-xs h-8"
                     />
                   </div>
                 </div>
@@ -683,94 +686,87 @@ export function PrinterSettingsSection({ currentStore, onSaveSuccess }: PrinterS
 
         {/* Right Column (1 col): Hardware Diagnostics & Status */}
         <div className="space-y-6">
-          {/* Diagnostics Card */}
-          <Card className="rounded-2xl border-neutral-800 bg-neutral-900/60 shadow-lg">
+          <Card className="rounded-2xl border-border bg-card shadow-sm">
             <CardHeader className="pb-3">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                  <Activity className="h-4 w-4 text-emerald-400" />
-                  Live Hardware Diagnostics
-                </CardTitle>
-                <Badge className="bg-emerald-500/10 text-emerald-400 border-emerald-500/20 text-[10px]">
-                  {diagnostics.status}
-                </Badge>
-              </div>
+              <CardTitle className="text-sm font-semibold flex items-center justify-between">
+                <span>Live Hardware Diagnostics</span>
+                <Activity className="h-4 w-4 text-emerald-500" />
+              </CardTitle>
               <CardDescription className="text-xs text-muted-foreground">
-                Real-time connection metrics & spooler telemetry
+                Real-time spooler metrics & adapter status
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="p-3 rounded-xl bg-neutral-900/90 border border-neutral-800 space-y-2.5">
-                <div className="flex justify-between items-center text-xs">
-                  <span className="text-muted-foreground flex items-center gap-1">
-                    <Building2 className="h-3 w-3 text-primary" /> Active Store
-                  </span>
-                  <span className="font-semibold text-foreground">{diagnostics.storeName}</span>
-                </div>
-                <div className="flex justify-between items-center text-xs">
-                  <span className="text-muted-foreground flex items-center gap-1">
-                    <Layers className="h-3 w-3 text-primary" /> Current Profile
-                  </span>
-                  <span className="font-semibold text-primary">{diagnostics.activeProfileName}</span>
-                </div>
-                <div className="flex justify-between items-center text-xs">
-                  <span className="text-muted-foreground">Connection Adapter</span>
-                  <Badge variant="outline" className="text-[10px] border-neutral-700 font-mono">
-                    {diagnostics.connectionType}
+              {/* Connection Status Badge */}
+              <div className="p-3 rounded-xl bg-muted/40 border border-border space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold text-muted-foreground">Adapter Status</span>
+                  <Badge className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20 text-[10px] gap-1 px-2">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                    {diagnostics.status}
                   </Badge>
                 </div>
-                <div className="flex justify-between items-center text-xs">
-                  <span className="text-muted-foreground">Paper Width</span>
-                  <span className="font-semibold text-foreground">{diagnostics.paperWidth}</span>
-                </div>
-              </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div className="p-3 rounded-xl bg-neutral-900/40 border border-neutral-800">
-                  <div className="flex items-center gap-1.5 text-muted-foreground text-[11px] mb-1">
-                    <Clock className="h-3.5 w-3.5 text-blue-400" /> Total Jobs
-                  </div>
-                  <span className="text-lg font-bold text-foreground">{diagnostics.totalPrintCount}</span>
-                </div>
-                <div className="p-3 rounded-xl bg-neutral-900/40 border border-neutral-800">
-                  <div className="flex items-center gap-1.5 text-muted-foreground text-[11px] mb-1">
-                    <Zap className="h-3.5 w-3.5 text-amber-400" /> Avg Speed
-                  </div>
-                  <span className="text-lg font-bold text-foreground">{diagnostics.averagePrintTimeMs} ms</span>
-                </div>
-              </div>
-
-              <div className="p-3 rounded-xl bg-neutral-900/40 border border-neutral-800 space-y-1">
-                <span className="text-[11px] text-muted-foreground block">Last Print Execution</span>
-                <span className="text-xs font-mono font-medium text-foreground">
-                  {diagnostics.lastPrintTimestamp || "No print jobs dispatched yet"}
-                </span>
-              </div>
-
-              {diagnostics.lastError !== "None" ? (
-                <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-xs flex items-start gap-2">
-                  <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
+                <div className="grid grid-cols-2 gap-2 pt-1 text-[11px]">
                   <div>
-                    <span className="font-semibold block">Last Error</span>
-                    <span>{diagnostics.lastError}</span>
+                    <span className="text-muted-foreground block text-[10px]">Adapter Type</span>
+                    <span className="font-semibold text-foreground uppercase">{diagnostics.connectionType}</span>
                   </div>
+                  <div>
+                    <span className="text-muted-foreground block text-[10px]">Paper Format</span>
+                    <span className="font-semibold text-foreground">{diagnostics.paperWidth}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Spooler Stats */}
+              <div className="p-3 rounded-xl bg-muted/40 border border-border space-y-1">
+                <div className="flex justify-between text-xs py-1 border-b border-border">
+                  <span className="text-muted-foreground">Active Store</span>
+                  <span className="font-bold text-foreground">{diagnostics.storeName}</span>
+                </div>
+                <div className="flex justify-between text-xs py-1 border-b border-border">
+                  <span className="text-muted-foreground">Total Printed Jobs</span>
+                  <span className="font-mono font-bold text-foreground">{diagnostics.totalPrintCount}</span>
+                </div>
+                <div className="flex justify-between text-xs py-1 border-b border-border">
+                  <span className="text-muted-foreground">Avg Latency</span>
+                  <span className="font-mono font-bold text-foreground">{diagnostics.averagePrintTimeMs} ms</span>
+                </div>
+                <div className="flex justify-between text-xs py-1">
+                  <span className="text-muted-foreground">Last Print Timestamp</span>
+                  <span className="font-mono text-[11px] text-foreground">{diagnostics.lastPrintTimestamp || "Never"}</span>
+                </div>
+              </div>
+
+              {/* Diagnostic Log */}
+              {diagnostics.lastError ? (
+                <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/20 space-y-1 text-xs text-red-500">
+                  <div className="flex items-center gap-1.5 font-bold">
+                    <AlertCircle className="h-3.5 w-3.5" /> Recent Hardware Exception
+                  </div>
+                  <p className="text-[11px] font-mono leading-tight">{diagnostics.lastError}</p>
                 </div>
               ) : (
-                <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs flex items-center gap-2">
-                  <CheckCircle2 className="h-4 w-4 shrink-0" />
-                  <span>Printer spooler pipeline healthy & ready.</span>
+                <div className="p-3 rounded-xl bg-muted/40 border border-border space-y-1 text-xs">
+                  <div className="flex items-center gap-1.5 font-semibold text-emerald-600 dark:text-emerald-400">
+                    <CheckCircle2 className="h-3.5 w-3.5" /> Hardware Pipeline Clean
+                  </div>
+                  <p className="text-[10px] text-muted-foreground leading-tight">
+                    Adapter buffer initialized. Zero queue blockages detected.
+                  </p>
                 </div>
               )}
             </CardContent>
           </Card>
 
           {/* ESC/POS Code Spec Banner */}
-          <Card className="rounded-2xl border-neutral-800 bg-gradient-to-br from-neutral-900 to-neutral-900/60 p-4 space-y-2">
+          <Card className="rounded-2xl border-primary/20 bg-primary/5 p-4 space-y-2">
             <div className="flex items-center gap-2 text-primary font-semibold text-xs">
               <Sparkles className="h-4 w-4" /> Hardware ESC/POS Support
             </div>
             <p className="text-[11px] text-muted-foreground leading-relaxed">
-              Orion POS generates universal ESC/POS byte buffers for Epson, TVS, Sunmi, Star Micronics, and Xprinter thermal hardware.
+              Orion POS generates universal ESC/POS byte buffers for KP307, Epson, TVS, Sunmi, Star Micronics, and Xprinter thermal hardware.
             </p>
           </Card>
         </div>
@@ -778,7 +774,7 @@ export function PrinterSettingsSection({ currentStore, onSaveSuccess }: PrinterS
 
       {/* Edit / Add Profile Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="rounded-2xl max-w-md border-neutral-800 bg-neutral-900">
+        <DialogContent className="rounded-2xl max-w-md border-border bg-card">
           <DialogHeader>
             <DialogTitle className="text-base font-bold">
               {editingProfile?.id && profiles.some((p) => p.id === editingProfile.id) ? "Edit Printer Profile" : "Add Printer Profile"}
@@ -796,27 +792,26 @@ export function PrinterSettingsSection({ currentStore, onSaveSuccess }: PrinterS
                   value={editingProfile.name}
                   onChange={(e) => setEditingProfile({ ...editingProfile, name: e.target.value })}
                   placeholder="e.g. Counter Thermal 80mm"
-                  className="rounded-xl bg-neutral-950 border-neutral-800 text-xs"
+                  className="rounded-xl bg-background border-border text-xs"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <Label className="text-xs font-semibold">Adapter Type</Label>
+                  <Label className="text-xs font-semibold">Connection Protocol</Label>
                   <Select
                     value={editingProfile.connectionType}
                     onValueChange={(val: any) => setEditingProfile({ ...editingProfile, connectionType: val })}
                   >
-                    <SelectTrigger className="rounded-xl bg-neutral-950 border-neutral-800 text-xs">
+                    <SelectTrigger className="rounded-xl bg-background border-border text-xs">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="browser">Browser Print</SelectItem>
-                      <SelectItem value="escpos">ESC/POS Thermal</SelectItem>
-                      <SelectItem value="usb">WebUSB Thermal</SelectItem>
-                      <SelectItem value="bluetooth">Bluetooth Thermal</SelectItem>
-                      <SelectItem value="lan">LAN TCP Port 9100</SelectItem>
-                      <SelectItem value="android_pos">Android POS SDK</SelectItem>
+                      <SelectItem value="android_pos">Built-in POS</SelectItem>
+                      <SelectItem value="usb">USB Thermal</SelectItem>
+                      <SelectItem value="bluetooth">Bluetooth (KP307)</SelectItem>
+                      <SelectItem value="lan">LAN / Network</SelectItem>
+                      <SelectItem value="browser">Browser Silent</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -827,20 +822,20 @@ export function PrinterSettingsSection({ currentStore, onSaveSuccess }: PrinterS
                     value={editingProfile.paperWidth}
                     onValueChange={(val: any) => setEditingProfile({ ...editingProfile, paperWidth: val })}
                   >
-                    <SelectTrigger className="rounded-xl bg-neutral-950 border-neutral-800 text-xs">
+                    <SelectTrigger className="rounded-xl bg-background border-border text-xs">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="58mm">58mm</SelectItem>
-                      <SelectItem value="80mm">80mm</SelectItem>
-                      <SelectItem value="A4">A4 Sheet</SelectItem>
+                      <SelectItem value="80mm">80mm (KP307)</SelectItem>
+                      <SelectItem value="A4">A4</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
               </div>
 
-              <div className="flex items-center justify-between rounded-xl bg-neutral-950 p-3 border border-neutral-800">
-                <span className="text-xs font-semibold">Auto Cut Paper</span>
+              <div className="flex items-center justify-between rounded-xl bg-muted/40 p-3 border border-border">
+                <span className="text-xs font-semibold">Auto Paper Cut</span>
                 <Switch
                   checked={editingProfile.autoCut}
                   onCheckedChange={(chk) => setEditingProfile({ ...editingProfile, autoCut: chk })}
@@ -850,7 +845,7 @@ export function PrinterSettingsSection({ currentStore, onSaveSuccess }: PrinterS
           )}
 
           <DialogFooter className="gap-2 sm:gap-0">
-            <Button variant="outline" onClick={() => setDialogOpen(false)} className="rounded-xl text-xs border-neutral-800">
+            <Button variant="outline" onClick={() => setDialogOpen(false)} className="rounded-xl text-xs border-border">
               Cancel
             </Button>
             <Button onClick={handleSaveProfileFromDialog} className="rounded-xl text-xs font-semibold">
