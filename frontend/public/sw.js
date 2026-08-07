@@ -1,4 +1,4 @@
-const CACHE_NAME = "orion-pos-v3";
+const CACHE_NAME = "orion-pos-v4";
 const PRECACHE_ASSETS = [
   "/offline.html",
   "/manifest.json",
@@ -45,9 +45,25 @@ self.addEventListener("fetch", (event) => {
   const request = event.request;
   const url = new URL(request.url);
 
+  // 0. NEVER INTERCEPT DEV MODE OR RAW SOURCE PATHS (/src/*, .tsx, .ts, Vite HMR)
+  const isDevOrSource =
+    url.hostname === "localhost" ||
+    url.hostname === "127.0.0.1" ||
+    url.port === "8081" ||
+    url.pathname.startsWith("/src/") ||
+    url.pathname.includes("@vite") ||
+    url.pathname.includes("@fs") ||
+    url.pathname.includes("@id") ||
+    url.pathname.endsWith(".tsx") ||
+    url.pathname.endsWith(".ts");
+
+  if (isDevOrSource) {
+    return; // Direct browser native request
+  }
+
   // 1. STRICT NETWORK ONLY BYPASS:
   // Non-GET requests (POST, PUT, DELETE), auth, login/logout, API routes, or cross-origin backend calls
-  // MUST NOT be intercepted or served from SW cache. Returning early lets browser execute native network fetch.
+  // MUST NOT be intercepted or served from SW cache.
   const isAuthOrApi =
     request.method !== "GET" ||
     url.origin !== self.location.origin ||
@@ -90,20 +106,21 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // 3. STATIC ASSETS: Cache-First with background sync/Stale-While-Revalidate
+  // 3. STATIC COMPILED ASSETS: Cache-First with background sync/Stale-While-Revalidate
   const isStaticAsset =
-    url.pathname.includes("/assets/") ||
-    request.destination === "script" ||
-    request.destination === "style" ||
-    request.destination === "font" ||
-    request.destination === "image" ||
-    url.pathname.endsWith(".js") ||
-    url.pathname.endsWith(".css") ||
-    url.pathname.endsWith(".woff2") ||
-    url.pathname.endsWith(".png") ||
-    url.pathname.endsWith(".jpg") ||
-    url.pathname.endsWith(".svg") ||
-    url.pathname.endsWith(".ico");
+    (url.pathname.startsWith("/assets/") ||
+      request.destination === "script" ||
+      request.destination === "style" ||
+      request.destination === "font" ||
+      request.destination === "image" ||
+      url.pathname.endsWith(".js") ||
+      url.pathname.endsWith(".css") ||
+      url.pathname.endsWith(".woff2") ||
+      url.pathname.endsWith(".png") ||
+      url.pathname.endsWith(".jpg") ||
+      url.pathname.endsWith(".svg") ||
+      url.pathname.endsWith(".ico")) &&
+    !url.pathname.startsWith("/src/");
 
   if (isStaticAsset) {
     event.respondWith(
