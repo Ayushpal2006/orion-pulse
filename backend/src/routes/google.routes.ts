@@ -76,6 +76,11 @@ router.get("/auth", authenticate(), async (req: Request, res: Response): Promise
       state: stateToken,
     });
 
+    if (req.headers.accept?.includes("text/html") || req.query.redirect === "true") {
+      res.redirect(authUrl);
+      return;
+    }
+
     res.status(200).json({
       success: true,
       authUrl,

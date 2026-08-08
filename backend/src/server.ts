@@ -182,6 +182,7 @@ app.use("/api/settings/database", authenticate(), databaseRoutes);
 app.use("/invoice", invoiceRoutes); // Public HTML invoice access
 app.use("/sync", authenticate(), syncRoutes);
 app.use("/api/sync", authenticate(), syncRoutes);
+app.use("/google", googleRoutes);
 app.use("/api/google", googleRoutes);
 app.use("/api/admin", authenticate(), authorize("admin"), adminRoutes);
 

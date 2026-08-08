@@ -201,7 +201,7 @@ function SettingsV2() {
   const [connectingGoogle, setConnectingGoogle] = useState(false);
 
   const fetchGoogleStatus = () => {
-    apiFetch(`${API_BASE_URL}/google/status`)
+    apiFetch(`${API_BASE_URL}/api/google/status`)
       .then((r) => r.json())
       .then((d) => {
         if (d.success && d.data) {
@@ -216,7 +216,7 @@ function SettingsV2() {
 
   const fetchSpreadsheets = () => {
     setLoadingSpreadsheets(true);
-    apiFetch(`${API_BASE_URL}/google/spreadsheets`)
+    apiFetch(`${API_BASE_URL}/api/google/spreadsheets`)
       .then((r) => r.json())
       .then((d) => {
         if (d.success && Array.isArray(d.data)) {
@@ -234,7 +234,7 @@ function SettingsV2() {
 
   const handleConnectGoogle = () => {
     setConnectingGoogle(true);
-    apiFetch(`${API_BASE_URL}/google/auth`)
+    apiFetch(`${API_BASE_URL}/api/google/auth`)
       .then((r) => r.json())
       .then((d) => {
         if (d.success && d.authUrl) {
@@ -248,7 +248,7 @@ function SettingsV2() {
   };
 
   const handleSelectSpreadsheet = (id: string, name: string) => {
-    apiFetch(`${API_BASE_URL}/google/spreadsheet`, {
+    apiFetch(`${API_BASE_URL}/api/google/spreadsheet`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ spreadsheetId: id, spreadsheetName: name }),
@@ -268,7 +268,7 @@ function SettingsV2() {
 
   const handleDisconnectGoogle = () => {
     if (!window.confirm("Are you sure you want to disconnect your Google Workspace account?")) return;
-    apiFetch(`${API_BASE_URL}/google/disconnect`, { method: "POST" })
+    apiFetch(`${API_BASE_URL}/api/google/disconnect`, { method: "POST" })
       .then((r) => r.json())
       .then((d) => {
         if (d.success) {
@@ -284,7 +284,7 @@ function SettingsV2() {
 
   const handleSetSyncMethod = (method: "oauth" | "service_account") => {
     setSyncMethod(method);
-    apiFetch(`${API_BASE_URL}/google/sync-method`, {
+    apiFetch(`${API_BASE_URL}/api/google/sync-method`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ syncMethod: method }),
