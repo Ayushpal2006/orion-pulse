@@ -22,6 +22,8 @@ import {
   CheckCircle2,
   AlertCircle,
   HardDrive,
+  Sliders,
+  FileSpreadsheet,
   Building2,
   Receipt,
   ShoppingBag,
@@ -181,6 +183,121 @@ function SettingsV2() {
   const [syncingNow, setSyncingNow] = useState(false);
   const [lastSyncTime, setLastSyncTime] = useState("Just now");
   const [rowsSynced, setRowsSynced] = useState(1482);
+
+  // Google Workspace Integration State
+  const [googleStatus, setGoogleStatus] = useState<{
+    connected: boolean;
+    email?: string;
+    spreadsheetId?: string;
+    spreadsheetName?: string;
+    syncEnabled?: boolean;
+    syncMethod?: "oauth" | "service_account";
+    lastSync?: string;
+  }>({ connected: false, syncMethod: "oauth" });
+
+  const [syncMethod, setSyncMethod] = useState<"oauth" | "service_account">("oauth");
+  const [spreadsheetsList, setSpreadsheetsList] = useState<Array<{ id: string; name: string; modifiedTime?: string }>>([]);
+  const [loadingSpreadsheets, setLoadingSpreadsheets] = useState(false);
+  const [connectingGoogle, setConnectingGoogle] = useState(false);
+
+  const fetchGoogleStatus = () => {
+    apiFetch(`${API_BASE_URL}/google/status`)
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.success && d.data) {
+          setGoogleStatus(d.data);
+          if (d.data.syncMethod) setSyncMethod(d.data.syncMethod as any);
+          if (d.data.spreadsheetId) setSheetId(d.data.spreadsheetId);
+          if (d.data.connected) setIsConnected(true);
+        }
+      })
+      .catch(() => {});
+  };
+
+  const fetchSpreadsheets = () => {
+    setLoadingSpreadsheets(true);
+    apiFetch(`${API_BASE_URL}/google/spreadsheets`)
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.success && Array.isArray(d.data)) {
+          setSpreadsheetsList(d.data);
+          if (d.data.length > 0) {
+            toast.success(`Found ${d.data.length} Google Spreadsheets.`);
+          }
+        } else {
+          toast.error(d.error || "Failed to load spreadsheets");
+        }
+      })
+      .catch((e) => toast.error("Error listing spreadsheets: " + (e.message || "Network error")))
+      .finally(() => setLoadingSpreadsheets(false));
+  };
+
+  const handleConnectGoogle = () => {
+    setConnectingGoogle(true);
+    apiFetch(`${API_BASE_URL}/google/auth`)
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.success && d.authUrl) {
+          window.location.href = d.authUrl;
+        } else {
+          toast.error(d.error || "Failed to initiate Google OAuth login.");
+        }
+      })
+      .catch((e) => toast.error("OAuth init error: " + (e.message || "Network error")))
+      .finally(() => setConnectingGoogle(false));
+  };
+
+  const handleSelectSpreadsheet = (id: string, name: string) => {
+    apiFetch(`${API_BASE_URL}/google/spreadsheet`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ spreadsheetId: id, spreadsheetName: name }),
+    })
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.success) {
+          setSheetId(id);
+          setGoogleStatus((prev) => ({ ...prev, spreadsheetId: id, spreadsheetName: d.spreadsheetName || name }));
+          toast.success(`Connected to spreadsheet: ${d.spreadsheetName || name}`);
+        } else {
+          toast.error(d.error || "Failed to update spreadsheet selection");
+        }
+      })
+      .catch((e) => toast.error("Error updating spreadsheet: " + (e.message || "Network error")));
+  };
+
+  const handleDisconnectGoogle = () => {
+    if (!window.confirm("Are you sure you want to disconnect your Google Workspace account?")) return;
+    apiFetch(`${API_BASE_URL}/google/disconnect`, { method: "POST" })
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.success) {
+          toast.success("Google Workspace account disconnected.");
+          setGoogleStatus({ connected: false, syncMethod: "service_account" });
+          setSyncMethod("service_account");
+        } else {
+          toast.error(d.error || "Failed to disconnect account");
+        }
+      })
+      .catch((e) => toast.error("Disconnect error: " + (e.message || "Network error")));
+  };
+
+  const handleSetSyncMethod = (method: "oauth" | "service_account") => {
+    setSyncMethod(method);
+    apiFetch(`${API_BASE_URL}/google/sync-method`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ syncMethod: method }),
+    })
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.success) {
+          toast.success(`Google sync method updated to ${method === "oauth" ? "Google Account (OAuth)" : "Service Account (Legacy)"}`);
+          setGoogleStatus((prev) => ({ ...prev, syncMethod: method }));
+        }
+      })
+      .catch(() => {});
+  };
 
   // Storage & Backup History State (Task 5)
   const [storageStats, setStorageStats] = useState<any>(null);
@@ -363,17 +480,25 @@ function SettingsV2() {
       .then((d) => d.success && setStorageStats(d.data))
       .catch(() => {});
 
-    apiFetch(`${API_BASE_URL}/sync/status`)
-      .then((r) => r.json())
-      .then((d) => {
-        if (d.success && d.data) {
-          if (d.data.sheetId) {
-            setSheetId(d.data.sheetId);
-            setIsConnected(true);
-          }
-        }
-      })
-      .catch(() => {});
+    fetchGoogleStatus();
+
+    // 4. Handle OAuth Redirect Query Params
+    if (typeof window !== "undefined") {
+      const urlParams = new URLSearchParams(window.location.search);
+      const googleAuthStatus = urlParams.get("google_auth");
+      if (googleAuthStatus === "success") {
+        const email = urlParams.get("email");
+        toast.success(`Successfully connected Google account (${email || ""})!`, {
+          description: "Please select your Google Spreadsheet below.",
+        });
+        window.history.replaceState({}, document.title, window.location.pathname);
+        fetchSpreadsheets();
+      } else if (googleAuthStatus === "error") {
+        const reason = urlParams.get("reason");
+        toast.error("Google OAuth connection failed: " + (reason || "Unknown error"));
+        window.history.replaceState({}, document.title, window.location.pathname);
+      }
+    }
   }, []);
 
   // Filtered sections array based on search query or keywords
@@ -1576,225 +1701,320 @@ function SettingsV2() {
             </div>
           )}
 
-          {/* 13. BACKUP & RESTORE (Tasks 4 & 5) */}
+          {/* 13. BACKUP & RESTORE — GOOGLE WORKSPACE & SYSTEM BACKUPS */}
           {activeSection === "backup" && (
             <div className="space-y-6">
-              {/* Task 4: Google Sheets Connection Status Card */}
+              {/* Google Workspace Integration Card */}
               <div
-                className={`card-soft p-5 space-y-4 border-l-4 transition-all ${
-                  isConnected ? "border-l-emerald-500" : "border-l-rose-500"
+                className={`card-soft p-5 space-y-5 border-l-4 transition-all ${
+                  googleStatus?.connected ? "border-l-emerald-500" : "border-l-blue-500"
                 }`}
               >
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border pb-3">
                   <div>
                     <div className="flex items-center gap-2 text-base font-bold text-foreground">
-                      <Cloud className="size-5 text-emerald-500" /> Google Sheets Integration Engine
+                      <Cloud className="size-5 text-blue-500" /> Google Workspace Integration
                     </div>
                     <div className="text-xs text-muted-foreground mt-0.5">
-                      Real-time ledger mirror & automated background row synchronization.
+                      Connect your Google account to automatically sync Sales, Products, Customers and Reports.
                     </div>
                   </div>
 
                   {/* Connection Status Badge */}
                   <Badge
                     className={`text-xs px-3 py-1 font-bold border transition-all ${
-                      testingConnection || syncingNow
-                        ? "bg-amber-500/10 text-amber-600 border-amber-500/30 animate-pulse"
-                        : isConnected
+                      googleStatus?.connected
                         ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/30"
                         : "bg-rose-500/10 text-rose-600 border-rose-500/30"
                     }`}
                   >
-                    {testingConnection || syncingNow
-                      ? "🟡 Syncing / Testing..."
-                      : isConnected
-                      ? "🟢 Connected"
-                      : "🔴 Not Connected"}
+                    {googleStatus?.connected ? "🟢 Connected" : "🔴 Not Connected"}
                   </Badge>
                 </div>
 
-                {/* Connection Details Status Grid */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
-                  <div className="p-3 bg-muted/20 rounded-xl border border-border/40 space-y-0.5">
-                    <div className="text-[10px] text-muted-foreground uppercase font-bold">Spreadsheet Name</div>
-                    <div className="font-semibold text-foreground truncate">Orion Master Sync Sheet</div>
+                {/* Feature Flag / Sync Method Switcher */}
+                <div className="p-4 bg-muted/20 rounded-xl border border-border/50 space-y-3">
+                  <div className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                    <Sliders className="size-4 text-primary" /> Google Sync Method
                   </div>
-                  <div className="p-3 bg-muted/20 rounded-xl border border-border/40 space-y-0.5">
-                    <div className="text-[10px] text-muted-foreground uppercase font-bold">Total Rows Synced</div>
-                    <div className="font-semibold text-emerald-600 font-mono">{rowsSynced.toLocaleString()} Rows</div>
-                  </div>
-                  <div className="p-3 bg-muted/20 rounded-xl border border-border/40 space-y-0.5">
-                    <div className="text-[10px] text-muted-foreground uppercase font-bold">Last Sync Time</div>
-                    <div className="font-semibold text-foreground font-mono">{lastSyncTime}</div>
-                  </div>
-                  <div className="p-3 bg-muted/20 rounded-xl border border-border/40 space-y-0.5">
-                    <div className="text-[10px] text-muted-foreground uppercase font-bold">Google Account</div>
-                    <div className="font-semibold text-foreground truncate font-mono">ayush@orion.internal</div>
-                  </div>
-                </div>
-
-                {/* Extra Metadata: Spreadsheet ID & Last Backup Time */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-                  <div className="space-y-1">
-                    <Label className="text-xs font-semibold">Spreadsheet ID</Label>
-                    <Input
-                      value={sheetId}
-                      onChange={(e) => setSheetId(e.target.value)}
-                      placeholder="Enter Google Spreadsheet ID..."
-                      className="h-9 rounded-xl text-xs font-mono"
-                    />
-                  </div>
-                  <div className="p-3 bg-muted/20 rounded-xl border border-border/40 flex justify-between items-center text-xs">
-                    <div>
-                      <div className="text-[10px] text-muted-foreground uppercase font-bold">Last Backup Time</div>
-                      <div className="font-semibold text-foreground font-mono mt-0.5">Today, 02:40 AM</div>
-                    </div>
-                    <Badge variant="outline" className="text-[9px] font-mono border-purple-500/30 text-purple-600">Auto Backup Active</Badge>
-                  </div>
-                </div>
-
-                {/* 5 Interactive Action Buttons Bar */}
-                <div className="flex flex-wrap items-center gap-2 pt-3 border-t border-border">
-                  {/* Button 1: Test Connection */}
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="rounded-xl h-8 text-xs font-semibold"
-                    disabled={testingConnection}
-                    onClick={async () => {
-                      if (!sheetId.trim()) {
-                        toast.error("Please enter a Spreadsheet ID first.");
-                        return;
-                      }
-                      setTestingConnection(true);
-                      try {
-                        const res = await apiFetch(`${API_BASE_URL}/sync/test`, {
-                          method: "POST",
-                          headers: { "Content-Type": "application/json" },
-                          body: JSON.stringify({ sheetId: sheetId.trim() }),
-                        });
-                        const data = await res.json();
-                        if (data.success && data.connected) {
-                          setIsConnected(true);
-                          toast.success("Google Sheets connection test successful!", {
-                            description: "Write access verified for all sync tabs.",
-                          });
-                        } else {
-                          setIsConnected(false);
-                          toast.error(data.error || "Connection test failed. Verify Spreadsheet ID and permissions.");
-                        }
-                      } catch (e: any) {
-                        toast.error("Connection test failed: " + (e.message || "Network error"));
-                      } finally {
-                        setTestingConnection(false);
-                      }
-                    }}
-                  >
-                    {testingConnection ? <Loader2 className="size-3.5 animate-spin mr-1.5" /> : <RefreshCw className="size-3.5 mr-1.5 text-blue-500" />}
-                    Test Connection
-                  </Button>
-
-                  {/* Button 2: Manual Sync */}
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="rounded-xl h-8 text-xs font-semibold"
-                    disabled={syncingNow || !isConnected}
-                    onClick={async () => {
-                      setSyncingNow(true);
-                      try {
-                        const res = await apiFetch(`${API_BASE_URL}/sync/trigger`, { method: "POST" });
-                        const data = await res.json();
-                        if (data.success) {
-                          const nowTime = new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" });
-                          setLastSyncTime(`Today, ${nowTime}`);
-                          setRowsSynced((r) => r + 4);
-                          toast.success("Manual sync completed successfully!", {
-                            description: "Queued transactions mirrored to Google Sheets.",
-                          });
-                        } else {
-                          toast.error(data.error || "Sync failed.");
-                        }
-                      } catch (e: any) {
-                        toast.error("Manual sync failed.");
-                      } finally {
-                        setSyncingNow(false);
-                      }
-                    }}
-                  >
-                    {syncingNow ? <Loader2 className="size-3.5 animate-spin mr-1.5" /> : <Cloud className="size-3.5 mr-1.5 text-emerald-500" />}
-                    Manual Sync
-                  </Button>
-
-                  {/* Button 3: Reconnect */}
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="rounded-xl h-8 text-xs font-semibold"
-                    onClick={async () => {
-                      if (!sheetId.trim()) {
-                        toast.error("Please enter a valid Spreadsheet ID to reconnect.");
-                        return;
-                      }
-                      setTestingConnection(true);
-                      try {
-                        const res = await apiFetch(`${API_BASE_URL}/sync/test`, {
-                          method: "POST",
-                          headers: { "Content-Type": "application/json" },
-                          body: JSON.stringify({ sheetId: sheetId.trim() }),
-                        });
-                        const data = await res.json();
-                        setIsConnected(true);
-                        toast.success("Reconnected to Google Sheets!", {
-                          description: "Spreadsheet ID saved and connection re-established.",
-                        });
-                      } catch (e) {
-                        toast.error("Reconnection failed.");
-                      } finally {
-                        setTestingConnection(false);
-                      }
-                    }}
-                  >
-                    <RotateCcw className="size-3.5 mr-1.5 text-amber-500" />
-                    Reconnect
-                  </Button>
-
-                  {/* Button 4: Disconnect */}
-                  {isConnected && (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        setIsConnected(false);
-                        toast.info("Disconnected from Google Sheets sync.");
-                      }}
-                      className="rounded-xl h-8 text-xs text-rose-600 border-rose-500/20 hover:bg-rose-500/10 font-semibold"
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                    <label
+                      className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-all ${
+                        syncMethod === "oauth"
+                          ? "border-blue-500 bg-blue-500/5 font-semibold"
+                          : "border-border/60 hover:bg-muted/30"
+                      }`}
+                      onClick={() => handleSetSyncMethod("oauth")}
                     >
-                      Disconnect
-                    </Button>
-                  )}
+                      <input
+                        type="radio"
+                        name="syncMethod"
+                        checked={syncMethod === "oauth"}
+                        onChange={() => handleSetSyncMethod("oauth")}
+                        className="mt-0.5"
+                      />
+                      <div>
+                        <div className="flex items-center gap-1.5 font-bold text-foreground">
+                          Google Account <Badge className="text-[9px] bg-emerald-500 text-white px-1.5 py-0">Recommended</Badge>
+                        </div>
+                        <div className="text-[11px] text-muted-foreground mt-0.5">
+                          Connect via OAuth 2.0 & pick spreadsheets directly.
+                        </div>
+                      </div>
+                    </label>
 
-                  {/* Button 5: Open Spreadsheet */}
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => {
-                      if (!sheetId.trim()) {
-                        toast.error("No Spreadsheet ID configured.");
-                        return;
-                      }
-                      window.open(`https://docs.google.com/spreadsheets/d/${sheetId.trim()}`, "_blank");
-                    }}
-                    className="rounded-xl h-8 text-xs font-semibold text-primary hover:underline ml-auto"
-                  >
-                    Open Spreadsheet <ExternalLink className="size-3 ml-1" />
-                  </Button>
+                    <label
+                      className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-all ${
+                        syncMethod === "service_account"
+                          ? "border-blue-500 bg-blue-500/5 font-semibold"
+                          : "border-border/60 hover:bg-muted/30"
+                      }`}
+                      onClick={() => handleSetSyncMethod("service_account")}
+                    >
+                      <input
+                        type="radio"
+                        name="syncMethod"
+                        checked={syncMethod === "service_account"}
+                        onChange={() => handleSetSyncMethod("service_account")}
+                        className="mt-0.5"
+                      />
+                      <div>
+                        <div className="font-bold text-foreground">Service Account</div>
+                        <div className="text-[11px] text-muted-foreground mt-0.5">
+                          Legacy manual configuration via shared Spreadsheet ID.
+                        </div>
+                      </div>
+                    </label>
+                  </div>
                 </div>
+
+                {/* OAuth Integration Mode UI */}
+                {syncMethod === "oauth" && (
+                  <div className="space-y-4">
+                    {googleStatus?.connected ? (
+                      <div className="space-y-4">
+                        {/* Connected Account & Sheet Details */}
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                          <div className="p-3 bg-muted/20 rounded-xl border border-border/40 space-y-0.5">
+                            <div className="text-[10px] text-muted-foreground uppercase font-bold">Connected Email</div>
+                            <div className="font-semibold text-foreground truncate font-mono">{googleStatus.email || "owner@gmail.com"}</div>
+                          </div>
+
+                          <div className="p-3 bg-muted/20 rounded-xl border border-border/40 space-y-0.5">
+                            <div className="text-[10px] text-muted-foreground uppercase font-bold">Selected Spreadsheet</div>
+                            <div className="font-semibold text-emerald-600 truncate">{googleStatus.spreadsheetName || "Select Spreadsheet..."}</div>
+                          </div>
+
+                          <div className="p-3 bg-muted/20 rounded-xl border border-border/40 space-y-0.5">
+                            <div className="text-[10px] text-muted-foreground uppercase font-bold">Status</div>
+                            <div className="font-semibold text-foreground font-mono">Healthy (OAuth 2.0)</div>
+                          </div>
+                        </div>
+
+                        {/* Phase 2: Spreadsheet Picker */}
+                        <div className="p-4 bg-muted/10 rounded-xl border border-border/40 space-y-2">
+                          <div className="flex items-center justify-between">
+                            <Label className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                              <FileSpreadsheet className="size-4 text-emerald-500" /> Select Spreadsheet
+                            </Label>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 text-[11px] text-primary"
+                              onClick={fetchSpreadsheets}
+                              disabled={loadingSpreadsheets}
+                            >
+                              {loadingSpreadsheets ? <Loader2 className="size-3 animate-spin mr-1" /> : <RefreshCw className="size-3 mr-1" />}
+                              Refresh List
+                            </Button>
+                          </div>
+
+                          {spreadsheetsList.length > 0 ? (
+                            <select
+                              className="w-full h-10 px-3 rounded-xl border border-border bg-background text-xs font-medium focus:ring-2 focus:ring-primary"
+                              value={googleStatus.spreadsheetId || ""}
+                              onChange={(e) => {
+                                const selected = spreadsheetsList.find((s) => s.id === e.target.value);
+                                if (selected) {
+                                  handleSelectSpreadsheet(selected.id, selected.name);
+                                }
+                              }}
+                            >
+                              <option value="" disabled>-- Choose a Google Spreadsheet --</option>
+                              {spreadsheetsList.map((sheet) => (
+                                <option key={sheet.id} value={sheet.id}>
+                                  📊 {sheet.name} (ID: {sheet.id.slice(0, 8)}...)
+                                </option>
+                              ))}
+                            </select>
+                          ) : (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              className="w-full h-9 text-xs rounded-xl"
+                              onClick={fetchSpreadsheets}
+                              disabled={loadingSpreadsheets}
+                            >
+                              {loadingSpreadsheets ? <Loader2 className="size-3.5 animate-spin mr-1.5" /> : <FileSpreadsheet className="size-3.5 mr-1.5 text-blue-500" />}
+                              Fetch My Google Spreadsheets
+                            </Button>
+                          )}
+                        </div>
+
+                        {/* Connected Action Buttons Bar */}
+                        <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-border">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="rounded-xl h-8 text-xs font-semibold"
+                            onClick={handleConnectGoogle}
+                            disabled={connectingGoogle}
+                          >
+                            {connectingGoogle ? <Loader2 className="size-3.5 animate-spin mr-1.5" /> : <RefreshCw className="size-3.5 mr-1.5 text-blue-500" />}
+                            Reconnect
+                          </Button>
+
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="rounded-xl h-8 text-xs font-semibold text-rose-600 border-rose-500/20 hover:bg-rose-500/10"
+                            onClick={handleDisconnectGoogle}
+                          >
+                            Disconnect
+                          </Button>
+
+                          {googleStatus.spreadsheetId && (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => window.open(`https://docs.google.com/spreadsheets/d/${googleStatus.spreadsheetId}`, "_blank")}
+                              className="rounded-xl h-8 text-xs font-semibold text-primary hover:underline ml-auto"
+                            >
+                              Open Spreadsheet <ExternalLink className="size-3 ml-1" />
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    ) : (
+                      /* Phase 1: Not Connected UI Banner */
+                      <div className="p-6 bg-muted/10 rounded-2xl border border-dashed border-border/70 text-center space-y-4">
+                        <div className="mx-auto size-12 rounded-2xl bg-blue-500/10 flex items-center justify-center text-blue-500">
+                          <Cloud className="size-6" />
+                        </div>
+                        <div className="max-w-md mx-auto space-y-1">
+                          <h4 className="text-sm font-bold text-foreground">Google Workspace — Not Connected</h4>
+                          <p className="text-xs text-muted-foreground">
+                            Connect your Google account to automatically sync Sales, Products, Customers and Reports.
+                          </p>
+                        </div>
+                        <Button
+                          type="button"
+                          className="rounded-xl font-bold bg-blue-600 hover:bg-blue-700 text-white shadow-md shadow-blue-500/20"
+                          onClick={handleConnectGoogle}
+                          disabled={connectingGoogle}
+                        >
+                          {connectingGoogle ? <Loader2 className="size-4 animate-spin mr-2" /> : <Cloud className="size-4 mr-2" />}
+                          Connect Google
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Legacy Service Account Mode UI */}
+                {syncMethod === "service_account" && (
+                  <div className="space-y-4 pt-2 border-t border-border">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                      <div className="space-y-1">
+                        <Label className="text-xs font-semibold">Spreadsheet ID (Legacy Service Account)</Label>
+                        <Input
+                          value={sheetId}
+                          onChange={(e) => setSheetId(e.target.value)}
+                          placeholder="Enter Google Spreadsheet ID..."
+                          className="h-9 rounded-xl text-xs font-mono"
+                        />
+                      </div>
+                      <div className="p-3 bg-muted/20 rounded-xl border border-border/40 flex justify-between items-center text-xs">
+                        <div>
+                          <div className="text-[10px] text-muted-foreground uppercase font-bold">Service Account Mode</div>
+                          <div className="font-semibold text-foreground font-mono mt-0.5">Legacy Active</div>
+                        </div>
+                        <Badge variant="outline" className="text-[9px] font-mono border-amber-500/30 text-amber-600">Manual Setup</Badge>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2 pt-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="rounded-xl h-8 text-xs font-semibold"
+                        disabled={testingConnection}
+                        onClick={async () => {
+                          if (!sheetId.trim()) {
+                            toast.error("Please enter a Spreadsheet ID first.");
+                            return;
+                          }
+                          setTestingConnection(true);
+                          try {
+                            const res = await apiFetch(`${API_BASE_URL}/sync/test`, {
+                              method: "POST",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({ sheetId: sheetId.trim() }),
+                            });
+                            const data = await res.json();
+                            if (data.success && data.connected) {
+                              setIsConnected(true);
+                              toast.success("Google Sheets connection test successful!");
+                            } else {
+                              setIsConnected(false);
+                              toast.error(data.error || "Connection test failed.");
+                            }
+                          } catch (e: any) {
+                            toast.error("Connection test failed: " + (e.message || "Network error"));
+                          } finally {
+                            setTestingConnection(false);
+                          }
+                        }}
+                      >
+                        {testingConnection ? <Loader2 className="size-3.5 animate-spin mr-1.5" /> : <RefreshCw className="size-3.5 mr-1.5 text-blue-500" />}
+                        Test Connection
+                      </Button>
+
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="rounded-xl h-8 text-xs font-semibold"
+                        disabled={syncingNow}
+                        onClick={async () => {
+                          setSyncingNow(true);
+                          try {
+                            const res = await apiFetch(`${API_BASE_URL}/sync/trigger`, { method: "POST" });
+                            const data = await res.json();
+                            if (data.success) {
+                              toast.success("Manual sync completed successfully!");
+                            } else {
+                              toast.error(data.error || "Sync failed.");
+                            }
+                          } catch (e) {
+                            toast.error("Manual sync failed.");
+                          } finally {
+                            setSyncingNow(false);
+                          }
+                        }}
+                      >
+                        {syncingNow ? <Loader2 className="size-3.5 animate-spin mr-1.5" /> : <Cloud className="size-3.5 mr-1.5 text-emerald-500" />}
+                        Manual Sync
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Task 5: Backup & Restore Complete Management Center */}

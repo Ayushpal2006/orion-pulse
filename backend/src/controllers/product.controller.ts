@@ -5,6 +5,7 @@ import { logger } from "../logger/logger";
 import fs from "fs";
 import { getTenantContext, storeStorage } from "../db/context";
 import { AuthenticatedRequest } from "../middleware/auth.middleware";
+import { GoogleSyncDispatcher } from "../services/google-sync-dispatcher.service";
 
 export class ProductController {
   private service: ProductService;
@@ -53,6 +54,9 @@ export class ProductController {
         success: true,
         data: product,
       });
+
+      // Non-blocking Google Sync Event Dispatch
+      GoogleSyncDispatcher.dispatchSyncEvent("PRODUCT_CREATED", product, getTenantContext());
     } catch (error) {
       next(error);
     }
@@ -74,6 +78,9 @@ export class ProductController {
         success: true,
         data: product,
       });
+
+      // Non-blocking Google Sync Event Dispatch
+      GoogleSyncDispatcher.dispatchSyncEvent("PRODUCT_UPDATED", product, getTenantContext());
     } catch (error) {
       next(error);
     }
@@ -95,6 +102,9 @@ export class ProductController {
         success: true,
         data: null,
       });
+
+      // Non-blocking Google Sync Event Dispatch
+      GoogleSyncDispatcher.dispatchSyncEvent("PRODUCT_ARCHIVED", { id, isActive: false }, getTenantContext());
     } catch (error) {
       next(error);
     }

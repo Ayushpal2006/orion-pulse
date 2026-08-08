@@ -281,6 +281,30 @@ export const settings = pgTable(
   })
 );
 
+export const google_integrations = pgTable(
+  "google_integrations",
+  {
+    id: serial("id").primaryKey(),
+    organization_id: integer("organization_id").references(() => organizations.id).notNull(),
+    store_id: integer("store_id").references(() => stores.id),
+    google_user_id: text("google_user_id"),
+    google_email: text("google_email"),
+    refresh_token: text("refresh_token").notNull(),
+    spreadsheet_id: text("spreadsheet_id"),
+    spreadsheet_name: text("spreadsheet_name"),
+    connected_at: timestamp("connected_at").defaultNow().notNull(),
+    last_sync: timestamp("last_sync"),
+    sync_enabled: integer("sync_enabled").default(1).notNull(),
+    sync_method: text("sync_method").default("oauth").notNull(),
+    created_at: timestamp("created_at").defaultNow().notNull(),
+    updated_at: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    orgIdx: index("idx_google_integrations_org_id").on(table.organization_id),
+    storeIdx: index("idx_google_integrations_store_id").on(table.store_id),
+  })
+);
+
 // Supplier ERP
 export const suppliers = pgTable(
   "suppliers",

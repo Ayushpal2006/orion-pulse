@@ -51,11 +51,31 @@ export async function initDb(): Promise<void> {
     const migrationsFolder = resolveMigrationsFolder();
     await migrate(db, { migrationsFolder });
     
-    // 2b. Ensure sync_jobs has organization_id column safely
+    // 2b. Ensure sync_jobs organization_id and google_integrations table exist safely
     try {
       await db.execute(sql`ALTER TABLE sync_jobs ADD COLUMN IF NOT EXISTS organization_id integer REFERENCES organizations(id)`);
+      await db.execute(sql`
+        CREATE TABLE IF NOT EXISTS google_integrations (
+          id SERIAL PRIMARY KEY,
+          organization_id INTEGER NOT NULL REFERENCES organizations(id),
+          store_id INTEGER REFERENCES stores(id),
+          google_user_id TEXT,
+          google_email TEXT,
+          refresh_token TEXT NOT NULL,
+          spreadsheet_id TEXT,
+          spreadsheet_name TEXT,
+          connected_at TIMESTAMP DEFAULT NOW() NOT NULL,
+          last_sync TIMESTAMP,
+          sync_enabled INTEGER DEFAULT 1 NOT NULL,
+          sync_method TEXT DEFAULT 'oauth' NOT NULL,
+          created_at TIMESTAMP DEFAULT NOW() NOT NULL,
+          updated_at TIMESTAMP DEFAULT NOW() NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_google_integrations_org_id ON google_integrations (organization_id);
+        CREATE INDEX IF NOT EXISTS idx_google_integrations_store_id ON google_integrations (store_id);
+      `);
     } catch (colErr) {
-      logger.warn("Column migration notice for sync_jobs.organization_id: " + String(colErr));
+      logger.warn("Table/column migration notice for google_integrations: " + String(colErr));
     }
 
     logger.info("✅ Drizzle migrations applied successfully.");

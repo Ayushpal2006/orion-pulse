@@ -3,8 +3,10 @@ import { logger } from "../logger/logger";
 import { formatInTimeZone } from "date-fns-tz";
 import { storeStorage, getTenantContext } from "../db/context";
 import { db } from "../db";
-import { stores } from "../db/schema";
+import { stores, google_integrations } from "../db/schema";
 import { eq } from "drizzle-orm";
+import { decryptToken } from "../utils/crypto";
+import { GoogleProvisioningService } from "./google-provisioning.service";
 
 // Lazy-load googleapis to avoid heavy top-level startup delay
 let googleApiCache: any = null;
@@ -117,26 +119,12 @@ export class SyncQueueManager {
           role: "system",
         },
         async () => {
-          const enabled = (await settingsRepository.get("google_sync_enabled", "0")) === "1";
-          const sheetId = await settingsRepository.get("google_sheet_id", "");
-
-          if (!enabled || !sheetId) {
-            logger.info(`ℹ️ Sync skipped for job ID ${job.id}: Google sync disabled or missing sheet ID for store ${targetStoreId}.`);
-            await syncRepository.updateJobStatus(
-              job.id,
-              "failed",
-              job.retry_count + 1,
-              "Google Sheets sync is disabled or spreadsheet ID is not configured for this tenant."
-            );
-            return;
-          }
-
           logger.info(`🔄 Processing sync job ID ${job.id} (${job.job_type}) for Org ${targetOrgId} / Store ${targetStoreId}...`);
           await syncRepository.recordJobAttempt(job.id);
 
           const payloadObj = JSON.parse(job.payload);
 
-          // NON-NEGOTIABLE TENANT MATCH GUARANTEE
+          // NON-NEGOTIABLE TENANT MATCH GUARANTEE (Run FIRST before any external client resolution)
           if (payloadObj.organization_id && Number(payloadObj.organization_id) !== targetOrgId) {
             const errStr = `[TENANT MISMATCH ABORT] Payload org (${payloadObj.organization_id}) does not match target org (${targetOrgId})`;
             logger.error(`❌ ${errStr}`);
@@ -150,11 +138,35 @@ export class SyncQueueManager {
             return;
           }
 
-          const result = await this.syncToGoogleSheets(sheetId, job.job_type, payloadObj, targetOrgId, targetStoreId);
+          const enabled = (await settingsRepository.get("google_sync_enabled", "0")) === "1";
+          const sheetId = await settingsRepository.get("google_sheet_id", "");
+
+          // Resolve Sheets Client and Target Spreadsheet based on tenant sync method (OAuth vs Service Account)
+          const { sheets, spreadsheetId: resolvedSheetId, syncMethod, integrationId } =
+            await this.resolveSheetsClientAndSpreadsheet(targetOrgId, sheetId);
+
+          if (!enabled || !resolvedSheetId || !sheets) {
+            logger.info(`ℹ️ Sync skipped for job ID ${job.id}: Google sync disabled or missing credentials/sheet ID for store ${targetStoreId}.`);
+            await syncRepository.updateJobStatus(
+              job.id,
+              "failed",
+              job.retry_count + 1,
+              "Google Sheets sync is disabled or credentials/spreadsheet ID are missing for this tenant."
+            );
+            return;
+          }
+
+          const result = await this.syncToGoogleSheetsWithClient(sheets, resolvedSheetId, job.job_type, payloadObj, targetOrgId, targetStoreId);
 
           if (result.success) {
             await syncRepository.updateJobStatus(job.id, "completed", job.retry_count);
-            logger.info(`✅ Sync job ID ${job.id} completed successfully for Org ${targetOrgId} / Store ${targetStoreId}.`);
+            logger.info(`✅ Sync job ID ${job.id} completed successfully via ${syncMethod.toUpperCase()} for Org ${targetOrgId} / Store ${targetStoreId}.`);
+            if (integrationId) {
+              await db
+                .update(google_integrations)
+                .set({ last_sync: new Date(), updated_at: new Date() })
+                .where(eq(google_integrations.id, integrationId));
+            }
           } else {
             const nextRetry = job.retry_count + 1;
             const newStatus = nextRetry >= 3 ? "failed" : "pending";
@@ -178,17 +190,29 @@ export class SyncQueueManager {
 
   async testConnection(sheetId: string): Promise<{ success: boolean; error?: string }> {
     try {
-      const sheets = this.getSheetsClient();
-      if (!sheets) {
-        return { success: false, error: "Google Service Account credentials are not configured in backend .env file." };
+      const { organizationId } = getTenantContext();
+      let sheets: any = null;
+      let targetSheetId = sheetId;
+
+      if (organizationId && organizationId > 0) {
+        const res = await this.resolveSheetsClientAndSpreadsheet(organizationId, sheetId);
+        sheets = res.sheets;
+        if (res.spreadsheetId) targetSheetId = res.spreadsheetId;
       }
-      await sheets.spreadsheets.get({ spreadsheetId: sheetId });
+      if (!sheets) {
+        sheets = this.getSheetsClient();
+      }
+
+      if (!sheets) {
+        return { success: false, error: "Google credentials are not configured for backend." };
+      }
+      await sheets.spreadsheets.get({ spreadsheetId: targetSheetId });
       return { success: true };
     } catch (e: any) {
       console.error("Failed to connect to spreadsheet:", e);
       let errorMsg = e.message || String(e);
       if (e.status === 403 || (e.message && e.message.includes("permission"))) {
-        errorMsg = "Permission Denied. Please share the Google Sheet with the Service Account email address as an 'Editor'.";
+        errorMsg = "Permission Denied. Please ensure the Google Sheet is shared with Editor access.";
       } else if (e.status === 404 || (e.message && e.message.includes("not found"))) {
         errorMsg = "Spreadsheet not found. Please verify the Google Sheet ID is correct.";
       }
@@ -196,12 +220,47 @@ export class SyncQueueManager {
     }
   }
 
+  private async resolveSheetsClientAndSpreadsheet(orgId: number, fallbackSheetId: string) {
+    const syncMethod = await settingsRepository.get("google_sync_method", "oauth");
+
+    if (syncMethod === "oauth" && orgId > 0) {
+      const [integration] = await db
+        .select()
+        .from(google_integrations)
+        .where(eq(google_integrations.organization_id, orgId))
+        .limit(1);
+
+      if (integration && integration.refresh_token && integration.sync_enabled === 1) {
+        const refreshToken = decryptToken(integration.refresh_token);
+        const clientId = process.env.GOOGLE_CLIENT_ID;
+        const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
+
+        if (clientId && clientSecret && refreshToken) {
+          try {
+            const google = getGoogleApi();
+            const auth = new google.auth.OAuth2(clientId, clientSecret);
+            auth.setCredentials({ refresh_token: refreshToken });
+            const sheets = google.sheets({ version: "v4", auth });
+            const targetSheetId = integration.spreadsheet_id || fallbackSheetId;
+            return { sheets, spreadsheetId: targetSheetId, syncMethod: "oauth", integrationId: integration.id };
+          } catch (err) {
+            logger.warn("Failed to initialize Google OAuth2 client for tenant: " + String(err));
+          }
+        }
+      }
+    }
+
+    // Fallback to Service Account flow
+    const sheets = this.getSheetsClient();
+    return { sheets, spreadsheetId: fallbackSheetId, syncMethod: "service_account", integrationId: null };
+  }
+
   private getSheetsClient() {
     const email = process.env.GOOGLE_CLIENT_EMAIL;
     const key = process.env.GOOGLE_PRIVATE_KEY;
     
     if (!email || !key) {
-      console.warn("⚠️ Google credentials missing from environment variables.");
+      console.warn("⚠️ Google Service Account credentials missing from environment variables.");
       return null;
     }
 
@@ -219,15 +278,15 @@ export class SyncQueueManager {
     }
   }
 
-  private async syncToGoogleSheets(
+  private async syncToGoogleSheetsWithClient(
+    sheets: any,
     spreadsheetId: string,
     jobType: string,
     payload: any,
     expectedOrgId?: number,
     expectedStoreId?: number
   ): Promise<{ success: boolean; error?: string }> {
-    const sheets = this.getSheetsClient();
-    if (!sheets) return { success: false, error: "Google credentials missing or invalid." };
+    if (!sheets) return { success: false, error: "Google Sheets client missing or invalid." };
 
     // STRICT NON-NEGOTIABLE TENANT ISOLATION CHECK
     const { organizationId, currentStoreId } = getTenantContext();
@@ -381,52 +440,9 @@ export class SyncQueueManager {
 
   private async ensureTabs(sheets: any, spreadsheetId: string) {
     try {
-      const meta = await sheets.spreadsheets.get({ spreadsheetId });
-      const existingTitles = meta.data.sheets?.map((s: any) => s.properties?.title) || [];
-      
-      const required = ["Sales", "Customers", "Products", "GST", "Inventory Movements"];
-      const addSheets = required.filter(t => !existingTitles.includes(t));
-      
-      if (addSheets.length > 0) {
-        await sheets.spreadsheets.batchUpdate({
-          spreadsheetId,
-          requestBody: {
-            requests: addSheets.map(title => ({
-              addSheet: { properties: { title } }
-            }))
-          }
-        });
-        logger.info(`Created tabs in Google Sheets: ${addSheets.join(", ")}`);
-
-        // Add headers for each created tab
-        for (const title of addSheets) {
-          let headers: string[] = [];
-          if (title === "Sales") {
-            headers = ["Invoice Number", "Date & Time", "Cashier", "Payment Method", "Subtotal", "Discount", "GST", "Grand Total", "Public Link", "Status", "Void Reason", "Void Date", "Void Time", "Void By"];
-          } else if (title === "Customers") {
-            headers = ["Phone", "Name", "Email", "Address", "Total Orders", "Lifetime Value (INR)", "Last Visit", "Active Status"];
-          } else if (title === "Products") {
-            headers = ["SKU", "Name", "Purchase Price (INR)", "Selling Price (INR)", "Stock", "GST (%)", "Active Status"];
-          } else if (title === "GST") {
-            headers = ["GST Slab", "Taxable Value (INR)", "Tax Collected (INR)"];
-          } else if (title === "Inventory Movements") {
-            headers = ["Date", "Time", "Product", "Movement", "Reference", "Quantity", "Previous Stock", "New Stock", "Reason"];
-          }
-
-          if (headers.length > 0) {
-            await sheets.spreadsheets.values.append({
-              spreadsheetId,
-              range: `${title}!A1`,
-              valueInputOption: "RAW",
-              requestBody: {
-                values: [headers]
-              }
-            });
-          }
-        }
-      }
-    } catch (err) {
-      console.warn("Failed to automatically verify/create tabs:", err);
+      await GoogleProvisioningService.provisionSpreadsheet(sheets, spreadsheetId);
+    } catch (err: any) {
+      console.warn("Failed to automatically verify/provision tabs:", err.message || err);
     }
   }
 }

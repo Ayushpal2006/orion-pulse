@@ -33,11 +33,11 @@ dist-ssr
 
 .env
 .env.local
-.env.example    
 .env.development.local
 .env.production.local
 .env.development
 .env.production
 .env.test.local
-.env
 .env.*
+!.env.example
+client_secret*.json

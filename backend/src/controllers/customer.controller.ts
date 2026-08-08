@@ -1,6 +1,8 @@
 import { Request, Response, NextFunction } from "express";
 import { CustomerService } from "../services/customer.service";
 import { CreateCustomerSchema, UpdateCustomerSchema } from "../validation/customer.validation";
+import { GoogleSyncDispatcher } from "../services/google-sync-dispatcher.service";
+import { getTenantContext } from "../db/context";
 
 export class CustomerController {
   private service: CustomerService;
@@ -70,6 +72,9 @@ export class CustomerController {
         success: true,
         data: customer,
       });
+
+      // Non-blocking Google Sync Event Dispatch
+      GoogleSyncDispatcher.dispatchSyncEvent("CUSTOMER_CREATED", customer, getTenantContext());
     } catch (error) {
       next(error);
     }
@@ -91,6 +96,9 @@ export class CustomerController {
         success: true,
         data: customer,
       });
+
+      // Non-blocking Google Sync Event Dispatch
+      GoogleSyncDispatcher.dispatchSyncEvent("CUSTOMER_UPDATED", customer, getTenantContext());
     } catch (error) {
       next(error);
     }

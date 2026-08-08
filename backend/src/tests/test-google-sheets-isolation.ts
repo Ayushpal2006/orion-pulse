@@ -93,7 +93,7 @@ async function runIsolationTests() {
   console.log("✅ Store-isolated settings verified successfully.\n");
 
   // 3. Clean up sync_jobs table for test
-  await db.execute(sql`DELETE FROM sync_jobs WHERE status = 'pending'`);
+  await db.execute(sql`DELETE FROM sync_jobs WHERE store_id IN (${storeA1.id}, ${storeA2.id}, ${storeB1.id})`);
 
   // 4. Enqueue Sync Jobs with Tenant Context
   console.log("3️⃣ Enqueuing jobs under Org A / Store A1...");

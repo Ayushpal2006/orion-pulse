@@ -14,6 +14,7 @@ import printerRoutes from "./routes/printer.routes";
 import settingsRoutes from "./routes/settings.routes";
 import invoiceRoutes from "./routes/invoice.routes";
 import syncRoutes from "./routes/sync.routes";
+import googleRoutes from "./routes/google.routes";
 import healthRoutes from "./routes/health.routes";
 import adminRoutes from "./routes/admin.routes";
 
@@ -181,6 +182,7 @@ app.use("/api/settings/database", authenticate(), databaseRoutes);
 app.use("/invoice", invoiceRoutes); // Public HTML invoice access
 app.use("/sync", authenticate(), syncRoutes);
 app.use("/api/sync", authenticate(), syncRoutes);
+app.use("/api/google", googleRoutes);
 app.use("/api/admin", authenticate(), authorize("admin"), adminRoutes);
 
 // New Modules
