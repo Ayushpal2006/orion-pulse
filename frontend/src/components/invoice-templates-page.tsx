@@ -17,32 +17,7 @@ export function InvoiceTemplatesPage() {
   const [isDirty, setIsDirty] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  // Sync settings state from backend database API on mount
-  useEffect(() => {
-    apiFetch(`${API_BASE_URL}/settings`)
-      .then((r) => r.json())
-      .then((d) => {
-        if (d.success && d.data) {
-          const cfg = d.data;
-          if (cfg.shop_name) s.setShopName(cfg.shop_name);
-          if (cfg.shop_gstin) s.setGstin(cfg.shop_gstin);
-          if (cfg.shop_address) s.setStoreAddress(cfg.shop_address);
-          if (cfg.shop_phone) s.setStorePhone(cfg.shop_phone);
-          if (cfg.shop_email) s.setStoreEmail(cfg.shop_email);
-          if (cfg.logo) s.setLogo(cfg.logo);
-          if (cfg.shop_upi_id) s.setUpiId(cfg.shop_upi_id);
-          if (cfg.inv_prefix) setInvPrefix(cfg.inv_prefix);
-          if (cfg.receipt_footer) s.setReceiptFooter(cfg.receipt_footer);
-          if (cfg.receipt_template) s.setReceiptTemplate(cfg.receipt_template as any);
-          if (cfg.pdf_invoice_template) setPdfInvoiceTemplate(cfg.pdf_invoice_template);
-          if (cfg.primary_color && s.setPrimaryColor) s.setPrimaryColor(cfg.primary_color);
-          if (cfg.invoice_header && s.setInvoiceHeader) s.setInvoiceHeader(cfg.invoice_header);
-          if (cfg.invoice_footer && s.setInvoiceFooter) s.setInvoiceFooter(cfg.invoice_footer);
-          if (cfg.terms_and_conditions && s.setTermsAndConditions) s.setTermsAndConditions(cfg.terms_and_conditions);
-        }
-      })
-      .catch(() => {});
-  }, []);
+
 
   const handleSaveSettings = async () => {
     setSaving(true);

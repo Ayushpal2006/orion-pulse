@@ -25,17 +25,15 @@ export function useThemeInit() {
   const theme = useApp((s) => s.theme);
   const setTheme = useApp((s) => s.setTheme);
 
-  // Load persisted theme once on mount
+  // Load persisted theme once on mount without triggering dirty state
   useEffect(() => {
     if (typeof window === "undefined") return;
     const saved = window.localStorage.getItem(STORAGE_KEY) as Theme | null;
-    if (saved && saved !== theme) {
-      setTheme(saved);
+    if (saved) {
       applyTheme(saved);
     } else {
       applyTheme(theme);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Apply + persist on theme change

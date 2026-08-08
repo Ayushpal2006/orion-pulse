@@ -351,6 +351,8 @@ function SettingsV2() {
     sheetId: sheetId || "",
     autoBackupEnabled: Boolean(autoBackupEnabled),
     requireCustomerBeforeCheckout: Boolean(s.requireCustomerBeforeCheckout),
+    currency: s.currency || "INR",
+    theme: s.theme || "system",
   });
 
   const draftSettings = getSettingsSnapshot();
