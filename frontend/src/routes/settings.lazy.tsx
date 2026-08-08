@@ -429,28 +429,28 @@ function SettingsV2() {
         if (d.success && d.data) {
           const cfg = d.data;
 
-          if (cfg.shop_name) s.setShopName(cfg.shop_name);
-          if (cfg.shop_gstin) s.setGstin(cfg.shop_gstin);
-          if (cfg.shop_address) s.setStoreAddress(cfg.shop_address);
-          if (cfg.shop_phone) s.setStorePhone(cfg.shop_phone);
-          if (cfg.shop_email) s.setStoreEmail(cfg.shop_email);
-          if (cfg.logo) s.setLogo(cfg.logo);
-          if (cfg.shop_upi_id) s.setUpiId(cfg.shop_upi_id);
-          if (cfg.inv_prefix) setInvPrefix(cfg.inv_prefix);
-          if (cfg.po_prefix) setPoPrefix(cfg.po_prefix);
-          if (cfg.receipt_footer) s.setReceiptFooter(cfg.receipt_footer);
-          if (cfg.google_sheet_id) setSheetId(cfg.google_sheet_id);
+          s.setShopName(cfg.shop_name ?? "");
+          s.setGstin(cfg.shop_gstin ?? "");
+          s.setStoreAddress(cfg.shop_address ?? "");
+          s.setStorePhone(cfg.shop_phone ?? "");
+          s.setStoreEmail(cfg.shop_email ?? "");
+          s.setLogo(cfg.logo ?? "");
+          s.setUpiId(cfg.shop_upi_id ?? "");
+          setInvPrefix(cfg.inv_prefix ?? "INV-");
+          setPoPrefix(cfg.po_prefix ?? "PO-");
+          s.setReceiptFooter(cfg.receipt_footer ?? "");
+          if (cfg.google_sheet_id !== undefined) setSheetId(cfg.google_sheet_id ?? "");
           if (cfg.google_sync_enabled !== undefined) setIsConnected(cfg.google_sync_enabled === "1");
           if (cfg.theme) s.setTheme(cfg.theme as any);
           if (cfg.receipt_template) s.setReceiptTemplate(cfg.receipt_template as any);
-          if (cfg.primary_color && s.setPrimaryColor) s.setPrimaryColor(cfg.primary_color);
-          if (cfg.tagline && s.setTagline) s.setTagline(cfg.tagline);
-          if (cfg.website && s.setWebsite) s.setWebsite(cfg.website);
-          if (cfg.invoice_header && s.setInvoiceHeader) s.setInvoiceHeader(cfg.invoice_header);
-          if (cfg.invoice_footer && s.setInvoiceFooter) s.setInvoiceFooter(cfg.invoice_footer);
-          if (cfg.terms_and_conditions && s.setTermsAndConditions) s.setTermsAndConditions(cfg.terms_and_conditions);
-          if (cfg.whatsapp_signature && s.setWhatsappSignature) s.setWhatsappSignature(cfg.whatsapp_signature);
-          if (cfg.require_customer_before_checkout !== undefined && s.setRequireCustomerBeforeCheckout) {
+          if (s.setPrimaryColor) s.setPrimaryColor(cfg.primary_color ?? "#2563eb");
+          if (s.setTagline) s.setTagline(cfg.tagline ?? "");
+          if (s.setWebsite) s.setWebsite(cfg.website ?? "");
+          if (s.setInvoiceHeader) s.setInvoiceHeader(cfg.invoice_header ?? "");
+          if (s.setInvoiceFooter) s.setInvoiceFooter(cfg.invoice_footer ?? "");
+          if (s.setTermsAndConditions) s.setTermsAndConditions(cfg.terms_and_conditions ?? "");
+          if (s.setWhatsappSignature) s.setWhatsappSignature(cfg.whatsapp_signature ?? "");
+          if (s.setRequireCustomerBeforeCheckout) {
             s.setRequireCustomerBeforeCheckout(cfg.require_customer_before_checkout === "1" || cfg.require_customer_before_checkout === "true");
           }
 
@@ -842,32 +842,38 @@ function SettingsV2() {
         s.setTheme((localStorage.getItem("orion_theme") as any) || "system");
         break;
       case "shop":
-        s.setShopName(localStorage.getItem("orion_shop_name") || "Apka Bill Store");
-        s.setGstin(localStorage.getItem("orion_gstin") || "27ABCDE1234F1Z5");
-        s.setStorePhone(localStorage.getItem("orion_phone") || "+91 98765 43210");
-        s.setStoreEmail(localStorage.getItem("orion_email") || "hello@apkabill.in");
-        s.setStoreAddress(localStorage.getItem("orion_address") || "Shop 12, MG Road, Pune 411001");
+        if (savedSettings) {
+          s.setShopName(savedSettings.shopName || "");
+          s.setGstin(savedSettings.gstin || "");
+          s.setStorePhone(savedSettings.storePhone || "");
+          s.setStoreEmail(savedSettings.storeEmail || "");
+          s.setStoreAddress(savedSettings.storeAddress || "");
+        }
         break;
       case "branding":
-        s.setLogo(localStorage.getItem("orion_logo") || undefined);
-        s.setReceiptFooter(localStorage.getItem("orion_receipt_footer") || "*** Thank you — visit again ***");
+        if (savedSettings) {
+          s.setLogo(savedSettings.logo || undefined);
+          s.setReceiptFooter(savedSettings.receiptFooter || "");
+        }
         break;
       case "billing":
-        setInvPrefix(localStorage.getItem("orion_inv_prefix") || "INV-");
+        if (savedSettings) setInvPrefix(savedSettings.invPrefix || "INV-");
         break;
       case "purchase":
-        setPoPrefix(localStorage.getItem("orion_po_prefix") || "PO-");
+        if (savedSettings) setPoPrefix(savedSettings.poPrefix || "PO-");
         break;
       case "inventory":
-        setLowStockThreshold(Number(localStorage.getItem("orion_low_stock_threshold")) || 10);
+        if (savedSettings) setLowStockThreshold(savedSettings.lowStockThreshold || 10);
         break;
       case "reports":
-        setDefaultReportPeriod(localStorage.getItem("orion_default_report_period") || "Month");
-        setExportFormat(localStorage.getItem("orion_export_format") || "PDF");
+        if (savedSettings) {
+          setDefaultReportPeriod(savedSettings.defaultReportPeriod || "Month");
+          setExportFormat(savedSettings.exportFormat || "PDF");
+        }
         break;
       case "taxes":
         s.setTaxRate(12);
-        s.setGstin(localStorage.getItem("orion_gstin") || "27ABCDE1234F1Z5");
+        if (savedSettings) s.setGstin(savedSettings.gstin || "");
         break;
       case "backup":
         setSheetId(savedSettings?.sheetId || "");
@@ -886,11 +892,13 @@ function SettingsV2() {
         s.setTheme("system");
         break;
       case "shop":
-        s.setShopName("Apka Bill Store");
-        s.setGstin("27ABCDE1234F1Z5");
-        s.setStorePhone("+91 98765 43210");
-        s.setStoreEmail("hello@apkabill.in");
-        s.setStoreAddress("Shop 12, MG Road, Pune 411001");
+        if (savedSettings) {
+          s.setShopName(savedSettings.shopName || "");
+          s.setGstin(savedSettings.gstin || "");
+          s.setStorePhone(savedSettings.storePhone || "");
+          s.setStoreEmail(savedSettings.storeEmail || "");
+          s.setStoreAddress(savedSettings.storeAddress || "");
+        }
         break;
       case "branding":
         s.setLogo(undefined);

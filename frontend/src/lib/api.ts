@@ -672,11 +672,11 @@ export async function getSaleReceipt(idOrInvoice: string): Promise<any> {
     );
 
     if (found) {
-      const shopName = typeof window !== "undefined" ? localStorage.getItem("orion_shop_name") || "Apka Bill Store" : "Apka Bill Store";
-      const shopGstin = typeof window !== "undefined" ? localStorage.getItem("orion_gstin") || "27AAAAA1111A1Z1" : "27AAAAA1111A1Z1";
-      const shopAddress = typeof window !== "undefined" ? localStorage.getItem("orion_address") || "123, POS Center" : "123, POS Center";
-      const shopPhone = typeof window !== "undefined" ? localStorage.getItem("orion_phone") || "8285068670" : "8285068670";
-      const shopUpi = typeof window !== "undefined" ? localStorage.getItem("orion_upi_id") || "apkabill@upi" : "apkabill@upi";
+      const shopName = typeof window !== "undefined" ? localStorage.getItem("orion_shop_name") || "Store" : "Store";
+      const shopGstin = typeof window !== "undefined" ? localStorage.getItem("orion_gstin") || "" : "";
+      const shopAddress = typeof window !== "undefined" ? localStorage.getItem("orion_address") || "" : "";
+      const shopPhone = typeof window !== "undefined" ? localStorage.getItem("orion_phone") || "" : "";
+      const shopUpi = typeof window !== "undefined" ? localStorage.getItem("orion_upi_id") || "" : "";
 
       return {
         invoiceNumber: found.invoice_number,
