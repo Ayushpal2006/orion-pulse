@@ -22,7 +22,7 @@ async function resolveStoreIdForContext(ctx: TenantContext, client: any): Promis
       .limit(1);
     if (st) return st.id;
   }
-  return ctx.currentStoreId || 1;
+  return ctx.currentStoreId || 0;
 }
 
 export class PostgresSettingsRepository implements ISettingsRepository {
@@ -90,10 +90,14 @@ export class PostgresSettingsRepository implements ISettingsRepository {
     }
 
     if (storeId > 0) {
+      const storeWhereClause = (ctx.organizationId && ctx.organizationId > 0)
+        ? and(eq(stores.id, storeId), eq(stores.organization_id, ctx.organizationId))
+        : eq(stores.id, storeId);
+
       const [st] = await client
         .select()
         .from(stores)
-        .where(eq(stores.id, storeId))
+        .where(storeWhereClause)
         .limit(1);
       if (st) {
         if (key === "shop_name" && st.name) return st.name;
@@ -148,30 +152,26 @@ export class PostgresSettingsRepository implements ISettingsRepository {
   }
 
   async setMany(settingsObj: Record<string, string>, tx?: any): Promise<void> {
-    const client = tx || db;
     const ctx = getTenantContext();
-    const storeId = await resolveStoreIdForContext(ctx, client);
+    const storeId = await resolveStoreIdForContext(ctx, tx || db);
 
-    await client.transaction(async (txClient: any) => {
-      for (const [key, value] of Object.entries(settingsObj)) {
-        const valStr = String(value ?? "");
-        await txClient
-          .insert(settings)
-          .values({ store_id: storeId, key, value: valStr })
-          .onConflictDoUpdate({
-            target: [settings.store_id, settings.key],
-            set: { value: valStr },
-          });
+    for (const [key, value] of Object.entries(settingsObj)) {
+      const valStr = String(value ?? "");
+      await db
+        .insert(settings)
+        .values({ store_id: storeId, key, value: valStr })
+        .onConflictDoUpdate({
+          target: [settings.store_id, settings.key],
+          set: { value: valStr },
+        });
 
-        if (storeId > 0) {
-          if (key === "shop_name") await txClient.update(stores).set({ name: valStr, updated_at: new Date() }).where(eq(stores.id, storeId));
-          else if (key === "shop_gstin") await txClient.update(stores).set({ gst_number: valStr, updated_at: new Date() }).where(eq(stores.id, storeId));
-          else if (key === "shop_phone") await txClient.update(stores).set({ phone: valStr, updated_at: new Date() }).where(eq(stores.id, storeId));
-          else if (key === "shop_address") await txClient.update(stores).set({ address: valStr, updated_at: new Date() }).where(eq(stores.id, storeId));
-          else if (key === "logo") await txClient.update(stores).set({ logo_url: valStr, updated_at: new Date() }).where(eq(stores.id, storeId));
-        }
+      if (storeId > 0) {
+        if (key === "shop_name") await db.update(stores).set({ name: valStr, updated_at: new Date() }).where(eq(stores.id, storeId));
+        else if (key === "shop_gstin") await db.update(stores).set({ gst_number: valStr, updated_at: new Date() }).where(eq(stores.id, storeId));
+        else if (key === "shop_phone") await db.update(stores).set({ phone: valStr, updated_at: new Date() }).where(eq(stores.id, storeId));
+        else if (key === "shop_address") await db.update(stores).set({ address: valStr, updated_at: new Date() }).where(eq(stores.id, storeId));
+        else if (key === "logo") await db.update(stores).set({ logo_url: valStr, updated_at: new Date() }).where(eq(stores.id, storeId));
       }
-    });
+    }
   }
 }
-

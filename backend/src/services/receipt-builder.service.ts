@@ -1,9 +1,9 @@
 import { db } from "../db";
 import { sales, sale_items, products, customers, stores, organizations, settings } from "../db/schema";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { NotFoundError } from "../utils/errors";
 import { formatToKolkataDate, formatToKolkataTime } from "../utils/datetime";
-import { storeStorage } from "../db/context";
+import { storeStorage, getTenantContext } from "../db/context";
 import QRCode from "qrcode";
 import { ReceiptDTO, BrandingConfig, StoreConfig, ReceiptItemDTO, ThermalFormatItem } from "../types/receipt.types";
 
@@ -15,15 +15,22 @@ export class ReceiptBuilderService {
    */
   static async buildReceipt(idOrInvoice: string): Promise<ReceiptDTO> {
     let saleRecord: any = null;
+    const ctx = getTenantContext();
 
     const numericId = parseInt(idOrInvoice, 10);
     if (!isNaN(numericId) && String(numericId) === idOrInvoice) {
-      const [found] = await db.select().from(sales).where(eq(sales.id, numericId)).limit(1);
+      const whereClause = (ctx.organizationId && ctx.organizationId > 0)
+        ? and(eq(sales.id, numericId), eq(sales.organization_id, ctx.organizationId))
+        : eq(sales.id, numericId);
+      const [found] = await db.select().from(sales).where(whereClause).limit(1);
       saleRecord = found;
     }
 
     if (!saleRecord) {
-      const [found] = await db.select().from(sales).where(eq(sales.invoice_number, idOrInvoice)).limit(1);
+      const whereClause = (ctx.organizationId && ctx.organizationId > 0)
+        ? and(eq(sales.invoice_number, idOrInvoice), eq(sales.organization_id, ctx.organizationId))
+        : eq(sales.invoice_number, idOrInvoice);
+      const [found] = await db.select().from(sales).where(whereClause).limit(1);
       saleRecord = found;
     }
 
@@ -36,17 +43,21 @@ export class ReceiptBuilderService {
       throw new NotFoundError(`Sale with identifier "${idOrInvoice}" not found`);
     }
 
-    const targetStoreId = saleRecord.store_id || 1;
-    const targetOrgId = saleRecord.organization_id || 1;
+    const targetStoreId = saleRecord.store_id;
+    const targetOrgId = saleRecord.organization_id;
+
+    if (!targetStoreId || !targetOrgId) {
+      throw new Error(`Sale identifier "${idOrInvoice}" is missing required organization_id or store_id context`);
+    }
 
     return await storeStorage.run(
       { organizationId: targetOrgId, currentStoreId: targetStoreId, userId: 1, role: "system" },
       async () => {
-        // Fetch Store record
+        // Fetch Store record (strictly scoped to targetStoreId AND targetOrgId)
         const [storeRecord] = await db
           .select()
           .from(stores)
-          .where(eq(stores.id, targetStoreId))
+          .where(and(eq(stores.id, targetStoreId), eq(stores.organization_id, targetOrgId)))
           .limit(1);
 
         // Fetch Organization record
