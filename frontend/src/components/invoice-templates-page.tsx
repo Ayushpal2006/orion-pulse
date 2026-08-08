@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { useApp } from "@/lib/store";
 import { DEFAULT_RECEIPT_TEMPLATES, saveActiveTemplateConfig, type TemplatePreset } from "@/lib/receipt-template";
-import { ReceiptRenderer } from "@/components/receipt-templates";
+import { InvoiceTemplateRenderer } from "@/components/invoice-template-renderer";
 import { API_BASE_URL, apiFetch } from "@/lib/api";
 
 export function InvoiceTemplatesPage() {
@@ -354,7 +354,7 @@ export function InvoiceTemplatesPage() {
           </div>
 
           <div className="rounded-2xl border border-border/80 bg-white p-5 shadow-lg max-w-xl mx-auto transition-all text-black">
-            <ReceiptRenderer
+            <InvoiceTemplateRenderer
               templateName={s.receiptTemplate}
               receipt={{
                 shop: {

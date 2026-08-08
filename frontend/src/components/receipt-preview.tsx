@@ -1,6 +1,6 @@
 import { useApp } from "@/lib/store";
 import { cn } from "@/lib/utils";
-import { ReceiptRenderer } from "./receipt-templates";
+import { InvoiceTemplateRenderer } from "./invoice-template-renderer";
 
 export function ReceiptPreview() {
   const shopName = useApp((s) => s.shopName);
@@ -40,12 +40,6 @@ export function ReceiptPreview() {
     grandTotal: 997.00,
     paymentMethod: "UPI",
     upiPayload: `upi://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(shopName)}&am=997.00&cu=INR`,
-    thankYouMessage: receiptHeader, // receiptHeader is rendered under the header in classic, but in unified renderer it maps to thankYouMessage or custom header. Let's combine them or pass receiptFooter
-  };
-
-  // Adjust mock data fields mapping to standard structures
-  const normReceipt = {
-    ...receipt,
     thankYouMessage: receiptFooter || "Thank you for shopping with us",
   };
 
@@ -56,8 +50,8 @@ export function ReceiptPreview() {
         paperWidth === "58mm" ? "w-[220px]" : "w-[280px]",
       )}
     >
-      <ReceiptRenderer
-        receipt={normReceipt}
+      <InvoiceTemplateRenderer
+        receipt={receipt}
         templateName={receiptTemplate}
         paperWidth={paperWidth === "A4" ? "80mm" : paperWidth}
         qrPosition={qrPosition}

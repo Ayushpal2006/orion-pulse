@@ -6,7 +6,7 @@ import { getSaleReceipt, API_BASE_URL, apiFetch } from "@/lib/api";
 import { waitForReceiptResources } from "@/lib/print-adapter";
 import { Button } from "@/components/ui/button";
 import { printerService } from "@/lib/printer.service";
-import { ReceiptRenderer } from "@/components/receipt-templates";
+import { InvoiceTemplateRenderer } from "@/components/invoice-template-renderer";
 
 export const Route = createFileRoute("/print/invoice/$id")({
   validateSearch: (search: Record<string, unknown>) => {
@@ -25,8 +25,8 @@ export const Route = createFileRoute("/print/invoice/$id")({
 
 interface ThermalReceiptProps {
   receipt: any;
-  template: "Classic" | "Retail" | "Premium" | "Compact";
-  paperWidth: "58mm" | "80mm";
+  template: string;
+  paperWidth: "58mm" | "80mm" | "A4";
   qrPosition: "Top" | "Bottom";
 }
 
@@ -39,24 +39,22 @@ function ThermalReceipt({ receipt, template, paperWidth, qrPosition }: ThermalRe
   if (receipt.paymentMethod === "UPI" && receipt.upiQrCode) {
     console.log("PRINT STEP 7: QR rendered");
   }
-  console.log("PRINT STEP 8: Barcode rendered (No barcode required for this receipt layout)");
+
+  const containerWidth = paperWidth === "58mm" ? "58mm" : paperWidth === "A4" ? "210mm" : "80mm";
 
   return (
     <div 
       className="thermal-receipt" 
       style={{
-        width: paperWidth === "80mm" ? "80mm" : "58mm",
-        padding: "2mm 2mm 8mm 2mm",
+        width: containerWidth,
+        padding: "2mm",
         boxSizing: "border-box",
         background: "#ffffff",
         color: "#000000",
-        fontFamily: "monospace",
-        fontSize: "11px",
-        lineHeight: "1.2",
         margin: "0 auto",
       }}
     >
-      <ReceiptRenderer
+      <InvoiceTemplateRenderer
         receipt={receipt}
         templateName={template}
         paperWidth={paperWidth}
