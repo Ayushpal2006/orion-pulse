@@ -19,53 +19,72 @@ export interface RenderOptions {
 
 import { getActiveTemplateConfig, ReceiptTemplateConfig } from "./receipt-template";
 
+import { renderToStaticMarkup } from "react-dom/server";
+import React from "react";
+import { ReceiptRenderer, ReceiptData } from "@/components/receipt-templates";
+
 // 1. HTML OUTPUT RENDERER
 export class HtmlRenderer {
-  static render(model: UniversalReceiptModel, options?: RenderOptions & { templateConfig?: ReceiptTemplateConfig }): string {
+  static render(model: UniversalReceiptModel | any, options?: RenderOptions & { templateConfig?: ReceiptTemplateConfig }): string {
     const tpl = options?.templateConfig || getActiveTemplateConfig();
+    const templateName = model.template || (tpl as any).name || "Classic";
+    const qrPosition = model.metadata?.qrPosition || (tpl.footer?.showQrCode ? "Bottom" : "None");
     const paperWidth = options?.paperWidth || tpl.paperWidth || "80mm";
-    const containerWidthClass = paperWidth === "58mm" ? "w-[58mm]" : paperWidth === "A4" ? "w-[210mm]" : "w-[80mm]";
-    const borderStyle = tpl.dividerStyle === "solid" ? "1px solid #000" : tpl.dividerStyle === "double" ? "3px double #000" : "1px dashed #000";
 
-    const itemsHtml = model.items
-      .map(
-        (item) => `
-        <div style="display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 2px;">
-          <span>${item.name}${tpl.body.showSku && item.sku ? ` (${item.sku})` : ""} x ${item.qty}</span>
-          <span>₹${item.total.toFixed(2)}</span>
-        </div>`
-      )
-      .join("");
+    const receiptData: ReceiptData = {
+      shop: {
+        logo: model.business?.logoUrl || model.shop?.logo || "",
+        name: model.business?.name || model.shop?.name || model.store?.name || "Store",
+        address: model.business?.address || model.shop?.address || "",
+        phone: model.business?.phone || model.shop?.phone || "",
+        gstin: model.business?.gstin || model.shop?.gstin || "",
+        upiId: model.metadata?.upiId || model.shop?.upiId || "",
+      },
+      invoiceNumber: model.invoiceNumber || "",
+      date: model.date || "",
+      time: model.time || "",
+      cashier: model.cashierName || model.cashier || "Admin",
+      customer: {
+        name: model.customer?.name || "Walk-in Customer",
+        phone: model.customer?.phone,
+        gstin: model.customer?.gstin,
+      },
+      items: (model.items || []).map((it: any) => ({
+        name: it.name || it.product_name || "Item",
+        qty: Number(it.qty || it.quantity || 1),
+        price: Number(it.price || it.selling_price || 0),
+        discount: Number(it.discount || 0),
+        gst: Number(it.tax || it.gst || 0),
+        lineTotal: Number(it.total || it.lineTotal || it.line_total || (Number(it.price || 0) * Number(it.qty || 1))),
+      })),
+      subtotal: Number(model.subtotal || 0),
+      discount: Number(model.discount || 0),
+      gst: Number(model.tax || model.gst || 0),
+      grandTotal: Number(model.grandTotal || model.grand_total || model.total || 0),
+      paymentMethod: model.payment?.method || model.paymentMethod || "Cash",
+      upiQrCode: model.metadata?.upiQrCode || model.upiQrCode,
+      upiPayload: model.qrCodeUrl || model.upiPayload,
+      thankYouMessage: model.footerText || model.thankYouMessage || tpl.footer?.thankYouMessage || "Thank you for shopping with us",
+      invoiceHeader: model.metadata?.invoiceHeader || model.invoiceHeader,
+      primaryColor: model.metadata?.primaryColor || model.primaryColor,
+    };
+
+    const containerWidth = paperWidth === "58mm" ? "58mm" : paperWidth === "A4" ? "210mm" : "80mm";
+
+    const innerHtml = renderToStaticMarkup(
+      React.createElement(ReceiptRenderer, {
+        receipt: receiptData,
+        templateName,
+        qrPosition: qrPosition as any,
+        paperWidth: paperWidth as any,
+      })
+    );
 
     return `
-      <div class="${containerWidthClass} p-4 font-mono text-black bg-white" style="font-family: monospace;">
-        ${tpl.header.showLogo && model.business.logoUrl ? `<div style="text-align: ${tpl.header.logoPosition}; margin-bottom: 6px;"><img src="${model.business.logoUrl}" style="max-height: 40px; display: inline-block;" /></div>` : ""}
-        ${tpl.header.showBusinessName ? `<div style="text-align: center; font-weight: bold; font-size: 16px;">${model.business.name}</div>` : ""}
-        ${tpl.header.showStoreName && model.store.name ? `<div style="text-align: center; font-size: 11px; font-weight: 600;">${model.store.name}</div>` : ""}
-        ${tpl.header.showAddress && model.business.address ? `<div style="text-align: center; font-size: 11px;">${model.business.address}</div>` : ""}
-        ${tpl.header.showPhone && model.business.phone ? `<div style="text-align: center; font-size: 11px;">Ph: ${model.business.phone}</div>` : ""}
-        ${tpl.header.showGstin && model.business.gstin ? `<div style="text-align: center; font-size: 11px;">GST: ${model.business.gstin}</div>` : ""}
-        <hr style="border-top: ${borderStyle}; margin: 8px 0;" />
-        <div style="display: flex; justify-content: space-between; font-size: 11px;">
-          ${tpl.header.showInvoiceNumber ? `<span>Inv: ${model.invoiceNumber}</span>` : ""}
-          ${tpl.header.showDate ? `<span>${model.date} ${tpl.header.showTime ? model.time || "" : ""}</span>` : ""}
-        </div>
-        ${model.customer?.name ? `<div style="font-size: 11px;">Customer: ${model.customer.name}</div>` : ""}
-        ${tpl.header.showCashier && model.cashierName ? `<div style="font-size: 11px;">Cashier: ${model.cashierName}</div>` : ""}
-        <hr style="border-top: ${borderStyle}; margin: 8px 0;" />
-        ${itemsHtml}
-        <hr style="border-top: ${borderStyle}; margin: 8px 0;" />
-        ${tpl.summary.showSubtotal ? `<div style="display: flex; justify-content: space-between; font-size: 12px;"><span>Subtotal:</span><span>₹${model.subtotal.toFixed(2)}</span></div>` : ""}
-        ${tpl.summary.showDiscount && model.discount > 0 ? `<div style="display: flex; justify-content: space-between; font-size: 12px;"><span>Discount:</span><span>-₹${model.discount.toFixed(2)}</span></div>` : ""}
-        ${model.tax > 0 ? `<div style="display: flex; justify-content: space-between; font-size: 12px;"><span>Tax:</span><span>₹${model.tax.toFixed(2)}</span></div>` : ""}
-        <hr style="border-top: 2px solid #000; margin: 6px 0;" />
-        <div style="display: flex; justify-content: space-between; font-weight: bold; font-size: 14px;"><span>GRAND TOTAL:</span><span>₹${model.grandTotal.toFixed(2)}</span></div>
-        ${tpl.summary.showPaymentMethod ? `<div style="font-size: 11px; margin-top: 4px;">Payment: ${model.payment.method}</div>` : ""}
-        <hr style="border-top: ${borderStyle}; margin: 8px 0;" />
-        <div style="text-align: center; font-size: 11px; margin-top: 8px;">${tpl.footer.thankYouMessage || model.footerText || "Thank you!"}</div>
-        ${tpl.footer.termsText ? `<div style="text-align: center; font-size: 9px; color: #555; margin-top: 4px;">${tpl.footer.termsText}</div>` : ""}
-        ${tpl.footer.showPoweredBy ? `<div style="text-align: center; font-size: 9px; font-weight: bold; margin-top: 6px;">Powered by Apka Bill POS</div>` : ""}
-      </div>`;
+      <div style="width: ${containerWidth}; margin: 0 auto; background: #ffffff; color: #000000; box-sizing: border-box; padding: 2mm; font-family: sans-serif;">
+        ${innerHtml}
+      </div>
+    `;
   }
 }
 
