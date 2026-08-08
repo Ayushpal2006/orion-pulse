@@ -82,10 +82,9 @@ Apka Bill / Orion POS provides a modern, secure Google Workspace OAuth 2.0 integ
 In Railway, Render, Docker, or Cloudflare Workers backend environments, set:
 
 ```env
-GOOGLE_OAUTH_ENABLED=true
-GOOGLE_CLIENT_ID=your-google-client-id.apps.googleusercontent.com
-GOOGLE_CLIENT_SECRET=your-google-client-secret
-GOOGLE_REDIRECT_URI=https://orionv1-production.up.railway.app/api/google/callback
+GOOGLE_OAUTH_ENABLED=
+GOOGLE_CLIENT_ID=
+GOOGLE_REDIRECT_URI=
 GOOGLE_TOKEN_ENCRYPTION_KEY=<your-secure-32-byte-hex-or-phrase>
 ```
 
@@ -99,10 +98,10 @@ For local testing:
 
 1. Update `backend/.env`:
    ```env
-   GOOGLE_OAUTH_ENABLED=true
-   GOOGLE_CLIENT_ID=your-google-client-id.apps.googleusercontent.com
-   GOOGLE_CLIENT_SECRET=your-google-client-secret
-   GOOGLE_REDIRECT_URI=http://localhost:8080/api/google/callback
+   GOOGLE_OAUTH_ENABLED=
+   GOOGLE_CLIENT_ID=
+   GOOGLE_CLIENT_SECRET=
+   GOOGLE_REDIRECT_URI=
    GOOGLE_TOKEN_ENCRYPTION_KEY=local-dev-secret-key-32-bytes-long!
    ```
 2. In Google Cloud Console ➔ Authorized Redirect URIs, add `http://localhost:8080/api/google/callback`.

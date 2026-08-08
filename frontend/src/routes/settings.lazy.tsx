@@ -369,35 +369,39 @@ function SettingsV2() {
     return false;
   }, [isInitialized, draftSettings, savedSettings]);
 
+  const restoreBackendSnapshot = () => {
+    if (!savedSettings) return;
+    const clean = structuredClone(savedSettings);
+    s.setShopName(clean.shopName || "");
+    s.setGstin(clean.gstin || "");
+    s.setStorePhone(clean.storePhone || "");
+    s.setStoreEmail(clean.storeEmail || "");
+    s.setStoreAddress(clean.storeAddress || "");
+    s.setUpiId(clean.upiId || "");
+    if (s.setInvoiceHeader) s.setInvoiceHeader(clean.invoiceHeader || "");
+    if (s.setInvoiceFooter) s.setInvoiceFooter(clean.invoiceFooter || "");
+    if (s.setReceiptFooter) s.setReceiptFooter(clean.receiptFooter || "");
+    if (s.setReceiptTemplate) s.setReceiptTemplate(clean.receiptTemplate || "Classic");
+    if (s.setPrimaryColor) s.setPrimaryColor(clean.primaryColor || "");
+    if (s.setTagline) s.setTagline(clean.tagline || "");
+    if (s.setWebsite) s.setWebsite(clean.website || "");
+    if (s.setTermsAndConditions) s.setTermsAndConditions(clean.termsAndConditions || "");
+    if (s.setWhatsappSignature) s.setWhatsappSignature(clean.whatsappSignature || "");
+    setInvPrefix(clean.invPrefix || "INV-");
+    setPoPrefix(clean.poPrefix || "PO-");
+    setLowStockThreshold(clean.lowStockThreshold || 10);
+    setDefaultReportPeriod(clean.defaultReportPeriod || "Month");
+    setExportFormat(clean.exportFormat || "PDF");
+    setSheetId(clean.sheetId || "");
+  };
+
   // Section switcher with Unsaved Changes warning guard
   const handleSelectSection = (nextId: SettingsSectionId) => {
     if (isDirty) {
       if (!window.confirm("You have unsaved changes. Discard them?")) {
         return;
       }
-      if (savedSettings) {
-        s.setShopName(savedSettings.shopName);
-        s.setGstin(savedSettings.gstin);
-        s.setStorePhone(savedSettings.storePhone);
-        s.setStoreEmail(savedSettings.storeEmail);
-        s.setStoreAddress(savedSettings.storeAddress);
-        s.setUpiId(savedSettings.upiId);
-        if (savedSettings.invoiceHeader && s.setInvoiceHeader) s.setInvoiceHeader(savedSettings.invoiceHeader);
-        if (savedSettings.invoiceFooter && s.setInvoiceFooter) s.setInvoiceFooter(savedSettings.invoiceFooter);
-        if (savedSettings.receiptFooter) s.setReceiptFooter(savedSettings.receiptFooter);
-        if (savedSettings.receiptTemplate) s.setReceiptTemplate(savedSettings.receiptTemplate);
-        if (savedSettings.primaryColor && s.setPrimaryColor) s.setPrimaryColor(savedSettings.primaryColor);
-        if (savedSettings.tagline && s.setTagline) s.setTagline(savedSettings.tagline);
-        if (savedSettings.website && s.setWebsite) s.setWebsite(savedSettings.website);
-        if (savedSettings.termsAndConditions && s.setTermsAndConditions) s.setTermsAndConditions(savedSettings.termsAndConditions);
-        if (savedSettings.whatsappSignature && s.setWhatsappSignature) s.setWhatsappSignature(savedSettings.whatsappSignature);
-        setInvPrefix(savedSettings.invPrefix);
-        setPoPrefix(savedSettings.poPrefix);
-        setLowStockThreshold(savedSettings.lowStockThreshold);
-        setDefaultReportPeriod(savedSettings.defaultReportPeriod);
-        setExportFormat(savedSettings.exportFormat);
-        setSheetId(savedSettings.sheetId);
-      }
+      restoreBackendSnapshot();
     }
     setActiveSection(nextId);
   };
@@ -416,34 +420,13 @@ function SettingsV2() {
 
   // Load Initial Storage Stats, Connection, and Restore Production Settings
   useEffect(() => {
-    // 1. Hydrate from localStorage first if present
-    const localShop = localStorage.getItem("orion_shop_name");
-    if (localShop) s.setShopName(localShop);
-    const localGstin = localStorage.getItem("orion_gstin");
-    if (localGstin) s.setGstin(localGstin);
-    const localLogo = localStorage.getItem("orion_logo");
-    if (localLogo) s.setLogo(localLogo);
-    const localAddress = localStorage.getItem("orion_address");
-    if (localAddress) s.setStoreAddress(localAddress);
-    const localPhone = localStorage.getItem("orion_phone");
-    if (localPhone) s.setStorePhone(localPhone);
-    const localEmail = localStorage.getItem("orion_email");
-    if (localEmail) s.setStoreEmail(localEmail);
-    const localUpi = localStorage.getItem("orion_upi_id");
-    if (localUpi) s.setUpiId(localUpi);
-    const localInvPrefix = localStorage.getItem("orion_inv_prefix");
-    if (localInvPrefix) setInvPrefix(localInvPrefix);
-    const localPoPrefix = localStorage.getItem("orion_po_prefix");
-    if (localPoPrefix) setPoPrefix(localPoPrefix);
-    const localReceiptFooter = localStorage.getItem("orion_receipt_footer");
-    if (localReceiptFooter) s.setReceiptFooter(localReceiptFooter);
-
-    // 2. Fetch Production Settings from Backend Database API
+    // Fetch Production Settings from Backend Database API
     apiFetch(`${API_BASE_URL}/settings`)
       .then((r) => r.json())
       .then((d) => {
         if (d.success && d.data) {
           const cfg = d.data;
+
           if (cfg.shop_name) s.setShopName(cfg.shop_name);
           if (cfg.shop_gstin) s.setGstin(cfg.shop_gstin);
           if (cfg.shop_address) s.setStoreAddress(cfg.shop_address);
@@ -468,14 +451,20 @@ function SettingsV2() {
           if (cfg.require_customer_before_checkout !== undefined && s.setRequireCustomerBeforeCheckout) {
             s.setRequireCustomerBeforeCheckout(cfg.require_customer_before_checkout === "1" || cfg.require_customer_before_checkout === "true");
           }
+
+          // Build deep-cloned initial snapshot from loaded backend data
+          setTimeout(() => {
+            const initialSnapshot = structuredClone(getSettingsSnapshot());
+            setSavedSettings(initialSnapshot);
+            setIsInitialized(true);
+          }, 50);
         }
       })
       .catch(() => {})
       .finally(() => {
         setTimeout(() => {
-          setSavedSettings(getSettingsSnapshot());
           setIsInitialized(true);
-        }, 50);
+        }, 60);
       });
 
     // 3. Load Storage & Sync Status
@@ -574,25 +563,12 @@ function SettingsV2() {
   }, [searchQuery]);
 
   const handleGlobalSave = async () => {
+    if (!isDirty) {
+      toast.info("No changes to save");
+      return;
+    }
     setSaving(true);
     try {
-      // 1. Save to LocalStorage
-      localStorage.setItem("orion_shop_name", s.shopName);
-      localStorage.setItem("orion_gstin", s.gstin);
-      if (s.logo) localStorage.setItem("orion_logo", s.logo);
-      localStorage.setItem("orion_address", s.storeAddress);
-      localStorage.setItem("orion_phone", s.storePhone);
-      localStorage.setItem("orion_email", s.storeEmail);
-      localStorage.setItem("orion_upi_id", s.upiId);
-      localStorage.setItem("orion_inv_prefix", invPrefix);
-      localStorage.setItem("orion_po_prefix", poPrefix);
-      localStorage.setItem("orion_receipt_footer", s.receiptFooter);
-      localStorage.setItem("orion_receipt_template", s.receiptTemplate);
-      if (s.primaryColor) localStorage.setItem("orion_primary_color", s.primaryColor);
-      localStorage.setItem("orion_low_stock_threshold", String(lowStockThreshold));
-      localStorage.setItem("orion_default_report_period", defaultReportPeriod);
-      localStorage.setItem("orion_export_format", exportFormat);
-
       const res = await apiFetch(`${API_BASE_URL}/settings`, {
         method: "PUT",
         headers: { "Content-Type": "application/json", ...getStoreHeaders() },
@@ -630,8 +606,8 @@ function SettingsV2() {
         throw new Error(`HTTP ${res.status}`);
       }
 
-      // Success: update saved snapshot to match draft settings
-      setSavedSettings(getSettingsSnapshot());
+      // Success: update deep-cloned saved snapshot to match current form state
+      setSavedSettings(structuredClone(getSettingsSnapshot()));
       const nowFormatted = new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" });
       setLastSaved(`Today, ${nowFormatted}`);
 
@@ -2540,31 +2516,7 @@ function SettingsV2() {
               type="button"
               variant="outline"
               size="sm"
-              onClick={() => {
-                if (savedSettings) {
-                  s.setShopName(savedSettings.shopName);
-                  s.setGstin(savedSettings.gstin);
-                  s.setStorePhone(savedSettings.storePhone);
-                  s.setStoreEmail(savedSettings.storeEmail);
-                  s.setStoreAddress(savedSettings.storeAddress);
-                  s.setUpiId(savedSettings.upiId);
-                  if (savedSettings.invoiceHeader && s.setInvoiceHeader) s.setInvoiceHeader(savedSettings.invoiceHeader);
-                  if (savedSettings.invoiceFooter && s.setInvoiceFooter) s.setInvoiceFooter(savedSettings.invoiceFooter);
-                  if (savedSettings.receiptFooter) s.setReceiptFooter(savedSettings.receiptFooter);
-                  if (savedSettings.receiptTemplate) s.setReceiptTemplate(savedSettings.receiptTemplate);
-                  if (savedSettings.primaryColor && s.setPrimaryColor) s.setPrimaryColor(savedSettings.primaryColor);
-                  if (savedSettings.tagline && s.setTagline) s.setTagline(savedSettings.tagline);
-                  if (savedSettings.website && s.setWebsite) s.setWebsite(savedSettings.website);
-                  if (savedSettings.termsAndConditions && s.setTermsAndConditions) s.setTermsAndConditions(savedSettings.termsAndConditions);
-                  if (savedSettings.whatsappSignature && s.setWhatsappSignature) s.setWhatsappSignature(savedSettings.whatsappSignature);
-                  setInvPrefix(savedSettings.invPrefix);
-                  setPoPrefix(savedSettings.poPrefix);
-                  setLowStockThreshold(savedSettings.lowStockThreshold);
-                  setDefaultReportPeriod(savedSettings.defaultReportPeriod);
-                  setExportFormat(savedSettings.exportFormat);
-                  setSheetId(savedSettings.sheetId);
-                }
-              }}
+              onClick={restoreBackendSnapshot}
               className="rounded-xl h-8 text-xs"
             >
               Cancel
