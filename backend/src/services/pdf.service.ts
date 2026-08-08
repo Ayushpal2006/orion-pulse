@@ -14,14 +14,10 @@ function getPDFDocument() {
 
 export class PdfService {
   async generateInvoicePdf(receipt: any, outputPath: string): Promise<string> {
-    const signature = receipt.signature || (await settingsRepository.get("signature", "Authorized Signatory"));
-    const dbPrimaryColor = await settingsRepository.get("primary_color", "");
-    const pdfTemplate = receipt.pdfTemplate || (await settingsRepository.get("pdf_invoice_template", "Professional A4"));
-
-    const termsAndConditions =
-      receipt.termsAndConditions !== undefined && receipt.termsAndConditions !== null
-        ? receipt.termsAndConditions
-        : await settingsRepository.get("terms_and_conditions", "");
+    const signature = receipt.branding?.signature || receipt.signature || "Authorized Signatory";
+    const dbPrimaryColor = receipt.branding?.primaryColor || "";
+    const pdfTemplate = receipt.branding?.pdfTemplate || receipt.pdfTemplate || "Professional A4";
+    const termsAndConditions = receipt.branding?.termsAndConditions ?? receipt.termsAndConditions ?? "";
 
     return new Promise(async (resolve, reject) => {
       try {

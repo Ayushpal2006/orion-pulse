@@ -92,6 +92,7 @@ export class CheckoutService {
       }
     }
 
+    const tPreCheckStart = performance.now();
     // 1. Load setting
     const reqSetting1 = await settingsRepository.get("require_customer_before_checkout", "0");
     const reqSetting2 = await settingsRepository.get("require_customer", "0");
@@ -143,6 +144,7 @@ export class CheckoutService {
       console.log("[Checkout Flow] Returning cached response for duplicate request:", idempotencyKey);
       return cached.response;
     }
+    const tPreCheckTime = performance.now() - tPreCheckStart;
 
     const t0 = performance.now();
 
@@ -297,10 +299,12 @@ export class CheckoutService {
           pdf_url: "",
         })
         .returning();
+      const tSaleTime = performance.now() - tSaleStart;
 
       console.log("[Checkout Flow] Sale Saved:", sale.id);
 
       // Add creation details to audit logs
+      const tAuditStart = performance.now();
       await tx.insert(audit_logs).values({
         organization_id: orgId,
         store_id: storeId,
@@ -308,7 +312,7 @@ export class CheckoutService {
         action: "INVOICE_CREATE",
         details: `${request.cashierName || "Admin"} created Invoice ${invoiceNumber}`,
       });
-      const tSaleTime = performance.now() - tSaleStart;
+      const tAuditTime = performance.now() - tAuditStart;
 
       // 5. Create Sale Item records via atomic multi-row batch insert
       const tItemsStart = performance.now();
@@ -372,10 +376,12 @@ export class CheckoutService {
         },
         syncProducts: syncProductsList,
         timings: {
+          preCheck: tPreCheckTime.toFixed(2),
           customerLookup: tCustomerTime.toFixed(2),
           invoiceGen: tInvTime.toFixed(2),
           inventoryDeduction: tStockTime.toFixed(2),
           saleInsert: tSaleTime.toFixed(2),
+          auditInsert: tAuditTime.toFixed(2),
           itemsInsert: tItemsTime.toFixed(2),
           customerUpdate: tCustUpdateTime.toFixed(2),
           dbTransactionTotal: (performance.now() - t0).toFixed(2)
@@ -384,6 +390,7 @@ export class CheckoutService {
     });
 
     // Step 5 & 6: Immediate WhatsApp message preparation (failsafe - never rolls back or blocks checkout)
+    const tReceiptPrepStart = performance.now();
     let whatsappUrl: string | undefined = undefined;
     let whatsappPrepared = false;
     let whatsappError: string | undefined = undefined;
@@ -417,12 +424,17 @@ export class CheckoutService {
       console.error("[Checkout Flow] WhatsApp message preparation notice (checkout succeeded):", err.message || err);
       whatsappPrepared = false;
     }
+    const tReceiptPrepTime = performance.now() - tReceiptPrepStart;
 
     const finalResult: CheckoutResponse = {
       ...result,
       whatsappUrl,
       whatsappPrepared,
       ...(whatsappError ? { whatsappError } : {}),
+      timings: {
+        ...(result.timings || {}),
+        receiptPrep: tReceiptPrepTime.toFixed(2),
+      },
     };
 
     if (offlineId) {

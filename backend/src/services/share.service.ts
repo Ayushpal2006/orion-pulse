@@ -1,7 +1,7 @@
 export class ShareService {
   generateWhatsAppMessage(receipt: any): string {
-    const shopName = receipt.shop.name;
-    const customerName = receipt.customer.name;
+    const shopName = receipt.branding?.shopName || receipt.shop?.name || "Store";
+    const customerName = receipt.customer?.name || "Customer";
     const invoiceNum = receipt.invoiceNumber;
     const amount = receipt.grandTotal;
     const token = receipt.publicToken || "";
@@ -15,7 +15,7 @@ export class ShareService {
     }
     const viewUrl = `${host}/invoice/v/${token}`;
     const downloadUrl = `${host}/invoice/v/${token}/download`;
-    const shopPhone = receipt.shop.phone || "8285068670";
+    const shopPhone = receipt.branding?.phone || receipt.shop?.phone || "";
 
     const lines: string[] = [
       `Hi ${customerName} 👋`,
@@ -34,10 +34,7 @@ export class ShareService {
       `*Download PDF*`,
       downloadUrl,
       "",
-      `Need help?`,
-      `Call`,
-      shopPhone,
-      "",
+      ...(shopPhone ? [`Need help?`, `Call`, shopPhone, ""] : []),
       `Thank you ❤️`
     ];
 
