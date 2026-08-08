@@ -318,6 +318,7 @@ function SettingsV2() {
 
   // Deep Dirty State Snapshot System
   const [savedSettings, setSavedSettings] = useState<any>(null);
+  const [isInitialized, setIsInitialized] = useState(false);
 
   const getSettingsSnapshot = () => ({
     shopName: s.shopName || "",
@@ -355,7 +356,7 @@ function SettingsV2() {
   const draftSettings = getSettingsSnapshot();
 
   const isDirty = useMemo(() => {
-    if (!savedSettings) return false;
+    if (!isInitialized || !savedSettings) return false;
     for (const key of Object.keys(draftSettings)) {
       const dVal = (draftSettings as any)[key];
       const sVal = (savedSettings as any)[key];
@@ -366,7 +367,7 @@ function SettingsV2() {
       }
     }
     return false;
-  }, [draftSettings, savedSettings]);
+  }, [isInitialized, draftSettings, savedSettings]);
 
   // Section switcher with Unsaved Changes warning guard
   const handleSelectSection = (nextId: SettingsSectionId) => {
@@ -471,7 +472,10 @@ function SettingsV2() {
       })
       .catch(() => {})
       .finally(() => {
-        setSavedSettings(getSettingsSnapshot());
+        setTimeout(() => {
+          setSavedSettings(getSettingsSnapshot());
+          setIsInitialized(true);
+        }, 50);
       });
 
     // 3. Load Storage & Sync Status

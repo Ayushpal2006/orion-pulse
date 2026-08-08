@@ -89,34 +89,26 @@ export class ReceiptBuilderService {
           .leftJoin(products, eq(sale_items.product_id, products.id))
           .where(eq(sale_items.sale_id, saleRecord.id));
 
-        // Fetch Store Settings
-        const storeSettingsRows = await db
-          .select()
-          .from(settings)
-          .where(eq(settings.store_id, targetStoreId));
+        // Delegate Branding Resolution to BrandingService (Single Source of Truth)
+        const { BrandingService } = require("./branding.service");
+        const unifiedBranding = await BrandingService.getBranding(targetStoreId, targetOrgId);
 
-        const settingsMap: Record<string, string> = {};
-        for (const row of storeSettingsRows) {
-          settingsMap[row.key] = row.value;
-        }
-
-        // Build Dynamic BrandingConfig (Zero Hardcoding)
         const branding: BrandingConfig = {
-          shopName: settingsMap.shop_name || storeRecord?.name || orgRecord?.name || "Store",
-          gstin: settingsMap.shop_gstin || storeRecord?.gst_number || orgRecord?.gst_number || "",
-          phone: settingsMap.shop_phone || storeRecord?.phone || orgRecord?.phone || "",
-          address: settingsMap.shop_address || storeRecord?.address || orgRecord?.address || "",
-          email: settingsMap.shop_email || orgRecord?.email || "",
-          upiId: settingsMap.shop_upi_id || "",
-          logo: settingsMap.logo || storeRecord?.logo_url || orgRecord?.logo_url || "",
-          receiptHeader: settingsMap.invoice_header || "",
-          receiptFooter: settingsMap.receipt_footer || "Thank you for shopping with us\n*** Thank you — visit again ***",
-          termsAndConditions: settingsMap.terms_and_conditions || settingsMap.invoice_footer || settingsMap.exchange_policy || "",
-          signature: settingsMap.signature || "Authorized Signatory",
-          primaryColor: settingsMap.primary_color || "#0f172a",
-          receiptTemplate: settingsMap.receipt_template || "Classic",
-          pdfTemplate: settingsMap.pdf_invoice_template || "Professional A4",
-          qrPosition: settingsMap.qr_position || "Bottom",
+          shopName: unifiedBranding.businessName,
+          gstin: unifiedBranding.gst,
+          phone: unifiedBranding.phone,
+          address: unifiedBranding.address,
+          email: unifiedBranding.email,
+          upiId: unifiedBranding.upi,
+          logo: unifiedBranding.logo,
+          receiptHeader: unifiedBranding.receiptHeader,
+          receiptFooter: unifiedBranding.footer,
+          termsAndConditions: unifiedBranding.terms,
+          signature: "Authorized Signatory",
+          primaryColor: unifiedBranding.primaryColor,
+          receiptTemplate: unifiedBranding.receiptTemplate,
+          pdfTemplate: unifiedBranding.pdfTemplate,
+          qrPosition: unifiedBranding.qrPosition,
         };
 
         // Build StoreConfig

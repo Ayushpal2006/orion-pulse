@@ -301,8 +301,12 @@ export function StoresManagementSection() {
             </DialogTitle>
             <DialogDescription className="text-xs text-muted-foreground">
               {editingStore
-                ? `Update settings for ${editingStore.name}`
+                ? `Update operational settings for ${editingStore.name}`
                 : "Create a new store outlet or branch for your organization."}
+              <br />
+              <span className="text-[11px] text-amber-600 dark:text-amber-400 font-medium">
+                Note: Printed business branding (Logo, GSTIN, Address, Phone) is managed centrally in Settings ➔ Branding.
+              </span>
             </DialogDescription>
           </DialogHeader>
 
