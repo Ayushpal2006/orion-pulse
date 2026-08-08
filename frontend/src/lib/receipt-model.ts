@@ -68,28 +68,57 @@ export interface UniversalReceiptModel {
 
 export function createCanonicalReceiptModel(input: any): UniversalReceiptModel {
   const now = new Date();
+  
+  const invNumber = input.invoiceNumber || (typeof input.invoice === "string" ? input.invoice : input.invoice?.invoiceNumber) || `INV-${Date.now()}`;
+  const invDate = input.date || input.invoice?.date || now.toLocaleDateString("en-IN", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "Asia/Kolkata" });
+  const invTime = input.time || input.invoice?.time || now.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true, timeZone: "Asia/Kolkata" });
+  
+  const shopName = input.branding?.shopName || input.shop?.name || input.businessName || input.shopName || input.shop_name || input.store?.name || "Store";
+  const shopAddr = input.branding?.address || input.shop?.address || input.businessAddress || input.shopAddress || input.shop_address || input.store?.address || "";
+  const shopPhone = input.branding?.phone || input.shop?.phone || input.businessPhone || input.shopPhone || input.shop_phone || input.store?.phone || "";
+  const shopEmail = input.branding?.email || input.shop?.email || input.businessEmail || input.shopEmail || input.shop_email || "";
+  const shopGst = input.branding?.gstin || input.shop?.gstin || input.businessGst || input.shopGst || input.shop_gstin || "";
+  const shopLogo = input.branding?.logo || input.shop?.logo || input.businessLogo || input.shop_logo || "";
+
+  const cashier = input.cashierName || input.cashier || input.invoice?.cashierName || input.cashier_name || "Admin";
+
+  const subtotal = Number(input.subtotal ?? input.totals?.subtotal ?? 0);
+  const discount = Number(input.discount ?? input.totals?.discount ?? 0);
+  const tax = Number(input.tax ?? input.gst ?? input.totals?.tax ?? 0);
+  const grandTotal = Number(input.grandTotal ?? input.total ?? input.total_amount ?? input.totals?.grandTotal ?? 0);
+
+  const paymentMethod = input.paymentMethod || input.payment?.method || input.payment_method || "Cash";
+  const amountPaid = Number(input.amountPaid || input.payment?.amountPaid || input.amount_paid || grandTotal);
+  const changeAmount = Number(input.changeAmount || input.payment?.changeAmount || input.change_amount || 0);
+
+  const upiPayload = input.qr?.upiPayload || input.upiPayload || input.qrCodeUrl || (invNumber ? `https://apkabill.in/invoice/v/${invNumber}` : "");
+  const upiQrCode = input.qr?.upiQrCode || input.upiQrCode || input.metadata?.upiQrCode;
+
+  const receiptTemplate = input.template || input.branding?.receiptTemplate || input.receipt_template || "Classic";
+  const footerText = input.branding?.receiptFooter || input.thankYouMessage || input.footerText || input.footer?.thankYouMessage || input.receiptFooter || input.receipt_footer || "Thank you for shopping with us!";
+
   return {
-    id: String(input.id || input.saleId || `REC-${Date.now()}`),
-    invoiceNumber: input.invoiceNumber || input.invoice || `INV-${Date.now()}`,
-    date: input.date || now.toLocaleDateString("en-IN", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "Asia/Kolkata" }),
-    time: input.time || now.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true, timeZone: "Asia/Kolkata" }),
-    template: input.template || input.receipt_template || "Classic",
+    id: String(input.id || input.invoice?.id || input.saleId || `REC-${Date.now()}`),
+    invoiceNumber: invNumber,
+    date: invDate,
+    time: invTime,
+    template: receiptTemplate as any,
     business: {
-      name: input.branding?.shopName || input.shop?.name || input.businessName || input.shopName || input.shop_name || "Store",
-      address: input.branding?.address || input.shop?.address || input.businessAddress || input.shopAddress || input.shop_address || "",
-      phone: input.branding?.phone || input.shop?.phone || input.businessPhone || input.shopPhone || input.shop_phone || "",
-      email: input.branding?.email || input.shop?.email || input.businessEmail || input.shopEmail || input.shop_email || "",
-      gstin: input.branding?.gstin || input.shop?.gstin || input.businessGst || input.shopGst || input.shop_gstin || "",
-      logoUrl: input.branding?.logo || input.shop?.logo || input.businessLogo || input.shop_logo || "",
+      name: shopName,
+      address: shopAddr,
+      phone: shopPhone,
+      email: shopEmail,
+      gstin: shopGst,
+      logoUrl: shopLogo,
     },
     store: {
-      id: input.store?.storeId || input.storeId || input.store_id || 1,
-      name: input.store?.storeName || input.storeName || input.store_name || input.branding?.shopName || input.shop?.name || "Store",
-      address: input.store?.address || input.storeAddress || "",
-      phone: input.store?.phone || input.storePhone || "",
-      code: input.store?.storeCode || input.storeCode || "",
+      id: input.store?.id || input.store?.storeId || input.storeId || input.store_id || 1,
+      name: input.store?.name || input.store?.storeName || input.storeName || shopName,
+      address: input.store?.address || shopAddr,
+      phone: input.store?.phone || shopPhone,
+      code: input.store?.code || input.storeCode || "",
     },
-    cashierName: input.cashierName || input.cashier || input.cashier_name || "Admin",
+    cashierName: cashier,
     customer: {
       id: input.customer?.id || input.customerId || input.customer_id,
       name: input.customer?.name || input.customerName || input.customer_name || "Walk-in Customer",
@@ -102,32 +131,32 @@ export function createCanonicalReceiptModel(input: any): UniversalReceiptModel {
       id: i.id || i.product_id || idx + 1,
       name: i.name || i.product_name || `Item ${idx + 1}`,
       sku: i.sku || "",
-      price: Number(i.price || i.unit_price || i.sellingPrice || 0),
-      qty: Number(i.qty || i.quantity || 1),
-      discount: Number(i.discount || 0),
-      tax: Number(i.tax || i.gst || 0),
-      total: Number(i.total || i.lineTotal || i.line_total || i.subtotal || (Number(i.price || i.sellingPrice || 0) * Number(i.qty || i.quantity || 1))),
+      price: Number(i.price ?? i.unit_price ?? i.sellingPrice ?? 0),
+      qty: Number(i.qty ?? i.quantity ?? 1),
+      discount: Number(i.discount ?? 0),
+      tax: Number(i.tax ?? i.gst ?? 0),
+      total: Number(i.total ?? i.lineTotal ?? i.line_total ?? (Number(i.price ?? i.sellingPrice ?? 0) * Number(i.qty ?? i.quantity ?? 1))),
     })),
-    subtotal: Number(input.subtotal || 0),
-    discount: Number(input.discount || 0),
-    tax: Number(input.tax || input.gst || 0),
-    grandTotal: Number(input.grandTotal || input.total || input.total_amount || 0),
+    subtotal,
+    discount,
+    tax,
+    grandTotal,
     payment: {
-      method: input.paymentMethod || input.payment_method || input.payment?.method || "Cash",
-      amountPaid: Number(input.amountPaid || input.amount_paid || input.grandTotal || input.total || 0),
-      changeAmount: Number(input.changeAmount || input.change_amount || 0),
-      transactionId: input.transactionId || input.transaction_id || "",
+      method: paymentMethod,
+      amountPaid,
+      changeAmount,
+      transactionId: input.transactionId || input.payment?.transactionId || input.transaction_id || "",
     },
-    qrCodeUrl: input.upiPayload || input.qrCodeUrl || (input.invoiceNumber ? `https://apkabill.in/invoice/v/${input.invoiceNumber}` : ""),
-    barcodeData: input.barcodeData || input.invoiceNumber || "",
-    footerText: input.branding?.receiptFooter || input.thankYouMessage || input.footerText || input.receiptFooter || input.receipt_footer || "Thank you for shopping with us!",
+    qrCodeUrl: upiPayload,
+    barcodeData: input.barcodeData || invNumber,
+    footerText,
     metadata: {
       ...(input.metadata || {}),
-      upiQrCode: input.upiQrCode,
-      upiId: input.branding?.upiId || input.shop?.upiId,
-      primaryColor: input.branding?.primaryColor || input.primaryColor,
-      qrPosition: input.branding?.qrPosition || input.qrPosition,
-      paperWidth: input.branding?.paperWidth || input.paperWidth,
+      upiQrCode,
+      upiId: input.branding?.upiId || input.shop?.upiId || input.metadata?.upiId,
+      primaryColor: input.branding?.primaryColor || input.primaryColor || input.metadata?.primaryColor,
+      qrPosition: input.branding?.qrPosition || input.qrPosition || input.metadata?.qrPosition,
+      paperWidth: input.branding?.paperWidth || input.paperWidth || input.metadata?.paperWidth,
     },
   };
 }
