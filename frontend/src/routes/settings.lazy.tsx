@@ -175,7 +175,7 @@ function SettingsV2() {
   const [testingPrint, setTestingPrint] = useState(false);
 
   // Google Sheets Connection State (Task 4)
-  const [sheetId, setSheetId] = useState("1BxiMVs0XRA5nFMdKbBUI6H6W5B0k8t");
+  const [sheetId, setSheetId] = useState("");
   const [isConnected, setIsConnected] = useState(true);
   const [testingConnection, setTestingConnection] = useState(false);
   const [syncingNow, setSyncingNow] = useState(false);
@@ -319,8 +319,6 @@ function SettingsV2() {
     if (localPoPrefix) setPoPrefix(localPoPrefix);
     const localReceiptFooter = localStorage.getItem("orion_receipt_footer");
     if (localReceiptFooter) s.setReceiptFooter(localReceiptFooter);
-    const localSheetId = localStorage.getItem("orion_google_sheet_id");
-    if (localSheetId) setSheetId(localSheetId);
 
     // 2. Fetch Production Settings from Backend Database API
     apiFetch(`${API_BASE_URL}/settings`)
@@ -462,7 +460,6 @@ function SettingsV2() {
       localStorage.setItem("orion_receipt_footer", s.receiptFooter);
       localStorage.setItem("orion_receipt_template", s.receiptTemplate);
       if (s.primaryColor) localStorage.setItem("orion_primary_color", s.primaryColor);
-      localStorage.setItem("orion_google_sheet_id", sheetId);
       localStorage.setItem("orion_low_stock_threshold", String(lowStockThreshold));
       localStorage.setItem("orion_default_report_period", defaultReportPeriod);
       localStorage.setItem("orion_export_format", exportFormat);
@@ -766,7 +763,7 @@ function SettingsV2() {
         s.setGstin(localStorage.getItem("orion_gstin") || "27ABCDE1234F1Z5");
         break;
       case "backup":
-        setSheetId(localStorage.getItem("orion_google_sheet_id") || "1BxiMVs0XRA5nFMdKbBUI6H6W5B0k8t");
+        setSheetId(savedSettings?.sheetId || "");
         break;
       default:
         break;

@@ -247,18 +247,27 @@ export const inventory_movements = pgTable(
   })
 );
 
-export const sync_jobs = pgTable("sync_jobs", {
-  id: serial("id").primaryKey(),
-  store_id: integer("store_id").references(() => stores.id).notNull(),
-  job_type: text("job_type").notNull(),
-  payload: text("payload").notNull(),
-  status: text("status").default("pending").notNull(),
-  retry_count: integer("retry_count").default(0).notNull(),
-  error_message: text("error_message"),
-  created_at: timestamp("created_at").defaultNow().notNull(),
-  updated_at: timestamp("updated_at").defaultNow().notNull(),
-  last_attempt: timestamp("last_attempt"),
-});
+export const sync_jobs = pgTable(
+  "sync_jobs",
+  {
+    id: serial("id").primaryKey(),
+    organization_id: integer("organization_id").references(() => organizations.id),
+    store_id: integer("store_id").references(() => stores.id).notNull(),
+    job_type: text("job_type").notNull(),
+    payload: text("payload").notNull(),
+    status: text("status").default("pending").notNull(),
+    retry_count: integer("retry_count").default(0).notNull(),
+    error_message: text("error_message"),
+    created_at: timestamp("created_at").defaultNow().notNull(),
+    updated_at: timestamp("updated_at").defaultNow().notNull(),
+    last_attempt: timestamp("last_attempt"),
+  },
+  (table) => ({
+    orgIdx: index("idx_sync_jobs_organization_id").on(table.organization_id),
+    storeIdx: index("idx_sync_jobs_store_id").on(table.store_id),
+    statusIdx: index("idx_sync_jobs_status").on(table.status),
+  })
+);
 
 export const settings = pgTable(
   "settings",

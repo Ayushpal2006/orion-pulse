@@ -2,6 +2,8 @@ import { DatabaseAdapter } from "../../database";
 
 export interface SyncJob {
   id: number;
+  organization_id?: number | null;
+  store_id: number;
   job_type: string;
   payload: string;
   status: "pending" | "completed" | "failed";

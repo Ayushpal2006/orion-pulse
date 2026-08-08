@@ -1,6 +1,10 @@
 import { syncRepository, settingsRepository } from "../repositories";
 import { logger } from "../logger/logger";
 import { formatInTimeZone } from "date-fns-tz";
+import { storeStorage, getTenantContext } from "../db/context";
+import { db } from "../db";
+import { stores } from "../db/schema";
+import { eq } from "drizzle-orm";
 
 // Lazy-load googleapis to avoid heavy top-level startup delay
 let googleApiCache: any = null;
@@ -82,18 +86,10 @@ export class SyncQueueManager {
 
   async processQueue(): Promise<void> {
     if (this.isProcessing) return;
+    this.isProcessing = true;
 
     try {
-      const enabled = (await settingsRepository.get("google_sync_enabled", "0")) === "1";
-      const sheetId = await settingsRepository.get("google_sheet_id", "");
-      
-      if (!enabled || !sheetId) {
-        return;
-      }
-
-      this.isProcessing = true;
-
-      // Find next pending job
+      // Find next pending job across tenants
       const job = await syncRepository.getPendingJob();
 
       if (!job) {
@@ -101,30 +97,78 @@ export class SyncQueueManager {
         return;
       }
 
-      logger.info(`🔄 Processing sync job ID ${job.id} (${job.job_type})...`);
-      
-      // Update job to record attempt
-      await syncRepository.recordJobAttempt(job.id);
+      const targetStoreId = job.store_id || 1;
+      let targetOrgId = job.organization_id || 0;
 
-      const payloadObj = JSON.parse(job.payload);
-      const result = await this.syncToGoogleSheets(sheetId, job.job_type, payloadObj);
-
-      if (result.success) {
-        await syncRepository.updateJobStatus(job.id, "completed", job.retry_count);
-        logger.info(`✅ Sync job ID ${job.id} completed successfully.`);
-      } else {
-        const nextRetry = job.retry_count + 1;
-        const newStatus = nextRetry >= 3 ? "failed" : "pending";
-        await syncRepository.updateJobStatus(
-          job.id,
-          newStatus,
-          nextRetry,
-          result.error || "Failed to upload rows to Google Sheets"
-        );
-        logger.warn(`⚠️ Sync job ID ${job.id} failed. Attempt ${nextRetry}/3. Status: ${newStatus}. Error: ${result.error}`);
+      if (!targetOrgId || targetOrgId <= 0) {
+        const [st] = await db
+          .select({ organization_id: stores.organization_id })
+          .from(stores)
+          .where(eq(stores.id, targetStoreId))
+          .limit(1);
+        targetOrgId = st?.organization_id || 0;
       }
 
-      // Recurse to process next items
+      await storeStorage.run(
+        {
+          organizationId: targetOrgId,
+          currentStoreId: targetStoreId,
+          userId: 0,
+          role: "system",
+        },
+        async () => {
+          const enabled = (await settingsRepository.get("google_sync_enabled", "0")) === "1";
+          const sheetId = await settingsRepository.get("google_sheet_id", "");
+
+          if (!enabled || !sheetId) {
+            logger.info(`ℹ️ Sync skipped for job ID ${job.id}: Google sync disabled or missing sheet ID for store ${targetStoreId}.`);
+            await syncRepository.updateJobStatus(
+              job.id,
+              "failed",
+              job.retry_count + 1,
+              "Google Sheets sync is disabled or spreadsheet ID is not configured for this tenant."
+            );
+            return;
+          }
+
+          logger.info(`🔄 Processing sync job ID ${job.id} (${job.job_type}) for Org ${targetOrgId} / Store ${targetStoreId}...`);
+          await syncRepository.recordJobAttempt(job.id);
+
+          const payloadObj = JSON.parse(job.payload);
+
+          // NON-NEGOTIABLE TENANT MATCH GUARANTEE
+          if (payloadObj.organization_id && Number(payloadObj.organization_id) !== targetOrgId) {
+            const errStr = `[TENANT MISMATCH ABORT] Payload org (${payloadObj.organization_id}) does not match target org (${targetOrgId})`;
+            logger.error(`❌ ${errStr}`);
+            await syncRepository.updateJobStatus(job.id, "failed", 3, errStr);
+            return;
+          }
+          if (payloadObj.store_id && Number(payloadObj.store_id) !== targetStoreId) {
+            const errStr = `[TENANT MISMATCH ABORT] Payload store (${payloadObj.store_id}) does not match target store (${targetStoreId})`;
+            logger.error(`❌ ${errStr}`);
+            await syncRepository.updateJobStatus(job.id, "failed", 3, errStr);
+            return;
+          }
+
+          const result = await this.syncToGoogleSheets(sheetId, job.job_type, payloadObj, targetOrgId, targetStoreId);
+
+          if (result.success) {
+            await syncRepository.updateJobStatus(job.id, "completed", job.retry_count);
+            logger.info(`✅ Sync job ID ${job.id} completed successfully for Org ${targetOrgId} / Store ${targetStoreId}.`);
+          } else {
+            const nextRetry = job.retry_count + 1;
+            const newStatus = nextRetry >= 3 ? "failed" : "pending";
+            await syncRepository.updateJobStatus(
+              job.id,
+              newStatus,
+              nextRetry,
+              result.error || "Failed to upload rows to Google Sheets"
+            );
+            logger.warn(`⚠️ Sync job ID ${job.id} failed. Attempt ${nextRetry}/3. Status: ${newStatus}. Error: ${result.error}`);
+          }
+        }
+      );
+
       this.isProcessing = false;
       setTimeout(() => this.processQueue(), 1000);
     } catch (err: any) {
@@ -175,9 +219,28 @@ export class SyncQueueManager {
     }
   }
 
-  private async syncToGoogleSheets(spreadsheetId: string, jobType: string, payload: any): Promise<{ success: boolean; error?: string }> {
+  private async syncToGoogleSheets(
+    spreadsheetId: string,
+    jobType: string,
+    payload: any,
+    expectedOrgId?: number,
+    expectedStoreId?: number
+  ): Promise<{ success: boolean; error?: string }> {
     const sheets = this.getSheetsClient();
     if (!sheets) return { success: false, error: "Google credentials missing or invalid." };
+
+    // STRICT NON-NEGOTIABLE TENANT ISOLATION CHECK
+    const { organizationId, currentStoreId } = getTenantContext();
+    if (expectedOrgId && expectedOrgId > 0 && organizationId > 0 && organizationId !== expectedOrgId) {
+      const err = `Tenant context org (${organizationId}) does not match expected org (${expectedOrgId})`;
+      logger.error(`❌ [TENANT ISOLATION ABORT] ${err}`);
+      return { success: false, error: err };
+    }
+    if (expectedStoreId && expectedStoreId > 0 && currentStoreId > 0 && currentStoreId !== expectedStoreId) {
+      const err = `Tenant context store (${currentStoreId}) does not match expected store (${expectedStoreId})`;
+      logger.error(`❌ [TENANT ISOLATION ABORT] ${err}`);
+      return { success: false, error: err };
+    }
 
     const formatKolkataDateTime = (dateVal: any): string => {
       if (!dateVal) return "";

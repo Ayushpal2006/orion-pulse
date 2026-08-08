@@ -1,7 +1,7 @@
 import { db } from "../db";
 import { stores, users, settings, customers } from "../db/schema";
 import { migrate } from "drizzle-orm/node-postgres/migrator";
-import { count, eq } from "drizzle-orm";
+import { count, eq, sql } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import path from "path";
 import fs from "fs";
@@ -50,6 +50,14 @@ export async function initDb(): Promise<void> {
     // 2. Programmatically apply Drizzle migrations
     const migrationsFolder = resolveMigrationsFolder();
     await migrate(db, { migrationsFolder });
+    
+    // 2b. Ensure sync_jobs has organization_id column safely
+    try {
+      await db.execute(sql`ALTER TABLE sync_jobs ADD COLUMN IF NOT EXISTS organization_id integer REFERENCES organizations(id)`);
+    } catch (colErr) {
+      logger.warn("Column migration notice for sync_jobs.organization_id: " + String(colErr));
+    }
+
     logger.info("✅ Drizzle migrations applied successfully.");
 
     // 3. Ensure a default store exists

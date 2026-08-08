@@ -7,9 +7,13 @@ import { getTenantContext } from "../../db/context";
 export class PostgresSyncRepository implements ISyncRepository {
   async enqueue(jobType: string, payload: any, tx?: any): Promise<void> {
     const client = tx || db;
-    const { currentStoreId } = getTenantContext();
+    const { organizationId, currentStoreId } = getTenantContext();
+    const payloadOrgId = payload?.organization_id ?? organizationId ?? null;
+    const payloadStoreId = payload?.store_id ?? currentStoreId ?? 1;
+
     await client.insert(sync_jobs).values({
-      store_id: currentStoreId,
+      organization_id: payloadOrgId && payloadOrgId > 0 ? payloadOrgId : null,
+      store_id: payloadStoreId,
       job_type: jobType,
       payload: JSON.stringify(payload),
       status: "pending",
@@ -20,10 +24,11 @@ export class PostgresSyncRepository implements ISyncRepository {
   async getPendingJob(tx?: any): Promise<SyncJob | null> {
     const client = tx || db;
     const { currentStoreId } = getTenantContext();
-    let cond = and(
-      eq(sync_jobs.status, "pending"),
-      eq(sync_jobs.store_id, currentStoreId)
-    );
+
+    let cond = eq(sync_jobs.status, "pending") as any;
+    if (currentStoreId && currentStoreId > 0) {
+      cond = and(eq(sync_jobs.status, "pending"), eq(sync_jobs.store_id, currentStoreId));
+    }
 
     // Retrieve up to 50 pending jobs to find the first one ready
     const rows = await client
@@ -47,6 +52,8 @@ export class PostgresSyncRepository implements ISyncRepository {
 
       return {
         ...r,
+        organization_id: r.organization_id,
+        store_id: r.store_id,
         status: r.status as "pending" | "completed" | "failed",
         last_attempt: r.last_attempt ? r.last_attempt.toISOString() : undefined,
         created_at: r.created_at.toISOString(),
@@ -65,7 +72,6 @@ export class PostgresSyncRepository implements ISyncRepository {
     tx?: any
   ): Promise<void> {
     const client = tx || db;
-    const { currentStoreId } = getTenantContext();
     await client
       .update(sync_jobs)
       .set({
@@ -74,28 +80,27 @@ export class PostgresSyncRepository implements ISyncRepository {
         error_message: errorMessage ?? null,
         updated_at: new Date(),
       })
-      .where(and(eq(sync_jobs.id, id), eq(sync_jobs.store_id, currentStoreId)));
+      .where(eq(sync_jobs.id, id));
   }
 
   async recordJobAttempt(id: number, tx?: any): Promise<void> {
     const client = tx || db;
-    const { currentStoreId } = getTenantContext();
     await client
       .update(sync_jobs)
       .set({
         last_attempt: new Date(),
         updated_at: new Date(),
       })
-      .where(and(eq(sync_jobs.id, id), eq(sync_jobs.store_id, currentStoreId)));
+      .where(eq(sync_jobs.id, id));
   }
 
   async retryFailedJobs(tx?: any): Promise<void> {
     const client = tx || db;
     const { currentStoreId } = getTenantContext();
-    let cond = and(
-      eq(sync_jobs.status, "failed"),
-      eq(sync_jobs.store_id, currentStoreId)
-    );
+    let cond = eq(sync_jobs.status, "failed") as any;
+    if (currentStoreId && currentStoreId > 0) {
+      cond = and(eq(sync_jobs.status, "failed"), eq(sync_jobs.store_id, currentStoreId));
+    }
 
     await client
       .update(sync_jobs)
@@ -116,18 +121,15 @@ export class PostgresSyncRepository implements ISyncRepository {
     const client = tx || db;
     const { currentStoreId } = getTenantContext();
 
-    let pendingCond = and(
-      eq(sync_jobs.status, "pending"),
-      eq(sync_jobs.store_id, currentStoreId)
-    );
-    let failedCond = and(
-      eq(sync_jobs.status, "failed"),
-      eq(sync_jobs.store_id, currentStoreId)
-    );
-    let lastSyncCond = and(
-      eq(sync_jobs.status, "completed"),
-      eq(sync_jobs.store_id, currentStoreId)
-    );
+    let pendingCond = eq(sync_jobs.status, "pending") as any;
+    let failedCond = eq(sync_jobs.status, "failed") as any;
+    let lastSyncCond = eq(sync_jobs.status, "completed") as any;
+
+    if (currentStoreId && currentStoreId > 0) {
+      pendingCond = and(eq(sync_jobs.status, "pending"), eq(sync_jobs.store_id, currentStoreId));
+      failedCond = and(eq(sync_jobs.status, "failed"), eq(sync_jobs.store_id, currentStoreId));
+      lastSyncCond = and(eq(sync_jobs.status, "completed"), eq(sync_jobs.store_id, currentStoreId));
+    }
 
     const [pendingRow] = await client
       .select({ count: sql<string>`COUNT(*)` })
