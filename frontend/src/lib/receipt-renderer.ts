@@ -60,8 +60,8 @@ export class ReceiptRenderer {
     const lines: string[] = [];
 
     // Header
-    const shopName = (data.shopName || "APKA BILL STORE").toUpperCase();
-    lines.push(shopName.padStart(Math.floor((maxLen + shopName.length) / 2)));
+    const shopName = (data.shopName || "").toUpperCase();
+    if (shopName) lines.push(shopName.padStart(Math.floor((maxLen + shopName.length) / 2)));
     if (data.shopAddress) lines.push(data.shopAddress.padStart(Math.floor((maxLen + data.shopAddress.length) / 2)));
     if (data.shopPhone) lines.push(`Phone: ${data.shopPhone}`.padStart(Math.floor((maxLen + `Phone: ${data.shopPhone}`.length) / 2)));
     if (data.shopGst) lines.push(`GSTIN: ${data.shopGst}`.padStart(Math.floor((maxLen + `GSTIN: ${data.shopGst}`.length) / 2)));
@@ -109,7 +109,9 @@ export class ReceiptRenderer {
     }
 
     // Header
-    encoder.align("center").bold(true).size(2, 2).line(data.shopName || "APKA BILL STORE").size(1, 1).bold(false);
+    if (data.shopName) {
+      encoder.align("center").bold(true).size(2, 2).line(data.shopName).size(1, 1).bold(false);
+    }
     if (data.shopAddress) encoder.line(data.shopAddress);
     if (data.shopPhone) encoder.line(`Phone: ${data.shopPhone}`);
     if (data.shopGst) encoder.line(`GSTIN: ${data.shopGst}`);

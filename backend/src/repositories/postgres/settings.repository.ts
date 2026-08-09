@@ -60,7 +60,7 @@ export class PostgresSettingsRepository implements ISettingsRepository {
       .where(eq(settings.store_id, storeId));
 
     const settingsObj: Record<string, string> = {
-      shop_name: storeRecord?.name || orgRecord?.name || "",
+      shop_name: storeRecord?.name || "",
       shop_gstin: storeRecord?.gst_number || orgRecord?.gst_number || "",
       shop_phone: storeRecord?.phone || orgRecord?.phone || "",
       shop_address: storeRecord?.address || orgRecord?.address || "",
@@ -113,7 +113,6 @@ export class PostgresSettingsRepository implements ISettingsRepository {
             .where(eq(organizations.id, st.organization_id))
             .limit(1);
           if (org) {
-            if (key === "shop_name" && org.name) return org.name;
             if (key === "shop_gstin" && org.gst_number) return org.gst_number;
             if (key === "shop_phone" && org.phone) return org.phone;
             if (key === "shop_address" && org.address) return org.address;

@@ -59,7 +59,7 @@ export class BrandingService {
       }
     }
 
-    const businessName = settingsMap.shop_name || storeRecord?.name || orgRecord?.name || "Store";
+    const businessName = storeRecord?.name || settingsMap.shop_name || "Store";
     const gst = settingsMap.shop_gstin || storeRecord?.gst_number || orgRecord?.gst_number || "";
     const phone = settingsMap.shop_phone || storeRecord?.phone || orgRecord?.phone || "";
     const email = settingsMap.shop_email || orgRecord?.email || "";

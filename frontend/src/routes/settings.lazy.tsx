@@ -630,7 +630,7 @@ function SettingsV2() {
       multiStoreMetadata: {
         storeId: "store_primary_01",
         organizationId: "org_default",
-        storeName: s.shopName || "Apka Bill Store",
+        storeName: s.shopName || "",
       },
       settings: {
         shopInformation: {

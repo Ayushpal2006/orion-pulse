@@ -127,8 +127,8 @@ export class PrinterService {
     const activeProf = profile || DEFAULT_PRINTER_PROFILES[0];
     const nowStr = new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" });
 
-    const storeName = storeInfo?.name || storeInfo?.shop_name || "Apka Bill Store";
-    const orgName = orgInfo?.name || "APKA BILL";
+    const storeName = storeInfo?.name || storeInfo?.shop_name || "";
+    const orgName = orgInfo?.name || storeName;
     const connMethod = activeProf.connectionType.toUpperCase();
     const paperWidth = activeProf.paperWidth;
 
@@ -179,8 +179,8 @@ export class PrinterService {
     const connType = profile?.connectionType || "browser";
     const width = profile?.paperWidth || "80mm";
 
-    const storeName = storeInfo?.name || storeInfo?.shop_name || "Apka Bill Store";
-    const orgName = orgInfo?.name || "Apka Bill Retail";
+    const storeName = storeInfo?.name || storeInfo?.shop_name || "";
+    const orgName = orgInfo?.name || storeName;
     const pendingCount = this.jobQueue.filter((j) => j.status === "pending" || j.status === "printing").length;
 
     return {

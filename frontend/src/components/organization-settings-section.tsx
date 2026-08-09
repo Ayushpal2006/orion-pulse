@@ -67,8 +67,7 @@ export function OrganizationSettingsSection() {
         setFinancialYear(data.financial_year || "2026-2027");
         setReceiptInfo(data.receipt_info || "");
 
-        // Sync into Zustand global store for 100% settings page data consistency
-        if (orgName) s.setShopName(orgName);
+        // Do NOT sync orgName into s.shopName (stores.name is the single source of truth for shop identity)
         if (orgGst) s.setGstin(orgGst);
         if (orgPhone) s.setStorePhone(orgPhone);
         if (orgEmail) s.setStoreEmail(orgEmail);
@@ -117,8 +116,7 @@ export function OrganizationSettingsSection() {
         receiptInfo,
       });
 
-      // Sync updated identity into Zustand store
-      s.setShopName(name);
+      // Do NOT overwrite s.shopName with organization name
       s.setGstin(gstNumber);
       s.setStorePhone(phone);
       s.setStoreEmail(email);
