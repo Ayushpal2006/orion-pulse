@@ -34,7 +34,12 @@ export const getRouter = () => {
       queries: {
         retry: 1,
         refetchOnWindowFocus: false,
-        staleTime: 5000,
+        refetchOnMount: false,
+        staleTime: 30000, // 30 seconds production cache threshold
+        gcTime: 5 * 60 * 1000, // 5 minutes garbage collection threshold
+      },
+      mutations: {
+        retry: 0, // NEVER retry mutations (POST/PUT/DELETE) automatically
       },
     },
   });

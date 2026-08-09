@@ -12,21 +12,22 @@ import { toast } from "sonner";
 import { inr } from "@/lib/format";
 
 export function OrganizationSettingsSection() {
-  const currentRole = useApp((s) => s.role);
+  const s = useApp();
+  const currentRole = s.role;
   const isOwnerOrAdmin = ["admin", "owner"].includes((currentRole || "").toLowerCase());
 
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  // Profile Form state
-  const [name, setName] = useState("");
-  const [phone, setPhone] = useState("");
-  const [email, setEmail] = useState("");
-  const [gstNumber, setGstNumber] = useState("");
+  // Profile Form state - read from Zustand store as initial fallback for consistency
+  const [name, setName] = useState(s.shopName || "");
+  const [phone, setPhone] = useState(s.storePhone || "");
+  const [email, setEmail] = useState(s.storeEmail || "");
+  const [gstNumber, setGstNumber] = useState(s.gstin || "");
   const [panNumber, setPanNumber] = useState("");
-  const [address, setAddress] = useState("");
-  const [logoUrl, setLogoUrl] = useState("");
-  const [currency, setCurrency] = useState("INR");
+  const [address, setAddress] = useState(s.storeAddress || "");
+  const [logoUrl, setLogoUrl] = useState(s.logo || "");
+  const [currency, setCurrency] = useState(s.currency || "INR");
   const [timezone, setTimezone] = useState("Asia/Kolkata");
   const [invoicePrefix, setInvoicePrefix] = useState("INV-");
   const [financialYear, setFinancialYear] = useState("2026-2027");
@@ -46,18 +47,32 @@ export function OrganizationSettingsSection() {
       setLoading(true);
       const data = await getOrganizationCurrent();
       if (data) {
-        setName(data.name || "");
-        setPhone(data.phone || "");
-        setEmail(data.email || "");
-        setGstNumber(data.gst_number || "");
+        const orgName = data.name || s.shopName || "";
+        const orgPhone = data.phone || s.storePhone || "";
+        const orgEmail = data.email || s.storeEmail || "";
+        const orgGst = data.gst_number || s.gstin || "";
+        const orgAddress = data.address || s.storeAddress || "";
+        const orgLogo = data.logo_url || s.logo || "";
+
+        setName(orgName);
+        setPhone(orgPhone);
+        setEmail(orgEmail);
+        setGstNumber(orgGst);
         setPanNumber(data.pan_number || "");
-        setAddress(data.address || "");
-        setLogoUrl(data.logo_url || "");
-        setCurrency(data.currency || "INR");
+        setAddress(orgAddress);
+        setLogoUrl(orgLogo);
+        setCurrency(data.currency || s.currency || "INR");
         setTimezone(data.timezone || "Asia/Kolkata");
         setInvoicePrefix(data.invoice_prefix || "INV-");
         setFinancialYear(data.financial_year || "2026-2027");
         setReceiptInfo(data.receipt_info || "");
+
+        // Sync into Zustand global store for 100% settings page data consistency
+        if (orgName) s.setShopName(orgName);
+        if (orgGst) s.setGstin(orgGst);
+        if (orgPhone) s.setStorePhone(orgPhone);
+        if (orgEmail) s.setStoreEmail(orgEmail);
+        if (orgAddress) s.setStoreAddress(orgAddress);
 
         if (data.stats) {
           setStats(data.stats);
@@ -101,6 +116,15 @@ export function OrganizationSettingsSection() {
         financialYear,
         receiptInfo,
       });
+
+      // Sync updated identity into Zustand store
+      s.setShopName(name);
+      s.setGstin(gstNumber);
+      s.setStorePhone(phone);
+      s.setStoreEmail(email);
+      s.setStoreAddress(address);
+      if (s.setLogo) s.setLogo(logoUrl);
+
       toast.success("Organization profile updated successfully");
       fetchOrgData();
     } catch (err: any) {

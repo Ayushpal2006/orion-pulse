@@ -454,19 +454,19 @@ function SettingsV2() {
             s.setRequireCustomerBeforeCheckout(cfg.require_customer_before_checkout === "1" || cfg.require_customer_before_checkout === "true");
           }
 
-          // Build deep-cloned initial snapshot from loaded backend data
+          // Capture clean baseline snapshot after applying backend settings
           setTimeout(() => {
             const initialSnapshot = structuredClone(getSettingsSnapshot());
             setSavedSettings(initialSnapshot);
             setIsInitialized(true);
-          }, 50);
+          }, 80);
         }
       })
       .catch(() => {})
       .finally(() => {
         setTimeout(() => {
           setIsInitialized(true);
-        }, 60);
+        }, 100);
       });
 
     // 3. Load Storage & Sync Status
@@ -2325,7 +2325,7 @@ function SettingsV2() {
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Snapshot Store:</span>
-                <span className="font-bold text-foreground">{pendingRestoreData.store?.shopName || "Apka Bill Store"}</span>
+                <span className="font-bold text-foreground">{pendingRestoreData.store?.shopName || "Store"}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Snapshot Timestamp:</span>
@@ -2397,7 +2397,7 @@ function SettingsV2() {
                     Schema V{importPendingPayload.schemaVersion || "1.0"}
                   </Badge>
                   <span className="font-semibold text-foreground">
-                    Store: {importPendingPayload.multiStoreMetadata?.storeName || importPendingPayload.store?.shopName || "Apka Bill Store"}
+                    Store: {importPendingPayload.multiStoreMetadata?.storeName || importPendingPayload.store?.shopName || "Store"}
                   </span>
                 </div>
                 <Badge className="bg-amber-500/10 text-amber-600 border-amber-500/30 text-[10px] font-mono">

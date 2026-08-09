@@ -297,9 +297,7 @@ function Billing() {
     }
 
     try {
-      setStep(0);
-      await new Promise((r) => setTimeout(r, 200));
-
+      setStep(1);
       const dto = {
         customerPhone: isCustomerMissing ? "0000000000" : mobile,
         paymentMethod: payment,
@@ -311,7 +309,6 @@ function Billing() {
         customerName: isCustomerMissing ? "Walk-in Customer" : (name || "Walk-in Customer"),
       };
 
-      setStep(1);
       console.log("[Checkout Flow] API Request");
       let res: any;
       try {
@@ -361,56 +358,25 @@ function Billing() {
         toast.info("🔴 Saved to Offline Queue", { description: `Offline Receipt: ${offlineInvoice}` });
       }
 
-      setStep(2);
-      await new Promise((r) => setTimeout(r, 200));
-
-      setStep(3);
-      await new Promise((r) => setTimeout(r, 200));
-
-      setStep(4);
-      await new Promise((r) => setTimeout(r, 200));
-
       setStep(CHECKOUT_STEPS.length);
       console.log("[Checkout Flow] Mutation Success");
       setCheckoutResult(res);
-
-      // Feature Flag AUTO_PRINT = false. Automatic printing is disabled; user manually initiates printing on Success Screen.
-      printBenchmark.recordMetrics({
-        checkoutMs: 80,
-        modelBuildMs: 2,
-        renderMs: 5,
-        dispatchMs: 15,
-        totalCheckoutToPrintMs: 102,
-        timestamp: Date.now(),
-      });
 
       clearCart();
       setCustomerQuery("");
       setSelectedCustomer(null);
 
-      // Invalidate queries to auto-refresh metrics
-      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
-      queryClient.invalidateQueries({ queryKey: ["reports"] });
-      queryClient.invalidateQueries({ queryKey: ["customers"] });
-      queryClient.invalidateQueries({ queryKey: ["customers-all"] });
+      // Non-blocking background invalidations and state refreshes
+      setTimeout(() => {
+        queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+        queryClient.invalidateQueries({ queryKey: ["reports"] });
+        queryClient.invalidateQueries({ queryKey: ["customers"] });
+        queryClient.invalidateQueries({ queryKey: ["customers-all"] });
 
-      // Refresh local store cache
-      getProducts().then(setProducts).catch(() => {});
-      getCustomers().then((data) => {
-        const mapped = data.map((c: any) => ({
-          id: String(c.id),
-          name: c.name,
-          mobile: c.phone,
-          ltv: (c.lifetime_value ?? 0) / 100,
-          visits: c.total_orders ?? 0,
-          lastVisit: c.last_visit ? new Date(c.last_visit).toLocaleDateString("en-IN", { day: "numeric", month: "short", timeZone: "Asia/Kolkata" }) : "Never",
-          since: c.created_at ? new Date(c.created_at).toLocaleDateString("en-IN", { month: "short", year: "numeric", timeZone: "Asia/Kolkata" }) : "Recently",
-          email: c.email || undefined,
-          address: c.address || undefined,
-          notes: c.notes || undefined,
-        }));
-        setCustomers(mapped);
-      }).catch(() => {});
+        if (res.syncProducts && Array.isArray(res.syncProducts)) {
+          getProducts().then(setProducts).catch(() => {});
+        }
+      }, 0);
 
       if (!res.offline) {
         if (res.whatsappPrepared === false && res.whatsappError) {

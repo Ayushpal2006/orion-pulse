@@ -208,3 +208,51 @@ export class PrinterService {
 }
 
 export const printerService = PrinterService.getInstance();
+
+export interface IPrinterService {
+  printReceipt(receipt: any): Promise<boolean>;
+  printInvoice(invoice: any): Promise<boolean>;
+  isPrinterAvailable(): Promise<boolean>;
+  printHtml(html: string): Promise<boolean>;
+}
+
+export class BrowserPrinterService implements IPrinterService {
+  async printReceipt(receipt: any): Promise<boolean> {
+    return printerService.print(receipt);
+  }
+
+  async printInvoice(invoice: any): Promise<boolean> {
+    return printerService.print(invoice);
+  }
+
+  async isPrinterAvailable(): Promise<boolean> {
+    return typeof window !== "undefined";
+  }
+
+  async printHtml(html: string): Promise<boolean> {
+    const adapter = getPrintAdapter("browser");
+    await adapter.print(html);
+    return true;
+  }
+}
+
+export class ThermalPrinterService implements IPrinterService {
+  async printReceipt(_receipt: any): Promise<boolean> {
+    throw new Error("ESC/POS Thermal printer SDK integration not implemented in V1");
+  }
+
+  async printInvoice(_invoice: any): Promise<boolean> {
+    throw new Error("ESC/POS Thermal printer SDK integration not implemented in V1");
+  }
+
+  async isPrinterAvailable(): Promise<boolean> {
+    return false;
+  }
+
+  async printHtml(_html: string): Promise<boolean> {
+    throw new Error("ESC/POS Thermal printer SDK integration not implemented in V1");
+  }
+}
+
+export const browserPrinterService = new BrowserPrinterService();
+export const thermalPrinterService = new ThermalPrinterService();

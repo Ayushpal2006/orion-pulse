@@ -71,12 +71,63 @@ export class CentralizedLogger {
     }
   }
 
+  audit(event: {
+    timestamp?: string;
+    organizationId: number;
+    storeId: number;
+    userId?: number | null;
+    action: string;
+    entity: string;
+    entityId?: string | number | null;
+    summary: string;
+    requestId?: string;
+    meta?: Record<string, any>;
+  }): void {
+    const timestamp = event.timestamp || new Date().toISOString();
+    const sanitizedMeta = event.meta ? redactSecrets(event.meta) : undefined;
+
+    const payload = {
+      timestamp,
+      level: "AUDIT",
+      organizationId: event.organizationId,
+      storeId: event.storeId,
+      userId: event.userId ?? 0,
+      action: event.action,
+      entity: event.entity,
+      entityId: event.entityId ?? null,
+      summary: event.summary,
+      ...(event.requestId ? { requestId: event.requestId } : {}),
+      ...(sanitizedMeta ? { meta: sanitizedMeta } : {}),
+    };
+
+    console.log(JSON.stringify(payload));
+  }
+
   debug(message: string, meta?: Record<string, any>): void {
     if (!this.isProduction) {
       const formatted = this.formatMessage("DEBUG", message, meta);
       console.debug(`\x1b[36m${formatted}\x1b[0m`); // Cyan
     }
   }
+}
+
+function redactSecrets(obj: any): any {
+  if (!obj || typeof obj !== "object") return obj;
+  if (Array.isArray(obj)) return obj.map(redactSecrets);
+
+  const redacted: Record<string, any> = {};
+  const SENSITIVE_KEYS = ["password", "pass", "token", "secret", "jwt", "authorization", "refresh_token", "access_token", "private_key", "privateKey"];
+
+  for (const [key, value] of Object.entries(obj)) {
+    if (SENSITIVE_KEYS.some((k) => key.toLowerCase().includes(k))) {
+      redacted[key] = "[REDACTED]";
+    } else if (typeof value === "object" && value !== null) {
+      redacted[key] = redactSecrets(value);
+    } else {
+      redacted[key] = value;
+    }
+  }
+  return redacted;
 }
 
 export const logger = new CentralizedLogger();

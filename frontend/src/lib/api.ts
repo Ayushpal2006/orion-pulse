@@ -43,7 +43,27 @@ export function buildImageUrl(imageUrl: string | null | undefined): string | und
 export const API_BASE_URL = getApiBaseUrl();
 console.log("API BASE URL:", API_BASE_URL);
 
+export function formatHttpError(status: number, serverError?: string): string {
+  if (serverError && typeof serverError === "string" && serverError.trim() !== "") {
+    return serverError;
+  }
+  switch (status) {
+    case 401: return "Authentication required. Please log in to continue.";
+    case 403: return "Access forbidden. You do not have permission to perform this action.";
+    case 404: return "Requested resource was not found on the server.";
+    case 409: return "Conflict error. The record or invoice already exists.";
+    case 422: return "Validation error. Please verify your input data.";
+    case 500: return "Internal server error. Please try again later.";
+    case 503: return "Service temporarily unavailable. Please retry shortly.";
+    default: return `Server error (HTTP ${status}). Please try again.`;
+  }
+}
+
 export async function apiFetch(input: RequestInfo | URL, init: RequestInit = {}): Promise<Response> {
+  if (typeof window !== "undefined" && typeof navigator !== "undefined" && !navigator.onLine) {
+    throw new Error("Offline Mode: Device is currently disconnected from internet.");
+  }
+
   const token = typeof window !== "undefined" ? localStorage.getItem("token") || "" : "";
   const currentStoreId = typeof window !== "undefined" ? localStorage.getItem("currentStoreId") || "" : "";
   const currentOrgId = typeof window !== "undefined" ? localStorage.getItem("currentOrgId") || "" : "";
@@ -60,10 +80,14 @@ export async function apiFetch(input: RequestInfo | URL, init: RequestInit = {})
   }
 
   try {
-    return await fetch(input, { ...init, headers });
+    const res = await fetch(input, { ...init, headers });
+    return res;
   } catch (error: any) {
     const urlStr = typeof input === "string" ? input : input instanceof URL ? input.toString() : (input as Request).url;
     console.error(`[apiFetch Error] ${init.method || "GET"} ${urlStr} failed:`, error);
+    if (error instanceof TypeError && error.message === "Failed to fetch") {
+      throw new Error("Network error. Backend server is unreachable or offline.");
+    }
     throw error;
   }
 }

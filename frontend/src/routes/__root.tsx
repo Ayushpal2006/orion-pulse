@@ -15,6 +15,7 @@ import { reportLovableError } from "../lib/lovable-error-reporting";
 import { AppShell } from "@/components/app-shell";
 import { Toaster } from "@/components/ui/sonner";
 import { PWAInstallBanner } from "@/components/pwa-install-banner";
+import { ErrorBoundary } from "@/components/error-boundary";
 
 function NotFoundComponent() {
   return (
@@ -151,16 +152,18 @@ function RootComponent() {
   }, []);
 
   return (
-    <QueryClientProvider client={queryClient}>
-      {isPrintRoute || isLoginRoute || isWizardRoute ? (
-        <Outlet />
-      ) : (
-        <AppShell>
+    <ErrorBoundary>
+      <QueryClientProvider client={queryClient}>
+        {isPrintRoute || isLoginRoute || isWizardRoute ? (
           <Outlet />
-        </AppShell>
-      )}
-      <Toaster position="top-right" />
-      <PWAInstallBanner />
-    </QueryClientProvider>
+        ) : (
+          <AppShell>
+            <Outlet />
+          </AppShell>
+        )}
+        <Toaster position="top-right" />
+        <PWAInstallBanner />
+      </QueryClientProvider>
+    </ErrorBoundary>
   );
 }

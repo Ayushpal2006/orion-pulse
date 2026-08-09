@@ -73,9 +73,9 @@ export function ClassicTemplate({ receipt, qrPosition = "Bottom" }: TemplateProp
       <div style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", marginBottom: "4px" }}>
         {receipt.shop.logo && <img src={receipt.shop.logo} alt="Logo" style={{ maxHeight: "36px", objectFit: "contain", marginBottom: "4px" }} />}
         <div style={{ fontSize: "13px", fontWeight: "bold", textTransform: "uppercase" }}>{receipt.shop.name}</div>
-        <div style={{ fontSize: "8px", color: "#333", marginTop: "2px", maxWidth: "90%" }}>{receipt.shop.address}</div>
-        <div style={{ fontSize: "8px", color: "#333", marginTop: "1px" }}>PH: {receipt.shop.phone || "-"}</div>
-        <div style={{ fontSize: "8px", color: "#333", marginTop: "1px" }}>GSTIN: {receipt.shop.gstin || "-"}</div>
+        {receipt.shop.address && <div style={{ fontSize: "8px", color: "#333", marginTop: "2px", maxWidth: "90%" }}>{receipt.shop.address}</div>}
+        {receipt.shop.phone && <div style={{ fontSize: "8px", color: "#333", marginTop: "1px" }}>PH: {receipt.shop.phone}</div>}
+        {receipt.shop.gstin && <div style={{ fontSize: "8px", color: "#333", marginTop: "1px" }}>GSTIN: {receipt.shop.gstin}</div>}
       </div>
       <div style={{ borderTop: "1px dashed #000000", margin: "4px 0" }}></div>
       
@@ -156,8 +156,12 @@ export function ModernTemplate({ receipt, qrPosition = "Bottom" }: TemplateProps
           <img src={receipt.shop.logo} alt="Logo" style={{ maxHeight: "32px", objectFit: "contain", background: "#ffffff", padding: "2px", borderRadius: "4px", marginBottom: "4px" }} />
         )}
         <div style={{ fontSize: "14px", fontWeight: "bold", textTransform: "uppercase", letterSpacing: "0.5px" }}>{receipt.shop.name}</div>
-        <div style={{ fontSize: "7.5px", opacity: 0.9, marginTop: "2px" }}>{receipt.shop.address}</div>
-        <div style={{ fontSize: "7.5px", opacity: 0.9 }}>Ph: {receipt.shop.phone || "-"} | GSTIN: {receipt.shop.gstin || "-"}</div>
+        {receipt.shop.address && <div style={{ fontSize: "7.5px", opacity: 0.9, marginTop: "2px" }}>{receipt.shop.address}</div>}
+        {(receipt.shop.phone || receipt.shop.gstin) && (
+          <div style={{ fontSize: "7.5px", opacity: 0.9 }}>
+            {[receipt.shop.phone ? `Ph: ${receipt.shop.phone}` : "", receipt.shop.gstin ? `GSTIN: ${receipt.shop.gstin}` : ""].filter(Boolean).join(" | ")}
+          </div>
+        )}
       </div>
 
       {/* Metadata Grey Grid */}
@@ -286,9 +290,9 @@ export function RetailTemplate({ receipt, qrPosition = "Bottom" }: TemplateProps
       <div style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", marginBottom: "4px" }}>
         {receipt.shop.logo && <img src={receipt.shop.logo} alt="Logo" style={{ maxHeight: "36px", objectFit: "contain", marginBottom: "4px" }} />}
         <div style={{ fontSize: "13px", fontWeight: "bold" }}>{receipt.shop.name}</div>
-        <div style={{ fontSize: "7.5px", color: "#444" }}>{receipt.shop.address}</div>
-        <div style={{ fontSize: "7.5px", color: "#444" }}>PH: {receipt.shop.phone || "-"}</div>
-        <div style={{ fontSize: "7.5px", color: "#444" }}>GSTIN: {receipt.shop.gstin || "-"}</div>
+        {receipt.shop.address && <div style={{ fontSize: "7.5px", color: "#444" }}>{receipt.shop.address}</div>}
+        {receipt.shop.phone && <div style={{ fontSize: "7.5px", color: "#444" }}>PH: {receipt.shop.phone}</div>}
+        {receipt.shop.gstin && <div style={{ fontSize: "7.5px", color: "#444" }}>GSTIN: {receipt.shop.gstin}</div>}
       </div>
       <div style={{ borderTop: "1px dashed #000000", margin: "4px 0" }}></div>
 
@@ -384,9 +388,11 @@ export function WholesaleTemplate({ receipt, qrPosition = "Bottom" }: TemplatePr
       </div>
 
       {/* Green Banner Bar */}
-      <div style={{ background: primary, color: "#ffffff", padding: "4px", textAlign: "center", fontWeight: "bold", fontSize: "9.5px", borderRadius: "2px", marginBottom: "10px" }}>
-        GSTIN: {receipt.shop.gstin || "-"} | PH: {receipt.shop.phone || "-"}
-      </div>
+      {(receipt.shop.gstin || receipt.shop.phone) && (
+        <div style={{ background: primary, color: "#ffffff", padding: "4px", textAlign: "center", fontWeight: "bold", fontSize: "9.5px", borderRadius: "2px", marginBottom: "10px" }}>
+          {[receipt.shop.gstin ? `GSTIN: ${receipt.shop.gstin}` : "", receipt.shop.phone ? `PH: ${receipt.shop.phone}` : ""].filter(Boolean).join(" | ")}
+        </div>
+      )}
 
       {/* 2-Column Info Grid */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", marginBottom: "10px" }}>

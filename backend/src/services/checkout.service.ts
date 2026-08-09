@@ -8,6 +8,7 @@ import { getKolkataDateString } from "../utils/datetime";
 import { formatInTimeZone } from "date-fns-tz";
 import { settingsRepository, customerRepository } from "../repositories";
 import { InventoryMovementService } from "./inventory-movement.service";
+import { logger } from "../logger/logger";
 
 const idempotencyCache = new Map<string, { timestamp: number; response: any }>();
 
@@ -314,6 +315,16 @@ export class CheckoutService {
       });
       const tAuditTime = performance.now() - tAuditStart;
 
+      logger.audit({
+        organizationId: orgId,
+        storeId,
+        userId: getUserId(),
+        action: "SALE_CREATED",
+        entity: "sale",
+        entityId: sale.id,
+        summary: `Created Invoice ${invoiceNumber} for Total ₹${(grandTotal / 100).toFixed(2)}`,
+      });
+
       // 5. Create Sale Item records via atomic multi-row batch insert
       const tItemsStart = performance.now();
       if (processedItems.length > 0) {
@@ -396,29 +407,24 @@ export class CheckoutService {
     let whatsappError: string | undefined = undefined;
 
     try {
-      const { ShareService } = require("./share.service");
-      const { SalesService } = require("./sales.service");
-      const shareService = new ShareService();
-      const salesService = new SalesService();
+      const isSystemWalkIn = !isExplicitCustomer || result.syncCustomer?.name === "Walk-in Customer";
+      const customerPhoneDigits = (result.syncCustomer?.phone || "").replace(/\D/g, "");
+      const hasValidPhone = Boolean(customerPhoneDigits && customerPhoneDigits !== "0000000000" && customerPhoneDigits.length >= 10);
 
-      const receipt = await salesService.getReceipt(result.invoice);
-      if (receipt) {
-        const isSystemWalkIn = !isExplicitCustomer || receipt.customer?.name === "Walk-in Customer";
-        const customerPhoneDigits = (receipt.customer?.phone || "").replace(/\D/g, "");
-        const hasValidPhone = Boolean(customerPhoneDigits && customerPhoneDigits !== "0000000000" && customerPhoneDigits.length >= 10);
+      if (!isSystemWalkIn && hasValidPhone) {
+        const { ShareService } = require("./share.service");
+        const { SalesService } = require("./sales.service");
+        const shareService = new ShareService();
+        const salesService = new SalesService();
 
-        if (isSystemWalkIn) {
-          // System Walk-in Customer: Skip WhatsApp automatically, do not throw error or block checkout
-          whatsappPrepared = false;
-        } else if (hasValidPhone) {
-          // Named customer with valid phone: Generate WhatsApp message immediately
+        const receipt = await salesService.getReceipt(result.invoice);
+        if (receipt) {
           whatsappUrl = shareService.generateWhatsAppLink(receipt);
           whatsappPrepared = true;
-        } else {
-          // Named customer without phone: Checkout succeeds, return notification message
-          whatsappPrepared = false;
-          whatsappError = "Sale completed successfully. WhatsApp sharing unavailable because no phone number is available.";
         }
+      } else if (!isSystemWalkIn && !hasValidPhone) {
+        whatsappPrepared = false;
+        whatsappError = "Sale completed successfully. WhatsApp sharing unavailable because no phone number is available.";
       }
     } catch (err: any) {
       console.error("[Checkout Flow] WhatsApp message preparation notice (checkout succeeded):", err.message || err);

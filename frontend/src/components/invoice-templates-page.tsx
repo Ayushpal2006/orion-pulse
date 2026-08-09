@@ -333,12 +333,12 @@ export function InvoiceTemplatesPage() {
               templateName={s.receiptTemplate}
               receipt={{
                 shop: {
-                  name: s.shopName || "Apka Bill Store",
-                  address: s.storeAddress || "123 POS Center, Salt Lake, Kolkata",
-                  phone: s.storePhone || "8285068670",
-                  gstin: s.gstin || "27AAAAA1111A1Z1",
+                  name: s.shopName || "Store",
+                  address: s.storeAddress || "",
+                  phone: s.storePhone || "",
+                  gstin: s.gstin || "",
                   logo: s.logo,
-                  upiId: s.upiId || "apkabill@upi",
+                  upiId: s.upiId || "",
                 },
                 invoiceNumber: `${invPrefix}00125`,
                 date: "01/08/2026",

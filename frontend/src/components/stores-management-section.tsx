@@ -34,11 +34,21 @@ export function StoresManagementSection() {
   const [formCurrency, setFormCurrency] = useState("INR");
   const [saving, setSaving] = useState(false);
 
+  const s = useApp();
   const fetchStores = async () => {
     try {
       setLoading(true);
       const data = await getStores();
       setStoresList(data);
+      if (Array.isArray(data) && data.length > 0) {
+        const activeSt = data.find((st: any) => st.id === activeStoreId) || data[0];
+        if (activeSt) {
+          if (activeSt.name) s.setShopName(activeSt.name);
+          if (activeSt.gst_number) s.setGstin(activeSt.gst_number);
+          if (activeSt.phone) s.setStorePhone(activeSt.phone);
+          if (activeSt.address) s.setStoreAddress(activeSt.address);
+        }
+      }
     } catch (err: any) {
       toast.error(err.message || "Failed to load stores");
     } finally {
