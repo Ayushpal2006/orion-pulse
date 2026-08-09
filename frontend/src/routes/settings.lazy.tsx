@@ -455,18 +455,13 @@ function SettingsV2() {
           }
 
           // Capture clean baseline snapshot after applying backend settings
-          setTimeout(() => {
-            const initialSnapshot = structuredClone(getSettingsSnapshot());
-            setSavedSettings(initialSnapshot);
-            setIsInitialized(true);
-          }, 80);
+          const initialSnapshot = structuredClone(getSettingsSnapshot());
+          setSavedSettings(initialSnapshot);
+          setIsInitialized(true);
         }
       })
-      .catch(() => {})
-      .finally(() => {
-        setTimeout(() => {
-          setIsInitialized(true);
-        }, 100);
+      .catch(() => {
+        setIsInitialized(true);
       });
 
     // 3. Load Storage & Sync Status
