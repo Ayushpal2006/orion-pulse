@@ -16,7 +16,6 @@ import { PrinterService } from './src/native/PrinterService';
 import { MockPrinterDriver } from './src/native/mock/MockPrinter';
 import { AndroidPrinterDriver } from './src/native/drivers/AndroidPrinterDriver';
 import ReceiptFormatter from './src/native/utils/ReceiptFormatter';
-import { ReceiptPrintData } from './src/native/types';
 import { LocalSale, LocalStore, CartItem } from './src/db/types';
 
 async function runPrinterTests() {
@@ -337,6 +336,7 @@ async function runPrinterTests() {
   if (failed > 0) {
     process.exit(1);
   }
+  process.exit(0);
 }
 
 runPrinterTests().catch((err) => {

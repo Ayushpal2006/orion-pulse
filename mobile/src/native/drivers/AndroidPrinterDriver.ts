@@ -5,12 +5,21 @@
  * Safe fallback to mock driver if native bridge is unavailable.
  */
 
-import { NativeModules, Platform } from 'react-native';
 import { IPrinterDriver, PrinterStatus, ReceiptPayload, PrintResult } from '../types';
 import { MockPrinterDriver } from '../mock/MockPrinter';
 import ReceiptFormatter from '../utils/ReceiptFormatter';
 
-const { PrinterModule } = NativeModules;
+let PrinterModule: any = null;
+let isAndroid = false;
+
+try {
+  const RN = require('react-native');
+  PrinterModule = RN?.NativeModules?.PrinterModule;
+  isAndroid = RN?.Platform?.OS === 'android';
+} catch {
+  PrinterModule = null;
+  isAndroid = false;
+}
 
 export class AndroidPrinterDriver implements IPrinterDriver {
   type = 'BUILT_IN' as const;
@@ -18,7 +27,7 @@ export class AndroidPrinterDriver implements IPrinterDriver {
   private fallbackMock = new MockPrinterDriver();
 
   private isNativeModuleAvailable(): boolean {
-    return Platform.OS === 'android' && !!PrinterModule;
+    return isAndroid && !!PrinterModule;
   }
 
   async isAvailable(): Promise<boolean> {

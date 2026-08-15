@@ -1,0 +1,80 @@
+{
+  "timestamp": "2026-08-15T06:53:09.979Z",
+  "totalTests": 8,
+  "passed": 8,
+  "failed": 0,
+  "allPassed": true,
+  "benchmarks": {
+    "receiptGenLatencyMs": 0.18,
+    "maxLineWidth": 32
+  },
+  "results": [
+    {
+      "id": 1,
+      "name": "Basic Print Execution",
+      "passed": true,
+      "details": {
+        "bytes": 872
+      }
+    },
+    {
+      "id": 2,
+      "name": "Dynamic Store Branding Integration",
+      "passed": true,
+      "details": {
+        "storeName": "Apka Bill Supermart Rajasthan"
+      }
+    },
+    {
+      "id": 3,
+      "name": "Offline Bill Receipt Generation",
+      "passed": true,
+      "details": {
+        "invoice": "INV-OFFLINE-101-20260815-ABCD-0001"
+      }
+    },
+    {
+      "id": 4,
+      "name": "Printer Failure Non-Blocking Safety",
+      "passed": true,
+      "details": {
+        "status": "PAPER_OUT",
+        "error": "Printer unavailable (Status: PAPER_OUT)"
+      }
+    },
+    {
+      "id": 5,
+      "name": "Reprint Completed Sale (Pure Side Effect)",
+      "passed": true,
+      "details": {
+        "invoice": "INV-OFFLINE-101-20260815-ABCD-0001"
+      }
+    },
+    {
+      "id": 6,
+      "name": "Multiple Items & 58mm Width Adherence (≤32 chars)",
+      "passed": true,
+      "details": {
+        "maxLineLen": 32,
+        "lineCount": 32
+      }
+    },
+    {
+      "id": 7,
+      "name": "UPI / Invoice QR Code Layout",
+      "passed": true,
+      "details": {
+        "qrData": "upi://pay?pa=sharma@upi&pn=Sharma%20Kirana%20%26%20General%20Store&am=544.50&cu=INR&tn=INV-OFFLINE-101-20260815-ABCD-0001"
+      }
+    },
+    {
+      "id": 8,
+      "name": "Native Module Driver Recovery & State Safety",
+      "passed": true,
+      "details": {
+        "driver": "BUILT_IN",
+        "status": "READY"
+      }
+    }
+  ]
+}

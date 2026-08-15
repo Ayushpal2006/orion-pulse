@@ -118,34 +118,51 @@ export class ReceiptFormatter {
     };
 
     const center = (str: string) => {
-      const s = String(str).substring(0, WIDTH);
+      const s = String(str).trim().substring(0, WIDTH);
       const leftMargin = Math.max(0, Math.floor((WIDTH - s.length) / 2));
       return ' '.repeat(leftMargin) + s;
+    };
+
+    const wrapLines = (str: string): string[] => {
+      const words = String(str).split(' ');
+      const res: string[] = [];
+      let current = '';
+      for (const w of words) {
+        if ((current + (current ? ' ' : '') + w).length <= WIDTH) {
+          current += (current ? ' ' : '') + w;
+        } else {
+          if (current) res.push(center(current));
+          current = w.substring(0, WIDTH);
+        }
+      }
+      if (current) res.push(center(current));
+      return res;
     };
 
     const formatCurrency = (paise: number) => `INR ${(paise / 100).toFixed(2)}`;
 
     const lines: string[] = [];
 
-    // Header / Branding
-    lines.push(center(data.storeName.toUpperCase()));
-    if (data.storeAddress) lines.push(center(data.storeAddress));
+    // Header / Branding (Wrapped nicely within 32 chars)
+    wrapLines(data.storeName.toUpperCase()).forEach((l) => lines.push(l));
+    if (data.storeAddress) {
+      wrapLines(data.storeAddress).forEach((l) => lines.push(l));
+    }
     if (data.storePhone) lines.push(center(`Ph: ${data.storePhone}`));
     if (data.storeGstin) lines.push(center(`GSTIN: ${data.storeGstin}`));
     if (data.website) lines.push(center(data.website));
 
     lines.push('-'.repeat(WIDTH));
-    lines.push(`Inv: ${data.invoiceNumber}`);
-    lines.push(`Date: ${data.date}`);
-    if (data.cashierName) lines.push(`Cashier: ${data.cashierName}`);
+    wrapLines(`Inv: ${data.invoiceNumber}`).forEach((l) => lines.push(l));
+    wrapLines(`Date: ${data.date}`).forEach((l) => lines.push(l));
+    if (data.cashierName) wrapLines(`Cashier: ${data.cashierName}`).forEach((l) => lines.push(l));
     if (data.customerPhone) {
-      lines.push(`Cust: ${data.customerName ? data.customerName + ' ' : ''}(${data.customerPhone})`);
+      wrapLines(`Cust: ${data.customerName ? data.customerName + ' ' : ''}(${data.customerPhone})`).forEach((l) => lines.push(l));
     }
 
     lines.push('-'.repeat(WIDTH));
 
     // Item Table Header: Name (14), Qty (4), Price (6), Total (8) -> Total 32
-    // Item (14) Qty(4) Price(6) Total(8)
     lines.push(
       padRight('Item', 14) +
         padLeft('Qty', 4) +
@@ -192,12 +209,13 @@ export class ReceiptFormatter {
     if (data.qrData) {
       lines.push('-'.repeat(WIDTH));
       lines.push(center('[ SCAN QR CODE ]'));
-      lines.push(center(data.qrData.length > 30 ? data.qrData.substring(0, 30) + '...' : data.qrData));
+      const truncatedQr = data.qrData.length > 30 ? data.qrData.substring(0, 30) + '..' : data.qrData;
+      lines.push(center(truncatedQr));
     }
 
     lines.push('-'.repeat(WIDTH));
     if (data.footerText) {
-      lines.push(center(data.footerText));
+      wrapLines(data.footerText).forEach((l) => lines.push(l));
     }
 
     return lines.join('\n');
