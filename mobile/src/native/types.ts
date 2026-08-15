@@ -39,6 +39,8 @@ export interface ReceiptPayload {
   storeAddress?: string;
   storePhone?: string;
   storeGstin?: string;
+  website?: string;
+  upiId?: string;
   invoiceNumber: string;
   date: string;
   cashierName?: string;
@@ -51,7 +53,11 @@ export interface ReceiptPayload {
   grandTotal: number;
   paymentMethod: string;
   footerText?: string;
+  qrData?: string;
+  paperWidth?: '58mm' | '80mm';
 }
+
+export type ReceiptPrintData = ReceiptPayload;
 
 export interface PrintResult {
   success: boolean;

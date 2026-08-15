@@ -44,6 +44,7 @@ import {
 } from '../db';
 import { SyncService, syncStateManager, SyncState } from '../sync';
 import { LocalBillingService } from '../services';
+import { PrinterService } from '../native';
 
 export const HomeScreen: React.FC = () => {
   const { user, organization, store: authStore, logout } = useAuth();
@@ -214,13 +215,35 @@ export const HomeScreen: React.FC = () => {
       });
 
       if (checkoutRes.success && checkoutRes.sale) {
-        setStatusMessage(
-          `✅ Offline Sale Created: ${checkoutRes.sale.local_invoice_number} (₹${(checkoutRes.sale.grand_total / 100).toFixed(2)}) • PENDING SYNC`
-        );
         clearCart();
         setCustomerName('');
         setCustomerPhone('');
         await loadLocalData();
+
+        // Printing is a side effect of a successful sale.
+        // Physical printer error or unavailability NEVER rolls back the sale.
+        try {
+          const printRes = await PrinterService.printSale({
+            sale: checkoutRes.sale,
+            items: checkoutRes.items,
+            store: localStore,
+            user,
+            organization,
+          });
+
+          if (printRes.success) {
+            setStatusMessage(
+              `✅ Sale Created & Printed: ${checkoutRes.sale.local_invoice_number} (₹${(checkoutRes.sale.grand_total / 100).toFixed(2)})`
+            );
+          } else {
+            setStatusMessage(
+              `Bill saved. Printer unavailable.`
+            );
+          }
+        } catch (printErr: any) {
+          console.warn('[HomeScreen] Print error (sale preserved):', printErr.message);
+          setStatusMessage('Bill saved. Printer unavailable.');
+        }
       } else {
         setStatusMessage(`❌ Checkout Failed: ${checkoutRes.error}`);
         Alert.alert('Checkout Failed', checkoutRes.error || 'Transaction rejected.');
@@ -229,6 +252,33 @@ export const HomeScreen: React.FC = () => {
       setStatusMessage(`❌ Error: ${err.message}`);
     } finally {
       setCheckingOut(false);
+    }
+  };
+
+  // 6b. Reprint Completed Offline Sale (Pure Side Effect)
+  const handleReprintSale = async (sale: LocalSale) => {
+    try {
+      const saleDetails = await SaleRepository.getSaleByLocalId(sale.local_id);
+      if (!saleDetails.sale) {
+        Alert.alert('Error', 'Sale record not found in local database.');
+        return;
+      }
+
+      const printRes = await PrinterService.printSale({
+        sale: saleDetails.sale,
+        items: saleDetails.items,
+        store: localStore,
+        user,
+        organization,
+      });
+
+      if (printRes.success) {
+        Alert.alert('Reprint Success', `Receipt for ${sale.local_invoice_number} printed.`);
+      } else {
+        Alert.alert('Printer Notice', `Bill saved. Printer unavailable (${printRes.error || 'Check printer connection'})`);
+      }
+    } catch (err: any) {
+      Alert.alert('Reprint Error', `Failed to reprint receipt: ${err.message}`);
     }
   };
 
@@ -561,6 +611,12 @@ export const HomeScreen: React.FC = () => {
                           {item.sync_status}
                         </Text>
                       </View>
+                      <TouchableOpacity
+                        style={styles.reprintBtn}
+                        onPress={() => handleReprintSale(item)}
+                      >
+                        <Text style={styles.reprintBtnText}>🖨️ Reprint</Text>
+                      </TouchableOpacity>
                     </View>
                   </View>
                 )}
@@ -1021,6 +1077,21 @@ const styles = StyleSheet.create({
   footerActionText: {
     fontSize: 11,
     fontWeight: '600',
+    color: '#38BDF8',
+  },
+  reprintBtn: {
+    marginTop: 4,
+    backgroundColor: '#1E293B',
+    borderColor: '#38BDF8',
+    borderWidth: 1,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    alignItems: 'center',
+  },
+  reprintBtnText: {
+    fontSize: 10,
+    fontWeight: '700',
     color: '#38BDF8',
   },
 });

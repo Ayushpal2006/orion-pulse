@@ -6,6 +6,7 @@
  */
 
 import { IPrinterDriver, PrinterStatus, ReceiptPayload, PrintResult } from '../types';
+import ReceiptFormatter from '../utils/ReceiptFormatter';
 
 export class MockPrinterDriver implements IPrinterDriver {
   type = 'MOCK' as const;
@@ -41,7 +42,7 @@ export class MockPrinterDriver implements IPrinterDriver {
       };
     }
 
-    const receiptText = this.formatReceiptText(payload);
+    const receiptText = ReceiptFormatter.format58mmText(payload);
     console.log('\n========================================');
     console.log('🖨️ [MOCK THERMAL PRINTER OUTPUT]');
     console.log('========================================');
@@ -57,46 +58,7 @@ export class MockPrinterDriver implements IPrinterDriver {
   }
 
   private formatReceiptText(p: ReceiptPayload): string {
-    const pad = (str: string, len: number, right = false) => {
-      const s = String(str).substring(0, len);
-      return right ? s.padStart(len) : s.padEnd(len);
-    };
-
-    const formatCurrency = (paise: number) => `INR ${(paise / 100).toFixed(2)}`;
-
-    const lines: string[] = [];
-    lines.push(`         ${p.storeName.toUpperCase()}         `);
-    if (p.storeAddress) lines.push(`     ${p.storeAddress}     `);
-    if (p.storePhone) lines.push(`Phone: ${p.storePhone}`);
-    if (p.storeGstin) lines.push(`GSTIN: ${p.storeGstin}`);
-    lines.push('----------------------------------------');
-    lines.push(`Invoice: ${p.invoiceNumber}`);
-    lines.push(`Date:    ${p.date}`);
-    if (p.cashierName) lines.push(`Cashier: ${p.cashierName}`);
-    if (p.customerPhone) lines.push(`Customer: ${p.customerName || ''} (${p.customerPhone})`);
-    lines.push('----------------------------------------');
-    lines.push(`${pad('Item', 20)} ${pad('Qty', 4, true)} ${pad('Price', 6, true)} ${pad('Total', 8, true)}`);
-    lines.push('----------------------------------------');
-
-    for (const item of p.items) {
-      const line = `${pad(item.name, 20)} ${pad(item.quantity.toString(), 4, true)} ${pad((item.unitPrice / 100).toFixed(0), 6, true)} ${pad((item.total / 100).toFixed(2), 8, true)}`;
-      lines.push(line);
-    }
-
-    lines.push('----------------------------------------');
-    lines.push(`${pad('Subtotal:', 28, true)} ${pad(formatCurrency(p.subtotal), 12, true)}`);
-    if (p.discount > 0) {
-      lines.push(`${pad('Discount:', 28, true)} ${pad(`-${formatCurrency(p.discount)}`, 12, true)}`);
-    }
-    lines.push(`${pad('GST (Tax):', 28, true)} ${pad(formatCurrency(p.gst), 12, true)}`);
-    lines.push('========================================');
-    lines.push(`${pad('GRAND TOTAL:', 26, true)} ${pad(formatCurrency(p.grandTotal), 14, true)}`);
-    lines.push('========================================');
-    lines.push(`Payment Mode: ${p.paymentMethod.toUpperCase()}`);
-    lines.push('----------------------------------------');
-    lines.push(`   ${p.footerText || 'Thank you for shopping with us!'}   `);
-
-    return lines.join('\n');
+    return ReceiptFormatter.format58mmText(p);
   }
 }
 

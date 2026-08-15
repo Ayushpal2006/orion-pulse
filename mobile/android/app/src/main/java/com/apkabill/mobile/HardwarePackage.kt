@@ -9,7 +9,10 @@ import com.facebook.react.uimanager.ViewManager
 
 class HardwarePackage : ReactPackage {
     override fun createNativeModules(reactContext: ReactApplicationContext): List<NativeModule> {
-        return listOf(HardwareModule(reactContext))
+        return listOf(
+            HardwareModule(reactContext),
+            PrinterModule(reactContext)
+        )
     }
 
     override fun createViewManagers(reactContext: ReactApplicationContext): List<ViewManager<View, ReactShadowNode<*>>> {
