@@ -1,39 +1,56 @@
-# Native POS Hardware Integration Layer
+# Apka Bill Mobile — Native Hardware Integration Architecture
 
-This directory (`mobile/src/native/`) serves as the modular bridge and abstraction layer between React Native TypeScript and Android native hardware modules / vendor SDKs.
-
-## Purpose
-Apka Bill Mobile is an **Android-first POS system** engineered for high-performance in-store checkout and retail counter operations. In subsequent phases, this layer will directly communicate with Android platform APIs, JNI/NDK, and OEM SDKs.
+This module establishes the native Android hardware integration layer for the Apka Bill POS client.
 
 ---
 
-## Roadmap & Planned Hardware Integrations
+## 1. Architectural Model
 
-### 1. Thermal Printer Integration
-- **Protocols Supported**: ESC/POS (standard receipt syntax), TSPL/CPCL (label printing).
-- **Interfaces**:
-  - **Bluetooth**: Classic Bluetooth (RFCOMM / SPP) & BLE thermal receipt printers.
-  - **USB**: USB OTG / USB Host Mode with Android `UsbManager`.
-  - **Network / LAN**: TCP socket printing (port 9100 / Raw JetDirect) for kitchen and counter printers.
-  - **Built-in POS Printers**: Native SDK integrations for dedicated Android POS terminals (Sunmi V2/V2 Pro/T2, iMin, Pax, Posiflex).
-
-### 2. Barcode & QR Scanner Integration
-- **Hardware Laser Scanners**:
-  - Broadcast Receiver listeners for integrated PDA/POS 1D/2D scanning engines (Honeywell, Zebra EMDK, Newland, Sunmi Scanner SDK).
-  - USB HID / Bluetooth SPP barcode guns with rapid keystroke interception.
-- **Camera Scanning**: High-framerate native camera scanner fallback for smartphones/tablets.
-
-### 3. USB & Serial Connectivity
-- Android USB Host APIs (`android.hardware.usb.*`) for cash drawer triggers, customer-facing displays (VFD/LCD pole displays), and electronic weighing scales.
-
-### 4. Bluetooth Connection Manager
-- Auto-discovery, paired device listing, bond state monitoring, and auto-reconnection loop for dropped Bluetooth printer connections.
-
-### 5. Device-Specific POS SDKs
-- Modular adapters allowing manufacturer SDKs to be plugged in without rewriting core checkout or billing logic.
+```
+┌─────────────────────────────────────────────────────────────┐
+│                 React Native POS UI & Screens               │
+└──────────────────────────────┬──────────────────────────────┘
+                               │
+                               ▼
+┌─────────────────────────────────────────────────────────────┐
+│                 TypeScript Hardware Layer                   │
+│  - HardwareService.ts (Capabilities & Diagnostics)          │
+│  - PrinterService.ts  (Multi-Driver Receipt Dispatcher)     │
+│  - ScannerService.ts  (Barcode Scanner Abstraction)         │
+└──────────────────────────────┬──────────────────────────────┘
+                               │
+                               ▼ React Native Bridge
+┌─────────────────────────────────────────────────────────────┐
+│                 Kotlin Native Android Module                │
+│  - HardwareModule.kt                                        │
+│  - HardwarePackage.kt                                       │
+└──────────────────────────────┬──────────────────────────────┘
+                               │
+                               ▼ Android OS / Vendor APIs
+┌─────────────────────────────────────────────────────────────┐
+│                 Target POS Hardware SDK                     │
+│  - Sunmi / Pax / iMin / Posiflex / Urovo / Telpo SDK        │
+│  - Bluetooth SPP / ESC/POS                                  │
+│  - USB Host / OTG Receipt Printers                          │
+└─────────────────────────────────────────────────────────────┘
+```
 
 ---
 
-## Phase 1 Status
-- **Current State**: Abstraction interfaces and stub wrappers only.
-- **Native Implementation**: Planned for future hardware phase.
+## 2. Hardware Decoupling Rule
+
+> **CRITICAL RULE**: The checkout and billing transaction in SQLite **MUST NEVER** depend on the physical printer status.
+
+1. **Step 1**: Checkout completes atomically in SQLite (`sales`, `sale_items`, `payments`, `inventory_movements`, `sync_queue`).
+2. **Step 2**: The POS screen dispatches an asynchronous `PrinterService.printReceipt()` call.
+3. **Step 3**: If paper runs out, device is busy, or printer is disconnected, the user is notified with a retry prompt, and the sale remains 100% intact and persistent.
+
+---
+
+## 3. Physical Hardware Testing Requirements
+
+To test on physical POS terminals, provide the following vendor resources:
+- **Target Hardware**: e.g., Sunmi V2s, Pax A920, iMin D4, etc.
+- **Vendor SDK Artifacts**: `.aar` or `.jar` library files.
+- **Service AIDL / Intents**: Vendor-provided Android Service interfaces.
+- **Permissions**: Add required USB/Bluetooth/Printer permissions to `AndroidManifest.xml`.

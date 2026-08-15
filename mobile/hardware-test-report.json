@@ -1,0 +1,80 @@
+{
+  "timestamp": "2026-08-15T06:07:09.922Z",
+  "totalTests": 7,
+  "passed": 7,
+  "failed": 0,
+  "allPassed": true,
+  "results": [
+    {
+      "id": 1,
+      "name": "CLI Configuration & Autolinking Cleanliness",
+      "passed": true,
+      "details": {
+        "configExists": true,
+        "resolvedPackage": "react-native-sqlite-storage"
+      }
+    },
+    {
+      "id": 2,
+      "name": "Native Android Kotlin Module & Package Registration",
+      "passed": true,
+      "details": {
+        "moduleFile": "HardwareModule.kt",
+        "packageFile": "HardwarePackage.kt",
+        "registeredIn": "MainApplication.kt"
+      }
+    },
+    {
+      "id": 3,
+      "name": "Hardware Capabilities Diagnostics (Safe Non-Faking)",
+      "passed": true,
+      "details": {
+        "manufacturer": "Google",
+        "model": "sdk_gphone64_arm64",
+        "isPOSHardware": false,
+        "printerStatus": "NOT_DETECTED",
+        "scannerStatus": "NOT_DETECTED"
+      }
+    },
+    {
+      "id": 4,
+      "name": "Thermal Receipt Generation & Itemized ESC/POS Formatting",
+      "passed": true,
+      "details": {
+        "bytesFormatted": 827,
+        "linesCount": 20,
+        "invoice": "INV-2026-0042"
+      }
+    },
+    {
+      "id": 5,
+      "name": "Printer Error Handling (PAPER_OUT & BUSY Simulation)",
+      "passed": true,
+      "details": {
+        "paperOutHandled": true,
+        "busyHandled": true
+      }
+    },
+    {
+      "id": 6,
+      "name": "Transaction Independence (Print Failure Never Cancels Sale)",
+      "passed": true,
+      "details": {
+        "salePersisted": true,
+        "saleInvoice": "INV-OFFLINE-1-20260815-0099",
+        "printReportedError": "PRINTER_PAPER_OUT: Hardware thermal paper roll empty",
+        "databaseIntegrityPreserved": true
+      }
+    },
+    {
+      "id": 7,
+      "name": "Scanner Service Driver Lifecycle & Graceful Fallback",
+      "passed": true,
+      "details": {
+        "isAvailable": false,
+        "status": "NOT_AVAILABLE",
+        "scannerLifecycleVerified": true
+      }
+    }
+  ]
+}

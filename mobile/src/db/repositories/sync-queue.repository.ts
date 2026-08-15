@@ -9,7 +9,7 @@ import { SyncQueueItem } from '../types';
 
 export const SyncQueueRepository = {
   /**
-   * Retrieves pending/retryable sync queue items
+   * Retrieves pending/retryable sync queue items ordered chronologically (FIFO)
    */
   async getPendingQueue(limit = 10): Promise<SyncQueueItem[]> {
     const db = await getDatabase();
@@ -42,7 +42,7 @@ export const SyncQueueRepository = {
   },
 
   /**
-   * Marks a queue item as SYNCED and updates the corresponding local sale record
+   * Marks a queue item as SYNCED and updates the corresponding local sale record atomically
    */
   async markSynced(
     queueId: string,
@@ -99,6 +99,36 @@ export const SyncQueueRepository = {
        SET status = ?, attempts = ?, next_attempt_at = ?, last_error = ?, updated_at = ? 
        WHERE id = ?;`,
       [status, nextAttempts, nextAttemptAt, error, nowIso, queueId]
+    );
+  },
+
+  /**
+   * Resets an item to PENDING on auth error without penalizing retry attempts
+   */
+  async markAuthPaused(queueId: string, reason: string): Promise<void> {
+    const db = await getDatabase();
+    const nowIso = new Date().toISOString();
+
+    await db.executeSql(
+      `UPDATE sync_queue 
+       SET status = 'PENDING', next_attempt_at = ?, last_error = ?, updated_at = ? 
+       WHERE id = ?;`,
+      [nowIso, `Auth Required: ${reason}`, nowIso, queueId]
+    );
+  },
+
+  /**
+   * Manually resets a FAILED item back to PENDING for user-initiated retry
+   */
+  async resetFailed(queueId: string): Promise<void> {
+    const db = await getDatabase();
+    const nowIso = new Date().toISOString();
+
+    await db.executeSql(
+      `UPDATE sync_queue 
+       SET status = 'PENDING', attempts = 0, next_attempt_at = ?, last_error = NULL, updated_at = ? 
+       WHERE id = ?;`,
+      [nowIso, nowIso, queueId]
     );
   },
 

@@ -1,0 +1,89 @@
+{
+  "timestamp": "2026-08-15T05:46:28.745Z",
+  "totalTests": 8,
+  "passed": 8,
+  "failed": 0,
+  "allPassed": true,
+  "benchmarks": {
+    "twentySalesSyncMs": 18.1,
+    "avgSyncPerSaleMs": 0.91
+  },
+  "results": [
+    {
+      "id": 1,
+      "name": "Deterministic Sync State Machine Transitions",
+      "passed": true,
+      "details": {
+        "validTransitions": [
+          "PENDING -> SYNCING -> FAILED -> PENDING"
+        ]
+      }
+    },
+    {
+      "id": 2,
+      "name": "Crash Recovery: Reset Interrupted SYNCING Queue Items",
+      "passed": true,
+      "details": {
+        "recoveredCount": 1,
+        "state": "PENDING",
+        "cleanQueue": true
+      }
+    },
+    {
+      "id": 3,
+      "name": "Idempotency Guarantee (Socket Drop After Server DB Commit)",
+      "passed": true,
+      "details": {
+        "retrySuccess": true,
+        "serverSalesCount": 2,
+        "duplicatesPrevented": true
+      }
+    },
+    {
+      "id": 4,
+      "name": "Authentication Expiration (401) Handling & Safe Pause",
+      "passed": true,
+      "details": {
+        "authPausedSafely": true,
+        "resumedAfterReAuth": true
+      }
+    },
+    {
+      "id": 5,
+      "name": "Permanent Validation Error (400) Rejection & Non-Looping",
+      "passed": true,
+      "details": {
+        "markedFailedPermanently": true,
+        "localSalePreserved": true
+      }
+    },
+    {
+      "id": 6,
+      "name": "20-Sale Stress Ingestion & Total Inventory Reconciliation",
+      "passed": true,
+      "details": {
+        "syncedCount": 20,
+        "durationMs": 18.1,
+        "avgPerSaleMs": 0.91
+      }
+    },
+    {
+      "id": 7,
+      "name": "Repeated Intermittent App Crashes During Sync Execution",
+      "passed": true,
+      "details": {
+        "recoveredAcrossCrashes": true,
+        "finalPendingRemaining": 1
+      }
+    },
+    {
+      "id": 8,
+      "name": "Network Flapping Simulation (ONLINE -> OFFLINE -> ONLINE)",
+      "passed": true,
+      "details": {
+        "networkFlappingHandled": true,
+        "allSyncedAfterRecovery": true
+      }
+    }
+  ]
+}

@@ -1,42 +1,80 @@
 /**
- * Apka Bill Mobile - Native Hardware Module Interfaces
+ * Apka Bill Mobile - Native Hardware Abstraction Types
  */
 
-export type PrinterConnectionType = 'bluetooth' | 'usb' | 'network' | 'internal';
+export interface HardwareCapabilities {
+  manufacturer: string;
+  model: string;
+  device: string;
+  brand: string;
+  sdkVersion: number;
+  isPOSHardware: boolean;
+  hasCamera: boolean;
+  hasUsbHost: boolean;
+  hasBluetooth: boolean;
+  printerStatus: 'READY' | 'NOT_INITIALIZED' | 'NOT_DETECTED' | 'UNSUPPORTED';
+  scannerStatus: 'READY' | 'NOT_INITIALIZED' | 'NOT_DETECTED' | 'UNSUPPORTED';
+}
 
-export interface PrinterDevice {
-  id: string;
+export type PrinterType = 'BUILT_IN' | 'BLUETOOTH' | 'USB' | 'LAN' | 'MOCK';
+
+export type PrinterStatus =
+  | 'READY'
+  | 'NOT_AVAILABLE'
+  | 'NOT_CONNECTED'
+  | 'PAPER_OUT'
+  | 'BUSY'
+  | 'ERROR'
+  | 'UNSUPPORTED';
+
+export interface ReceiptItem {
   name: string;
-  type: PrinterConnectionType;
-  address?: string; // MAC address or IP address
-  isDefault?: boolean;
+  quantity: number;
+  unitPrice: number;
+  total: number;
 }
 
-export interface PrintReceiptPayload {
-  rawText?: string;
-  commands?: string[];
-  cutPaper?: boolean;
-  openDrawer?: boolean;
-  qrCode?: string;
-  barcode?: string;
+export interface ReceiptPayload {
+  storeName: string;
+  storeAddress?: string;
+  storePhone?: string;
+  storeGstin?: string;
+  invoiceNumber: string;
+  date: string;
+  cashierName?: string;
+  customerName?: string;
+  customerPhone?: string;
+  items: ReceiptItem[];
+  subtotal: number;
+  discount: number;
+  gst: number;
+  grandTotal: number;
+  paymentMethod: string;
+  footerText?: string;
 }
 
-export interface IThermalPrinterModule {
-  getAvailablePrinters(): Promise<PrinterDevice[]>;
-  connect(printerId: string): Promise<boolean>;
-  disconnect(): Promise<boolean>;
-  printReceipt(payload: PrintReceiptPayload): Promise<boolean>;
-  getPrinterStatus(): Promise<'connected' | 'disconnected' | 'out_of_paper' | 'cover_open'>;
+export interface PrintResult {
+  success: boolean;
+  status: PrinterStatus;
+  bytesPrinted?: number;
+  formattedText?: string;
+  error?: string;
 }
 
-export interface IBarcodeScannerModule {
-  startListening(onScan: (code: string) => void): () => void;
-  stopListening(): void;
-  isHardwareScannerAvailable(): boolean;
+export interface IPrinterDriver {
+  type: PrinterType;
+  name: string;
+  isAvailable(): Promise<boolean>;
+  getStatus(): Promise<PrinterStatus>;
+  printReceipt(payload: ReceiptPayload): Promise<PrintResult>;
 }
 
-export interface IPosHardwareManager {
-  printer: IThermalPrinterModule;
-  scanner: IBarcodeScannerModule;
-  isReady: boolean;
+export type ScannerStatus = 'IDLE' | 'SCANNING' | 'NOT_AVAILABLE' | 'UNSUPPORTED';
+
+export interface IScannerDriver {
+  name: string;
+  isAvailable(): Promise<boolean>;
+  getStatus(): Promise<ScannerStatus>;
+  startScan(onBarcodeScanned: (barcode: string) => void): Promise<void>;
+  stopScan(): Promise<void>;
 }
