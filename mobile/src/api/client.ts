@@ -1,12 +1,13 @@
 /**
- * Apka Bill Mobile - Minimal API Client Abstraction
+ * Apka Bill Mobile - API Client Abstraction
  *
  * Responsibilities:
  * - Base URL configuration
- * - GET and POST request methods
+ * - HTTP GET, POST, PUT, DELETE request methods
+ * - Automated Authorization: Bearer <token> injection
  * - Configurable timeout handling via AbortController
- * - Unified error handling and response formatting
- * - Health / Connectivity testing
+ * - Error handling for 401, 403, 404, 422, 429, 500, network errors, timeouts
+ * - 401 unauthorized interception hook
  *
  * ARCHITECTURAL RULE:
  * This client communicates strictly with the existing backend REST API.
@@ -31,6 +32,8 @@ export class ApiClientError extends Error {
 export class ApiClient {
   private baseUrl: string;
   private defaultTimeout: number;
+  private authToken: string | null = null;
+  private onUnauthorizedCallback: (() => void) | null = null;
 
   constructor(baseUrl: string = CONFIG.apiBaseUrl, timeoutMs: number = CONFIG.timeoutMs) {
     this.baseUrl = baseUrl.replace(/\/+$/, '');
@@ -45,14 +48,26 @@ export class ApiClient {
     this.baseUrl = url.replace(/\/+$/, '');
   }
 
+  public setAuthToken(token: string | null): void {
+    this.authToken = token;
+  }
+
+  public getAuthToken(): string | null {
+    return this.authToken;
+  }
+
+  public setOnUnauthorized(callback: (() => void) | null): void {
+    this.onUnauthorizedCallback = callback;
+  }
+
   /**
-   * Internal request handler with timeout and error normalization
+   * Internal request handler with timeout, auth token injection, and error normalization
    */
   private async request<T>(
     endpoint: string,
     options: RequestInit & ApiRequestOptions = {}
   ): Promise<ApiResponse<T>> {
-    const { timeoutMs = this.defaultTimeout, params, headers, ...fetchOptions } = options;
+    const { timeoutMs = this.defaultTimeout, params, headers = {}, skipAuth = false, ...fetchOptions } = options;
 
     let cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
 
@@ -74,17 +89,27 @@ export class ApiClient {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
 
+    const requestHeaders: Record<string, string> = {
+      'Content-Type': 'application/json',
+      Accept: 'application/json',
+      'X-Client-Platform': CONFIG.isAndroid ? 'android' : 'ios',
+      'X-Client-Version': CONFIG.appVersion,
+    };
+
+    if (headers && typeof headers === 'object' && !Array.isArray(headers)) {
+      Object.assign(requestHeaders, headers);
+    }
+
+    // Inject Bearer token if present and not explicitly skipped
+    if (this.authToken && !skipAuth && !requestHeaders.Authorization) {
+      requestHeaders.Authorization = `Bearer ${this.authToken}`;
+    }
+
     try {
       const response = await fetch(fullUrl, {
         ...fetchOptions,
+        headers: requestHeaders,
         signal: controller.signal,
-        headers: {
-          'Content-Type': 'application/json',
-          Accept: 'application/json',
-          'X-Client-Platform': CONFIG.isAndroid ? 'android' : 'ios',
-          'X-Client-Version': CONFIG.appVersion,
-          ...headers,
-        },
       });
 
       clearTimeout(timer);
@@ -98,15 +123,26 @@ export class ApiClient {
       }
 
       if (!response.ok) {
+        // Handle 401 Unauthorized
+        if (response.status === 401) {
+          if (this.onUnauthorizedCallback && !skipAuth) {
+            this.onUnauthorizedCallback();
+          }
+        }
+
         const errorMessage =
-          (typeof responseData === 'object' && responseData?.message) ||
+          (typeof responseData === 'object' && (responseData?.error || responseData?.message)) ||
           `HTTP ${response.status}: ${response.statusText}`;
+
         throw new ApiClientError(errorMessage, response.status, responseData);
       }
 
       return {
         success: true,
-        data: responseData,
+        data: (responseData && typeof responseData === 'object' && 'data' in responseData)
+          ? responseData.data
+          : responseData,
+        message: responseData?.message,
         statusCode: response.status,
       };
     } catch (err: any) {
@@ -117,7 +153,7 @@ export class ApiClient {
       if (err instanceof ApiClientError) {
         throw err;
       }
-      throw new ApiClientError(err.message || 'Network request failed', 0, err);
+      throw new ApiClientError(err.message || 'Network unavailable or request failed', 0, err);
     }
   }
 
@@ -141,7 +177,32 @@ export class ApiClient {
   ): Promise<ApiResponse<T>> {
     return this.request<T>(endpoint, {
       method: 'POST',
-      body: body ? JSON.stringify(body) : undefined,
+      body: body !== undefined ? JSON.stringify(body) : undefined,
+      ...options,
+    });
+  }
+
+  /**
+   * HTTP PUT method
+   */
+  public async put<T = any>(
+    endpoint: string,
+    body?: any,
+    options?: ApiRequestOptions
+  ): Promise<ApiResponse<T>> {
+    return this.request<T>(endpoint, {
+      method: 'PUT',
+      body: body !== undefined ? JSON.stringify(body) : undefined,
+      ...options,
+    });
+  }
+
+  /**
+   * HTTP DELETE method
+   */
+  public async delete<T = any>(endpoint: string, options?: ApiRequestOptions): Promise<ApiResponse<T>> {
+    return this.request<T>(endpoint, {
+      method: 'DELETE',
       ...options,
     });
   }

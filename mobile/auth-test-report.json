@@ -1,0 +1,116 @@
+{
+  "timestamp": "2026-08-15T04:46:39.271Z",
+  "apiBase": "http://127.0.0.1:62884",
+  "totalTests": 11,
+  "passed": 11,
+  "failed": 0,
+  "allPassed": true,
+  "results": [
+    {
+      "id": 1,
+      "name": "Invalid Login Handling (401)",
+      "passed": true,
+      "details": {
+        "status": 401,
+        "error": "Invalid email or password"
+      }
+    },
+    {
+      "id": 2,
+      "name": "Missing Credentials Validation (400)",
+      "passed": true,
+      "details": {
+        "status": 400,
+        "error": "Email and password are required"
+      }
+    },
+    {
+      "id": 3,
+      "name": "Super Admin Login (POST /api/auth/login)",
+      "passed": true,
+      "details": {
+        "user": "superadmin@apkabill.com",
+        "role": "super_admin",
+        "hasToken": true
+      }
+    },
+    {
+      "id": 4,
+      "name": "Session Verification (GET /api/auth/me with Bearer Token)",
+      "passed": true,
+      "details": {
+        "userId": "super-admin",
+        "email": "superadmin@apkabill.com",
+        "role": "super_admin"
+      }
+    },
+    {
+      "id": 5,
+      "name": "Unauthenticated Request Protection (401 on Missing Token)",
+      "passed": true,
+      "details": {
+        "status": 401,
+        "error": "Unauthorized: Missing or invalid Authorization header. Please log in again."
+      }
+    },
+    {
+      "id": 6,
+      "name": "Organization Owner Login (POST /api/auth/login)",
+      "passed": true,
+      "details": {
+        "user": "owner@apkabill.com",
+        "role": "owner",
+        "orgName": "Apka Bill Demo Store",
+        "orgId": 1,
+        "storeName": "Main Retail Outlet",
+        "storeId": 1
+      }
+    },
+    {
+      "id": 7,
+      "name": "Owner Current Session Context (/api/auth/me)",
+      "passed": true,
+      "details": {
+        "orgName": "Apka Bill Demo Store",
+        "orgId": 1,
+        "storeName": "Main Retail Outlet",
+        "storeId": 1
+      }
+    },
+    {
+      "id": 8,
+      "name": "Organization Endpoint Verification (/api/organizations/current)",
+      "passed": true,
+      "details": {
+        "orgId": 1,
+        "orgName": "Apka Bill Demo Store"
+      }
+    },
+    {
+      "id": 9,
+      "name": "Store Endpoint Verification (/api/stores/current)",
+      "passed": true,
+      "details": {
+        "storeId": 1,
+        "storeName": "Main Retail Outlet"
+      }
+    },
+    {
+      "id": 10,
+      "name": "Logout Endpoint (POST /api/auth/logout)",
+      "passed": true,
+      "details": {
+        "message": "Logged out successfully"
+      }
+    },
+    {
+      "id": 11,
+      "name": "Tenant Isolation Guarantee (Strict Backend Auth)",
+      "passed": true,
+      "details": {
+        "verifiedOrgId": 1,
+        "verifiedStoreId": 1
+      }
+    }
+  ]
+}

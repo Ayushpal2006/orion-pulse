@@ -5,14 +5,15 @@
  * Prevents hardcoding of production/development URLs in components.
  */
 
-import { Platform } from 'react-native';
-
 declare const process: {
   env: {
     API_BASE_URL?: string;
+    NODE_ENV?: string;
     [key: string]: string | undefined;
   };
 };
+
+declare const __DEV__: boolean | undefined;
 
 export interface AppConfig {
   env: 'development' | 'staging' | 'production';
@@ -24,13 +25,35 @@ export interface AppConfig {
   timeoutMs: number;
 }
 
+const isDevelopment = (): boolean => {
+  if (typeof __DEV__ !== 'undefined') {
+    return __DEV__;
+  }
+  return typeof process !== 'undefined' && process.env?.NODE_ENV !== 'production';
+};
+
+const getPlatformOS = (): string => {
+  try {
+    // Dynamic access for React Native Platform without crashing in Node.js
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const RN = require('react-native');
+    if (RN && RN.Platform && RN.Platform.OS) {
+      return RN.Platform.OS;
+    }
+  } catch {
+    // Fallback if running outside React Native runtime
+  }
+  return 'android';
+};
+
 /**
  * Android Emulator uses 10.0.2.2 to access localhost on the host machine.
  * Physical Android devices on the same Wi-Fi typically use the host machine's LAN IP (e.g. 192.168.x.x).
  * iOS Simulator uses localhost.
  */
 const getDefaultApiBaseUrl = (): string => {
-  if (Platform.OS === 'android') {
+  const os = getPlatformOS();
+  if (os === 'android') {
     // 10.0.2.2 routes to host localhost in Android Emulator
     return 'http://10.0.2.2:3000';
   }
@@ -48,13 +71,16 @@ const getEnvBaseUrl = (): string | undefined => {
   return undefined;
 };
 
+const devMode = isDevelopment();
+const currentOS = getPlatformOS();
+
 export const CONFIG: AppConfig = {
-  env: __DEV__ ? 'development' : 'production',
+  env: devMode ? 'development' : 'production',
   apiBaseUrl: getEnvBaseUrl() || getDefaultApiBaseUrl(),
   appName: 'Apka Bill Mobile',
-  appVersion: '1.0.0-phase1',
-  isAndroid: Platform.OS === 'android',
-  isDev: __DEV__,
+  appVersion: '1.0.0-phase2',
+  isAndroid: currentOS === 'android',
+  isDev: devMode,
   timeoutMs: 10000,
 };
 

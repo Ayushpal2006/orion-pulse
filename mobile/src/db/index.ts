@@ -1,10 +1,8 @@
 /**
- * Apka Bill Mobile - Database Layer Placeholder
- *
- * NOTE: Local SQLite storage is reserved for Phase 2.
- * The mobile client will never connect directly to Neon PostgreSQL.
+ * Apka Bill Mobile - Database Module
  */
 
-export const isDbInitialized = (): boolean => {
-  return false;
-};
+export * from './types';
+export * from './database';
+export * from './migrations';
+export * from './repositories';

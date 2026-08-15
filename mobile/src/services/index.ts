@@ -1,8 +1,7 @@
 /**
- * Apka Bill Mobile - Service Layer Placeholder
- *
- * Future services (AuthService, BillingService, InventoryService, PrintService)
- * will sit here and interface between UI screens, the API Client, and SQLite DB.
+ * Apka Bill Mobile - Services
  */
 
-export const ServicesReady = true;
+export * from './storage.service';
+export * from './auth.service';
+export * from './pos-data.service';

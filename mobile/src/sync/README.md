@@ -1,17 +1,53 @@
-# Background Synchronization Engine (Planned Phase 3)
+# Apka Bill Mobile — Synchronization Layer
 
-## Overview
-Apka Bill Mobile will feature an autonomous background sync engine that reconciles offline local SQLite transactions with the backend REST APIs.
+## 1. Architecture Overview
+```
+┌─────────────────────────────────────────────────────────────┐
+│                 React Native Mobile Application             │
+│  - SyncService (Concurrency Lock, Delta Ingestion)          │
+│  - SyncStateManager (Reactive in-memory + SQLite backing)    │
+│  - HomeScreen / UI (Sync Badges, Progress, Manual Trigger)  │
+└──────────────────────────────┬──────────────────────────────┘
+                               │ HTTP REST (JSON)
+                               │ Authorization: Bearer <JWT>
+                               ▼
+┌─────────────────────────────────────────────────────────────┐
+│                   Existing Express Backend                  │
+│  - GET /api/sync/download?lastSyncTime=<ISO_TIMESTAMP>      │
+│  - GET /api/stores/current                                  │
+│  - GET /api/products                                        │
+│  - GET /api/customers                                       │
+│  - GET /api/settings                                        │
+└──────────────────────────────┬──────────────────────────────┘
+                               │ Drizzle ORM
+                               ▼
+┌─────────────────────────────────────────────────────────────┐
+│                    Neon PostgreSQL Database                 │
+└─────────────────────────────────────────────────────────────┘
+```
 
 ---
 
-## Planned Architecture
-1. **Outbox Pattern**: Offline bills and stock adjustments queued into a persistent local queue.
-2. **Conflict Resolution**: Timestamp and sequence-based resolution between device state and server state.
-3. **Background Worker**: Android `WorkManager` / Headless JS task executing periodic delta syncs.
-4. **Network State Awareness**: Trigger sync on network reconnection (Wi-Fi/Cellular).
+## 2. Synchronization Mechanisms
 
----
+### A. Initial Sync
+- When `lastSyncAt` is empty or `forceFull: true` is requested:
+- Calls `GET /api/sync/download` without `lastSyncTime`.
+- Retrieves all products, customers, store metadata, and settings for the authenticated `store_id`.
+- Performs atomic batch upserts into local SQLite.
+- Records `lastSyncAt = syncTime` in `__sync_state` upon commit.
 
-## Phase 1 Status
-- **Sync implementation**: Not implemented in Phase 1 (foundation stage).
+### B. Incremental Sync
+- When `lastSyncAt` is present:
+- Calls `GET /api/sync/download?lastSyncTime=${lastSyncAt}`.
+- Backend filters records where `updated_at > lastSyncTime`.
+- Mobile client applies delta updates to local SQLite without re-fetching unmodified rows.
+- Advances `lastSyncAt` to the new `serverSyncTime`.
+
+### C. Concurrency Safety
+- `SyncService` maintains an internal lock (`activeSyncPromise`).
+- If a second sync is requested while a sync is in progress, the active promise is returned, preventing parallel race conditions or duplicate writes.
+
+### D. Failure & Offline Tolerance
+- If the network drops or backend is unreachable, existing local SQLite data is **never deleted**.
+- `lastSyncAt` marker is not advanced if the sync fails halfway through.

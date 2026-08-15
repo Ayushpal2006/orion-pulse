@@ -1,9 +1,7 @@
 /**
- * Apka Bill Mobile - Synchronization Engine Placeholder
- *
- * NOTE: Offline sync and SQLite replication are reserved for Phase 3.
+ * Apka Bill Mobile - Sync Module
  */
 
-export const isSyncActive = (): boolean => {
-  return false;
-};
+export * from './syncTypes';
+export * from './syncState';
+export * from './syncService';

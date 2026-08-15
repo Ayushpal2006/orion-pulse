@@ -1,0 +1,144 @@
+{
+  "timestamp": "2026-08-15T04:57:48.206Z",
+  "totalTests": 12,
+  "passed": 12,
+  "failed": 0,
+  "allPassed": true,
+  "performanceBenchmarks": {
+    "dataset100": {
+      "items": 100,
+      "insertTimeMs": 0.28,
+      "searchLatencyMs": 0.043,
+      "matchFound": true
+    },
+    "dataset1000": {
+      "items": 1000,
+      "insertTimeMs": 5.05,
+      "searchLatencyMs": 0.321,
+      "matchFound": true
+    },
+    "dataset10000": {
+      "items": 10000,
+      "insertTimeMs": 382.11,
+      "searchLatencyMs": 2.003,
+      "matchFound": true
+    }
+  },
+  "results": [
+    {
+      "id": 1,
+      "name": "Database Initialization & Pragmas (WAL mode, foreign keys)",
+      "passed": true,
+      "details": {
+        "walEnabled": true,
+        "foreignKeysEnabled": true
+      }
+    },
+    {
+      "id": 2,
+      "name": "Migration 001 Execution & Idempotency",
+      "passed": true,
+      "details": {
+        "appliedMigrations": 1,
+        "lastMigration": "001_initial_schema"
+      }
+    },
+    {
+      "id": 3,
+      "name": "Store Entity Local Persistence (StoreRepository)",
+      "passed": true,
+      "details": {
+        "storeName": "Main Retail Outlet",
+        "code": "STORE-01",
+        "gst": "27AAAAA0000A1Z5"
+      }
+    },
+    {
+      "id": 4,
+      "name": "Product Entity Batch Persistence (ProductRepository)",
+      "passed": true,
+      "details": {
+        "persistedProducts": 3
+      }
+    },
+    {
+      "id": 5,
+      "name": "Customer Entity Batch Persistence (CustomerRepository)",
+      "passed": true,
+      "details": {
+        "persistedCustomers": 2
+      }
+    },
+    {
+      "id": 6,
+      "name": "Offline Barcode & SKU Lookup (Zero Network)",
+      "passed": true,
+      "details": {
+        "barcodeLookup": "8901234567890 -> Basmati Rice 5kg",
+        "skuLookup": "SALT-TATA-1KG -> Tata Salt 1kg"
+      }
+    },
+    {
+      "id": 7,
+      "name": "Offline Partial Text Search (Name/SKU/Barcode)",
+      "passed": true,
+      "details": {
+        "query": "oil",
+        "matchedProduct": "Sunflower Oil 1L",
+        "sku": "OIL-SUN-1L"
+      }
+    },
+    {
+      "id": 8,
+      "name": "Cold Start / App Restart Local Data Preservation",
+      "passed": true,
+      "details": {
+        "retainedProducts": 3,
+        "retainedCustomers": 2,
+        "retainedStore": "Main Retail Outlet"
+      }
+    },
+    {
+      "id": 9,
+      "name": "Data Safety: Empty API Response Does Not Delete Local Data",
+      "passed": true,
+      "details": {
+        "preservedProductCount": 3,
+        "safe": true
+      }
+    },
+    {
+      "id": 10,
+      "name": "Performance Benchmark: 100 Products Ingestion & Search",
+      "passed": true,
+      "details": {
+        "items": 100,
+        "insertTimeMs": 0.28,
+        "searchLatencyMs": 0.043,
+        "matchFound": true
+      }
+    },
+    {
+      "id": 11,
+      "name": "Performance Benchmark: 1,000 Products Ingestion & Search",
+      "passed": true,
+      "details": {
+        "items": 1000,
+        "insertTimeMs": 5.05,
+        "searchLatencyMs": 0.321,
+        "matchFound": true
+      }
+    },
+    {
+      "id": 12,
+      "name": "Performance Benchmark: 10,000 Products Ingestion & Search",
+      "passed": true,
+      "details": {
+        "items": 10000,
+        "insertTimeMs": 382.11,
+        "searchLatencyMs": 2.003,
+        "matchFound": true
+      }
+    }
+  ]
+}
