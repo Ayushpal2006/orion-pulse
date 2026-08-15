@@ -55,6 +55,7 @@ export interface ReceiptPayload {
   footerText?: string;
   qrData?: string;
   paperWidth?: '58mm' | '80mm';
+  formattedText?: string;
 }
 
 export type ReceiptPrintData = ReceiptPayload;

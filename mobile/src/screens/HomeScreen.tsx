@@ -225,7 +225,7 @@ export const HomeScreen: React.FC = () => {
         try {
           const printRes = await PrinterService.printSale({
             sale: checkoutRes.sale,
-            items: checkoutRes.items,
+            items: checkoutRes.items || [],
             store: localStore,
             user,
             organization,

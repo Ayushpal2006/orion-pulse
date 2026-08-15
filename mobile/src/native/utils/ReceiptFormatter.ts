@@ -48,8 +48,8 @@ export class ReceiptFormatter {
         return {
           name: item.product_name,
           quantity: item.quantity,
-          unitPrice: item.unit_price,
-          total: item.total,
+          unitPrice: item.selling_price,
+          total: item.line_total,
         };
       } else {
         // CartItem
@@ -92,7 +92,7 @@ export class ReceiptFormatter {
       items: receiptItems,
       subtotal: sale.subtotal,
       discount: sale.discount,
-      gst: sale.tax_total,
+      gst: sale.gst,
       grandTotal: sale.grand_total,
       paymentMethod: sale.payment_method || 'Cash',
       footerText,
