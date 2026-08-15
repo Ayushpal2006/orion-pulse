@@ -8,11 +8,15 @@
 import { DatabaseExecutor, Migration } from '../types';
 import { migration001 } from './001_initial_schema';
 import { migration002 } from './002_sync_and_settings';
+import { migration003 } from './003_local_billing';
+import { migration004 } from './004_sync_queue';
 
 // List of all migrations in chronological order
 export const MIGRATIONS: Migration[] = [
   migration001,
   migration002,
+  migration003,
+  migration004,
 ];
 
 export async function runMigrations(db: DatabaseExecutor): Promise<number> {

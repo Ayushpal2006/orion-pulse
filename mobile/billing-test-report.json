@@ -1,0 +1,88 @@
+{
+  "timestamp": "2026-08-15T05:27:24.535Z",
+  "totalTests": 7,
+  "passed": 7,
+  "failed": 0,
+  "allPassed": true,
+  "benchmarks": {
+    "singleCheckoutMs": 1.23,
+    "batch10SalesMs": 0.74,
+    "avgCheckoutMs": 0.07
+  },
+  "results": [
+    {
+      "id": 1,
+      "name": "Offline Single Item Checkout (Zero Network)",
+      "passed": true,
+      "details": {
+        "invoiceNumber": "INV-OFFLINE-1-20260815-PU32-0001",
+        "grandTotal": 94500,
+        "syncStatus": "PENDING_SYNC",
+        "durationMs": 1.23
+      }
+    },
+    {
+      "id": 2,
+      "name": "Database Record Integrity & Stock Deduction",
+      "passed": true,
+      "details": {
+        "salesCount": 1,
+        "itemsCount": 1,
+        "paymentsCount": 1,
+        "movementsCount": 1,
+        "newStock": 48
+      }
+    },
+    {
+      "id": 3,
+      "name": "Insufficient Stock Validation & Rejection",
+      "passed": true,
+      "details": {
+        "rejectedGracefully": true,
+        "preservedStock": 2
+      }
+    },
+    {
+      "id": 4,
+      "name": "Atomic Transaction Rollback on Error",
+      "passed": true,
+      "details": {
+        "rolledBackCleanly": true,
+        "salesCountUnchanged": 1,
+        "stockUnchanged": 10
+      }
+    },
+    {
+      "id": 5,
+      "name": "Multi-Item Cart Pricing & GST Calculation",
+      "passed": true,
+      "details": {
+        "subtotal": 108000,
+        "totalGst": 5400,
+        "grandTotal": 113400,
+        "invoice": "INV-OFFLINE-1-20260815-1C9M-0004"
+      }
+    },
+    {
+      "id": 6,
+      "name": "App Restart / Cold-Start Data Persistence",
+      "passed": true,
+      "details": {
+        "persistedSalesCount": 2,
+        "persistedItemsCount": 3,
+        "currentRiceStock": 46
+      }
+    },
+    {
+      "id": 7,
+      "name": "Batch 10 Sequential Offline Sales (Uniqueness & Stock Integrity)",
+      "passed": true,
+      "details": {
+        "totalOfflineSales": 12,
+        "uniqueInvoicesCount": 10,
+        "finalRiceStock": 36,
+        "avgCheckoutLatencyMs": 0.07
+      }
+    }
+  ]
+}

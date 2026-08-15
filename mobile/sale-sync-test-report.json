@@ -1,0 +1,87 @@
+{
+  "timestamp": "2026-08-15T05:27:16.166Z",
+  "totalTests": 7,
+  "passed": 7,
+  "failed": 0,
+  "allPassed": true,
+  "benchmarks": {
+    "singleSaleSyncMs": 15.63,
+    "batch10SyncMs": 9.78,
+    "avgSyncPerSaleMs": 0.98
+  },
+  "results": [
+    {
+      "id": 1,
+      "name": "Atomic Enqueue of Offline Sale in sync_queue",
+      "passed": true,
+      "details": {
+        "saleLocalId": "loc-jfblf83pn-mstxp5zr",
+        "invoiceNumber": "INV-OFFLINE-1-20260815-0001",
+        "queueId": "loc-0b069bdxx-mstxp5zw",
+        "idempotencyKey": "1-loc-jfblf83pn-mstxp5zr"
+      }
+    },
+    {
+      "id": 2,
+      "name": "Idempotent Server Upload & Server Identity Association",
+      "passed": true,
+      "details": {
+        "serverSaleId": 1001,
+        "serverInvoice": "INV-2026-01001",
+        "syncStatus": "SYNCED",
+        "durationMs": 15.63
+      }
+    },
+    {
+      "id": 3,
+      "name": "Duplicate Retry Safety (Network Drop After Server DB Commit)",
+      "passed": true,
+      "details": {
+        "retrySucceeded": true,
+        "serverSalesTotal": 2,
+        "duplicatePrevented": true
+      }
+    },
+    {
+      "id": 4,
+      "name": "Partial Failure & Exponential Backoff Handling",
+      "passed": true,
+      "details": {
+        "temporaryFailuresHandled": 4,
+        "recoveredAfterOutage": 4,
+        "pendingRemaining": 0
+      }
+    },
+    {
+      "id": 5,
+      "name": "App Crash Recovery for Interrupted SYNCING Queue Items",
+      "passed": true,
+      "details": {
+        "recoveredFromCrash": true,
+        "successfullySynced": true
+      }
+    },
+    {
+      "id": 6,
+      "name": "Batch 10 Offline Sales Ingestion & Zero Duplicate Re-Sync",
+      "passed": true,
+      "details": {
+        "batchProcessed": 10,
+        "batchDurationMs": 9.78,
+        "avgPerSaleMs": 0.98,
+        "serverSalesCount": 17,
+        "zeroDuplicatesOnResync": true
+      }
+    },
+    {
+      "id": 7,
+      "name": "Strict Tenant & Store Isolation (Store 2 Cannot Access Store 1)",
+      "passed": true,
+      "details": {
+        "store2ServerSaleId": 1018,
+        "assignedStoreId": 2,
+        "tenantIsolationEnforced": true
+      }
+    }
+  ]
+}

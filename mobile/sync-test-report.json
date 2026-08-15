@@ -1,0 +1,89 @@
+{
+  "timestamp": "2026-08-15T05:27:27.599Z",
+  "totalTests": 8,
+  "passed": 8,
+  "failed": 0,
+  "allPassed": true,
+  "benchmarks": {
+    "initialSyncMs": 20.1,
+    "incrementalSyncMs": 1.91
+  },
+  "results": [
+    {
+      "id": 1,
+      "name": "Initial Full Synchronization",
+      "passed": true,
+      "details": {
+        "durationMs": 20.1,
+        "productsSynced": 2,
+        "customersSynced": 1,
+        "syncMarker": "2026-08-15T05:27:27.527Z"
+      }
+    },
+    {
+      "id": 2,
+      "name": "Idempotent Re-Sync (Zero Duplications)",
+      "passed": true,
+      "details": {
+        "preservedProductCount": 2,
+        "duplicated": false
+      }
+    },
+    {
+      "id": 3,
+      "name": "Incremental Delta Sync on Server Update",
+      "passed": true,
+      "details": {
+        "durationMs": 1.91,
+        "deltaProducts": 1,
+        "newPrice": 49900,
+        "newStock": 45
+      }
+    },
+    {
+      "id": 4,
+      "name": "Incremental Ingestion of New Server Product",
+      "passed": true,
+      "details": {
+        "newProduct": "Organic Honey 500g",
+        "totalLocalProducts": 3
+      }
+    },
+    {
+      "id": 5,
+      "name": "Store Settings Synchronization",
+      "passed": true,
+      "details": {
+        "settingKey": "receipt_header",
+        "settingValue": "Welcome to Apka Bill"
+      }
+    },
+    {
+      "id": 6,
+      "name": "Concurrency Safety (Mutual Exclusion on Parallel Sync Calls)",
+      "passed": true,
+      "details": {
+        "lockedSafely": true
+      }
+    },
+    {
+      "id": 7,
+      "name": "Failure Safety: Network Outage Preserves Local SQLite State",
+      "passed": true,
+      "details": {
+        "preservedRecords": 3,
+        "gracefulErrorHandling": true
+      }
+    },
+    {
+      "id": 8,
+      "name": "Strict Tenant & Store Isolation (No Cross-Tenant Leaks)",
+      "passed": true,
+      "details": {
+        "store2ProductCount": 1,
+        "store2CatalogName": "Delhi Spices Pack",
+        "crossTenantLeakage": false
+      }
+    }
+  ]
+}

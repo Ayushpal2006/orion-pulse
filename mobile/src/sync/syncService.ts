@@ -23,15 +23,30 @@ import {
   LocalStore,
   LocalSetting,
 } from '../db';
+import { SyncWorker, QueueProcessingResult } from './syncWorker';
 
 let activeSyncPromise: Promise<SyncResult> | null = null;
 
 export const SyncService = {
   /**
+   * Processes the offline sales sync queue
+   */
+  async syncSalesQueue(apiClient: ApiClient): Promise<QueueProcessingResult> {
+    return SyncWorker.processSaleQueue(apiClient);
+  },
+
+  /**
    * Triggers full or incremental synchronization
    */
   async syncAll(apiClient: ApiClient, options: SyncOptions = {}): Promise<SyncResult> {
-    // 1. Concurrency Lock: Return active promise if sync is already in progress
+    // 1. Upload pending offline sales first
+    try {
+      await SyncWorker.processSaleQueue(apiClient);
+    } catch (err: any) {
+      console.warn('[SyncService] Sale queue sync error before catalog pull:', err.message);
+    }
+
+    // 2. Concurrency Lock: Return active promise if sync is already in progress
     if (activeSyncPromise) {
       console.log('[SyncService] Sync already in progress, returning active instance.');
       return activeSyncPromise;
@@ -221,11 +236,10 @@ export const SyncService = {
       return result;
     } catch (error: any) {
       const elapsed = Date.now() - startTime;
-      result.success = false;
-      result.durationMs = elapsed;
-      result.error = error.message || 'Synchronization failed';
+      const errMsg: string = (error && typeof error === 'object' && error.message) ? String(error.message) : 'Synchronization failed';
+      result.error = errMsg;
 
-      await syncStateManager.markError(result.error, elapsed);
+      await syncStateManager.markError(errMsg, elapsed);
       console.error('[SyncService] ❌ Sync failed:', error);
 
       // Preserves existing local SQLite data

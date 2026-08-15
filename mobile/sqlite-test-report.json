@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-08-15T04:57:48.206Z",
+  "timestamp": "2026-08-15T05:27:30.181Z",
   "totalTests": 12,
   "passed": 12,
   "failed": 0,
@@ -7,20 +7,20 @@
   "performanceBenchmarks": {
     "dataset100": {
       "items": 100,
-      "insertTimeMs": 0.28,
-      "searchLatencyMs": 0.043,
+      "insertTimeMs": 0.26,
+      "searchLatencyMs": 0.039,
       "matchFound": true
     },
     "dataset1000": {
       "items": 1000,
-      "insertTimeMs": 5.05,
-      "searchLatencyMs": 0.321,
+      "insertTimeMs": 5.22,
+      "searchLatencyMs": 0.32,
       "matchFound": true
     },
     "dataset10000": {
       "items": 10000,
-      "insertTimeMs": 382.11,
-      "searchLatencyMs": 2.003,
+      "insertTimeMs": 369.72,
+      "searchLatencyMs": 1.827,
       "matchFound": true
     }
   },
@@ -113,8 +113,8 @@
       "passed": true,
       "details": {
         "items": 100,
-        "insertTimeMs": 0.28,
-        "searchLatencyMs": 0.043,
+        "insertTimeMs": 0.26,
+        "searchLatencyMs": 0.039,
         "matchFound": true
       }
     },
@@ -124,8 +124,8 @@
       "passed": true,
       "details": {
         "items": 1000,
-        "insertTimeMs": 5.05,
-        "searchLatencyMs": 0.321,
+        "insertTimeMs": 5.22,
+        "searchLatencyMs": 0.32,
         "matchFound": true
       }
     },
@@ -135,8 +135,8 @@
       "passed": true,
       "details": {
         "items": 10000,
-        "insertTimeMs": 382.11,
-        "searchLatencyMs": 2.003,
+        "insertTimeMs": 369.72,
+        "searchLatencyMs": 1.827,
         "matchFound": true
       }
     }

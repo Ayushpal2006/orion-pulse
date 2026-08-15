@@ -1,30 +1,33 @@
 /**
- * Apka Bill Mobile - Authenticated Home & Local SQLite Verification Screen
+ * Apka Bill Mobile - Authenticated POS & Local-First Offline Billing Screen
  *
- * Requirements:
- * - Displays Store Name, Product Count, Customer Count from Local SQLite
- * - Displays searchable list of products read strictly from Local SQLite
- * - Displays "Data source: LOCAL SQLITE" indicator
- * - Downloads catalog from existing REST API into SQLite on demand
- * - Proves offline capability: works instantly when backend / network is unavailable
+ * Phase 6 Capabilities:
+ * - Offline Product Catalog & Instant Search
+ * - Interactive POS Cart (Add, Increase, Decrease, Remove)
+ * - Customer Details & Payment Method Selection (Cash / UPI / Card)
+ * - Real-time Deterministic Calculation (Subtotal, GST, Grand Total)
+ * - Atomic Offline Checkout in SQLite (Sale, Items, Payment, Inventory Movement, Sync Queue)
+ * - Offline Sales History View with Server Association
+ * - Real-time Sync Queue Badge ("ALL BILLS SYNCED" vs "⏳ N BILLS WAITING")
+ * - Manual "Sync Bills" Upload Trigger
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   Platform,
   SafeAreaView,
-  ScrollView,
   StatusBar,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
   View,
-  ActivityIndicator,
   FlatList,
+  ScrollView,
+  Alert,
 } from 'react-native';
 import { useAuth } from '../context/AuthContext';
-import { Card, Button, Badge } from '../components';
+import { Button } from '../components';
 import { CONFIG } from '../config/env';
 import { ApiClient } from '../api/client';
 import {
@@ -32,44 +35,71 @@ import {
   ProductRepository,
   CustomerRepository,
   StoreRepository,
+  SaleRepository,
+  SyncQueueRepository,
   LocalProduct,
   LocalStore,
+  LocalSale,
+  CartItem,
 } from '../db';
-import { PosDataService } from '../services/pos-data.service';
+import { SyncService, syncStateManager, SyncState } from '../sync';
+import { LocalBillingService } from '../services';
 
 export const HomeScreen: React.FC = () => {
-  const { user, organization, store: authStore, logout, refreshUser } = useAuth();
+  const { user, organization, store: authStore, logout } = useAuth();
   const [loggingOut, setLoggingOut] = useState<boolean>(false);
-  const [downloading, setDownloading] = useState<boolean>(false);
   const [dbReady, setDbReady] = useState<boolean>(false);
+
+  // Sync state
+  const [syncState, setSyncState] = useState<SyncState>(syncStateManager.getState());
+  const [pendingBills, setPendingBills] = useState<number>(0);
 
   // Local SQLite state
   const [localStore, setLocalStore] = useState<LocalStore | null>(null);
-  const [productCount, setProductCount] = useState<number>(0);
-  const [customerCount, setCustomerCount] = useState<number>(0);
   const [products, setProducts] = useState<LocalProduct[]>([]);
+  const [offlineSales, setOfflineSales] = useState<LocalSale[]>([]);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [searchLatencyMs, setSearchLatencyMs] = useState<number>(0);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
 
-  // 1. Initialize SQLite Database & Load Local Data
+  // Active View Tab ('pos' | 'history')
+  const [activeTab, setActiveTab] = useState<'pos' | 'history'>('pos');
+
+  // POS Cart State
+  const [cart, setCart] = useState<CartItem[]>([]);
+  const [customerName, setCustomerName] = useState<string>('');
+  const [customerPhone, setCustomerPhone] = useState<string>('');
+  const [paymentMethod, setPaymentMethod] = useState<'Cash' | 'UPI' | 'Card'>('Cash');
+  const [checkingOut, setCheckingOut] = useState<boolean>(false);
+  const [syncingBills, setSyncingBills] = useState<boolean>(false);
+
+  // 1. Subscribe to Sync State
+  useEffect(() => {
+    const unsubscribe = syncStateManager.subscribe((state) => {
+      setSyncState(state);
+    });
+    return unsubscribe;
+  }, []);
+
+  // 2. Initialize SQLite Database & Load Local Data
   const loadLocalData = useCallback(async () => {
     try {
       await initDatabase();
+      await syncStateManager.init();
       setDbReady(true);
 
-      const storeId = authStore?.id || (user?.store_id as number) || undefined;
-      const [cachedStore, pCount, cCount, localProds] = await Promise.all([
+      const storeId = authStore?.id || (user?.store_id as number) || 1;
+      const [cachedStore, localProds, recentSales, pendingCount] = await Promise.all([
         StoreRepository.getStore(storeId),
-        ProductRepository.count(storeId),
-        CustomerRepository.count(storeId),
         ProductRepository.getAll({ storeId, limit: 100 }),
+        SaleRepository.getAllSales(storeId, 20),
+        SyncQueueRepository.countPending(),
       ]);
 
       setLocalStore(cachedStore);
-      setProductCount(pCount);
-      setCustomerCount(cCount);
       setProducts(localProds);
+      setOfflineSales(recentSales);
+      setPendingBills(pendingCount);
     } catch (err: any) {
       console.error('[HomeScreen] Error loading local SQLite data:', err);
       setStatusMessage(`DB Error: ${err.message}`);
@@ -80,13 +110,13 @@ export const HomeScreen: React.FC = () => {
     loadLocalData();
   }, [loadLocalData]);
 
-  // 2. Instant Offline Search from SQLite
+  // 3. Instant Offline Search from SQLite
   const handleSearch = useCallback(
     async (query: string) => {
       setSearchQuery(query);
       const startTime = Date.now();
       try {
-        const storeId = authStore?.id || (user?.store_id as number) || undefined;
+        const storeId = authStore?.id || (user?.store_id as number) || 1;
         const results = await ProductRepository.search(query, storeId, 100);
         const elapsed = Date.now() - startTime;
         setProducts(results);
@@ -98,31 +128,150 @@ export const HomeScreen: React.FC = () => {
     [authStore?.id, user?.store_id]
   );
 
-  // 3. Download Catalog from Existing REST API into SQLite
-  const handleDownloadCatalog = async () => {
-    setDownloading(true);
-    setStatusMessage('Downloading catalog from API...');
-    try {
-      const apiClient = new ApiClient(CONFIG.apiBaseUrl);
-      const storeId = authStore?.id || (user?.store_id as number) || undefined;
-      const syncResult = await PosDataService.downloadCatalog(apiClient, storeId);
+  // 4. Cart Operations
+  const addToCart = (product: LocalProduct) => {
+    if (product.stock <= 0) {
+      Alert.alert('Out of Stock', `"${product.name}" is currently out of stock.`);
+      return;
+    }
 
-      if (syncResult.success) {
-        setStatusMessage(
-          `✅ Ingested ${syncResult.productsDownloaded} products & ${syncResult.customersDownloaded} customers into SQLite.`
+    setCart((prev) => {
+      const existing = prev.find((item) => item.product.id === product.id);
+      if (existing) {
+        if (existing.quantity >= product.stock) {
+          Alert.alert('Stock Limit Reached', `Only ${product.stock} units available.`);
+          return prev;
+        }
+        return prev.map((item) =>
+          item.product.id === product.id
+            ? { ...item, quantity: item.quantity + 1 }
+            : item
         );
+      }
+      return [...prev, { product, quantity: 1 }];
+    });
+  };
+
+  const increaseQuantity = (productId: number) => {
+    setCart((prev) =>
+      prev.map((item) => {
+        if (item.product.id === productId) {
+          if (item.quantity >= item.product.stock) {
+            Alert.alert('Stock Limit', `Cannot exceed available stock (${item.product.stock}).`);
+            return item;
+          }
+          return { ...item, quantity: item.quantity + 1 };
+        }
+        return item;
+      })
+    );
+  };
+
+  const decreaseQuantity = (productId: number) => {
+    setCart((prev) =>
+      prev
+        .map((item) =>
+          item.product.id === productId
+            ? { ...item, quantity: item.quantity - 1 }
+            : item
+        )
+        .filter((item) => item.quantity > 0)
+    );
+  };
+
+  const removeFromCart = (productId: number) => {
+    setCart((prev) => prev.filter((item) => item.product.id !== productId));
+  };
+
+  const clearCart = () => {
+    setCart([]);
+  };
+
+  // 5. Checkout Calculations
+  const totals = LocalBillingService.calculateTotals(cart);
+
+  // 6. Complete Offline Checkout (Creates Sale + Sync Queue Entry Atomically)
+  const handleCheckout = async () => {
+    if (cart.length === 0) {
+      Alert.alert('Cart Empty', 'Please add items to cart before checking out.');
+      return;
+    }
+
+    setCheckingOut(true);
+    const storeId = authStore?.id || (user?.store_id as number) || 1;
+    const orgId = organization?.id || (user?.organization_id as number) || 1;
+
+    try {
+      const checkoutRes = await LocalBillingService.checkout({
+        storeId,
+        organizationId: orgId,
+        items: cart,
+        customerName: customerName.trim() || undefined,
+        customerPhone: customerPhone.trim() || undefined,
+        cashierName: user?.name || 'Cashier',
+        paymentMethod,
+        discount: 0,
+      });
+
+      if (checkoutRes.success && checkoutRes.sale) {
+        setStatusMessage(
+          `✅ Offline Sale Created: ${checkoutRes.sale.local_invoice_number} (₹${(checkoutRes.sale.grand_total / 100).toFixed(2)}) • PENDING SYNC`
+        );
+        clearCart();
+        setCustomerName('');
+        setCustomerPhone('');
         await loadLocalData();
       } else {
-        setStatusMessage(`⚠️ Download warning: ${syncResult.error || 'Partial ingestion'}`);
+        setStatusMessage(`❌ Checkout Failed: ${checkoutRes.error}`);
+        Alert.alert('Checkout Failed', checkoutRes.error || 'Transaction rejected.');
       }
     } catch (err: any) {
-      setStatusMessage(`❌ Download failed: ${err.message}. Using cached SQLite data.`);
+      setStatusMessage(`❌ Error: ${err.message}`);
     } finally {
-      setDownloading(false);
+      setCheckingOut(false);
     }
   };
 
-  // 4. Logout
+  // 7. Upload Offline Bills to Server
+  const handleSyncBills = async () => {
+    setSyncingBills(true);
+    setStatusMessage('Uploading offline sales to server...');
+    try {
+      const apiClient = new ApiClient(CONFIG.apiBaseUrl);
+      const queueRes = await SyncService.syncSalesQueue(apiClient);
+      if (queueRes.succeeded > 0) {
+        setStatusMessage(`✅ Uploaded ${queueRes.succeeded} offline bills to server!`);
+      } else if (queueRes.failed > 0) {
+        setStatusMessage(`⚠️ ${queueRes.failed} bills failed to upload (saved locally for retry).`);
+      } else {
+        setStatusMessage('No offline bills pending sync.');
+      }
+      await loadLocalData();
+    } catch (err: any) {
+      setStatusMessage(`⚠️ Bill upload offline: ${err.message}.`);
+    } finally {
+      setSyncingBills(false);
+    }
+  };
+
+  // 8. Catalog Sync
+  const handleTriggerCatalogSync = async () => {
+    setStatusMessage('Syncing catalog with server...');
+    try {
+      const apiClient = new ApiClient(CONFIG.apiBaseUrl);
+      const storeId = authStore?.id || (user?.store_id as number) || 1;
+      const result = await SyncService.syncAll(apiClient, { storeId });
+      if (result.success) {
+        setStatusMessage(`✅ Synced: ${result.productsCount} prods, ${result.customersCount} custs.`);
+        await loadLocalData();
+      } else {
+        setStatusMessage(`⚠️ Sync Notice: ${result.error}. Using local SQLite.`);
+      }
+    } catch (err: any) {
+      setStatusMessage(`⚠️ Sync offline: ${err.message}. Using local SQLite.`);
+    }
+  };
+
   const handleLogout = async () => {
     setLoggingOut(true);
     try {
@@ -132,32 +281,7 @@ export const HomeScreen: React.FC = () => {
     }
   };
 
-  const renderProductItem = ({ item }: { item: LocalProduct }) => {
-    const formattedPrice =
-      item.selling_price > 1000 && item.selling_price % 100 === 0
-        ? `₹${(item.selling_price / 100).toFixed(2)}`
-        : `₹${item.selling_price}`;
-
-    return (
-      <View style={styles.productCard}>
-        <View style={styles.productMain}>
-          <Text style={styles.productName} numberOfLines={1}>
-            {item.name}
-          </Text>
-          <View style={styles.productMetaRow}>
-            <Text style={styles.productSku}>SKU: {item.sku}</Text>
-            {!!item.barcode && <Text style={styles.productBarcode}>• Barcode: {item.barcode}</Text>}
-          </View>
-        </View>
-        <View style={styles.productRight}>
-          <Text style={styles.productPrice}>{formattedPrice}</Text>
-          <Text style={[styles.productStock, item.stock <= 0 ? styles.stockOut : styles.stockIn]}>
-            {item.stock > 0 ? `${item.stock} in stock` : 'Out of stock'}
-          </Text>
-        </View>
-      </View>
-    );
-  };
+  const formatPrice = (p: number) => `₹${(p / 100).toFixed(2)}`;
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -167,51 +291,57 @@ export const HomeScreen: React.FC = () => {
         <View style={styles.header}>
           <View style={styles.headerTitleRow}>
             <Text style={styles.appTitle}>Apka Bill POS</Text>
-            <View style={styles.sqliteBadge}>
-              <Text style={styles.sqliteBadgeText}>DATA SOURCE: LOCAL SQLITE</Text>
+            <View style={styles.badgeGroup}>
+              {pendingBills > 0 ? (
+                <TouchableOpacity
+                  style={[styles.pendingBillsBadge, { backgroundColor: '#854D0E' }]}
+                  onPress={handleSyncBills}
+                  disabled={syncingBills}
+                >
+                  <Text style={styles.pendingBillsBadgeText}>
+                    {syncingBills ? 'SYNCING...' : `⏳ ${pendingBills} BILLS WAITING`}
+                  </Text>
+                </TouchableOpacity>
+              ) : (
+                <View style={styles.sqliteBadge}>
+                  <Text style={styles.sqliteBadgeText}>ALL BILLS SYNCED</Text>
+                </View>
+              )}
+              <View
+                style={[
+                  styles.syncBadge,
+                  { backgroundColor: syncState.status === 'success' ? '#065F46' : '#854D0E', marginLeft: 6 },
+                ]}
+              >
+                <Text style={styles.syncBadgeText}>
+                  {syncState.status === 'success' ? 'ONLINE' : 'OFFLINE'}
+                </Text>
+              </View>
             </View>
           </View>
           <Text style={styles.appSubtitle}>
-            Store: {localStore?.name || authStore?.name || 'Local Outlet'} • User: {user?.name || 'Cashier'}
+            Store: {localStore?.name || authStore?.name || 'Local Outlet'} • Cashier: {user?.name || 'Cashier'}
           </Text>
         </View>
 
-        {/* Status / Metric Row */}
-        <View style={styles.metricsRow}>
-          <View style={styles.metricCard}>
-            <Text style={styles.metricLabel}>LOCAL PRODUCTS</Text>
-            <Text style={styles.metricValue}>{productCount}</Text>
-          </View>
-          <View style={styles.metricCard}>
-            <Text style={styles.metricLabel}>LOCAL CUSTOMERS</Text>
-            <Text style={styles.metricValue}>{customerCount}</Text>
-          </View>
-          <View style={styles.metricCard}>
-            <Text style={styles.metricLabel}>SQLITE ENGINE</Text>
-            <Text style={[styles.metricValue, { fontSize: 13, color: '#34D399' }]}>
-              {dbReady ? 'WAL ACTIVE' : 'INITIALIZING'}
+        {/* Tab Selector */}
+        <View style={styles.tabBar}>
+          <TouchableOpacity
+            style={[styles.tabButton, activeTab === 'pos' && styles.tabActive]}
+            onPress={() => setActiveTab('pos')}
+          >
+            <Text style={[styles.tabText, activeTab === 'pos' && styles.tabTextActive]}>
+              🛒 POS Terminal ({cart.reduce((a, b) => a + b.quantity, 0)})
             </Text>
-          </View>
-        </View>
-
-        {/* Sync & Action Toolbar */}
-        <View style={styles.toolbar}>
-          <Button
-            title={downloading ? 'Syncing...' : '⬇ Download Catalog'}
-            onPress={handleDownloadCatalog}
-            loading={downloading}
-            disabled={downloading || loggingOut}
-            variant="primary"
-            style={styles.toolButton}
-          />
-          <Button
-            title={loggingOut ? '...' : 'Log Out'}
-            onPress={handleLogout}
-            loading={loggingOut}
-            disabled={loggingOut || downloading}
-            variant="secondary"
-            style={styles.logoutButton}
-          />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.tabButton, activeTab === 'history' && styles.tabActive]}
+            onPress={() => setActiveTab('history')}
+          >
+            <Text style={[styles.tabText, activeTab === 'history' && styles.tabTextActive]}>
+              📋 Offline Sales ({offlineSales.length})
+            </Text>
+          </TouchableOpacity>
         </View>
 
         {/* Status Banner */}
@@ -221,58 +351,238 @@ export const HomeScreen: React.FC = () => {
           </View>
         )}
 
-        {/* Offline Search Bar */}
-        <View style={styles.searchContainer}>
-          <TextInput
-            style={styles.searchInput}
-            placeholder="🔍 Search offline by product name, SKU, or barcode..."
-            placeholderTextColor="#64748B"
-            value={searchQuery}
-            onChangeText={handleSearch}
-            autoCapitalize="none"
-            autoCorrect={false}
-          />
-          {searchLatencyMs > 0 && (
-            <Text style={styles.latencyText}>Query: {searchLatencyMs}ms</Text>
-          )}
-        </View>
+        {activeTab === 'pos' ? (
+          <View style={styles.posLayout}>
+            {/* Left: Product Catalog & Search */}
+            <View style={styles.catalogPanel}>
+              <TextInput
+                style={styles.searchInput}
+                placeholder="🔍 Search products by name, SKU, barcode..."
+                placeholderTextColor="#64748B"
+                value={searchQuery}
+                onChangeText={handleSearch}
+                autoCapitalize="none"
+              />
+              {searchLatencyMs > 0 && (
+                <Text style={styles.latencyText}>Query: {searchLatencyMs}ms</Text>
+              )}
 
-        {/* Product List from Local SQLite */}
-        <View style={styles.listContainer}>
-          <View style={styles.listHeaderRow}>
-            <Text style={styles.listHeaderTitle}>
-              Local Catalog ({products.length} {products.length === 1 ? 'item' : 'items'})
-            </Text>
-            <Text style={styles.listHeaderSub}>Zero Network Required</Text>
-          </View>
-
-          {products.length === 0 ? (
-            <View style={styles.emptyState}>
-              <Text style={styles.emptyTitle}>
-                {searchQuery ? 'No matching products found' : 'No local products cached'}
-              </Text>
-              <Text style={styles.emptySubtitle}>
-                {searchQuery
-                  ? 'Try searching with a different keyword or barcode.'
-                  : 'Tap "Download Catalog" above to sync products from the server into SQLite.'}
-              </Text>
+              <FlatList
+                data={products}
+                keyExtractor={(item) => String(item.id)}
+                renderItem={({ item }) => (
+                  <TouchableOpacity
+                    style={styles.catalogItem}
+                    onPress={() => addToCart(item)}
+                    activeOpacity={0.7}
+                  >
+                    <View style={styles.catalogItemInfo}>
+                      <Text style={styles.catalogItemName} numberOfLines={1}>
+                        {item.name}
+                      </Text>
+                      <Text style={styles.catalogItemSku}>
+                        SKU: {item.sku} • Stock: {item.stock}
+                      </Text>
+                    </View>
+                    <View style={styles.catalogItemRight}>
+                      <Text style={styles.catalogItemPrice}>{formatPrice(item.selling_price)}</Text>
+                      <Text
+                        style={[
+                          styles.stockBadge,
+                          item.stock <= 0 ? styles.stockOut : styles.stockIn,
+                        ]}
+                      >
+                        {item.stock > 0 ? '+ Add' : 'Out'}
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+                )}
+                showsVerticalScrollIndicator={false}
+              />
             </View>
-          ) : (
-            <FlatList
-              data={products}
-              keyExtractor={(item) => String(item.id)}
-              renderItem={renderProductItem}
-              contentContainerStyle={styles.listContent}
-              showsVerticalScrollIndicator={false}
-            />
-          )}
-        </View>
 
-        {/* Footer */}
-        <View style={styles.footer}>
-          <Text style={styles.footerText}>
-            Protected: No direct Neon PostgreSQL access • Client reads strictly from SQLite
-          </Text>
+            {/* Right: Cart & Checkout Drawer */}
+            <View style={styles.cartPanel}>
+              <View style={styles.cartHeader}>
+                <Text style={styles.cartTitle}>Cart ({cart.length})</Text>
+                {cart.length > 0 && (
+                  <TouchableOpacity onPress={clearCart}>
+                    <Text style={styles.clearCartText}>Clear</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+
+              {cart.length === 0 ? (
+                <View style={styles.cartEmpty}>
+                  <Text style={styles.cartEmptyText}>Cart is empty</Text>
+                  <Text style={styles.cartEmptySub}>Tap products on the left to add</Text>
+                </View>
+              ) : (
+                <ScrollView style={styles.cartList} showsVerticalScrollIndicator={false}>
+                  {cart.map((item) => (
+                    <View key={item.product.id} style={styles.cartItem}>
+                      <View style={styles.cartItemInfo}>
+                        <Text style={styles.cartItemName} numberOfLines={1}>
+                          {item.product.name}
+                        </Text>
+                        <Text style={styles.cartItemUnitPrice}>
+                          {formatPrice(item.product.selling_price)} each
+                        </Text>
+                      </View>
+                      <View style={styles.quantityControls}>
+                        <TouchableOpacity
+                          style={styles.qtyBtn}
+                          onPress={() => decreaseQuantity(item.product.id)}
+                        >
+                          <Text style={styles.qtyBtnText}>-</Text>
+                        </TouchableOpacity>
+                        <Text style={styles.qtyText}>{item.quantity}</Text>
+                        <TouchableOpacity
+                          style={styles.qtyBtn}
+                          onPress={() => increaseQuantity(item.product.id)}
+                        >
+                          <Text style={styles.qtyBtnText}>+</Text>
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  ))}
+                </ScrollView>
+              )}
+
+              {/* Customer Inputs */}
+              <View style={styles.customerBox}>
+                <TextInput
+                  style={styles.customerInput}
+                  placeholder="Customer Phone (Optional)"
+                  placeholderTextColor="#64748B"
+                  value={customerPhone}
+                  onChangeText={setCustomerPhone}
+                  keyboardType="phone-pad"
+                />
+              </View>
+
+              {/* Payment Method Selector */}
+              <View style={styles.paymentSelector}>
+                {(['Cash', 'UPI', 'Card'] as const).map((method) => (
+                  <TouchableOpacity
+                    key={method}
+                    style={[
+                      styles.paymentOption,
+                      paymentMethod === method && styles.paymentOptionActive,
+                    ]}
+                    onPress={() => setPaymentMethod(method)}
+                  >
+                    <Text
+                      style={[
+                        styles.paymentText,
+                        paymentMethod === method && styles.paymentTextActive,
+                      ]}
+                    >
+                      {method}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              {/* Order Summary & Totals */}
+              <View style={styles.totalsBox}>
+                <View style={styles.totalRow}>
+                  <Text style={styles.totalLabel}>Subtotal</Text>
+                  <Text style={styles.totalVal}>{formatPrice(totals.subtotal)}</Text>
+                </View>
+                <View style={styles.totalRow}>
+                  <Text style={styles.totalLabel}>GST (Tax)</Text>
+                  <Text style={styles.totalVal}>{formatPrice(totals.totalGst)}</Text>
+                </View>
+                <View style={[styles.totalRow, styles.grandTotalRow]}>
+                  <Text style={styles.grandTotalLabel}>Grand Total</Text>
+                  <Text style={styles.grandTotalVal}>{formatPrice(totals.grandTotal)}</Text>
+                </View>
+              </View>
+
+              {/* Checkout Button */}
+              <Button
+                title={checkingOut ? 'Processing...' : `⚡ Checkout (${formatPrice(totals.grandTotal)})`}
+                onPress={handleCheckout}
+                loading={checkingOut}
+                disabled={checkingOut || cart.length === 0}
+                variant="primary"
+                style={styles.checkoutBtn}
+              />
+            </View>
+          </View>
+        ) : (
+          /* Offline Sales History View */
+          <View style={styles.historyPanel}>
+            <View style={styles.historyHeader}>
+              <Text style={styles.historyTitle}>Locally Persisted Offline Sales</Text>
+              <Text style={styles.historySub}>Saved in SQLite</Text>
+            </View>
+
+            {offlineSales.length === 0 ? (
+              <View style={styles.emptyState}>
+                <Text style={styles.emptyTitle}>No offline sales created yet</Text>
+                <Text style={styles.emptySubtitle}>
+                  Complete a sale in the POS tab to view offline receipts here.
+                </Text>
+              </View>
+            ) : (
+              <FlatList
+                data={offlineSales}
+                keyExtractor={(item) => item.local_id}
+                renderItem={({ item }) => (
+                  <View style={styles.saleCard}>
+                    <View style={styles.saleMain}>
+                      <Text style={styles.saleInvoice}>
+                        {item.invoice_number ? `Server: ${item.invoice_number}` : item.local_invoice_number}
+                      </Text>
+                      <Text style={styles.saleCustomer}>
+                        Customer: {item.customer_name || item.customer_phone || 'Walk-in'} •{' '}
+                        {new Date(item.created_at).toLocaleTimeString()}
+                      </Text>
+                      <Text style={styles.saleMethod}>Payment: {item.payment_method}</Text>
+                    </View>
+                    <View style={styles.saleRight}>
+                      <Text style={styles.saleAmount}>{formatPrice(item.grand_total)}</Text>
+                      <View
+                        style={[
+                          styles.pendingBadge,
+                          {
+                            backgroundColor: item.sync_status === 'SYNCED' ? '#065F46' : '#854D0E',
+                          },
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            styles.pendingBadgeText,
+                            { color: item.sync_status === 'SYNCED' ? '#D1FAE5' : '#FEF08A' },
+                          ]}
+                        >
+                          {item.sync_status}
+                        </Text>
+                      </View>
+                    </View>
+                  </View>
+                )}
+                showsVerticalScrollIndicator={false}
+              />
+            )}
+          </View>
+        )}
+
+        {/* Footer Actions */}
+        <View style={styles.footerToolbar}>
+          <TouchableOpacity style={styles.footerAction} onPress={handleSyncBills}>
+            <Text style={[styles.footerActionText, { color: '#34D399' }]}>
+              📤 Sync Bills ({pendingBills})
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.footerAction} onPress={handleTriggerCatalogSync}>
+            <Text style={styles.footerActionText}>🔄 Sync Catalog</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.footerAction} onPress={handleLogout}>
+            <Text style={[styles.footerActionText, { color: '#F87171' }]}>Log Out</Text>
+          </TouchableOpacity>
         </View>
       </View>
     </SafeAreaView>
@@ -286,189 +596,162 @@ const styles = StyleSheet.create({
   },
   container: {
     flex: 1,
-    padding: 14,
+    padding: 12,
   },
   header: {
-    marginBottom: 12,
+    marginBottom: 8,
   },
   headerTitleRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    flexWrap: 'wrap',
   },
   appTitle: {
-    fontSize: 24,
+    fontSize: 22,
     fontWeight: '800',
     color: '#F8FAFC',
-    letterSpacing: 0.5,
+  },
+  badgeGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   sqliteBadge: {
     backgroundColor: '#065F46',
-    borderColor: '#10B981',
-    borderWidth: 1,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    marginRight: 6,
   },
   sqliteBadgeText: {
-    fontSize: 10,
+    fontSize: 9,
     fontWeight: '800',
     color: '#D1FAE5',
-    letterSpacing: 0.6,
+  },
+  pendingBillsBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 4,
+  },
+  pendingBillsBadgeText: {
+    fontSize: 9,
+    fontWeight: '800',
+    color: '#FEF08A',
+    letterSpacing: 0.5,
+  },
+  syncBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  syncBadgeText: {
+    fontSize: 9,
+    fontWeight: '800',
+    color: '#FEF08A',
   },
   appSubtitle: {
-    fontSize: 13,
+    fontSize: 11,
     color: '#94A3B8',
-    marginTop: 4,
-    fontWeight: '500',
+    marginTop: 2,
   },
-  metricsRow: {
+  tabBar: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 12,
-  },
-  metricCard: {
-    flex: 1,
     backgroundColor: '#1E293B',
     borderRadius: 8,
-    padding: 10,
-    marginHorizontal: 3,
-    borderWidth: 1,
-    borderColor: '#334155',
-    alignItems: 'center',
+    padding: 3,
+    marginBottom: 8,
   },
-  metricLabel: {
-    fontSize: 10,
+  tabButton: {
+    flex: 1,
+    paddingVertical: 8,
+    alignItems: 'center',
+    borderRadius: 6,
+  },
+  tabActive: {
+    backgroundColor: '#3B82F6',
+  },
+  tabText: {
+    fontSize: 12,
     fontWeight: '700',
     color: '#94A3B8',
-    marginBottom: 4,
-    textAlign: 'center',
   },
-  metricValue: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: '#F8FAFC',
-  },
-  toolbar: {
-    flexDirection: 'row',
-    marginBottom: 10,
-  },
-  toolButton: {
-    flex: 3,
-    marginRight: 8,
-    paddingVertical: 10,
-  },
-  logoutButton: {
-    flex: 1,
-    paddingVertical: 10,
+  tabTextActive: {
+    color: '#FFFFFF',
   },
   statusBanner: {
     backgroundColor: '#1E293B',
     borderColor: '#38BDF8',
     borderWidth: 1,
     borderRadius: 6,
-    padding: 8,
-    marginBottom: 10,
+    padding: 6,
+    marginBottom: 8,
   },
   statusBannerText: {
-    fontSize: 12,
+    fontSize: 11,
     color: '#E0F2FE',
     fontWeight: '500',
   },
-  searchContainer: {
-    marginBottom: 10,
+  posLayout: {
+    flex: 1,
+    flexDirection: Platform.OS === 'web' ? 'row' : 'column',
+  },
+  catalogPanel: {
+    flex: 1,
+    backgroundColor: '#1E293B',
+    borderRadius: 8,
+    padding: 8,
+    marginRight: Platform.OS === 'web' ? 8 : 0,
+    marginBottom: Platform.OS === 'web' ? 0 : 8,
   },
   searchInput: {
-    backgroundColor: '#1E293B',
+    backgroundColor: '#0F172A',
+    borderColor: '#334155',
     borderWidth: 1,
-    borderColor: '#475569',
-    borderRadius: 8,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    fontSize: 14,
+    borderRadius: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    fontSize: 13,
     color: '#F8FAFC',
   },
   latencyText: {
-    fontSize: 10,
+    fontSize: 9,
     color: '#64748B',
-    marginTop: 3,
     textAlign: 'right',
+    marginTop: 2,
     fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
   },
-  listContainer: {
-    flex: 1,
-    backgroundColor: '#1E293B',
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#334155',
-    padding: 10,
-  },
-  listHeaderRow: {
+  catalogItem: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
-    paddingBottom: 6,
+    paddingVertical: 8,
     borderBottomWidth: 1,
     borderBottomColor: '#334155',
   },
-  listHeaderTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#F8FAFC',
-  },
-  listHeaderSub: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#34D399',
-  },
-  listContent: {
-    paddingBottom: 8,
-  },
-  productCard: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: '#334155',
-  },
-  productMain: {
+  catalogItemInfo: {
     flex: 1,
-    marginRight: 10,
+    marginRight: 8,
   },
-  productName: {
-    fontSize: 14,
+  catalogItemName: {
+    fontSize: 13,
     fontWeight: '700',
     color: '#F8FAFC',
-    marginBottom: 2,
   },
-  productMetaRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flexWrap: 'wrap',
-  },
-  productSku: {
-    fontSize: 11,
+  catalogItemSku: {
+    fontSize: 10,
     color: '#94A3B8',
+    marginTop: 2,
   },
-  productBarcode: {
-    fontSize: 11,
-    color: '#64748B',
-    marginLeft: 4,
-  },
-  productRight: {
+  catalogItemRight: {
     alignItems: 'flex-end',
   },
-  productPrice: {
-    fontSize: 15,
+  catalogItemPrice: {
+    fontSize: 13,
     fontWeight: '800',
     color: '#38BDF8',
   },
-  productStock: {
-    fontSize: 11,
-    fontWeight: '600',
+  stockBadge: {
+    fontSize: 10,
+    fontWeight: '700',
     marginTop: 2,
   },
   stockIn: {
@@ -477,33 +760,268 @@ const styles = StyleSheet.create({
   stockOut: {
     color: '#F87171',
   },
-  emptyState: {
+  cartPanel: {
     flex: 1,
+    backgroundColor: '#1E293B',
+    borderRadius: 8,
+    padding: 8,
+    justifyContent: 'space-between',
+  },
+  cartHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 6,
+    paddingBottom: 4,
+    borderBottomWidth: 1,
+    borderBottomColor: '#334155',
+  },
+  cartTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#F8FAFC',
+  },
+  clearCartText: {
+    fontSize: 11,
+    color: '#F87171',
+    fontWeight: '600',
+  },
+  cartEmpty: {
+    padding: 16,
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 24,
   },
-  emptyTitle: {
-    fontSize: 15,
+  cartEmptyText: {
+    fontSize: 13,
     fontWeight: '700',
     color: '#94A3B8',
-    marginBottom: 6,
-    textAlign: 'center',
   },
-  emptySubtitle: {
-    fontSize: 12,
+  cartEmptySub: {
+    fontSize: 11,
     color: '#64748B',
-    textAlign: 'center',
-    lineHeight: 18,
+    marginTop: 2,
   },
-  footer: {
-    marginTop: 8,
+  cartList: {
+    maxHeight: 120,
+  },
+  cartItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 4,
+    borderBottomWidth: 1,
+    borderBottomColor: '#334155',
+  },
+  cartItemInfo: {
+    flex: 1,
+  },
+  cartItemName: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#F8FAFC',
+  },
+  cartItemUnitPrice: {
+    fontSize: 10,
+    color: '#94A3B8',
+  },
+  quantityControls: {
+    flexDirection: 'row',
     alignItems: 'center',
   },
-  footerText: {
+  qtyBtn: {
+    backgroundColor: '#334155',
+    width: 24,
+    height: 24,
+    borderRadius: 4,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  qtyBtnText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#F8FAFC',
+  },
+  qtyText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#F8FAFC',
+    marginHorizontal: 8,
+  },
+  customerBox: {
+    marginVertical: 4,
+  },
+  customerInput: {
+    backgroundColor: '#0F172A',
+    borderColor: '#334155',
+    borderWidth: 1,
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    fontSize: 11,
+    color: '#F8FAFC',
+  },
+  paymentSelector: {
+    flexDirection: 'row',
+    marginBottom: 6,
+  },
+  paymentOption: {
+    flex: 1,
+    backgroundColor: '#0F172A',
+    borderColor: '#334155',
+    borderWidth: 1,
+    borderRadius: 6,
+    paddingVertical: 6,
+    alignItems: 'center',
+    marginHorizontal: 2,
+  },
+  paymentOptionActive: {
+    backgroundColor: '#059669',
+    borderColor: '#10B981',
+  },
+  paymentText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#94A3B8',
+  },
+  paymentTextActive: {
+    color: '#F8FAFC',
+  },
+  totalsBox: {
+    backgroundColor: '#0F172A',
+    borderRadius: 6,
+    padding: 6,
+    marginBottom: 6,
+  },
+  totalRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginVertical: 1,
+  },
+  totalLabel: {
+    fontSize: 11,
+    color: '#94A3B8',
+  },
+  totalVal: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#F8FAFC',
+  },
+  grandTotalRow: {
+    borderTopWidth: 1,
+    borderTopColor: '#334155',
+    marginTop: 3,
+    paddingTop: 3,
+  },
+  grandTotalLabel: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#F8FAFC',
+  },
+  grandTotalVal: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#38BDF8',
+  },
+  checkoutBtn: {
+    paddingVertical: 8,
+  },
+  historyPanel: {
+    flex: 1,
+    backgroundColor: '#1E293B',
+    borderRadius: 8,
+    padding: 8,
+  },
+  historyHeader: {
+    marginBottom: 8,
+    paddingBottom: 4,
+    borderBottomWidth: 1,
+    borderBottomColor: '#334155',
+  },
+  historyTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#F8FAFC',
+  },
+  historySub: {
+    fontSize: 11,
+    color: '#34D399',
+    marginTop: 2,
+  },
+  saleCard: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#334155',
+  },
+  saleMain: {
+    flex: 1,
+    marginRight: 8,
+  },
+  saleInvoice: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#F8FAFC',
+  },
+  saleCustomer: {
+    fontSize: 10,
+    color: '#94A3B8',
+    marginTop: 2,
+  },
+  saleMethod: {
     fontSize: 10,
     color: '#64748B',
+  },
+  saleRight: {
+    alignItems: 'flex-end',
+  },
+  saleAmount: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#38BDF8',
+  },
+  pendingBadge: {
+    borderRadius: 4,
+    paddingHorizontal: 5,
+    paddingVertical: 2,
+    marginTop: 2,
+  },
+  pendingBadgeText: {
+    fontSize: 9,
+    fontWeight: '800',
+  },
+  emptyState: {
+    padding: 24,
+    alignItems: 'center',
+  },
+  emptyTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#94A3B8',
+  },
+  emptySubtitle: {
+    fontSize: 11,
+    color: '#64748B',
     textAlign: 'center',
+    marginTop: 4,
+  },
+  footerToolbar: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 6,
+    paddingTop: 4,
+    borderTopWidth: 1,
+    borderTopColor: '#334155',
+  },
+  footerAction: {
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+  },
+  footerActionText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#38BDF8',
   },
 });
 
