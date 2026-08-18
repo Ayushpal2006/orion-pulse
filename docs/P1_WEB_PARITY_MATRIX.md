@@ -1,0 +1,21 @@
+# P1 Web Parity Matrix — Apka Bill POS
+
+| Feature | Web | Mobile | API | SQLite | Offline | Status | Missing Work |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| **Authentication** | Email/Password login, store auto-selection | JWT auth, store scoping via context | `POST /api/auth/login` | SecureStore session | Session caching | ✅ COMPLETE | None |
+| **Tenant Isolation** | Organization & Store headers | Scoped queries by active `store_id` | Dynamic multi-tenant backend | Indexed composite store keys | Fully scoped | ✅ COMPLETE | None |
+| **Catalog & Products** | Grid/List, search, category filter, image resolution | Fast instant search, category chips, image resolution | `GET/POST/PUT /api/products` | `products` table, indexes | Local query | ✅ COMPLETE | Low-stock threshold, archive/restore |
+| **Inventory Adjustments** | Stock adjustments with reasons, audit history | Stock adjustment modal with reasons, outbox sync | `POST /api/inventory/adjust` | `stock_adjustments` table | Instant stock update + Outbox | 🟡 IN PROGRESS | Add `stock_adjustments` table, repository & UI |
+| **POS Billing Register** | Fast tap-to-add, barcode scanner, line % discount, cart discount | Camera barcode, search, line/cart discounts | `POST /api/sales` / `upload` | `sales`, `sale_items` | Atomic local transaction | ✅ COMPLETE | Hold/Draft cart, round-off, sale notes |
+| **Cart Math & GST** | Subtotal, line discount %, cart discount, GST tax | Identical Web `cartTotals` algorithm | N/A | Accurate Paise integer math | 100% Offline | ✅ COMPLETE | None |
+| **Invoice Mutations (Void)** | Void sale with reason & inventory restoration | Void sale with reason & local stock restore | `POST /api/sales/:id/void` | Status updated + Outbox | Offline void + stock restore | ✅ COMPLETE | None |
+| **Bill History & Inspection** | Invoice list, search, item breakdown, reprint | Bill search, status filters, item breakdown | `GET /api/sales` | `sales` local query | Fully offline | ✅ COMPLETE | Date range filter, payment mode filter |
+| **Customers Management** | List, add, edit, phone search, purchase history | Add, quick-add at billing, phone search | `GET/POST/PUT /api/customers` | `customers` table | Offline create & reconcile | 🟡 IN PROGRESS | Customer edit modal & purchase history view |
+| **Purchases & Suppliers** | Supplier list, purchase orders, auto stock increment | Supplier selection, purchase creation, stock update | `GET/POST /api/purchases`, `/suppliers` | `purchases`, `purchase_items`, `suppliers` | Offline purchase creation + Outbox | 🟡 IN PROGRESS | Suppliers table/repo, full purchase modal |
+| **Expenses Management** | Category, amount, date, notes, delete | Expense list, add expense, categories, outbox | `GET/POST/DELETE /api/expenses` | `expenses` table | Offline expense + Outbox | 🟡 IN PROGRESS | Expenses table, repo, hook & screen |
+| **Reports & Analytics** | Today, Yesterday, 7 Days, Month, Custom Range, Category & Mode | Today, Yesterday, 7 Days, Month, Category analytics | Derived local SQLite | Dynamic aggregations | Fully offline | 🟡 IN PROGRESS | Payment mode breakdown & Custom Range |
+| **Dashboard** | Revenue, orders, profit, low stock items, recent sales | Revenue, profit, orders, inventory, low stock | Derived local SQLite | Zero API polling for UI | Instant local load | ✅ COMPLETE | Refresh sync badge |
+| **Settings & Profile** | Store details, GSTIN, UPI ID, receipt template | Store profile, GSTIN, UPI, Receipt header/footer | `GET/PUT /api/settings` | `store_settings` table | Offline settings persist + Outbox | ✅ COMPLETE | None |
+| **Thermal Printer System** | Browser print & ESC/POS | Persistent default printer profile, auto-print | Local ESC/POS & Bluetooth | `printer_profiles` table | Silent default print | ✅ COMPLETE | Edit/delete printer profile UI polish |
+| **WhatsApp & Sharing** | WhatsApp share invoice link | Native `wa.me` share link with item details | N/A | Local template formatting | Generates link offline | ✅ COMPLETE | None |
+| **Sync Engine** | Background WebSocket / REST | Outbox pattern, exponential backoff, delta pull | `/api/sync/download`, `/upload` | `outbox`, `sync_metadata` | True sync state | 🟡 IN PROGRESS | Add exponential backoff & all entity mutations |
