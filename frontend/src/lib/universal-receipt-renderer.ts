@@ -114,26 +114,63 @@ export class EscPosRenderer {
     if (tpl.header.showCashier && model.cashierName) encoder.line(`Cashier: ${model.cashierName}`);
     encoder.line(divider);
 
-    // Items
+    // Items Table
+    const nameWidth = maxLen === 48 ? 24 : 14;
+    const qtyWidth = 4;
+    const priceWidth = maxLen === 48 ? 8 : 6;
+    const totalWidth = 8;
+
+    const padRight = (str: string, len: number) => (str.length > len ? str.substring(0, len) : str.padEnd(len, " "));
+    const padLeft = (str: string, len: number) => (str.length > len ? str.substring(str.length - len) : str.padStart(len, " "));
+
+    encoder.line(
+      padRight("Item", nameWidth) +
+      padLeft("Qty", qtyWidth) +
+      padLeft("Price", priceWidth) +
+      padLeft("Total", totalWidth)
+    );
+    encoder.line(divider);
+
     for (const item of model.items) {
-      const left = item.name.substring(0, maxLen - 15);
-      const right = `${item.qty}x₹${item.price} = ₹${item.total}`;
-      const space = " ".repeat(Math.max(1, maxLen - left.length - right.length));
-      encoder.line(left + space + right);
+      const itemTotalStr = Number(item.total).toFixed(2);
+      const itemPriceStr = Number(item.price).toFixed(0);
+      const itemQtyStr = String(item.qty);
+
+      if (item.name.length <= nameWidth) {
+        encoder.line(
+          padRight(item.name, nameWidth) +
+          padLeft(itemQtyStr, qtyWidth) +
+          padLeft(itemPriceStr, priceWidth) +
+          padLeft(itemTotalStr, totalWidth)
+        );
+      } else {
+        const firstChunk = item.name.substring(0, nameWidth);
+        const restChunk = item.name.substring(nameWidth);
+        encoder.line(
+          padRight(firstChunk, nameWidth) +
+          padLeft(itemQtyStr, qtyWidth) +
+          padLeft(itemPriceStr, priceWidth) +
+          padLeft(itemTotalStr, totalWidth)
+        );
+        encoder.line("  " + restChunk.substring(0, maxLen - 2));
+      }
     }
     encoder.line(divider);
 
     // Totals
-    if (tpl.summary.showSubtotal) encoder.line(`Subtotal: ₹${model.subtotal.toFixed(2)}`);
-    if (tpl.summary.showDiscount && model.discount > 0) encoder.line(`Discount: -₹${model.discount.toFixed(2)}`);
-    if (model.tax > 0) encoder.line(`Tax: ₹${model.tax.toFixed(2)}`);
-    encoder.bold(true).size(1, 2).line(`GRAND TOTAL: ₹${model.grandTotal.toFixed(2)}`).size(1, 1).bold(false);
+    const labelWidth = maxLen - 14;
+    if (tpl.summary.showSubtotal) encoder.line(padRight("Subtotal:", labelWidth) + padLeft(`Rs.${Number(model.subtotal).toFixed(2)}`, 14));
+    if (tpl.summary.showDiscount && model.discount > 0) encoder.line(padRight("Discount:", labelWidth) + padLeft(`-Rs.${Number(model.discount).toFixed(2)}`, 14));
+    if (model.tax > 0) encoder.line(padRight("GST / Tax:", labelWidth) + padLeft(`Rs.${Number(model.tax).toFixed(2)}`, 14));
+    encoder.bold(true).size(1, 2).line(padRight("GRAND TOTAL:", labelWidth) + padLeft(`Rs.${Number(model.grandTotal).toFixed(2)}`, 14)).size(1, 1).bold(false);
     if (tpl.summary.showPaymentMethod) encoder.line(`Payment: ${model.payment.method}`);
     encoder.line(divider);
 
-    // QR & Barcode
+    // QR & Barcode (Size 3 for 58mm / Size 4 for 80mm to guarantee centering without clipping)
+    const qrSize = maxLen === 48 ? 4 : 3;
     if (tpl.footer.showQrCode && options?.showQr !== false && (model.qrCodeUrl || model.invoiceNumber)) {
-      encoder.qrCode(model.qrCodeUrl || `https://apkabill.in/v/${model.invoiceNumber}`, 6);
+      encoder.qrCode(model.qrCodeUrl || `https://apkabill.in/v/${model.invoiceNumber}`, qrSize);
+      encoder.line();
     }
     if (tpl.footer.showBarcode && options?.showBarcode !== false && model.invoiceNumber) {
       encoder.barcode(model.invoiceNumber, "CODE128");

@@ -2,6 +2,7 @@ import { db } from "../db";
 import { products, inventory_movements, inventory_logs } from "../db/schema";
 import { eq, and } from "drizzle-orm";
 import { ValidationError } from "../utils/errors";
+import { getTenantContext } from "../db/context";
 
 export class InventoryMovementService {
   async recordMovement(
@@ -24,11 +25,17 @@ export class InventoryMovementService {
     tx?: any
   ): Promise<{ product: any; movement: any }> {
     const execute = async (dbClient: any) => {
+      const { organizationId } = getTenantContext();
       // 1. Fetch the product with update lock to avoid concurrent race conditions
+      const productConditions = [eq(products.id, dto.productId), eq(products.store_id, dto.storeId)];
+      if (organizationId) {
+        productConditions.push(eq(products.organization_id, organizationId));
+      }
+
       const [product] = await dbClient
         .select()
         .from(products)
-        .where(and(eq(products.id, dto.productId), eq(products.store_id, dto.storeId)))
+        .where(and(...productConditions))
         .for("update");
 
       if (!product) {
@@ -128,6 +135,7 @@ export class InventoryMovementService {
       const [movement] = await dbClient
         .insert(inventory_movements)
         .values({
+          organization_id: product.organization_id || organizationId || 1,
           store_id: dto.storeId,
           movement_type: dto.movementType,
           product_id: dto.productId,
