@@ -61,8 +61,16 @@ export class PrinterService {
     const connType = activeProfile?.connectionType || (typeof receiptInput === "string" ? receiptInput : "browser");
     const adapter = getPrintAdapter(connType);
 
-    const mergedOptions: RenderOptions = {
+    const isSmallPaper = activeProfile?.paperWidth === "58mm" || options?.paperWidth === "58mm";
+    const charsPerLine = activeProfile?.charactersPerLine ?? options?.charsPerLine ?? (isSmallPaper ? 32 : 48);
+    const printableWidthMm = activeProfile?.printableWidthMm ?? (isSmallPaper ? 48 : 72);
+    const printerDpi = activeProfile?.printerDpi ?? 203;
+
+    const mergedOptions: RenderOptions & { profile?: PrinterProfile; charsPerLine?: number; printableWidthMm?: number; printerDpi?: number; bluetoothMac?: string; printerIp?: string; printerPort?: number } = {
       paperWidth: activeProfile?.paperWidth || options?.paperWidth || "80mm",
+      charsPerLine,
+      printableWidthMm,
+      printerDpi,
       showLogo: activeProfile?.showLogo ?? options?.showLogo ?? true,
       showQr: activeProfile?.showQr ?? options?.showQr ?? true,
       showBarcode: activeProfile?.showBarcode ?? options?.showBarcode ?? true,
@@ -71,6 +79,10 @@ export class PrinterService {
       marginBottom: activeProfile?.marginBottom ?? options?.marginBottom ?? 0,
       marginLeft: activeProfile?.marginLeft ?? options?.marginLeft ?? 0,
       marginRight: activeProfile?.marginRight ?? options?.marginRight ?? 0,
+      profile: activeProfile,
+      bluetoothMac: activeProfile?.bluetoothMac,
+      printerIp: activeProfile?.printerIp,
+      printerPort: activeProfile?.printerPort,
       ...options,
     };
 

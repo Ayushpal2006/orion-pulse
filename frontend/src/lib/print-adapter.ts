@@ -220,33 +220,65 @@ export class BluetoothPrinterAdapter implements PrintAdapter {
       }
     }
 
-    // WebBluetooth Fallback
+    // WebBluetooth PWA Transport
     if (typeof navigator === "undefined" || !(navigator as any).bluetooth) {
       toast.dismiss(toastId);
-      throw new Error("WebBluetooth is not supported in this browser. Please run inside the Android POS App.");
+      throw new Error("WebBluetooth is not supported in this browser. Please use Chrome on Android / Desktop with Bluetooth enabled.");
     }
     try {
       const device = await (navigator as any).bluetooth.requestDevice({
         acceptAllDevices: true,
-        optionalServices: ["00001101-0000-1000-8000-00805f9b34fb", "e7810a71-73ae-499d-8c15-faa9aef0c3f2"]
+        optionalServices: [
+          "00001101-0000-1000-8000-00805f9b34fb", // SPP
+          "0000ffe0-0000-1000-8000-00805f9b34fb", // Standard Thermal POS
+          "000018f0-0000-1000-8000-00805f9b34fb", // Mobile POS
+          "49535343-fe7d-4ae5-8fa9-9fafd205e455", // ISSC Transparent UART
+          "e7810a71-73ae-499d-8c15-faa9aef0c3f2",
+          "0000ff00-0000-1000-8000-00805f9b34fb",
+        ],
       });
       const server = await device.gatt.connect();
       const services = await server.getPrimaryServices();
-      if (services.length === 0) throw new Error("No GATT services found on Bluetooth device.");
+      if (!services || services.length === 0) {
+        throw new Error("No GATT services found on Bluetooth printer.");
+      }
 
-      const characteristics = await services[0].getCharacteristics();
-      if (characteristics.length === 0) throw new Error("No writable characteristics found on Bluetooth printer.");
+      // Find first writable characteristic across all primary services
+      let writeChar: any = null;
+      for (const service of services) {
+        try {
+          const chars = await service.getCharacteristics();
+          for (const c of chars) {
+            if (c.properties.write || c.properties.writeWithoutResponse) {
+              writeChar = c;
+              break;
+            }
+          }
+        } catch (e) {
+          // ignore service inspection error and continue to next service
+        }
+        if (writeChar) break;
+      }
+
+      if (!writeChar) {
+        throw new Error("No writable ESC/POS characteristic found on this Bluetooth device.");
+      }
 
       const commands = UniversalReceiptRenderer.toEscPos(model, options);
       
-      const chunkSize = 512;
+      const chunkSize = 128;
       for (let i = 0; i < commands.length; i += chunkSize) {
         const chunk = commands.slice(i, i + chunkSize);
-        await characteristics[0].writeValue(chunk);
+        if (writeChar.writeValueWithoutResponse) {
+          await writeChar.writeValueWithoutResponse(chunk);
+        } else {
+          await writeChar.writeValue(chunk);
+        }
+        await new Promise((resolve) => setTimeout(resolve, 15));
       }
 
       toast.dismiss(toastId);
-      toast.success("Printed successfully via Bluetooth!");
+      toast.success("Printed successfully via Bluetooth ESC/POS!");
     } catch (err: any) {
       toast.dismiss(toastId);
       throw new Error("Bluetooth Printer error: " + (err.message || err));

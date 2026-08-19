@@ -26,7 +26,7 @@ import {
   Building2,
   Layers,
 } from "lucide-react";
-import { printerService, PrinterProfile, DEFAULT_PRINTER_PROFILES, printerProfileService } from "@/lib/printer.service";
+import { printerService, PrinterProfile, DEFAULT_PRINTER_PROFILES, printerProfileService, validatePrinterProfile } from "@/lib/printer.service";
 import { ThermalPrinterBridge, BluetoothDeviceItem } from "@/lib/thermal-printer-plugin";
 import { toast } from "sonner";
 
@@ -98,6 +98,14 @@ export function PrinterSettingsSection({ currentStore, onSaveSuccess }: PrinterS
   }, [activeProfile, activeProfileId, currentStore]);
 
   const handleSavePrinterSettings = async (updatedProfiles: PrinterProfile[], activeId: string) => {
+    for (const prof of updatedProfiles) {
+      const val = validatePrinterProfile(prof);
+      if (!val.valid) {
+        toast.error(`Invalid profile "${prof.name}": ${val.error}`);
+        return;
+      }
+    }
+
     setSaving(true);
     try {
       const ok = await printerProfileService.saveStorePrinterConfig(updatedProfiles, activeId, currentStore?.id);
@@ -148,8 +156,8 @@ export function PrinterSettingsSection({ currentStore, onSaveSuccess }: PrinterS
       id: `prof-${Date.now().toString().slice(-4)}`,
       name: "New Printer Profile",
       isDefault: profiles.length === 0,
-      connectionType: "browser",
-      paperWidth: "80mm",
+      connectionType: "bluetooth",
+      paperWidth: "58mm",
       receiptTemplate: "Classic",
       autoCut: true,
       showLogo: true,
@@ -159,9 +167,9 @@ export function PrinterSettingsSection({ currentStore, onSaveSuccess }: PrinterS
       marginBottom: 0,
       marginLeft: 0,
       marginRight: 0,
-      charactersPerLine: 48,
+      charactersPerLine: 32,
       printerDpi: 203,
-      printableWidthMm: 72,
+      printableWidthMm: 48,
     };
     setEditingProfile(newProf);
     setDialogOpen(true);
@@ -174,6 +182,13 @@ export function PrinterSettingsSection({ currentStore, onSaveSuccess }: PrinterS
 
   const handleSaveProfileFromDialog = () => {
     if (!editingProfile) return;
+
+    const val = validatePrinterProfile(editingProfile);
+    if (!val.valid) {
+      toast.error(`Invalid profile: ${val.error}`);
+      return;
+    }
+
     const exists = profiles.some((p) => p.id === editingProfile.id);
     let updated: PrinterProfile[];
     if (exists) {
@@ -394,17 +409,31 @@ export function PrinterSettingsSection({ currentStore, onSaveSuccess }: PrinterS
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label className="text-xs font-semibold">Paper Width Format</Label>
+                  <Label className="text-xs font-semibold">Paper Roll Width</Label>
                   <Select
                     value={activeProfile.paperWidth}
-                    onValueChange={(val: any) => updateActiveProfileField("paperWidth", val)}
+                    onValueChange={(val: any) => {
+                      const updatedProf = { ...activeProfile, paperWidth: val };
+                      if (val === "58mm") {
+                        updatedProf.printableWidthMm = 48;
+                        updatedProf.charactersPerLine = 32;
+                      } else if (val === "80mm") {
+                        updatedProf.printableWidthMm = 72;
+                        updatedProf.charactersPerLine = 48;
+                      } else if (val === "A4") {
+                        updatedProf.printableWidthMm = 190;
+                        updatedProf.charactersPerLine = 80;
+                      }
+                      const updatedList = profiles.map((p) => (p.id === activeProfile.id ? updatedProf : p));
+                      setProfiles(updatedList);
+                    }}
                   >
                     <SelectTrigger className="rounded-xl bg-background border-border text-xs">
-                      <SelectValue placeholder="Select Paper Width" />
+                      <SelectValue placeholder="Select Paper Roll Width" />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="58mm">58mm (2-inch Compact Thermal Roll)</SelectItem>
-                      <SelectItem value="80mm">80mm (3-inch Standard Thermal Roll - KP307)</SelectItem>
+                      <SelectItem value="80mm">80mm (3-inch Standard Thermal Roll)</SelectItem>
                       <SelectItem value="A4">A4 (Standard Full Sheet Document)</SelectItem>
                     </SelectContent>
                   </Select>
@@ -509,23 +538,14 @@ export function PrinterSettingsSection({ currentStore, onSaveSuccess }: PrinterS
                 </div>
               )}
 
-              {/* Hardware Parameters (KP307 Specs) */}
+              {/* Hardware Parameters */}
               <div className="p-3 rounded-xl bg-muted/40 border border-border grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div className="space-y-1">
-                  <Label className="text-[11px] text-muted-foreground">Chars / Line (KP307=48)</Label>
+                  <Label className="text-[11px] text-muted-foreground">Characters per Line</Label>
                   <Input
                     type="number"
                     value={activeProfile.charactersPerLine || (activeProfile.paperWidth === "58mm" ? 32 : 48)}
                     onChange={(e) => updateActiveProfileField("charactersPerLine", Number(e.target.value))}
-                    className="rounded-xl bg-background border-border text-xs h-8 font-mono"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-[11px] text-muted-foreground">Resolution DPI (KP307=203)</Label>
-                  <Input
-                    type="number"
-                    value={activeProfile.printerDpi || 203}
-                    onChange={(e) => updateActiveProfileField("printerDpi", Number(e.target.value))}
                     className="rounded-xl bg-background border-border text-xs h-8 font-mono"
                   />
                 </div>
@@ -535,6 +555,15 @@ export function PrinterSettingsSection({ currentStore, onSaveSuccess }: PrinterS
                     type="number"
                     value={activeProfile.printableWidthMm || (activeProfile.paperWidth === "58mm" ? 48 : 72)}
                     onChange={(e) => updateActiveProfileField("printableWidthMm", Number(e.target.value))}
+                    className="rounded-xl bg-background border-border text-xs h-8 font-mono"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[11px] text-muted-foreground">Resolution (DPI)</Label>
+                  <Input
+                    type="number"
+                    value={activeProfile.printerDpi || 203}
+                    onChange={(e) => updateActiveProfileField("printerDpi", Number(e.target.value))}
                     className="rounded-xl bg-background border-border text-xs h-8 font-mono"
                   />
                 </div>
@@ -817,20 +846,63 @@ export function PrinterSettingsSection({ currentStore, onSaveSuccess }: PrinterS
                 </div>
 
                 <div className="space-y-1">
-                  <Label className="text-xs font-semibold">Paper Width</Label>
+                  <Label className="text-xs font-semibold">Paper Roll Width</Label>
                   <Select
                     value={editingProfile.paperWidth}
-                    onValueChange={(val: any) => setEditingProfile({ ...editingProfile, paperWidth: val })}
+                    onValueChange={(val: any) => {
+                      const updated = { ...editingProfile, paperWidth: val };
+                      if (val === "58mm") {
+                        updated.printableWidthMm = 48;
+                        updated.charactersPerLine = 32;
+                      } else if (val === "80mm") {
+                        updated.printableWidthMm = 72;
+                        updated.charactersPerLine = 48;
+                      } else if (val === "A4") {
+                        updated.printableWidthMm = 190;
+                        updated.charactersPerLine = 80;
+                      }
+                      setEditingProfile(updated);
+                    }}
                   >
                     <SelectTrigger className="rounded-xl bg-background border-border text-xs">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="58mm">58mm</SelectItem>
-                      <SelectItem value="80mm">80mm (KP307)</SelectItem>
-                      <SelectItem value="A4">A4</SelectItem>
+                      <SelectItem value="58mm">58mm Roll (2-inch)</SelectItem>
+                      <SelectItem value="80mm">80mm Roll (3-inch)</SelectItem>
+                      <SelectItem value="A4">A4 Sheet</SelectItem>
                     </SelectContent>
                   </Select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-2">
+                <div className="space-y-1">
+                  <Label className="text-[10px] text-muted-foreground">Chars / Line</Label>
+                  <Input
+                    type="number"
+                    value={editingProfile.charactersPerLine ?? (editingProfile.paperWidth === "58mm" ? 32 : 48)}
+                    onChange={(e) => setEditingProfile({ ...editingProfile, charactersPerLine: Number(e.target.value) })}
+                    className="rounded-xl bg-background border-border text-xs h-8 font-mono"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[10px] text-muted-foreground">Printable (mm)</Label>
+                  <Input
+                    type="number"
+                    value={editingProfile.printableWidthMm ?? (editingProfile.paperWidth === "58mm" ? 48 : 72)}
+                    onChange={(e) => setEditingProfile({ ...editingProfile, printableWidthMm: Number(e.target.value) })}
+                    className="rounded-xl bg-background border-border text-xs h-8 font-mono"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[10px] text-muted-foreground">DPI</Label>
+                  <Input
+                    type="number"
+                    value={editingProfile.printerDpi ?? 203}
+                    onChange={(e) => setEditingProfile({ ...editingProfile, printerDpi: Number(e.target.value) })}
+                    className="rounded-xl bg-background border-border text-xs h-8 font-mono"
+                  />
                 </div>
               </div>
 

@@ -88,100 +88,157 @@ export class HtmlRenderer {
   }
 }
 
+// Helper functions for character-width deterministic layout
+function wrapText(str: string, width: number): string[] {
+  if (!str) return [];
+  const words = str.trim().split(/\s+/);
+  const lines: string[] = [];
+  let current = "";
+
+  for (const word of words) {
+    if ((current ? current + " " + word : word).length <= width) {
+      current = current ? current + " " + word : word;
+    } else {
+      if (current) lines.push(current);
+      if (word.length > width) {
+        let remaining = word;
+        while (remaining.length > width) {
+          lines.push(remaining.substring(0, width));
+          remaining = remaining.substring(width);
+        }
+        current = remaining;
+      } else {
+        current = word;
+      }
+    }
+  }
+  if (current) lines.push(current);
+  return lines;
+}
+
 // 2. ESC/POS HARDWARE RENDERER
 export class EscPosRenderer {
   static render(model: UniversalReceiptModel, options?: RenderOptions & { templateConfig?: ReceiptTemplateConfig }): Uint8Array {
     const encoder = new EscPosEncoder();
     const tpl = options?.templateConfig || getActiveTemplateConfig();
-    const paperWidth = options?.paperWidth || tpl.paperWidth || "55mm";
+    const paperWidth = options?.paperWidth || tpl.paperWidth || "58mm";
     const isSmallPaper = paperWidth === "55mm" || paperWidth === "58mm" || paperWidth === "2inch";
-    const maxLen = options?.charsPerLine || tpl.charsPerLine || (isSmallPaper ? 32 : paperWidth === "A4" ? 80 : 48);
+    const maxLen = options?.charsPerLine || (isSmallPaper ? 32 : 48);
     const divider = "-".repeat(maxLen);
+
+    const padRight = (str: string, len: number) => (str.length > len ? str.substring(0, len) : str.padEnd(len, " "));
+    const padLeft = (str: string, len: number) => (str.length > len ? str.substring(str.length - len) : str.padStart(len, " "));
 
     if (options?.openDrawer) {
       encoder.openCashDrawer();
     }
 
-    // Header
-    if (tpl.header.showBusinessName) encoder.align("center").bold(true).size(2, 2).line(model.business.name).size(1, 1).bold(false);
-    if (tpl.header.showStoreName && model.store.name) encoder.line(model.store.name);
-    if (tpl.header.showAddress && model.business.address) encoder.line(model.business.address);
-    if (tpl.header.showPhone && model.business.phone) encoder.line(`Ph: ${model.business.phone}`);
-    if (tpl.header.showGstin && model.business.gstin) encoder.line(`GST: ${model.business.gstin}`);
+    // 1. Business Header
+    encoder.align("center");
+    if (model.business.name) {
+      encoder.bold(true).size(2, 2).line(model.business.name).size(1, 1).bold(false);
+    }
+    if (model.store.name && model.store.name !== model.business.name) {
+      encoder.line(model.store.name);
+    }
+    if (model.business.address) {
+      wrapText(model.business.address, maxLen).forEach((l) => encoder.line(l));
+    }
+    if (model.business.phone) {
+      encoder.line(`Ph: ${model.business.phone}`);
+    }
+    if (model.business.gstin) {
+      encoder.line(`GSTIN: ${model.business.gstin}`);
+    }
 
+    // 2. Invoice & Customer Metadata
     encoder.align("left").line(divider);
-    if (tpl.header.showInvoiceNumber) encoder.line(`Inv: ${model.invoiceNumber}  Date: ${model.date}`);
-    if (model.customer?.name) encoder.line(`Customer: ${model.customer.name}`);
-    if (model.customer?.phone) encoder.line(`Phone: ${model.customer.phone}`);
-    if (tpl.header.showCashier && model.cashierName) encoder.line(`Cashier: ${model.cashierName}`);
+    encoder.line(`INV: ${model.invoiceNumber}`);
+    encoder.line(`DATE: ${model.date}`);
+    if (model.time) {
+      encoder.line(`TIME: ${model.time}`);
+    }
+    if (model.customer?.name && model.customer.name.trim() !== "" && model.customer.name !== "undefined" && model.customer.name !== "null") {
+      wrapText(`CUSTOMER: ${model.customer.name}`, maxLen).forEach((l) => encoder.line(l));
+    }
+    if (model.customer?.phone && model.customer.phone.trim() !== "" && model.customer.phone !== "undefined" && model.customer.phone !== "null") {
+      encoder.line(`PHONE: ${model.customer.phone}`);
+    }
+    if (model.cashierName && model.cashierName.trim() !== "" && model.cashierName !== "undefined" && model.cashierName !== "null") {
+      encoder.line(`CASHIER: ${model.cashierName}`);
+    }
     encoder.line(divider);
 
-    // Items Table
-    const nameWidth = maxLen === 48 ? 24 : 14;
-    const qtyWidth = 4;
-    const priceWidth = maxLen === 48 ? 8 : 6;
-    const totalWidth = 8;
-
-    const padRight = (str: string, len: number) => (str.length > len ? str.substring(0, len) : str.padEnd(len, " "));
-    const padLeft = (str: string, len: number) => (str.length > len ? str.substring(str.length - len) : str.padStart(len, " "));
+    // 3. Item Table Header
+    const totalColWidth = 10;
+    const nameColWidth = maxLen - totalColWidth;
 
     encoder.line(
-      padRight("Item", nameWidth) +
-      padLeft("Qty", qtyWidth) +
-      padLeft("Price", priceWidth) +
-      padLeft("Total", totalWidth)
+      padRight("ITEM", nameColWidth) +
+      padLeft("TOTAL", totalColWidth)
     );
     encoder.line(divider);
 
+    // 4. Purchased Items
     for (const item of model.items) {
-      const itemTotalStr = Number(item.total).toFixed(2);
-      const itemPriceStr = Number(item.price).toFixed(0);
-      const itemQtyStr = String(item.qty);
+      const itemTotalStr = `₹${Number(item.total).toFixed(2)}`;
+      const prefix = `${item.qty}x ${item.name}`;
 
-      if (item.name.length <= nameWidth) {
+      if (prefix.length <= nameColWidth) {
         encoder.line(
-          padRight(item.name, nameWidth) +
-          padLeft(itemQtyStr, qtyWidth) +
-          padLeft(itemPriceStr, priceWidth) +
-          padLeft(itemTotalStr, totalWidth)
+          padRight(prefix, nameColWidth) +
+          padLeft(itemTotalStr, totalColWidth)
         );
       } else {
-        const firstChunk = item.name.substring(0, nameWidth);
-        const restChunk = item.name.substring(nameWidth);
+        const itemLines = wrapText(prefix, nameColWidth);
         encoder.line(
-          padRight(firstChunk, nameWidth) +
-          padLeft(itemQtyStr, qtyWidth) +
-          padLeft(itemPriceStr, priceWidth) +
-          padLeft(itemTotalStr, totalWidth)
+          padRight(itemLines[0] || prefix.substring(0, nameColWidth), nameColWidth) +
+          padLeft(itemTotalStr, totalColWidth)
         );
-        encoder.line("  " + restChunk.substring(0, maxLen - 2));
+        for (let i = 1; i < itemLines.length; i++) {
+          encoder.line("   " + itemLines[i]);
+        }
       }
     }
     encoder.line(divider);
 
-    // Totals
-    const labelWidth = maxLen - 14;
-    if (tpl.summary.showSubtotal) encoder.line(padRight("Subtotal:", labelWidth) + padLeft(`Rs.${Number(model.subtotal).toFixed(2)}`, 14));
-    if (tpl.summary.showDiscount && model.discount > 0) encoder.line(padRight("Discount:", labelWidth) + padLeft(`-Rs.${Number(model.discount).toFixed(2)}`, 14));
-    if (model.tax > 0) encoder.line(padRight("GST / Tax:", labelWidth) + padLeft(`Rs.${Number(model.tax).toFixed(2)}`, 14));
-    encoder.bold(true).size(1, 2).line(padRight("GRAND TOTAL:", labelWidth) + padLeft(`Rs.${Number(model.grandTotal).toFixed(2)}`, 14)).size(1, 1).bold(false);
-    if (tpl.summary.showPaymentMethod) encoder.line(`Payment: ${model.payment.method}`);
+    // 5. Totals
+    const labelWidth = maxLen - 12;
+    encoder.line(padRight("Subtotal", labelWidth) + padLeft(`₹${Number(model.subtotal).toFixed(2)}`, 12));
+    encoder.line(padRight("Discount", labelWidth) + padLeft(`-₹${Number(model.discount || 0).toFixed(2)}`, 12));
+    encoder.line(padRight("GST Tax", labelWidth) + padLeft(`₹${Number(model.tax || 0).toFixed(2)}`, 12));
+    encoder.line(divider);
+    encoder.bold(true).line(padRight("GRAND TOTAL", labelWidth) + padLeft(`₹${Number(model.grandTotal).toFixed(2)}`, 12)).bold(false);
     encoder.line(divider);
 
-    // QR & Barcode (Size 3 for 58mm / Size 4 for 80mm to guarantee centering without clipping)
+    // 6. Payment Method
+    const payMethod = model.payment?.method || "Cash";
+    encoder.line(`Paid via ${payMethod}`);
+
+    // 7. Centered QR Code
     const qrSize = maxLen === 48 ? 4 : 3;
-    if (tpl.footer.showQrCode && options?.showQr !== false && (model.qrCodeUrl || model.invoiceNumber)) {
-      encoder.qrCode(model.qrCodeUrl || `https://apkabill.in/v/${model.invoiceNumber}`, qrSize);
+    if (options?.showQr !== false && (model.qrCodeUrl || model.invoiceNumber)) {
       encoder.line();
+      encoder.qrCode(model.qrCodeUrl || `https://apkabill.in/v/${model.invoiceNumber}`, qrSize);
+      encoder.align("center");
+      encoder.line("Scan to Pay via UPI");
+      encoder.line();
+      encoder.align("left");
     }
+
+    // 8. Barcode
     if (tpl.footer.showBarcode && options?.showBarcode !== false && model.invoiceNumber) {
       encoder.barcode(model.invoiceNumber, "CODE128");
     }
 
-    // Footer
-    encoder.align("center").line(tpl.footer.thankYouMessage || model.footerText || "Thank you for shopping with us!");
-    if (tpl.footer.termsText) encoder.line(tpl.footer.termsText);
-    if (tpl.footer.showPoweredBy) encoder.line("Powered by Apka Bill POS");
+    // 9. Footer
+    encoder.align("center");
+    const footerMsg = model.footerText || tpl.footer.thankYouMessage || "Thank you for shopping with us!";
+    wrapText(footerMsg, maxLen).forEach((l) => encoder.line(l));
+    if (tpl.footer.termsText) {
+      wrapText(tpl.footer.termsText, maxLen).forEach((l) => encoder.line(l));
+    }
+    encoder.line("Powered by Apka Bill POS");
     encoder.feed(3);
 
     if (options?.autoCut !== false) {
@@ -202,7 +259,7 @@ export class PdfRenderer {
 // 4. DANTSU FORMATTED TEXT RENDERER FOR NATIVE ANDROID ESC/POS
 export class DantsuFormattedRenderer {
   static render(model: UniversalReceiptModel, options?: RenderOptions): string {
-    const paperWidth = options?.paperWidth || "55mm";
+    const paperWidth = options?.paperWidth || "58mm";
     const isSmallPaper = paperWidth === "55mm" || paperWidth === "58mm" || paperWidth === "2inch";
     const maxLen = options?.charsPerLine || (isSmallPaper ? 32 : 48);
     const divider = "-".repeat(maxLen);
@@ -211,7 +268,7 @@ export class DantsuFormattedRenderer {
 
     // Header
     if (model.business.name) sb.push(`[C]<b><font size='big'>${model.business.name}</font></b>`);
-    if (model.store?.name) sb.push(`[C]${model.store.name}`);
+    if (model.store?.name && model.store.name !== model.business.name) sb.push(`[C]${model.store.name}`);
     if (model.business.address) sb.push(`[C]${model.business.address}`);
     if (model.business.phone) sb.push(`[C]Ph: ${model.business.phone}`);
     if (model.business.gstin) sb.push(`[C]GSTIN: ${model.business.gstin}`);
@@ -219,48 +276,57 @@ export class DantsuFormattedRenderer {
     sb.push(`[C]${divider}`);
 
     // Invoice details
-    sb.push(`[L]Inv: ${model.invoiceNumber}[R]${model.date}`);
-    if (model.customer?.name) sb.push(`[L]Customer: ${model.customer.name}`);
-    if (model.customer?.phone) sb.push(`[L]Phone: ${model.customer.phone}`);
-    if (model.cashierName) sb.push(`[L]Cashier: ${model.cashierName}`);
+    sb.push(`[L]INV: ${model.invoiceNumber}`);
+    sb.push(`[L]DATE: ${model.date}`);
+    if (model.time) sb.push(`[L]TIME: ${model.time}`);
+    if (model.customer?.name && model.customer.name.trim() !== "" && model.customer.name !== "undefined" && model.customer.name !== "null") {
+      sb.push(`[L]CUSTOMER: ${model.customer.name}`);
+    }
+    if (model.customer?.phone && model.customer.phone.trim() !== "" && model.customer.phone !== "undefined" && model.customer.phone !== "null") {
+      sb.push(`[L]PHONE: ${model.customer.phone}`);
+    }
+    if (model.cashierName && model.cashierName.trim() !== "" && model.cashierName !== "undefined" && model.cashierName !== "null") {
+      sb.push(`[L]CASHIER: ${model.cashierName}`);
+    }
 
     sb.push(`[C]${divider}`);
 
     // Table Header
-    sb.push(`[L]Item[R]Amount`);
+    sb.push(`[L]ITEM[R]TOTAL`);
+    sb.push(`[C]${divider}`);
 
     // Items
     for (const item of model.items) {
-      const itemName = item.name.substring(0, Math.floor(maxLen * 0.6));
-      sb.push(`[L]${itemName}`);
-      sb.push(`[L]  ${item.qty} x ₹${item.price.toFixed(2)}[R]₹${item.total.toFixed(2)}`);
+      const itemTotalStr = `₹${Number(item.total).toFixed(2)}`;
+      const prefix = `${item.qty}x ${item.name}`;
+      sb.push(`[L]${prefix}[R]${itemTotalStr}`);
     }
 
     sb.push(`[C]${divider}`);
 
     // Summary
-    sb.push(`[L]Subtotal:[R]₹${model.subtotal.toFixed(2)}`);
-    if (model.discount > 0) sb.push(`[L]Discount:[R]-₹${model.discount.toFixed(2)}`);
-    if (model.tax > 0) sb.push(`[L]Tax:[R]₹${model.tax.toFixed(2)}`);
-
-    sb.push(`[C]--------------------------------`);
-    sb.push(`[L]<b><font size='tall'>TOTAL:</font></b>[R]<b><font size='tall'>₹${model.grandTotal.toFixed(2)}</font></b>`);
-    sb.push(`[C]--------------------------------`);
-
-    if (model.payment?.method) {
-      sb.push(`[L]Payment Method:[R]${model.payment.method}`);
-    }
+    sb.push(`[L]Subtotal[R]₹${Number(model.subtotal).toFixed(2)}`);
+    sb.push(`[L]Discount[R]-₹${Number(model.discount || 0).toFixed(2)}`);
+    sb.push(`[L]GST Tax[R]₹${Number(model.tax || 0).toFixed(2)}`);
 
     sb.push(`[C]${divider}`);
+    sb.push(`[L]<b>GRAND TOTAL</b>[R]<b>₹${Number(model.grandTotal).toFixed(2)}</b>`);
+    sb.push(`[C]${divider}`);
+
+    // Payment Method
+    const payMethod = model.payment?.method || "Cash";
+    sb.push(`[L]Paid via ${payMethod}`);
 
     // QR Code
     if (options?.showQr !== false && (model.qrCodeUrl || model.invoiceNumber)) {
       const qrData = model.qrCodeUrl || `https://apkabill.in/v/${model.invoiceNumber}`;
-      sb.push(`[C]<qrcode size='25'>${qrData}</qrcode>`);
+      const qrSize = maxLen === 48 ? 25 : 20;
+      sb.push(`\n[C]<qrcode size='${qrSize}'>${qrData}</qrcode>`);
+      sb.push(`[C]Scan to Pay via UPI\n`);
     }
 
     // Footer
-    sb.push(`[C]${model.footerText || "Thank you for your business!"}`);
+    sb.push(`[C]${model.footerText || "Thank you for shopping with us!"}`);
     sb.push(`[C]Powered by Apka Bill POS`);
     sb.push(`\n`);
 

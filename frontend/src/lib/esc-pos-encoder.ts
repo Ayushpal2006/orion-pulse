@@ -59,24 +59,28 @@ export class EscPosEncoder {
     return this;
   }
 
-  qrCode(data: string, size: number = 6): this {
+  qrCode(data: string, size: number = 3): this {
+    // 1. Flush line buffer & Align Center
     this.align("center");
     const len = data.length + 3;
     const pL = len % 256;
     const pH = Math.floor(len / 256);
 
-    // 1. Model: Model 2
+    // 2. Model: Model 2
     this.buffer.push(0x1d, 0x28, 0x6b, 0x04, 0x00, 0x31, 0x41, 0x32, 0x00);
-    // 2. Size
+    // 3. Size (Module size: 3 for 58mm / 4 for 80mm)
     this.buffer.push(0x1d, 0x28, 0x6b, 0x03, 0x00, 0x31, 0x43, size);
-    // 3. Error correction level M (48)
+    // 4. Error correction level M (48)
     this.buffer.push(0x1d, 0x28, 0x6b, 0x03, 0x00, 0x31, 0x45, 0x30);
-    // 4. Store data
+    // 5. Store data
     this.buffer.push(0x1d, 0x28, 0x6b, pL, pH, 0x31, 0x50, 0x30);
     const encoder = new TextEncoder();
     this.buffer.push(...Array.from(encoder.encode(data)));
-    // 5. Print QR Code
+    // 6. Print QR Code
     this.buffer.push(0x1d, 0x28, 0x6b, 0x03, 0x00, 0x31, 0x51, 0x30);
+    this.buffer.push(0x0a); // LF to flush QR line buffer
+    // 7. Explicitly restore LEFT alignment
+    this.align("left");
     return this;
   }
 
@@ -93,6 +97,8 @@ export class EscPosEncoder {
       this.buffer.push(...Array.from(encoder.encode(data)));
     }
     this.buffer.push(0x0a);
+    // Explicitly restore LEFT alignment
+    this.align("left");
     return this;
   }
 

@@ -27,6 +27,38 @@ export interface PrinterProfile {
   printableWidthMm?: number;
 }
 
+export function validatePrinterProfile(profile: Partial<PrinterProfile>): { valid: boolean; error?: string } {
+  if (!profile.name || profile.name.trim() === "") {
+    return { valid: false, error: "Profile name is required." };
+  }
+
+  const paperWidthMm = profile.paperWidth === "58mm" ? 58 : profile.paperWidth === "80mm" ? 80 : 210;
+  const printableWidth = profile.printableWidthMm ?? (profile.paperWidth === "58mm" ? 48 : profile.paperWidth === "80mm" ? 72 : 190);
+  const charsPerLine = profile.charactersPerLine ?? (profile.paperWidth === "58mm" ? 32 : profile.paperWidth === "80mm" ? 48 : 80);
+  const dpi = profile.printerDpi ?? 203;
+
+  if (printableWidth <= 0) {
+    return { valid: false, error: "Printable width must be greater than 0 mm." };
+  }
+
+  if (printableWidth > paperWidthMm) {
+    return {
+      valid: false,
+      error: `Printable width (${printableWidth}mm) cannot exceed paper roll width (${paperWidthMm}mm).`,
+    };
+  }
+
+  if (charsPerLine <= 0) {
+    return { valid: false, error: "Characters per line must be greater than 0." };
+  }
+
+  if (dpi <= 0) {
+    return { valid: false, error: "Printer resolution (DPI) must be greater than 0." };
+  }
+
+  return { valid: true };
+}
+
 export const DEFAULT_PRINTER_PROFILES: PrinterProfile[] = [
   {
     id: "prof-counter-01",
@@ -34,6 +66,9 @@ export const DEFAULT_PRINTER_PROFILES: PrinterProfile[] = [
     isDefault: true,
     connectionType: "browser",
     paperWidth: "80mm",
+    printableWidthMm: 72,
+    charactersPerLine: 48,
+    printerDpi: 203,
     receiptTemplate: "Classic",
     autoCut: true,
     showLogo: true,
@@ -50,6 +85,9 @@ export const DEFAULT_PRINTER_PROFILES: PrinterProfile[] = [
     isDefault: false,
     connectionType: "browser",
     paperWidth: "A4",
+    printableWidthMm: 190,
+    charactersPerLine: 80,
+    printerDpi: 300,
     receiptTemplate: "Modern",
     autoCut: false,
     showLogo: true,
@@ -64,8 +102,11 @@ export const DEFAULT_PRINTER_PROFILES: PrinterProfile[] = [
     id: "prof-compact-58",
     name: "Compact 58mm Mini Printer",
     isDefault: false,
-    connectionType: "browser",
+    connectionType: "bluetooth",
     paperWidth: "58mm",
+    printableWidthMm: 48,
+    charactersPerLine: 32,
+    printerDpi: 203,
     receiptTemplate: "Compact",
     autoCut: true,
     showLogo: false,

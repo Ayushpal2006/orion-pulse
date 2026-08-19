@@ -41,3 +41,5 @@ dist-ssr
 .env.*
 !.env.example
 client_secret*.json
+
+/mobile-expo/
