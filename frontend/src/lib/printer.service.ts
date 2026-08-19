@@ -2,10 +2,10 @@ import { UniversalReceiptModel, createCanonicalReceiptModel } from "./receipt-mo
 import { UniversalReceiptRenderer, RenderOptions } from "./universal-receipt-renderer";
 import { getPrintAdapter, PrintAdapter } from "./print-adapter";
 import { toast } from "sonner";
-import { PrinterProfile, DEFAULT_PRINTER_PROFILES, printerProfileService } from "./printer-profile.service";
+import { PrinterProfile, DEFAULT_PRINTER_PROFILES, printerProfileService, validatePrinterProfile } from "./printer-profile.service";
 
 export type { PrinterProfile };
-export { DEFAULT_PRINTER_PROFILES, printerProfileService };
+export { DEFAULT_PRINTER_PROFILES, printerProfileService, validatePrinterProfile };
 
 export interface PrintJob {
   id: string;
