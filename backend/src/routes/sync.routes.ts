@@ -201,7 +201,7 @@ router.get("/download", async (req: Request, res: Response): Promise<void> => {
 
     let downloadCond: any = and(eq(products.organization_id, orgId), eq(products.store_id, storeId));
     let custCond: any = and(eq(customers.organization_id, orgId), eq(customers.store_id, storeId));
-    let settingsCond: any = and(eq(settings.organization_id, orgId), eq(settings.store_id, storeId));
+    let settingsCond: any = eq(settings.store_id, storeId);
 
     if (lastSyncTimeStr) {
       const lastSyncDate = new Date(lastSyncTimeStr);

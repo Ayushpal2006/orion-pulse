@@ -74,6 +74,8 @@ async function runTenantTests() {
         purchase_price: 100,
         selling_price: 250,
         stock: 50,
+        minimum_stock: 5,
+        gst: 18,
       });
     }
   });
@@ -88,6 +90,8 @@ async function runTenantTests() {
         purchase_price: 300,
         selling_price: 800,
         stock: 20,
+        minimum_stock: 5,
+        gst: 18,
       });
     }
   });
