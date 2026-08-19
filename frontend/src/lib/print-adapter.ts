@@ -159,7 +159,7 @@ export class UsbPrinterAdapter implements PrintAdapter {
       if (device.configuration === null) await device.selectConfiguration(1);
       await device.claimInterface(0);
 
-      const commands = UniversalReceiptRenderer.toEscPos(model, options);
+      const commands = await UniversalReceiptRenderer.toEscPosAsync(model, options);
       await device.transferOut(1, commands);
       await device.close();
 
@@ -264,7 +264,7 @@ export class BluetoothPrinterAdapter implements PrintAdapter {
         throw new Error("No writable ESC/POS characteristic found on this Bluetooth device.");
       }
 
-      const commands = UniversalReceiptRenderer.toEscPos(model, options);
+      const commands = await UniversalReceiptRenderer.toEscPosAsync(model, options);
       
       const chunkSize = 128;
       for (let i = 0; i < commands.length; i += chunkSize) {

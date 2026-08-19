@@ -49,6 +49,11 @@ export class ReceiptRenderer {
     return 48; // Default 80mm
   }
 
+  static formatThermalAmount(amount: number, isDiscount: boolean = false): string {
+    const num = Math.abs(Number(amount) || 0).toFixed(2);
+    return isDiscount ? `-Rs ${num}` : `Rs ${num}`;
+  }
+
   static formatLine(left: string, right: string, maxLen: number): string {
     const spaceCount = Math.max(1, maxLen - left.length - right.length);
     return left + " ".repeat(spaceCount) + right;
@@ -75,22 +80,27 @@ export class ReceiptRenderer {
     lines.push(divider);
 
     // Items
-    lines.push(this.formatLine("ITEM", "QTY x PRICE  TOTAL", maxLen));
+    lines.push(this.formatLine("ITEM", "TOTAL", maxLen));
     lines.push(divider);
 
     for (const item of data.items || []) {
-      const qtyPrice = `${item.qty} x ₹${item.price.toFixed(2)}`;
-      const totalStr = `₹${item.total.toFixed(2)}`;
-      lines.push(item.name.substring(0, maxLen));
-      lines.push(this.formatLine(`  ${qtyPrice}`, totalStr, maxLen));
+      const rightCol = this.formatThermalAmount(item.total);
+      const prefix = `${item.qty}x ${item.name}`;
+      if (prefix.length + 1 + rightCol.length <= maxLen) {
+        lines.push(this.formatLine(prefix, rightCol, maxLen));
+      } else {
+        const maxLeft = maxLen - rightCol.length - 1;
+        lines.push(prefix.substring(0, maxLeft) + " " + rightCol);
+        lines.push("  " + prefix.substring(maxLeft));
+      }
     }
 
     lines.push(doubleDivider);
-    lines.push(this.formatLine("Subtotal:", `₹${data.subtotal.toFixed(2)}`, maxLen));
-    if (data.discount > 0) lines.push(this.formatLine("Discount:", `-₹${data.discount.toFixed(2)}`, maxLen));
-    if (data.tax > 0) lines.push(this.formatLine("Tax/GST:", `₹${data.tax.toFixed(2)}`, maxLen));
+    lines.push(this.formatLine("Subtotal:", this.formatThermalAmount(data.subtotal), maxLen));
+    if (data.discount > 0) lines.push(this.formatLine("Discount:", this.formatThermalAmount(data.discount, true), maxLen));
+    if (data.tax > 0) lines.push(this.formatLine("Tax/GST:", this.formatThermalAmount(data.tax), maxLen));
     lines.push(doubleDivider);
-    lines.push(this.formatLine("GRAND TOTAL:", `₹${data.total.toFixed(2)}`, maxLen));
+    lines.push(this.formatLine("GRAND TOTAL:", this.formatThermalAmount(data.total), maxLen));
     lines.push(this.formatLine("Payment Method:", data.paymentMethod || "CASH", maxLen));
     lines.push(divider);
 
@@ -125,18 +135,25 @@ export class ReceiptRenderer {
     encoder.line(divider);
 
     // Items
-    encoder.bold(true).line(this.formatLine("ITEM", "QTY x PRICE  TOTAL", maxLen)).bold(false).line(divider);
+    encoder.bold(true).line(this.formatLine("ITEM", "TOTAL", maxLen)).bold(false).line(divider);
     for (const item of data.items || []) {
-      encoder.line(item.name.substring(0, maxLen));
-      encoder.line(this.formatLine(`  ${item.qty} x ₹${item.price.toFixed(2)}`, `₹${item.total.toFixed(2)}`, maxLen));
+      const rightCol = this.formatThermalAmount(item.total);
+      const prefix = `${item.qty}x ${item.name}`;
+      if (prefix.length + 1 + rightCol.length <= maxLen) {
+        encoder.line(this.formatLine(prefix, rightCol, maxLen));
+      } else {
+        const maxLeft = maxLen - rightCol.length - 1;
+        encoder.line(prefix.substring(0, maxLeft) + " " + rightCol);
+        encoder.line("  " + prefix.substring(maxLeft));
+      }
     }
     encoder.line(divider);
 
     // Totals
-    encoder.line(this.formatLine("Subtotal:", `₹${data.subtotal.toFixed(2)}`, maxLen));
-    if (data.discount > 0) encoder.line(this.formatLine("Discount:", `-₹${data.discount.toFixed(2)}`, maxLen));
-    if (data.tax > 0) encoder.line(this.formatLine("Tax/GST:", `₹${data.tax.toFixed(2)}`, maxLen));
-    encoder.bold(true).size(1, 2).line(this.formatLine("GRAND TOTAL:", `₹${data.total.toFixed(2)}`, maxLen)).size(1, 1).bold(false);
+    encoder.line(this.formatLine("Subtotal:", this.formatThermalAmount(data.subtotal), maxLen));
+    if (data.discount > 0) encoder.line(this.formatLine("Discount:", this.formatThermalAmount(data.discount, true), maxLen));
+    if (data.tax > 0) encoder.line(this.formatLine("Tax/GST:", this.formatThermalAmount(data.tax), maxLen));
+    encoder.bold(true).size(1, 2).line(this.formatLine("GRAND TOTAL:", this.formatThermalAmount(data.total), maxLen)).size(1, 1).bold(false);
     encoder.line(this.formatLine("Payment:", data.paymentMethod || "CASH", maxLen));
     encoder.line(divider);
 

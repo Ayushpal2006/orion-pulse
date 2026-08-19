@@ -102,6 +102,52 @@ export class EscPosEncoder {
     return this;
   }
 
+  rasterImage(pixelData: Uint8ClampedArray | Uint8Array | number[], width: number, height: number): this {
+    // Width in dots must be a multiple of 8
+    const widthBytes = Math.ceil(width / 8);
+    const xL = widthBytes % 256;
+    const xH = Math.floor(widthBytes / 256);
+    const yL = height % 256;
+    const yH = Math.floor(height / 256);
+
+    this.align("center");
+    // GS v 0 0 xL xH yL yH
+    this.buffer.push(0x1d, 0x76, 0x30, 0x00, xL, xH, yL, yH);
+
+    if (pixelData.length === widthBytes * height) {
+      for (let i = 0; i < pixelData.length; i++) {
+        this.buffer.push(pixelData[i]);
+      }
+    } else {
+      // RGBA format: 4 bytes per pixel
+      for (let y = 0; y < height; y++) {
+        for (let b = 0; b < widthBytes; b++) {
+          let byteVal = 0;
+          for (let bit = 0; bit < 8; bit++) {
+            const x = b * 8 + bit;
+            if (x < width) {
+              const idx = (y * width + x) * 4;
+              const r = pixelData[idx];
+              const g = pixelData[idx + 1];
+              const b_ = pixelData[idx + 2];
+              const a = pixelData[idx + 3];
+              // Dark pixels with sufficient alpha become black dot (1)
+              const luminance = 0.299 * r + 0.587 * g + 0.114 * b_;
+              if (a > 128 && luminance < 160) {
+                byteVal |= (1 << (7 - bit));
+              }
+            }
+          }
+          this.buffer.push(byteVal);
+        }
+      }
+    }
+
+    this.buffer.push(0x0a);
+    this.align("left");
+    return this;
+  }
+
   encode(): Uint8Array {
     return new Uint8Array(this.buffer);
   }

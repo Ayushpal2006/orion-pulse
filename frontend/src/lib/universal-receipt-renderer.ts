@@ -89,7 +89,12 @@ export class HtmlRenderer {
 }
 
 // Helper functions for character-width deterministic layout
-function wrapText(str: string, width: number): string[] {
+export function formatThermalCurrency(amount: number, isDiscount: boolean = false): string {
+  const num = Math.abs(Number(amount) || 0).toFixed(2);
+  return isDiscount ? `-Rs ${num}` : `Rs ${num}`;
+}
+
+export function wrapText(str: string, width: number): string[] {
   if (!str) return [];
   const words = str.trim().split(/\s+/);
   const lines: string[] = [];
@@ -116,9 +121,76 @@ function wrapText(str: string, width: number): string[] {
   return lines;
 }
 
+export async function loadThermalLogoMonochrome(
+  imageUrl?: string,
+  maxWidthDots: number = 384,
+  maxHeightDots: number = 140
+): Promise<{ data: Uint8ClampedArray; width: number; height: number } | null> {
+  if (!imageUrl || typeof window === "undefined" || typeof document === "undefined") {
+    return null;
+  }
+
+  return new Promise((resolve) => {
+    try {
+      const img = new Image();
+      img.crossOrigin = "Anonymous";
+      img.onload = () => {
+        try {
+          let width = img.naturalWidth || img.width;
+          let height = img.naturalHeight || img.height;
+
+          if (width > maxWidthDots || height > maxHeightDots) {
+            const ratio = Math.min(maxWidthDots / width, maxHeightDots / height);
+            width = Math.round(width * ratio);
+            height = Math.round(height * ratio);
+          }
+
+          // Align width to multiple of 8
+          width = Math.max(8, Math.floor(width / 8) * 8);
+          if (width <= 0 || height <= 0) {
+            resolve(null);
+            return;
+          }
+
+          const canvas = document.createElement("canvas");
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext("2d");
+          if (!ctx) {
+            resolve(null);
+            return;
+          }
+
+          // Fill white background
+          ctx.fillStyle = "#ffffff";
+          ctx.fillRect(0, 0, width, height);
+          ctx.drawImage(img, 0, 0, width, height);
+
+          const imgData = ctx.getImageData(0, 0, width, height);
+          resolve({ data: imgData.data, width, height });
+        } catch {
+          resolve(null);
+        }
+      };
+      img.onerror = () => {
+        resolve(null);
+      };
+      img.src = imageUrl;
+    } catch {
+      resolve(null);
+    }
+  });
+}
+
 // 2. ESC/POS HARDWARE RENDERER
 export class EscPosRenderer {
-  static render(model: UniversalReceiptModel, options?: RenderOptions & { templateConfig?: ReceiptTemplateConfig }): Uint8Array {
+  static render(
+    model: UniversalReceiptModel,
+    options?: RenderOptions & {
+      templateConfig?: ReceiptTemplateConfig;
+      logoBitmap?: { data: Uint8ClampedArray | Uint8Array; width: number; height: number } | null;
+    }
+  ): Uint8Array {
     const encoder = new EscPosEncoder();
     const tpl = options?.templateConfig || getActiveTemplateConfig();
     const paperWidth = options?.paperWidth || tpl.paperWidth || "58mm";
@@ -133,12 +205,19 @@ export class EscPosRenderer {
       encoder.openCashDrawer();
     }
 
-    // 1. Business Header
+    // 1. Centered Shop Logo (if available)
+    encoder.align("center");
+    if (options?.showLogo !== false && options?.logoBitmap) {
+      encoder.rasterImage(options.logoBitmap.data, options.logoBitmap.width, options.logoBitmap.height);
+      encoder.line();
+    }
+
+    // 2. Business Header
     encoder.align("center");
     if (model.business.name) {
-      encoder.bold(true).size(2, 2).line(model.business.name).size(1, 1).bold(false);
+      encoder.bold(true).size(isSmallPaper ? 1 : 2, isSmallPaper ? 2 : 2).line(model.business.name).size(1, 1).bold(false);
     }
-    if (model.store.name && model.store.name !== model.business.name) {
+    if (model.store?.name && model.store.name !== model.business.name) {
       encoder.line(model.store.name);
     }
     if (model.business.address) {
@@ -151,7 +230,7 @@ export class EscPosRenderer {
       encoder.line(`GSTIN: ${model.business.gstin}`);
     }
 
-    // 2. Invoice & Customer Metadata
+    // 3. Invoice & Customer Metadata (LEFT ALIGNED)
     encoder.align("left").line(divider);
     encoder.line(`INV: ${model.invoiceNumber}`);
     encoder.line(`DATE: ${model.date}`);
@@ -169,53 +248,62 @@ export class EscPosRenderer {
     }
     encoder.line(divider);
 
-    // 3. Item Table Header
-    const totalColWidth = 10;
-    const nameColWidth = maxLen - totalColWidth;
-
-    encoder.line(
-      padRight("ITEM", nameColWidth) +
-      padLeft("TOTAL", totalColWidth)
-    );
+    // 4. Item Table Header
+    const headerRight = "TOTAL";
+    const headerLeft = "ITEM";
+    const headerSpaces = Math.max(1, maxLen - headerLeft.length - headerRight.length);
+    encoder.line(headerLeft + " ".repeat(headerSpaces) + headerRight);
     encoder.line(divider);
 
-    // 4. Purchased Items
+    // 5. Purchased Items (Strict Amount Column Reservation - Amount NEVER Wraps)
     for (const item of model.items) {
-      const itemTotalStr = `₹${Number(item.total).toFixed(2)}`;
+      const rightCol = formatThermalCurrency(item.total);
+      const rightColLen = rightCol.length;
+      const maxLeftWidth = maxLen - rightColLen - 1; // reserve right column + 1 separator space
       const prefix = `${item.qty}x ${item.name}`;
 
-      if (prefix.length <= nameColWidth) {
-        encoder.line(
-          padRight(prefix, nameColWidth) +
-          padLeft(itemTotalStr, totalColWidth)
-        );
+      if (prefix.length <= maxLeftWidth) {
+        const spaceCount = maxLen - prefix.length - rightColLen;
+        encoder.line(prefix + " ".repeat(spaceCount) + rightCol);
       } else {
-        const itemLines = wrapText(prefix, nameColWidth);
-        encoder.line(
-          padRight(itemLines[0] || prefix.substring(0, nameColWidth), nameColWidth) +
-          padLeft(itemTotalStr, totalColWidth)
-        );
+        const itemLines = wrapText(prefix, maxLeftWidth);
+        const firstLineLeft = itemLines[0] || prefix.substring(0, maxLeftWidth);
+        const firstSpaceCount = maxLen - firstLineLeft.length - rightColLen;
+        encoder.line(firstLineLeft + " ".repeat(firstSpaceCount) + rightCol);
         for (let i = 1; i < itemLines.length; i++) {
-          encoder.line("   " + itemLines[i]);
+          encoder.line(itemLines[i]);
         }
       }
     }
     encoder.line(divider);
 
-    // 5. Totals
-    const labelWidth = maxLen - 12;
-    encoder.line(padRight("Subtotal", labelWidth) + padLeft(`₹${Number(model.subtotal).toFixed(2)}`, 12));
-    encoder.line(padRight("Discount", labelWidth) + padLeft(`-₹${Number(model.discount || 0).toFixed(2)}`, 12));
-    encoder.line(padRight("GST Tax", labelWidth) + padLeft(`₹${Number(model.tax || 0).toFixed(2)}`, 12));
+    // 6. Totals (Subtotal, Discount, GST Tax, Grand Total - Single Line Intact)
+    const renderTotalRow = (label: string, valueStr: string, isBold: boolean = false) => {
+      const spaceCount = Math.max(1, maxLen - label.length - valueStr.length);
+      const rowStr = label + " ".repeat(spaceCount) + valueStr;
+      if (isBold) {
+        encoder.bold(true).line(rowStr).bold(false);
+      } else {
+        encoder.line(rowStr);
+      }
+    };
+
+    renderTotalRow("Subtotal", formatThermalCurrency(model.subtotal));
+    if (Number(model.discount) > 0) {
+      renderTotalRow("Discount", formatThermalCurrency(model.discount, true));
+    }
+    if (Number(model.tax) > 0) {
+      renderTotalRow("GST Tax", formatThermalCurrency(model.tax));
+    }
     encoder.line(divider);
-    encoder.bold(true).line(padRight("GRAND TOTAL", labelWidth) + padLeft(`₹${Number(model.grandTotal).toFixed(2)}`, 12)).bold(false);
+    renderTotalRow("GRAND TOTAL", formatThermalCurrency(model.grandTotal), true);
     encoder.line(divider);
 
-    // 6. Payment Method
+    // 7. Payment Method (CENTERED)
     const payMethod = model.payment?.method || "Cash";
-    encoder.line(`Paid via ${payMethod}`);
+    encoder.align("center").line(`Paid via ${payMethod}`);
 
-    // 7. Centered QR Code
+    // 8. Centered QR Code
     const qrSize = maxLen === 48 ? 4 : 3;
     if (options?.showQr !== false && (model.qrCodeUrl || model.invoiceNumber)) {
       encoder.line();
@@ -226,12 +314,12 @@ export class EscPosRenderer {
       encoder.align("left");
     }
 
-    // 8. Barcode
+    // 9. Barcode
     if (tpl.footer.showBarcode && options?.showBarcode !== false && model.invoiceNumber) {
       encoder.barcode(model.invoiceNumber, "CODE128");
     }
 
-    // 9. Footer
+    // 10. Footer (CENTERED)
     encoder.align("center");
     const footerMsg = model.footerText || tpl.footer.thankYouMessage || "Thank you for shopping with us!";
     wrapText(footerMsg, maxLen).forEach((l) => encoder.line(l));
@@ -246,6 +334,25 @@ export class EscPosRenderer {
     }
 
     return encoder.encode();
+  }
+
+  static async renderAsync(
+    model: UniversalReceiptModel,
+    options?: RenderOptions & { templateConfig?: ReceiptTemplateConfig }
+  ): Promise<Uint8Array> {
+    const isSmallPaper = options?.paperWidth === "58mm" || (options?.paperWidth as string) === "55mm";
+    const maxDots = isSmallPaper ? 280 : 384;
+    const logoUrl = options?.showLogo !== false ? (model.business.logoUrl || (model as any).shop?.logo) : undefined;
+    
+    let logoBitmap = null;
+    if (logoUrl) {
+      logoBitmap = await loadThermalLogoMonochrome(logoUrl, maxDots, 140);
+    }
+
+    return this.render(model, {
+      ...options,
+      logoBitmap,
+    });
   }
 }
 
@@ -266,7 +373,13 @@ export class DantsuFormattedRenderer {
 
     const sb: string[] = [];
 
-    // Header
+    // 1. Centered Shop Logo
+    const logoUrl = options?.showLogo !== false ? (model.business.logoUrl || (model as any).shop?.logo) : undefined;
+    if (logoUrl) {
+      sb.push(`[C]<img>${logoUrl}</img>`);
+    }
+
+    // 2. Header
     if (model.business.name) sb.push(`[C]<b><font size='big'>${model.business.name}</font></b>`);
     if (model.store?.name && model.store.name !== model.business.name) sb.push(`[C]${model.store.name}`);
     if (model.business.address) sb.push(`[C]${model.business.address}`);
@@ -275,7 +388,7 @@ export class DantsuFormattedRenderer {
 
     sb.push(`[C]${divider}`);
 
-    // Invoice details
+    // 3. Invoice details (LEFT)
     sb.push(`[L]INV: ${model.invoiceNumber}`);
     sb.push(`[L]DATE: ${model.date}`);
     if (model.time) sb.push(`[L]TIME: ${model.time}`);
@@ -291,33 +404,37 @@ export class DantsuFormattedRenderer {
 
     sb.push(`[C]${divider}`);
 
-    // Table Header
+    // 4. Table Header
     sb.push(`[L]ITEM[R]TOTAL`);
     sb.push(`[C]${divider}`);
 
-    // Items
+    // 5. Items (Safe Currency Fallback - Rs XXXX.XX)
     for (const item of model.items) {
-      const itemTotalStr = `₹${Number(item.total).toFixed(2)}`;
+      const itemTotalStr = formatThermalCurrency(item.total);
       const prefix = `${item.qty}x ${item.name}`;
       sb.push(`[L]${prefix}[R]${itemTotalStr}`);
     }
 
     sb.push(`[C]${divider}`);
 
-    // Summary
-    sb.push(`[L]Subtotal[R]₹${Number(model.subtotal).toFixed(2)}`);
-    sb.push(`[L]Discount[R]-₹${Number(model.discount || 0).toFixed(2)}`);
-    sb.push(`[L]GST Tax[R]₹${Number(model.tax || 0).toFixed(2)}`);
+    // 6. Summary (Safe Currency Fallback)
+    sb.push(`[L]Subtotal[R]${formatThermalCurrency(model.subtotal)}`);
+    if (Number(model.discount) > 0) {
+      sb.push(`[L]Discount[R]${formatThermalCurrency(model.discount, true)}`);
+    }
+    if (Number(model.tax) > 0) {
+      sb.push(`[L]GST Tax[R]${formatThermalCurrency(model.tax)}`);
+    }
 
     sb.push(`[C]${divider}`);
-    sb.push(`[L]<b>GRAND TOTAL</b>[R]<b>₹${Number(model.grandTotal).toFixed(2)}</b>`);
+    sb.push(`[L]<b>GRAND TOTAL</b>[R]<b>${formatThermalCurrency(model.grandTotal)}</b>`);
     sb.push(`[C]${divider}`);
 
-    // Payment Method
+    // 7. Payment Method (CENTERED)
     const payMethod = model.payment?.method || "Cash";
-    sb.push(`[L]Paid via ${payMethod}`);
+    sb.push(`[C]Paid via ${payMethod}`);
 
-    // QR Code
+    // 8. QR Code (CENTERED)
     if (options?.showQr !== false && (model.qrCodeUrl || model.invoiceNumber)) {
       const qrData = model.qrCodeUrl || `https://apkabill.in/v/${model.invoiceNumber}`;
       const qrSize = maxLen === 48 ? 25 : 20;
@@ -325,7 +442,12 @@ export class DantsuFormattedRenderer {
       sb.push(`[C]Scan to Pay via UPI\n`);
     }
 
-    // Footer
+    // 9. Barcode
+    if (options?.showBarcode !== false && model.invoiceNumber) {
+      sb.push(`[C]<barcode type='128' width='2' height='50'>${model.invoiceNumber}</barcode>`);
+    }
+
+    // 10. Footer (CENTERED)
     sb.push(`[C]${model.footerText || "Thank you for shopping with us!"}`);
     sb.push(`[C]Powered by Apka Bill POS`);
     sb.push(`\n`);
@@ -346,6 +468,10 @@ export class UniversalReceiptRenderer {
 
   static toEscPos(model: UniversalReceiptModel, options?: RenderOptions): Uint8Array {
     return EscPosRenderer.render(model, options);
+  }
+
+  static async toEscPosAsync(model: UniversalReceiptModel, options?: RenderOptions): Promise<Uint8Array> {
+    return await EscPosRenderer.renderAsync(model, options);
   }
 
   static toDantsuFormattedText(model: UniversalReceiptModel, options?: RenderOptions): string {
