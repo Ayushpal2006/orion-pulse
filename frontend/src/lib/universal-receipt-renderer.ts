@@ -122,7 +122,7 @@ export class EscPosRenderer {
     const encoder = new EscPosEncoder();
     const tpl = options?.templateConfig || getActiveTemplateConfig();
     const paperWidth = options?.paperWidth || tpl.paperWidth || "58mm";
-    const isSmallPaper = paperWidth === "55mm" || paperWidth === "58mm" || paperWidth === "2inch";
+    const isSmallPaper = paperWidth === "58mm" || (paperWidth as string) === "55mm" || (paperWidth as string) === "2inch";
     const maxLen = options?.charsPerLine || (isSmallPaper ? 32 : 48);
     const divider = "-".repeat(maxLen);
 
@@ -260,7 +260,7 @@ export class PdfRenderer {
 export class DantsuFormattedRenderer {
   static render(model: UniversalReceiptModel, options?: RenderOptions): string {
     const paperWidth = options?.paperWidth || "58mm";
-    const isSmallPaper = paperWidth === "55mm" || paperWidth === "58mm" || paperWidth === "2inch";
+    const isSmallPaper = paperWidth === "58mm" || (paperWidth as string) === "55mm" || (paperWidth as string) === "2inch";
     const maxLen = options?.charsPerLine || (isSmallPaper ? 32 : 48);
     const divider = "-".repeat(maxLen);
 
