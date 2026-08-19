@@ -93,8 +93,9 @@ export class EscPosRenderer {
   static render(model: UniversalReceiptModel, options?: RenderOptions & { templateConfig?: ReceiptTemplateConfig }): Uint8Array {
     const encoder = new EscPosEncoder();
     const tpl = options?.templateConfig || getActiveTemplateConfig();
-    const paperWidth = options?.paperWidth || tpl.paperWidth || "80mm";
-    const maxLen = options?.charsPerLine || tpl.charsPerLine || (paperWidth === "58mm" ? 32 : paperWidth === "A4" ? 80 : 48);
+    const paperWidth = options?.paperWidth || tpl.paperWidth || "55mm";
+    const isSmallPaper = paperWidth === "55mm" || paperWidth === "58mm" || paperWidth === "2inch";
+    const maxLen = options?.charsPerLine || tpl.charsPerLine || (isSmallPaper ? 32 : paperWidth === "A4" ? 80 : 48);
     const divider = "-".repeat(maxLen);
 
     if (options?.openDrawer) {
@@ -111,6 +112,7 @@ export class EscPosRenderer {
     encoder.align("left").line(divider);
     if (tpl.header.showInvoiceNumber) encoder.line(`Inv: ${model.invoiceNumber}  Date: ${model.date}`);
     if (model.customer?.name) encoder.line(`Customer: ${model.customer.name}`);
+    if (model.customer?.phone) encoder.line(`Phone: ${model.customer.phone}`);
     if (tpl.header.showCashier && model.cashierName) encoder.line(`Cashier: ${model.cashierName}`);
     encoder.line(divider);
 
@@ -200,8 +202,9 @@ export class PdfRenderer {
 // 4. DANTSU FORMATTED TEXT RENDERER FOR NATIVE ANDROID ESC/POS
 export class DantsuFormattedRenderer {
   static render(model: UniversalReceiptModel, options?: RenderOptions): string {
-    const paperWidth = options?.paperWidth || "80mm";
-    const maxLen = options?.charsPerLine || (paperWidth === "58mm" ? 32 : 48);
+    const paperWidth = options?.paperWidth || "55mm";
+    const isSmallPaper = paperWidth === "55mm" || paperWidth === "58mm" || paperWidth === "2inch";
+    const maxLen = options?.charsPerLine || (isSmallPaper ? 32 : 48);
     const divider = "-".repeat(maxLen);
 
     const sb: string[] = [];
@@ -218,6 +221,7 @@ export class DantsuFormattedRenderer {
     // Invoice details
     sb.push(`[L]Inv: ${model.invoiceNumber}[R]${model.date}`);
     if (model.customer?.name) sb.push(`[L]Customer: ${model.customer.name}`);
+    if (model.customer?.phone) sb.push(`[L]Phone: ${model.customer.phone}`);
     if (model.cashierName) sb.push(`[L]Cashier: ${model.cashierName}`);
 
     sb.push(`[C]${divider}`);

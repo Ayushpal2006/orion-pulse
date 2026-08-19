@@ -207,9 +207,9 @@ export class BluetoothPrinterAdapter implements PrintAdapter {
           bluetoothMac: mac,
           formattedText,
           autoCut: options?.autoCut ?? options?.profile?.autoCut ?? true,
-          charsPerLine: options?.charsPerLine ?? options?.profile?.charactersPerLine ?? 48,
+          charsPerLine: options?.charsPerLine ?? options?.profile?.charactersPerLine ?? 32,
           printerDpi: options?.profile?.printerDpi ?? 203,
-          printableWidthMm: options?.profile?.printableWidthMm ?? 72,
+          printableWidthMm: options?.profile?.printableWidthMm ?? 48,
         });
         toast.dismiss(toastId);
         toast.success("Printed successfully via Bluetooth to KP307!");

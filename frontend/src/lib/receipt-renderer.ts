@@ -69,6 +69,7 @@ export class ReceiptRenderer {
     lines.push(divider);
     lines.push(this.formatLine(`Invoice: ${data.invoiceNumber}`, `Date: ${data.date || new Date().toLocaleDateString()}`, maxLen));
     if (data.customerName) lines.push(`Customer: ${data.customerName}`);
+    if (data.customerPhone) lines.push(`Phone: ${data.customerPhone}`);
     if (data.cashierName) lines.push(`Cashier: ${data.cashierName}`);
     lines.push(divider);
 
@@ -119,6 +120,7 @@ export class ReceiptRenderer {
     encoder.align("left").line(divider);
     encoder.line(this.formatLine(`Inv: ${data.invoiceNumber}`, `Date: ${data.date || new Date().toLocaleDateString()}`, maxLen));
     if (data.customerName) encoder.line(`Customer: ${data.customerName}`);
+    if (data.customerPhone) encoder.line(`Phone: ${data.customerPhone}`);
     encoder.line(divider);
 
     // Items

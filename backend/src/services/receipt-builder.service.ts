@@ -159,6 +159,7 @@ export class ReceiptBuilderService {
           { type: "text", value: `Date: ${formattedDate} ${formattedTime}` },
           { type: "text", value: `Cashier: ${saleRecord.cashier_name || "Admin"}` },
           { type: "text", value: `Customer: ${customerRecord ? customerRecord.name : "Walk-in Customer"}` },
+          ...(customerRecord?.phone ? [{ type: "text", value: `Phone: ${customerRecord.phone}` }] : []),
           { type: "divider" },
           ...items.map((it) => ({
             type: "item",
