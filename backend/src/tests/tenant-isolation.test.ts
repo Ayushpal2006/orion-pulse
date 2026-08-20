@@ -222,6 +222,104 @@ async function runTenantTests() {
   assert(superAdminScopeRes.status === 200 && superAdminScopeRes.organizationId === 2, "Super Admin can legitimately operate on Org 2 via X-Organization-Id");
 
   // -----------------------------------------------------------------------------
+  // TEST GROUP 5: Sales & Invoice Isolation (Phase 1B Hardened)
+  // -----------------------------------------------------------------------------
+  console.log("\nTEST GROUP 5: Sales, Invoices & Void/Edit/Delete Mutation Isolation");
+  const { SalesService } = require("../services/sales.service");
+  const { ReturnService } = require("../services/return.service");
+  const salesService = new SalesService();
+  const returnService = new ReturnService();
+
+  let saleA: any;
+  await storeStorage.run({ organizationId: 1, currentStoreId: 1, userId: 101, role: "admin" }, async () => {
+    // Create a known sale in Org A
+    const createdSale = await saleRepo.create(
+      {
+        invoice_number: `INV-TEST-ORGA-${Date.now()}`,
+        customer_id: custA.id,
+        cashier_name: "Cashier A",
+        payment_method: "Cash",
+        subtotal: 25000,
+        discount: 0,
+        gst: 4500,
+        grand_total: 29500,
+        status: "COMPLETED",
+      },
+      [
+        {
+          product_id: prodA.id,
+          quantity: 1,
+          unit_price: 25000,
+          selling_price: 25000,
+          discount: 0,
+          line_total: 25000,
+        },
+      ]
+    );
+    saleA = createdSale;
+  });
+
+  // Verify Tenant A can read Sale A, but Tenant B cannot
+  await storeStorage.run({ organizationId: 1, currentStoreId: 1, userId: 101, role: "admin" }, async () => {
+    const foundSaleA = await saleRepo.getById(saleA.id);
+    assert(foundSaleA !== null && foundSaleA.id === saleA.id, "Tenant A can retrieve its own Sale A");
+  });
+
+  await storeStorage.run({ organizationId: 2, currentStoreId: 2, userId: 202, role: "admin" }, async () => {
+    const foundSaleAInB = await saleRepo.getById(saleA.id);
+    assert(foundSaleAInB === null, "Tenant B cannot retrieve Tenant A's Sale A (returns null)");
+
+    // Attempt to VOID Tenant A sale from Tenant B context
+    let voidThrew = false;
+    try {
+      await salesService.voidInvoice(saleA.id, "Malicious void attempt", "Attacker B", 202);
+    } catch (e: any) {
+      voidThrew = true;
+    }
+    assert(voidThrew, "Tenant B CANNOT void Tenant A's invoice (Throws NotFoundError)");
+
+    // Attempt to EDIT Tenant A sale from Tenant B context
+    let editThrew = false;
+    try {
+      await salesService.editInvoice(
+        saleA.id,
+        {
+          items: [{ productId: prodB.id, quantity: 1 }],
+          customerName: "Hacked by Tenant B",
+        },
+        { userId: 202, role: "admin", name: "Attacker B" }
+      );
+    } catch (e: any) {
+      editThrew = true;
+    }
+    assert(editThrew, "Tenant B CANNOT edit Tenant A's invoice (Throws NotFoundError)");
+
+    // Attempt to DELETE Tenant A sale from Tenant B context
+    let deleteThrew = false;
+    try {
+      await salesService.deleteInvoice(saleA.id, "Attacker B", 202);
+    } catch (e: any) {
+      deleteThrew = true;
+    }
+    assert(deleteThrew, "Tenant B CANNOT delete Tenant A's invoice (Throws NotFoundError)");
+
+    // Attempt to PROCESS RETURN against Tenant A sale from Tenant B context
+    let returnThrew = false;
+    try {
+      await returnService.processReturn(saleA.id, [{ productId: prodA.id, quantity: 1 }]);
+    } catch (e: any) {
+      returnThrew = true;
+    }
+    assert(returnThrew, "Tenant B CANNOT process return on Tenant A's invoice (Throws NotFoundError)");
+  });
+
+  // Verify Sale A in Org A is still active and unmodified
+  await storeStorage.run({ organizationId: 1, currentStoreId: 1, userId: 101, role: "admin" }, async () => {
+    const verifiedSale = await saleRepo.getById(saleA.id);
+    assert(verifiedSale !== null && verifiedSale.status === "COMPLETED", "Sale A remains intact with status COMPLETED");
+  });
+
+  // -----------------------------------------------------------------------------
   // TEST SUMMARY
   // -----------------------------------------------------------------------------
   console.log("\n==================================================================");

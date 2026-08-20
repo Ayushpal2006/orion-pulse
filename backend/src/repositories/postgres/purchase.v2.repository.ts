@@ -215,6 +215,14 @@ export class PostgresPurchaseV2Repository {
   async getItems(purchaseOrderId: number, tx?: any): Promise<any[]> {
     const client = tx || db;
     const { organizationId, currentStoreId } = getTenantContext();
+    const conditions: any[] = [eq(purchase_items.purchase_order_id, purchaseOrderId)];
+    if (organizationId && organizationId > 0) {
+      conditions.push(eq(purchase_items.organization_id, organizationId));
+    }
+    if (currentStoreId && currentStoreId > 0) {
+      conditions.push(eq(purchase_items.store_id, currentStoreId));
+    }
+
     const rows = await client
       .select({
         id: purchase_items.id,
@@ -231,7 +239,7 @@ export class PostgresPurchaseV2Repository {
       })
       .from(purchase_items)
       .innerJoin(products, eq(purchase_items.product_id, products.id))
-      .where(and(eq(purchase_items.purchase_order_id, purchaseOrderId)));
+      .where(and(...conditions));
 
     return rows.map((r: any) => ({
       ...r,

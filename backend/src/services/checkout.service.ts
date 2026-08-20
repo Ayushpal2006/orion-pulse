@@ -169,7 +169,7 @@ export class CheckoutService {
               const [updatedCust] = await tx
                 .update(customers)
                 .set({ name: name.trim(), updated_at: new Date() })
-                .where(eq(customers.id, customer.id))
+                .where(and(eq(customers.id, customer.id), eq(customers.organization_id, orgId), eq(customers.store_id, storeId)))
                 .returning();
               customer = updatedCust;
             }

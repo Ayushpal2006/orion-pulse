@@ -245,6 +245,15 @@ export class PostgresSaleRepository implements ISaleRepository {
 
   async getItems(saleId: number, tx?: any): Promise<any[]> {
     const client = tx || db;
+    const { organizationId, currentStoreId } = getTenantContext();
+    const conditions: any[] = [eq(sale_items.sale_id, saleId)];
+    if (organizationId && organizationId > 0) {
+      conditions.push(eq(sale_items.organization_id, organizationId));
+    }
+    if (currentStoreId && currentStoreId > 0) {
+      conditions.push(eq(sale_items.store_id, currentStoreId));
+    }
+
     const rows = await client
       .select({
         id: sale_items.id,
@@ -259,7 +268,7 @@ export class PostgresSaleRepository implements ISaleRepository {
       })
       .from(sale_items)
       .leftJoin(products, eq(sale_items.product_id, products.id))
-      .where(eq(sale_items.sale_id, saleId));
+      .where(and(...conditions));
 
     return rows;
   }

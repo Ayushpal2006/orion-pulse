@@ -1,7 +1,7 @@
 import { db } from "../db";
 import { purchase_orders, purchase_items, products, suppliers, supplier_ledger, inventory_movements, inventory_logs, product_cost_history } from "../db/schema";
 import { eq, and, desc, like } from "drizzle-orm";
-import { getStoreId } from "../db/context";
+import { getStoreId, getTenantContext } from "../db/context";
 import { NotFoundError, ValidationError } from "../utils/errors";
 import { getKolkataDateString } from "../utils/datetime";
 import { purchaseV2Repository } from "../repositories/postgres/purchase.v2.repository";
@@ -36,8 +36,10 @@ export class PurchaseV2Service {
   }
 
   async create(data: any): Promise<any> {
-    const storeId = getStoreId();
-    if (storeId === undefined) {
+    const { organizationId, currentStoreId } = getTenantContext();
+    const storeId = currentStoreId || getStoreId();
+    const orgId = organizationId || 1;
+    if (storeId === undefined || storeId === 0) {
       throw new ValidationError("Store context is required");
     }
 
@@ -54,7 +56,7 @@ export class PurchaseV2Service {
       const [supplier] = await tx
         .select()
         .from(suppliers)
-        .where(and(eq(suppliers.id, data.supplier_id), eq(suppliers.store_id, storeId)))
+        .where(and(eq(suppliers.id, data.supplier_id), eq(suppliers.organization_id, orgId), eq(suppliers.store_id, storeId)))
         .for("update");
 
       if (!supplier) {
@@ -119,10 +121,11 @@ export class PurchaseV2Service {
             last_purchase_cost: purchasePricePaise,
             updated_at: new Date(),
           })
-          .where(eq(products.id, item.product_id));
+          .where(and(eq(products.id, item.product_id), eq(products.organization_id, orgId), eq(products.store_id, storeId)));
 
         // Audit Log 1: Inventory Movement
         await tx.insert(inventory_movements).values({
+          organization_id: orgId,
           store_id: storeId,
           movement_type: "PURCHASE",
           product_id: item.product_id,
@@ -137,6 +140,7 @@ export class PurchaseV2Service {
 
         // Audit Log 2: Legacy Inventory Log (backward compatibility)
         await tx.insert(inventory_logs).values({
+          organization_id: orgId,
           product_id: item.product_id,
           store_id: storeId,
           type: "PURCHASE",
@@ -148,6 +152,7 @@ export class PurchaseV2Service {
 
         // Audit Log 3: Product Cost History
         await tx.insert(product_cost_history).values({
+          organization_id: orgId,
           store_id: storeId,
           product_id: item.product_id,
           average_cost: newAvgCost,
@@ -194,9 +199,10 @@ export class PurchaseV2Service {
       await tx
         .update(suppliers)
         .set({ current_balance: newBalance })
-        .where(eq(suppliers.id, data.supplier_id));
+        .where(and(eq(suppliers.id, data.supplier_id), eq(suppliers.organization_id, orgId), eq(suppliers.store_id, storeId)));
 
       await tx.insert(supplier_ledger).values({
+        organization_id: orgId,
         store_id: storeId,
         supplier_id: data.supplier_id,
         transaction_type: "PURCHASE",
@@ -231,8 +237,9 @@ export class PurchaseV2Service {
   }
 
   async update(id: number, data: any): Promise<any> {
-    const storeId = getStoreId();
-    if (storeId === undefined) {
+    const { organizationId, currentStoreId } = getTenantContext();
+    const storeId = currentStoreId || getStoreId();
+    if (storeId === undefined || storeId === 0) {
       throw new ValidationError("Store context is required");
     }
 
@@ -251,6 +258,7 @@ export class PurchaseV2Service {
         throw new NotFoundError("Purchase order not found");
       }
 
+      const orgId = organizationId || oldPo.organization_id || 1;
       const oldItems = await this.repository.getItems(id, tx);
 
       // 2. REVERSAL PHASE: Revert stock for old items
@@ -258,7 +266,7 @@ export class PurchaseV2Service {
         const [product] = await tx
           .select()
           .from(products)
-          .where(and(eq(products.id, oldItem.product_id), eq(products.store_id, storeId)))
+          .where(and(eq(products.id, oldItem.product_id), eq(products.organization_id, orgId), eq(products.store_id, storeId)))
           .for("update");
 
         if (product) {
@@ -268,9 +276,10 @@ export class PurchaseV2Service {
           await tx
             .update(products)
             .set({ stock: newStock, updated_at: new Date() })
-            .where(eq(products.id, oldItem.product_id));
+            .where(and(eq(products.id, oldItem.product_id), eq(products.organization_id, orgId), eq(products.store_id, storeId)));
 
           await tx.insert(inventory_movements).values({
+            organization_id: orgId,
             store_id: storeId,
             movement_type: "PURCHASE_CANCEL",
             product_id: oldItem.product_id,
@@ -284,6 +293,7 @@ export class PurchaseV2Service {
           });
 
           await tx.insert(inventory_logs).values({
+            organization_id: orgId,
             product_id: oldItem.product_id,
             store_id: storeId,
             type: "PURCHASE_CANCEL",
@@ -348,9 +358,10 @@ export class PurchaseV2Service {
             last_purchase_cost: purchasePricePaise,
             updated_at: new Date(),
           })
-          .where(eq(products.id, item.product_id));
+          .where(and(eq(products.id, item.product_id), eq(products.organization_id, orgId), eq(products.store_id, storeId)));
 
         await tx.insert(inventory_movements).values({
+          organization_id: orgId,
           store_id: storeId,
           movement_type: "PURCHASE",
           product_id: item.product_id,
@@ -364,6 +375,7 @@ export class PurchaseV2Service {
         });
 
         await tx.insert(inventory_logs).values({
+          organization_id: orgId,
           product_id: item.product_id,
           store_id: storeId,
           type: "PURCHASE",
@@ -374,6 +386,7 @@ export class PurchaseV2Service {
         });
 
         await tx.insert(product_cost_history).values({
+          organization_id: orgId,
           store_id: storeId,
           product_id: item.product_id,
           average_cost: newAvgCost,
@@ -419,7 +432,7 @@ export class PurchaseV2Service {
         const [oldSupplier] = await tx
           .select()
           .from(suppliers)
-          .where(and(eq(suppliers.id, oldPo.supplier_id), eq(suppliers.store_id, storeId)))
+          .where(and(eq(suppliers.id, oldPo.supplier_id), eq(suppliers.organization_id, orgId), eq(suppliers.store_id, storeId)))
           .for("update");
 
         if (oldSupplier) {
@@ -427,9 +440,10 @@ export class PurchaseV2Service {
           await tx
             .update(suppliers)
             .set({ current_balance: newOldBal })
-            .where(eq(suppliers.id, oldPo.supplier_id));
+            .where(and(eq(suppliers.id, oldPo.supplier_id), eq(suppliers.organization_id, orgId), eq(suppliers.store_id, storeId)));
 
           await tx.insert(supplier_ledger).values({
+            organization_id: orgId,
             store_id: storeId,
             supplier_id: oldPo.supplier_id,
             transaction_type: "PURCHASE_CANCEL",
@@ -443,7 +457,7 @@ export class PurchaseV2Service {
         const [newSupplier] = await tx
           .select()
           .from(suppliers)
-          .where(and(eq(suppliers.id, data.supplier_id), eq(suppliers.store_id, storeId)))
+          .where(and(eq(suppliers.id, data.supplier_id), eq(suppliers.organization_id, orgId), eq(suppliers.store_id, storeId)))
           .for("update");
 
         if (!newSupplier) {
@@ -454,9 +468,10 @@ export class PurchaseV2Service {
         await tx
           .update(suppliers)
           .set({ current_balance: newNewBal })
-          .where(eq(suppliers.id, data.supplier_id));
+          .where(and(eq(suppliers.id, data.supplier_id), eq(suppliers.organization_id, orgId), eq(suppliers.store_id, storeId)));
 
         await tx.insert(supplier_ledger).values({
+          organization_id: orgId,
           store_id: storeId,
           supplier_id: data.supplier_id,
           transaction_type: "PURCHASE",
@@ -469,7 +484,7 @@ export class PurchaseV2Service {
         const [supplier] = await tx
           .select()
           .from(suppliers)
-          .where(and(eq(suppliers.id, data.supplier_id), eq(suppliers.store_id, storeId)))
+          .where(and(eq(suppliers.id, data.supplier_id), eq(suppliers.organization_id, orgId), eq(suppliers.store_id, storeId)))
           .for("update");
 
         if (supplier) {
@@ -478,9 +493,10 @@ export class PurchaseV2Service {
           await tx
             .update(suppliers)
             .set({ current_balance: newBal })
-            .where(eq(suppliers.id, data.supplier_id));
+            .where(and(eq(suppliers.id, data.supplier_id), eq(suppliers.organization_id, orgId), eq(suppliers.store_id, storeId)));
 
           await tx.insert(supplier_ledger).values({
+            organization_id: orgId,
             store_id: storeId,
             supplier_id: data.supplier_id,
             transaction_type: "PURCHASE",
@@ -496,8 +512,9 @@ export class PurchaseV2Service {
   }
 
   async voidPurchase(id: number, reason: string, voidedBy = "Admin"): Promise<any> {
-    const storeId = getStoreId();
-    if (storeId === undefined) {
+    const { organizationId, currentStoreId } = getTenantContext();
+    const storeId = currentStoreId || getStoreId();
+    if (storeId === undefined || storeId === 0) {
       throw new ValidationError("Store context is required");
     }
 
@@ -506,6 +523,8 @@ export class PurchaseV2Service {
       if (!oldPo) {
         throw new NotFoundError("Purchase order not found");
       }
+
+      const orgId = organizationId || oldPo.organization_id || 1;
 
       if (oldPo.status === "VOID") {
         throw new ValidationError("Purchase order is already voided");
@@ -522,7 +541,7 @@ export class PurchaseV2Service {
         const [product] = await tx
           .select()
           .from(products)
-          .where(and(eq(products.id, oldItem.product_id), eq(products.store_id, storeId)))
+          .where(and(eq(products.id, oldItem.product_id), eq(products.organization_id, orgId), eq(products.store_id, storeId)))
           .for("update");
 
         if (product) {
@@ -532,9 +551,10 @@ export class PurchaseV2Service {
           await tx
             .update(products)
             .set({ stock: newStock, updated_at: new Date() })
-            .where(eq(products.id, oldItem.product_id));
+            .where(and(eq(products.id, oldItem.product_id), eq(products.organization_id, orgId), eq(products.store_id, storeId)));
 
           await tx.insert(inventory_movements).values({
+            organization_id: orgId,
             store_id: storeId,
             movement_type: "PURCHASE_CANCEL",
             product_id: oldItem.product_id,
@@ -548,6 +568,7 @@ export class PurchaseV2Service {
           });
 
           await tx.insert(inventory_logs).values({
+            organization_id: orgId,
             product_id: oldItem.product_id,
             store_id: storeId,
             type: "PURCHASE_CANCEL",
@@ -563,7 +584,7 @@ export class PurchaseV2Service {
       const [supplier] = await tx
         .select()
         .from(suppliers)
-        .where(and(eq(suppliers.id, oldPo.supplier_id), eq(suppliers.store_id, storeId)))
+        .where(and(eq(suppliers.id, oldPo.supplier_id), eq(suppliers.organization_id, orgId), eq(suppliers.store_id, storeId)))
         .for("update");
 
       if (supplier) {
@@ -571,9 +592,10 @@ export class PurchaseV2Service {
         await tx
           .update(suppliers)
           .set({ current_balance: newBalance })
-          .where(eq(suppliers.id, oldPo.supplier_id));
+          .where(and(eq(suppliers.id, oldPo.supplier_id), eq(suppliers.organization_id, orgId), eq(suppliers.store_id, storeId)));
 
         await tx.insert(supplier_ledger).values({
+          organization_id: orgId,
           store_id: storeId,
           supplier_id: oldPo.supplier_id,
           transaction_type: "PURCHASE_CANCEL",

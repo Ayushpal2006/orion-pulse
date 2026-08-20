@@ -97,12 +97,16 @@ export function Dashboard() {
   const { data: dashboard, isLoading: isLoadingDashboard, isError: isErrorDashboard, refetch: refetchDashboard } = useQuery({
     queryKey: ["dashboard"],
     queryFn: getDashboardData,
+    staleTime: 0,
+    refetchOnMount: "always",
   });
 
   // 2. Fetch sales trend series based on range selection
   const { data: reportData, isLoading: isLoadingTrend } = useQuery({
     queryKey: ["reports", range],
     queryFn: () => getReportsData(rangeFilterMap[range]),
+    staleTime: 0,
+    refetchOnMount: "always",
   });
 
   // 3. Fetch today's stock adjustments
@@ -110,6 +114,8 @@ export function Dashboard() {
   const { data: todayAdjustments = [] } = useQuery({
     queryKey: ["stock-adjustments-today"],
     queryFn: () => getStockAdjustments({ startDate: todayStr }),
+    staleTime: 0,
+    refetchOnMount: "always",
   });
 
   const lowStock = useMemo(() => products.filter((p) => stockLevel(p) !== "ok"), [products]);

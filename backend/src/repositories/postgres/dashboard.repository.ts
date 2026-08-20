@@ -127,7 +127,7 @@ export class PostgresDashboardRepository implements IDashboardRepository {
       .from(sales)
       .leftJoin(customers, eq(sales.customer_id, customers.id))
       .where(whereClause)
-      .orderBy(desc(sales.id))
+      .orderBy(desc(sales.created_at), desc(sales.id))
       .limit(10);
 
     return rows.map((r: any) => ({

@@ -6,7 +6,7 @@ import QRCode from "qrcode";
 import { db } from "../db";
 import { sales, sale_items, products, customers, audit_logs, inventory_logs, stores, organizations, settings } from "../db/schema";
 import { eq, and } from "drizzle-orm";
-import { storeStorage } from "../db/context";
+import { storeStorage, getTenantContext } from "../db/context";
 import { SyncQueueManager } from "./sync.service";
 import { InventoryMovementService } from "./inventory-movement.service";
 import { ReceiptBuilderService } from "./receipt-builder.service";
@@ -80,16 +80,21 @@ export class SalesService {
   }
 
   async voidInvoice(saleId: number, reason: string, voidedBy: string, userId: number): Promise<any> {
+    const { organizationId, currentStoreId } = getTenantContext();
     const result = await db.transaction(async (tx) => {
-      // 1. Fetch sale with lock for update
+      // 1. Fetch sale with lock for update strictly scoped to authenticated tenant
+      const whereClause = (organizationId && organizationId > 0)
+        ? and(eq(sales.id, saleId), eq(sales.organization_id, organizationId), eq(sales.store_id, currentStoreId))
+        : and(eq(sales.id, saleId), eq(sales.store_id, currentStoreId));
+
       const [sale] = await tx
         .select()
         .from(sales)
-        .where(eq(sales.id, saleId))
+        .where(whereClause)
         .for("update");
 
       if (!sale) {
-        throw new Error("Invoice not found");
+        throw new NotFoundError("Invoice not found or does not belong to your organization/store");
       }
 
       if (sale.status === "VOID") {
@@ -97,12 +102,13 @@ export class SalesService {
       }
 
       const storeId = sale.store_id;
+      const orgId = sale.organization_id || organizationId || 1;
 
       // 2. Fetch sale items
       const items = await tx
         .select()
         .from(sale_items)
-        .where(eq(sale_items.sale_id, saleId));
+        .where(and(eq(sale_items.sale_id, saleId), eq(sale_items.store_id, storeId)));
 
       // 3. Restore inventory stock & log inventory movement
       const syncProductsList: any[] = [];
@@ -110,7 +116,7 @@ export class SalesService {
         const [product] = await tx
           .select()
           .from(products)
-          .where(and(eq(products.id, item.product_id), eq(products.store_id, storeId)))
+          .where(and(eq(products.id, item.product_id), eq(products.organization_id, orgId), eq(products.store_id, storeId)))
           .for("update");
 
         if (product) {
@@ -134,7 +140,7 @@ export class SalesService {
         const [customer] = await tx
           .select()
           .from(customers)
-          .where(and(eq(customers.id, sale.customer_id), eq(customers.store_id, storeId)))
+          .where(and(eq(customers.id, sale.customer_id), eq(customers.organization_id, orgId), eq(customers.store_id, storeId)))
           .for("update");
 
         if (customer && customer.phone !== "0000000000") {
@@ -145,7 +151,7 @@ export class SalesService {
               lifetime_value: Math.max(0, customer.lifetime_value - sale.grand_total),
               updated_at: new Date(),
             })
-            .where(eq(customers.id, customer.id))
+            .where(and(eq(customers.id, customer.id), eq(customers.organization_id, orgId), eq(customers.store_id, storeId)))
             .returning();
           updatedCustomer = cust;
         }
@@ -160,11 +166,12 @@ export class SalesService {
           voided_by: voidedBy,
           voided_at: new Date(),
         })
-        .where(eq(sales.id, saleId))
+        .where(and(eq(sales.id, saleId), eq(sales.organization_id, orgId), eq(sales.store_id, storeId)))
         .returning();
 
-      // 6. Add to audit_logs
+      // 6. Add to audit_logs with explicit organization_id
       await tx.insert(audit_logs).values({
+        organization_id: orgId,
         store_id: storeId,
         user_id: userId,
         action: "INVOICE_VOID",
@@ -219,7 +226,9 @@ export class SalesService {
   }
 
   async logAudit(storeId: number, userId: number, action: string, details: string): Promise<void> {
+    const { organizationId } = getTenantContext();
     await db.insert(audit_logs).values({
+      organization_id: organizationId && organizationId > 0 ? organizationId : null,
       store_id: storeId,
       user_id: userId,
       action,
@@ -239,35 +248,41 @@ export class SalesService {
     },
     actingUser: { userId: number; role: string; name?: string }
   ): Promise<any> {
+    const { organizationId, currentStoreId } = getTenantContext();
     return db.transaction(async (tx) => {
-      // 1. Lock existing sale
+      // 1. Lock existing sale strictly scoped to authenticated tenant
+      const whereClause = (organizationId && organizationId > 0)
+        ? and(eq(sales.id, saleId), eq(sales.organization_id, organizationId), eq(sales.store_id, currentStoreId))
+        : and(eq(sales.id, saleId), eq(sales.store_id, currentStoreId));
+
       const [oldSale] = await tx
         .select()
         .from(sales)
-        .where(eq(sales.id, saleId))
+        .where(whereClause)
         .for("update");
 
       if (!oldSale) {
-        throw new NotFoundError(`Sale with ID ${saleId} not found`);
+        throw new NotFoundError(`Sale with ID ${saleId} not found or does not belong to your organization/store`);
       }
       if (oldSale.status === "VOID" || oldSale.status === "DELETED") {
         throw new Error(`Cannot edit an invoice that is ${oldSale.status}`);
       }
 
       const storeId = oldSale.store_id;
+      const orgId = oldSale.organization_id || organizationId || 1;
 
       // 2. Fetch old sale items
       const oldItems = await tx
         .select()
         .from(sale_items)
-        .where(eq(sale_items.sale_id, saleId));
+        .where(and(eq(sale_items.sale_id, saleId), eq(sale_items.store_id, storeId)));
 
       // 3. Revert stock for old items
       for (const oldItem of oldItems) {
         const [product] = await tx
           .select()
           .from(products)
-          .where(and(eq(products.id, oldItem.product_id), eq(products.store_id, storeId)))
+          .where(and(eq(products.id, oldItem.product_id), eq(products.organization_id, orgId), eq(products.store_id, storeId)))
           .for("update");
 
         if (product) {
@@ -285,9 +300,9 @@ export class SalesService {
       }
 
       // Remove old sale_items
-      await tx.delete(sale_items).where(eq(sale_items.sale_id, saleId));
+      await tx.delete(sale_items).where(and(eq(sale_items.sale_id, saleId), eq(sale_items.store_id, storeId)));
 
-      // 4. Resolve customer
+      // 4. Resolve customer strictly within tenant
       let customerId = oldSale.customer_id;
       if (data.customerPhone !== undefined) {
         const phone = data.customerPhone.trim();
@@ -295,7 +310,7 @@ export class SalesService {
           const [existingCustomer] = await tx
             .select()
             .from(customers)
-            .where(and(eq(customers.phone, phone), eq(customers.store_id, storeId)));
+            .where(and(eq(customers.phone, phone), eq(customers.organization_id, orgId), eq(customers.store_id, storeId)));
 
           if (existingCustomer) {
             customerId = existingCustomer.id;
@@ -303,6 +318,7 @@ export class SalesService {
             const [newCustomer] = await tx
               .insert(customers)
               .values({
+                organization_id: orgId,
                 store_id: storeId,
                 name: data.customerName || "Walk-in Customer",
                 phone,
@@ -325,11 +341,11 @@ export class SalesService {
         const [product] = await tx
           .select()
           .from(products)
-          .where(and(eq(products.id, itemRequest.productId), eq(products.store_id, storeId)))
+          .where(and(eq(products.id, itemRequest.productId), eq(products.organization_id, orgId), eq(products.store_id, storeId)))
           .for("update");
 
         if (!product) {
-          throw new NotFoundError(`Product ID ${itemRequest.productId} not found`);
+          throw new NotFoundError(`Product ID ${itemRequest.productId} not found in your store`);
         }
         if (product.stock < itemRequest.quantity) {
           throw new Error(`Insufficient stock for product ${product.name}. Available: ${product.stock}`);
@@ -356,6 +372,8 @@ export class SalesService {
         }, tx);
 
         newItemsData.push({
+          organization_id: orgId,
+          store_id: storeId,
           sale_id: saleId,
           product_id: itemRequest.productId,
           quantity: itemRequest.quantity,
@@ -377,7 +395,7 @@ export class SalesService {
         const [oldCust] = await tx
           .select()
           .from(customers)
-          .where(and(eq(customers.id, oldSale.customer_id), eq(customers.store_id, storeId)))
+          .where(and(eq(customers.id, oldSale.customer_id), eq(customers.organization_id, orgId), eq(customers.store_id, storeId)))
           .for("update");
         if (oldCust && oldCust.phone !== "0000000000") {
           await tx
@@ -387,7 +405,7 @@ export class SalesService {
               lifetime_value: Math.max(0, oldCust.lifetime_value - oldSale.grand_total),
               updated_at: new Date(),
             })
-            .where(eq(customers.id, oldCust.id));
+            .where(and(eq(customers.id, oldCust.id), eq(customers.organization_id, orgId), eq(customers.store_id, storeId)));
         }
       }
 
@@ -395,7 +413,7 @@ export class SalesService {
         const [newCust] = await tx
           .select()
           .from(customers)
-          .where(and(eq(customers.id, customerId), eq(customers.store_id, storeId)))
+          .where(and(eq(customers.id, customerId), eq(customers.organization_id, orgId), eq(customers.store_id, storeId)))
           .for("update");
         if (newCust && newCust.phone !== "0000000000") {
           await tx
@@ -406,7 +424,7 @@ export class SalesService {
               last_visit: new Date(),
               updated_at: new Date(),
             })
-            .where(eq(customers.id, newCust.id));
+            .where(and(eq(customers.id, newCust.id), eq(customers.organization_id, orgId), eq(customers.store_id, storeId)));
         }
       }
 
@@ -423,11 +441,12 @@ export class SalesService {
           paid_amount: grandTotalPaise,
           balance: 0,
         })
-        .where(eq(sales.id, saleId))
+        .where(and(eq(sales.id, saleId), eq(sales.organization_id, orgId), eq(sales.store_id, storeId)))
         .returning();
 
-      // 8. Log Audit
+      // 8. Log Audit with organization_id
       await tx.insert(audit_logs).values({
+        organization_id: orgId,
         store_id: storeId,
         user_id: actingUser.userId,
         action: "INVOICE_EDIT",
@@ -439,16 +458,21 @@ export class SalesService {
   }
 
   async deleteInvoice(saleId: number, deletedBy: string, userId: number): Promise<any> {
+    const { organizationId, currentStoreId } = getTenantContext();
     return db.transaction(async (tx) => {
-      // 1. Fetch sale with lock for update
+      // 1. Fetch sale with lock for update strictly scoped to authenticated tenant
+      const whereClause = (organizationId && organizationId > 0)
+        ? and(eq(sales.id, saleId), eq(sales.organization_id, organizationId), eq(sales.store_id, currentStoreId))
+        : and(eq(sales.id, saleId), eq(sales.store_id, currentStoreId));
+
       const [sale] = await tx
         .select()
         .from(sales)
-        .where(eq(sales.id, saleId))
+        .where(whereClause)
         .for("update");
 
       if (!sale) {
-        throw new NotFoundError("Invoice not found");
+        throw new NotFoundError("Invoice not found or does not belong to your organization/store");
       }
 
       if (sale.status === "DELETED") {
@@ -456,19 +480,20 @@ export class SalesService {
       }
 
       const storeId = sale.store_id;
+      const orgId = sale.organization_id || organizationId || 1;
 
       // 2. If status was COMPLETED, restore inventory & customer stats
       if (sale.status === "COMPLETED") {
         const items = await tx
           .select()
           .from(sale_items)
-          .where(eq(sale_items.sale_id, saleId));
+          .where(and(eq(sale_items.sale_id, saleId), eq(sale_items.store_id, storeId)));
 
         for (const item of items) {
           const [product] = await tx
             .select()
             .from(products)
-            .where(and(eq(products.id, item.product_id), eq(products.store_id, storeId)))
+            .where(and(eq(products.id, item.product_id), eq(products.organization_id, orgId), eq(products.store_id, storeId)))
             .for("update");
 
           if (product) {
@@ -488,7 +513,7 @@ export class SalesService {
           const [customer] = await tx
             .select()
             .from(customers)
-            .where(and(eq(customers.id, sale.customer_id), eq(customers.store_id, storeId)))
+            .where(and(eq(customers.id, sale.customer_id), eq(customers.organization_id, orgId), eq(customers.store_id, storeId)))
             .for("update");
 
           if (customer && customer.phone !== "0000000000") {
@@ -499,7 +524,7 @@ export class SalesService {
                 lifetime_value: Math.max(0, customer.lifetime_value - sale.grand_total),
                 updated_at: new Date(),
               })
-              .where(eq(customers.id, customer.id));
+              .where(and(eq(customers.id, customer.id), eq(customers.organization_id, orgId), eq(customers.store_id, storeId)));
           }
         }
       }
@@ -513,11 +538,12 @@ export class SalesService {
           voided_by: deletedBy,
           voided_at: new Date(),
         })
-        .where(eq(sales.id, saleId))
+        .where(and(eq(sales.id, saleId), eq(sales.organization_id, orgId), eq(sales.store_id, storeId)))
         .returning();
 
-      // 4. Log Audit
+      // 4. Log Audit with explicit organization_id
       await tx.insert(audit_logs).values({
+        organization_id: orgId,
         store_id: storeId,
         user_id: userId,
         action: "INVOICE_DELETE",

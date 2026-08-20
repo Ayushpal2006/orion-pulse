@@ -1,7 +1,7 @@
 import { db } from "../db";
 import { sales, sale_items, returns, return_items, products, inventory_logs } from "../db/schema";
 import { eq, and, desc, sql, like } from "drizzle-orm";
-import { getStoreId } from "../db/context";
+import { getStoreId, getTenantContext } from "../db/context";
 import { NotFoundError, ValidationError } from "../utils/errors";
 import { getKolkataDateString } from "../utils/datetime";
 import { InventoryMovementService } from "./inventory-movement.service";
@@ -36,8 +36,9 @@ export class ReturnService {
   }
 
   async processReturn(saleId: number, items: { productId: number; quantity: number }[]): Promise<any> {
-    const storeId = getStoreId();
-    if (storeId === undefined) {
+    const { organizationId, currentStoreId } = getTenantContext();
+    const storeId = currentStoreId || getStoreId();
+    if (storeId === undefined || storeId === 0) {
       throw new ValidationError("Store context is required");
     }
 
@@ -46,22 +47,28 @@ export class ReturnService {
     }
 
     const result = await db.transaction(async (tx) => {
-      // 1. Verify original sale exists
+      // 1. Verify original sale exists strictly within the tenant boundary
+      const whereClause = (organizationId && organizationId > 0)
+        ? and(eq(sales.id, saleId), eq(sales.organization_id, organizationId), eq(sales.store_id, storeId))
+        : and(eq(sales.id, saleId), eq(sales.store_id, storeId));
+
       const [sale] = await tx
         .select()
         .from(sales)
-        .where(and(eq(sales.id, saleId), eq(sales.store_id, storeId)))
+        .where(whereClause)
         .limit(1);
 
       if (!sale) {
-        throw new NotFoundError(`Sale with ID ${saleId} not found`);
+        throw new NotFoundError(`Sale with ID ${saleId} not found in your store`);
       }
+
+      const orgId = sale.organization_id || organizationId || 1;
 
       // 2. Fetch original sale items
       const originalItems = await tx
         .select()
         .from(sale_items)
-        .where(eq(sale_items.sale_id, saleId));
+        .where(and(eq(sale_items.sale_id, saleId), eq(sale_items.store_id, storeId)));
 
       // 3. Fetch all previous returns for this sale to compute already returned quantities
       const previousReturns = await tx
@@ -111,7 +118,7 @@ export class ReturnService {
         const unitDiscount = Math.round(origItem.discount / origItem.quantity);
         const unitGst = Math.round(
           ((origItem.selling_price * origItem.quantity - origItem.discount) * 0.18) / origItem.quantity
-        ); // Defaulting to original pricing details
+        );
         
         const lineTotal = (unitPrice - unitDiscount + unitGst) * retItem.quantity;
 
@@ -130,7 +137,7 @@ export class ReturnService {
         const [product] = await tx
           .select()
           .from(products)
-          .where(eq(products.id, retItem.productId))
+          .where(and(eq(products.id, retItem.productId), eq(products.organization_id, orgId), eq(products.store_id, storeId)))
           .limit(1);
 
         if (product) {
@@ -155,23 +162,26 @@ export class ReturnService {
         }
       }
 
-      // 6. Insert Return header record
+      // 6. Insert Return header record with explicit organization_id
       const [returnHeader] = await tx
         .insert(returns)
         .values({
+          organization_id: orgId,
           store_id: storeId,
           original_sale_id: saleId,
           return_invoice_number: returnInvoiceNumber,
           subtotal: returnSubtotal,
-          discount: 0, // Returns do not support extra cart discounts by default
+          discount: 0,
           gst: returnGst,
           grand_total: returnGrandTotal,
         })
         .returning();
 
-      // 7. Insert Return items
+      // 7. Insert Return items with explicit organization_id
       for (const detail of returnDetails) {
         await tx.insert(return_items).values({
+          organization_id: orgId,
+          store_id: storeId,
           return_id: returnHeader.id,
           product_id: detail.productId,
           quantity: detail.quantity,
@@ -205,9 +215,18 @@ export class ReturnService {
   }
 
   async getReturnsBySaleId(saleId: number): Promise<any[]> {
-    const storeId = getStoreId();
-    if (storeId === undefined) {
+    const { organizationId, currentStoreId } = getTenantContext();
+    const storeId = currentStoreId || getStoreId();
+    if (storeId === undefined || storeId === 0) {
       throw new ValidationError("Store context is required");
+    }
+
+    const conditions: any[] = [
+      eq(returns.original_sale_id, saleId),
+      eq(returns.store_id, storeId)
+    ];
+    if (organizationId && organizationId > 0) {
+      conditions.push(eq(returns.organization_id, organizationId));
     }
 
     const rows = await db
@@ -220,7 +239,7 @@ export class ReturnService {
         created_at: returns.created_at,
       })
       .from(returns)
-      .where(and(eq(returns.original_sale_id, saleId), eq(returns.store_id, storeId)))
+      .where(and(...conditions))
       .orderBy(desc(returns.id));
 
     return rows;
