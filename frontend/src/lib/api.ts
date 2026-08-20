@@ -2202,3 +2202,72 @@ export async function changePasswordApi(data: {
   }
   return json;
 }
+
+export async function getSettingsApi(): Promise<Record<string, string>> {
+  try {
+    const res = await apiFetch(`${API_BASE_URL}/settings`);
+    if (!res.ok) {
+      throw new Error(`HTTP error! status: ${res.status}`);
+    }
+    const payload = await res.json();
+    if (payload.success && payload.data) {
+      saveSettingsOffline(payload.data);
+      return payload.data;
+    }
+    return {};
+  } catch (err) {
+    console.warn("getSettingsApi fetch failed, checking offline cache:", err);
+    const cached = await getSettingsOffline();
+    return cached || {};
+  }
+}
+
+export async function updateSettingsApi(settings: Record<string, string>): Promise<void> {
+  const res = await apiFetch(`${API_BASE_URL}/settings`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json", ...getStoreHeaders() },
+    body: JSON.stringify(settings),
+  });
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.error || `Failed to update settings (HTTP ${res.status})`);
+  }
+}
+
+export async function fetchAndApplyStoreSettings(): Promise<Record<string, string>> {
+  const cfg = await getSettingsApi();
+  if (cfg && Object.keys(cfg).length > 0) {
+    const { useApp } = await import("./store");
+    const s = useApp.getState();
+    const shopName = cfg.shop_name || cfg.storeName || cfg.store_name || "";
+    const gstin = cfg.shop_gstin || cfg.gstin || "";
+    const address = cfg.shop_address || cfg.address || cfg.storeAddress || "";
+    const phone = cfg.shop_phone || cfg.phone || cfg.storePhone || "";
+    const email = cfg.shop_email || cfg.email || cfg.storeEmail || "";
+    const logo = cfg.logo || cfg.logoUrl || cfg.logo_url || "";
+    const upiId = cfg.shop_upi_id || cfg.upiId || cfg.upi_id || "";
+
+    if (shopName) s.setShopName(shopName);
+    if (gstin) s.setGstin(gstin);
+    if (address) s.setStoreAddress(address);
+    if (phone) s.setStorePhone(phone);
+    if (email) s.setStoreEmail(email);
+    if (logo) s.setLogo(logo);
+    if (upiId) s.setUpiId(upiId);
+    if (cfg.receipt_footer) s.setReceiptFooter(cfg.receipt_footer);
+    if (cfg.theme) s.setTheme(cfg.theme as any);
+    if (cfg.receipt_template) s.setReceiptTemplate(cfg.receipt_template as any);
+    if (cfg.primary_color && s.setPrimaryColor) s.setPrimaryColor(cfg.primary_color);
+    if (cfg.tagline && s.setTagline) s.setTagline(cfg.tagline);
+    if (cfg.website && s.setWebsite) s.setWebsite(cfg.website);
+    if (cfg.invoice_header && s.setInvoiceHeader) s.setInvoiceHeader(cfg.invoice_header);
+    if (cfg.invoice_footer && s.setInvoiceFooter) s.setInvoiceFooter(cfg.invoice_footer);
+    if (cfg.terms_and_conditions && s.setTermsAndConditions) s.setTermsAndConditions(cfg.terms_and_conditions);
+    if (cfg.whatsapp_signature && s.setWhatsappSignature) s.setWhatsappSignature(cfg.whatsapp_signature);
+    if (cfg.tax_rate && s.setTaxRate) s.setTaxRate(parseFloat(cfg.tax_rate) || 12);
+    if (cfg.require_customer_before_checkout !== undefined && s.setRequireCustomerBeforeCheckout) {
+      s.setRequireCustomerBeforeCheckout(cfg.require_customer_before_checkout === "1" || cfg.require_customer_before_checkout === "true");
+    }
+  }
+  return cfg;
+}

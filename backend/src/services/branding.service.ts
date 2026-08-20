@@ -59,17 +59,17 @@ export class BrandingService {
       }
     }
 
-    const businessName = storeRecord?.name || settingsMap.shop_name || "Store";
-    const gst = settingsMap.shop_gstin || storeRecord?.gst_number || orgRecord?.gst_number || "";
-    const phone = settingsMap.shop_phone || storeRecord?.phone || orgRecord?.phone || "";
-    const email = settingsMap.shop_email || orgRecord?.email || "";
-    const address = settingsMap.shop_address || storeRecord?.address || orgRecord?.address || "";
-    const logo = settingsMap.logo || storeRecord?.logo_url || orgRecord?.logo_url || "";
-    const upi = settingsMap.shop_upi_id || "";
+    const businessName = settingsMap.shop_name || settingsMap.storeName || settingsMap.store_name || storeRecord?.name || "Store";
+    const gst = settingsMap.shop_gstin || settingsMap.gstin || storeRecord?.gst_number || orgRecord?.gst_number || "";
+    const phone = settingsMap.shop_phone || settingsMap.phone || settingsMap.storePhone || storeRecord?.phone || orgRecord?.phone || "";
+    const email = settingsMap.shop_email || settingsMap.email || settingsMap.storeEmail || orgRecord?.email || "";
+    const address = settingsMap.shop_address || settingsMap.address || settingsMap.storeAddress || storeRecord?.address || orgRecord?.address || "";
+    const logo = settingsMap.logo || settingsMap.logoUrl || settingsMap.logo_url || storeRecord?.logo_url || orgRecord?.logo_url || "";
+    const upi = settingsMap.shop_upi_id || settingsMap.upiId || settingsMap.upi_id || "";
     const website = settingsMap.website || settingsMap.business_website || "https://apkabill.in";
-    const footer = settingsMap.receipt_footer || "Thank you for shopping with us\n*** Thank you — visit again ***";
+    const footer = settingsMap.receipt_footer || settingsMap.receiptFooter || "Thank you for shopping with us\n*** Thank you — visit again ***";
     const returnPolicy = settingsMap.exchange_policy || "Items can be exchanged within 7 days in original condition.";
-    const terms = settingsMap.terms_and_conditions || settingsMap.invoice_footer || returnPolicy;
+    const terms = settingsMap.terms_and_conditions || settingsMap.termsAndConditions || settingsMap.invoice_footer || returnPolicy;
 
     return {
       logo,
@@ -84,11 +84,11 @@ export class BrandingService {
       terms,
       upi,
       qr: upi ? `upi://pay?pa=${encodeURIComponent(upi)}&pn=${encodeURIComponent(businessName)}` : "",
-      receiptHeader: settingsMap.invoice_header || "",
-      primaryColor: settingsMap.primary_color || "#0f172a",
-      receiptTemplate: settingsMap.receipt_template || "Classic",
+      receiptHeader: settingsMap.invoice_header || settingsMap.receiptHeader || settingsMap.receipt_header || "",
+      primaryColor: settingsMap.primary_color || settingsMap.accentColor || settingsMap.primaryColor || "#0f172a",
+      receiptTemplate: settingsMap.receipt_template || settingsMap.receiptTemplate || "Classic",
       pdfTemplate: settingsMap.pdf_invoice_template || "Professional A4",
-      qrPosition: settingsMap.qr_position || "Bottom",
+      qrPosition: settingsMap.qr_position || settingsMap.qrPosition || "Bottom",
     };
   }
 }

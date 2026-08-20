@@ -16,7 +16,7 @@ import { useApp, type Role } from "@/lib/store";
 import { CommandPalette } from "./command-palette";
 import { ThemeToggle, useThemeInit } from "./theme-toggle";
 import { cn } from "@/lib/utils";
-import { getProducts, getCustomers, getStores, switchStore, logoutApi, getCurrentUserApi, getSuperAdminOrganizations } from "@/lib/api";
+import { getProducts, getCustomers, getStores, switchStore, logoutApi, getCurrentUserApi, getSuperAdminOrganizations, fetchAndApplyStoreSettings } from "@/lib/api";
 import { toast } from "sonner";
 
 export type NavItem = { to: string; label: string; icon: any; exact?: boolean; roles?: Role[] };
@@ -353,7 +353,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             }
           }
 
-          // Fetch products & customers ONLY AFTER active store context is set
+          // Fetch products, customers & store settings ONLY AFTER active store context is set
           Promise.all([
             getProducts().then(setProducts).catch((err) => console.error("AppShell products fetch failed:", err)),
             getCustomers().then((data) => {
@@ -363,7 +363,8 @@ export function AppShell({ children }: { children: ReactNode }) {
                 totalSpent: c.total_spent ?? c.totalSpent ?? 0,
               }));
               setCustomers(mapped);
-            }).catch((err) => console.error("AppShell customers fetch failed:", err))
+            }).catch((err) => console.error("AppShell customers fetch failed:", err)),
+            fetchAndApplyStoreSettings().catch((err) => console.error("AppShell settings fetch failed:", err))
           ]);
         })
         .catch((err) => console.error("AppShell stores fetch failed:", err));
