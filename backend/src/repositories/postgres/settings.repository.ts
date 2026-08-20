@@ -151,6 +151,22 @@ export class PostgresSettingsRepository implements ISettingsRepository {
         settingsObj.primary_color = row.value;
         settingsObj.accentColor = row.value;
         settingsObj.primaryColor = row.value;
+      } else if (row.key === "receipt_template" || row.key === "receiptTemplate" || row.key === "invoice_template" || row.key === "invoiceTemplate") {
+        settingsObj.receipt_template = row.value;
+        settingsObj.receiptTemplate = row.value;
+        settingsObj.invoice_template = row.value;
+        settingsObj.invoiceTemplate = row.value;
+      } else if (row.key === "upi_qr_enabled" || row.key === "upiQrEnabled" || row.key === "show_qr_code" || row.key === "showQrCode") {
+        settingsObj.upi_qr_enabled = row.value;
+        settingsObj.upiQrEnabled = row.value;
+        settingsObj.show_qr_code = row.value;
+        settingsObj.showQrCode = row.value;
+      } else if (row.key === "whatsapp_template" || row.key === "whatsappTemplate") {
+        settingsObj.whatsapp_template = row.value;
+        settingsObj.whatsappTemplate = row.value;
+      } else if (row.key === "whatsapp_template_custom" || row.key === "whatsappTemplateCustom") {
+        settingsObj.whatsapp_template_custom = row.value;
+        settingsObj.whatsappTemplateCustom = row.value;
       }
     }
     return settingsObj;
@@ -172,6 +188,10 @@ export class PostgresSettingsRepository implements ISettingsRepository {
     else if (key === "shop_upi_id" || key === "upiId" || key === "upi_id") searchKeys = ["shop_upi_id", "upiId", "upi_id"];
     else if (key === "inv_prefix" || key === "invoicePrefix") searchKeys = ["inv_prefix", "invoicePrefix"];
     else if (key === "po_prefix" || key === "purchasePrefix") searchKeys = ["po_prefix", "purchasePrefix"];
+    else if (key === "receipt_template" || key === "receiptTemplate" || key === "invoice_template" || key === "invoiceTemplate") searchKeys = ["receipt_template", "receiptTemplate", "invoice_template", "invoiceTemplate"];
+    else if (key === "upi_qr_enabled" || key === "upiQrEnabled" || key === "show_qr_code" || key === "showQrCode") searchKeys = ["upi_qr_enabled", "upiQrEnabled", "show_qr_code", "showQrCode"];
+    else if (key === "whatsapp_template" || key === "whatsappTemplate") searchKeys = ["whatsapp_template", "whatsappTemplate"];
+    else if (key === "whatsapp_template_custom" || key === "whatsappTemplateCustom") searchKeys = ["whatsapp_template_custom", "whatsappTemplateCustom"];
 
     for (const sk of searchKeys) {
       const rows = await client
