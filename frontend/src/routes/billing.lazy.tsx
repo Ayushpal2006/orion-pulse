@@ -256,19 +256,26 @@ function Billing() {
     const sanitized = value.replace(/\D/g, "");
     if (sanitized.length === 10) {
       setMobile(sanitized);
+      const found = customers.find((c) => c.mobile === sanitized);
+      if (found) {
+        setSelectedCustomer(found);
+        setName(found.name);
+      } else {
+        setSelectedCustomer(null);
+      }
     } else {
-      setName(value);
-    }
-
-    if (!value) {
-      setMobile("");
-      setName("");
       setSelectedCustomer(null);
+      if (!value.trim()) {
+        setMobile("");
+        setName("");
+      } else {
+        setName(value);
+      }
     }
   };
 
   const knownCustomer = useMemo(() => {
-    if (selectedCustomer) return selectedCustomer;
+    if (selectedCustomer && selectedCustomer.mobile === mobile) return selectedCustomer;
     return customers.find((c) => c.mobile === mobile);
   }, [mobile, customers, selectedCustomer]);
 
@@ -290,7 +297,8 @@ function Billing() {
     console.log("[Checkout Flow] Checkout Started");
     if (cart.length === 0) { toast.error("Cart is empty"); return; }
 
-    const isCustomerMissing = mobile.length < 10;
+    const sanitizedMobile = (mobile || "").replace(/\D/g, "");
+    const isCustomerMissing = sanitizedMobile.length < 10;
     if (requireCustomerBeforeCheckout && isCustomerMissing) {
       setShowCustomerRequiredAlert(true);
       return;
@@ -298,18 +306,22 @@ function Billing() {
 
     try {
       setStep(1);
+      const currentCustomerPhone = isCustomerMissing ? "0000000000" : sanitizedMobile;
+      const currentCustomerName = isCustomerMissing ? "Walk-in Customer" : (name.trim() || selectedCustomer?.name || `Customer - ${sanitizedMobile}`);
+
       const dto = {
-        customerPhone: isCustomerMissing ? "0000000000" : mobile,
+        customerId: selectedCustomer && selectedCustomer.mobile === sanitizedMobile ? Number(selectedCustomer.id) : undefined,
+        customerPhone: currentCustomerPhone,
         paymentMethod: payment,
         cashierName: "Admin",
         items: cart.map((l) => ({
           productId: Number(l.productId),
           quantity: l.qty,
         })),
-        customerName: isCustomerMissing ? "Walk-in Customer" : (name || "Walk-in Customer"),
+        customerName: currentCustomerName,
       };
 
-      console.log("[Checkout Flow] API Request");
+      console.log("[Checkout Flow] API Request", dto);
       let res: any;
       try {
         res = await checkoutApi(dto);
@@ -320,8 +332,8 @@ function Billing() {
         const offlineSalePayload: any = {
           offlineId,
           invoice_number: offlineInvoice,
-          customer_id: selectedCustomer?.id ? Number(selectedCustomer.id) : undefined,
-          customer_name: selectedCustomer?.name || (isCustomerMissing ? "Walk-in Customer" : name),
+          customer_id: selectedCustomer && selectedCustomer.mobile === sanitizedMobile ? Number(selectedCustomer.id) : undefined,
+          customer_name: currentCustomerName,
           items: cart.map((i: any) => ({
             product_id: Number(i.productId || i.id),
             name: i.name,
@@ -365,6 +377,8 @@ function Billing() {
       clearCart();
       setCustomerQuery("");
       setSelectedCustomer(null);
+      setMobile("");
+      setName("");
 
       // Non-blocking background invalidations and state refreshes
       setTimeout(() => {
@@ -743,13 +757,33 @@ function Billing() {
                         placeholder="Mobile"
                         value={mobile}
                         maxLength={10}
-                        onChange={(e) => setMobile(e.target.value.replace(/\D/g, ""))}
+                        onChange={(e) => {
+                          const val = e.target.value.replace(/\D/g, "");
+                          setMobile(val);
+                          if (val.length === 10) {
+                            const found = customers.find((c) => c.mobile === val);
+                            if (found) {
+                              setSelectedCustomer(found);
+                              setName(found.name);
+                              setCustomerQuery(found.name);
+                            } else {
+                              setSelectedCustomer(null);
+                            }
+                          } else {
+                            setSelectedCustomer(null);
+                          }
+                        }}
                         className="h-9 rounded-lg text-xs"
                       />
                       <Input
                         placeholder="Name"
                         value={name}
-                        onChange={(e) => setName(e.target.value)}
+                        onChange={(e) => {
+                          setName(e.target.value);
+                          if (selectedCustomer && selectedCustomer.name !== e.target.value) {
+                            setSelectedCustomer(null);
+                          }
+                        }}
                         className="h-9 rounded-lg text-xs"
                       />
                     </div>
@@ -1001,14 +1035,23 @@ export function SlipDialog({
   };
 
   const handleWhatsApp = async () => {
-    if (result?.whatsappUrl) {
+    // 1. If result has a pre-generated valid whatsappUrl with an actual target number:
+    if (result?.whatsappUrl && /wa\.me\/\d{10,15}/.test(result.whatsappUrl)) {
       window.open(result.whatsappUrl, "_blank");
       if (receipt) {
         await logSaleAudit(receipt.invoiceNumber, "INVOICE_SHARE", `${role} shared invoice ${receipt.invoiceNumber} on WhatsApp`);
       }
       return;
     }
+
+    // 2. Fetch fresh canonical WhatsApp share URL for this exact invoice from backend
     if (!receipt) return;
+    const phoneDigits = (receipt.customer?.phone || "").replace(/\D/g, "");
+    if (!phoneDigits || phoneDigits === "0000000000" || phoneDigits.length < 10) {
+      toast.error("Customer phone number is required to share on WhatsApp.");
+      return;
+    }
+
     setSharingWhatsApp(true);
     try {
       const url = await getWhatsAppShareLink(receipt.invoiceNumber);

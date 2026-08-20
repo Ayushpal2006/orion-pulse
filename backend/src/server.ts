@@ -45,7 +45,7 @@ import { initDb } from "./database/init";
 import dbProxy from "./database";
 import { errorMiddleware } from "./middleware/error.middleware";
 import { requestLogger } from "./middleware/requestLogger.middleware";
-import { rateLimiter } from "./middleware/rateLimit.middleware";
+import { authLimiter, apiLimiter, rateLimiter } from "./middleware/rateLimit.middleware";
 import { logger } from "./logger/logger";
 import { downloadFonts } from "./utils/font-downloader";
 import { SyncQueueManager } from "./services/sync.service";
@@ -122,8 +122,8 @@ app.use(express.json({ limit: "10mb" }));
 // Request logging middleware
 app.use(requestLogger);
 
-// Global Rate Limiting middleware
-app.use(rateLimiter);
+// Rate Limiting middleware (Tiered: 600 req/min for general API, 30 req/15min for auth)
+app.use(apiLimiter);
 
 // Intercept requests for deleted PDFs to dynamically regenerate them from receipt logs
 app.get("/uploads/invoices/:pdfName", async (req, res, next) => {
@@ -139,12 +139,13 @@ app.get("/uploads/invoices/:pdfName", async (req, res, next) => {
         const salesService = new SalesService();
         const receipt = await salesService.getReceipt(invoiceNumber);
         if (receipt) {
-          const pdfService = new PdfService();
-          await pdfService.generateInvoicePdf(receipt, pdfPath);
-          logger.info(`✨ Dynamic regeneration complete for: ${pdfName}`);
+          const pdfBuffer = await PdfService.generateInvoicePdf(receipt);
+          fs.writeFileSync(pdfPath, pdfBuffer);
+          logger.info(`✅ Successfully regenerated invoice PDF: ${pdfName}`);
+          return res.sendFile(pdfPath);
         }
-      } catch (err) {
-        logger.error(`❌ Dynamic regeneration failed for: ${pdfName}`, err);
+      } catch (err: any) {
+        logger.error(`❌ Failed to regenerate invoice PDF ${pdfName}:`, err);
       }
     }
   }
@@ -157,8 +158,9 @@ app.use("/storage", express.static(path.join(__dirname, "../storage")));
 // Mount Health Check endpoint (Railway deployment integration)
 app.use("/health", healthRoutes);
 
-// Auth endpoints (Public login/logout)
-app.use("/api/auth", authRoutes);
+// Auth endpoints (Brute-force protected)
+app.use("/api/auth", authLimiter, authRoutes);
+app.use("/auth", authLimiter, authRoutes);
 
 // App routes configuration (All authenticated)
 app.use("/products", authenticate(), productRoutes);

@@ -78,10 +78,9 @@ export function createCanonicalReceiptModel(input: any): UniversalReceiptModel {
   const shopPhone = input.branding?.phone || input.shop?.phone || input.businessPhone || input.shopPhone || input.shop_phone || input.store?.phone || "";
   const shopEmail = input.branding?.email || input.shop?.email || input.businessEmail || input.shopEmail || input.shop_email || "";
   const shopGst = input.branding?.gstin || input.shop?.gstin || input.businessGst || input.shopGst || input.shop_gstin || "";
-  const shopLogo = input.branding?.logo || input.shop?.logo || input.businessLogo || input.shop_logo || "";
+  const shopLogo = input.branding?.logo || input.branding?.logoUrl || input.branding?.shopLogo || input.shop?.logo || input.shop?.logoUrl || input.businessLogo || input.shop_logo || input.logoUrl || input.logo || input.business?.logoUrl || input.store?.logo || input.store?.logo_url || "";
 
   const cashier = input.cashierName || input.cashier || input.invoice?.cashierName || input.cashier_name || "Admin";
-
   const subtotal = Number(input.subtotal ?? input.totals?.subtotal ?? 0);
   const discount = Number(input.discount ?? input.totals?.discount ?? 0);
   const tax = Number(input.tax ?? input.gst ?? input.totals?.tax ?? 0);

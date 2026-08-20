@@ -224,7 +224,14 @@ export class SalesController {
         success: true,
         url,
       });
-    } catch (error) {
+    } catch (error: any) {
+      if (error?.message?.includes("Customer phone number is required")) {
+        res.status(400).json({
+          success: false,
+          error: error.message,
+        });
+        return;
+      }
       next(error);
     }
   };

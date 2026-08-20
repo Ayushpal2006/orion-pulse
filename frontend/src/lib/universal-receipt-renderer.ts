@@ -1,6 +1,6 @@
 import { UniversalReceiptModel } from "./receipt-model";
 import { EscPosEncoder } from "./esc-pos-encoder";
-import { downloadSalePdf } from "./api";
+import { downloadSalePdf, buildImageUrl } from "./api";
 
 export interface RenderOptions {
   paperWidth?: "58mm" | "80mm" | "A4";
@@ -101,8 +101,8 @@ export function wrapText(str: string, width: number): string[] {
   let current = "";
 
   for (const word of words) {
-    if ((current ? current + " " + word : word).length <= width) {
-      current = current ? current + " " + word : word;
+    if ((current + (current ? " " : "") + word).length <= width) {
+      current += (current ? " " : "") + word;
     } else {
       if (current) lines.push(current);
       if (word.length > width) {
@@ -123,31 +123,63 @@ export function wrapText(str: string, width: number): string[] {
 
 export async function loadThermalLogoMonochrome(
   imageUrl?: string,
-  maxWidthDots: number = 384,
+  maxWidthDots: number = 280,
   maxHeightDots: number = 140
 ): Promise<{ data: Uint8ClampedArray; width: number; height: number } | null> {
   if (!imageUrl || typeof window === "undefined" || typeof document === "undefined") {
     return null;
   }
 
-  return new Promise((resolve) => {
+  const resolvedUrl = buildImageUrl(imageUrl) || imageUrl.trim();
+  if (!resolvedUrl) return null;
+
+  return new Promise(async (resolve) => {
+    let objectUrl: string | null = null;
     try {
+      // 1. Try to fetch as Blob to create a same-origin URL that avoids canvas tainting
+      if (!resolvedUrl.startsWith("data:image/")) {
+        try {
+          const res = await fetch(resolvedUrl, { mode: "cors" });
+          if (res.ok) {
+            const blob = await res.blob();
+            objectUrl = URL.createObjectURL(blob);
+          }
+        } catch {
+          // Fall back to direct image loading
+        }
+      }
+
+      const targetSrc = objectUrl || resolvedUrl;
       const img = new Image();
-      img.crossOrigin = "Anonymous";
+      if (!objectUrl && !resolvedUrl.startsWith("data:")) {
+        img.crossOrigin = "anonymous";
+      }
+
       img.onload = () => {
         try {
-          let width = img.naturalWidth || img.width;
-          let height = img.naturalHeight || img.height;
+          const origW = img.naturalWidth || img.width;
+          const origH = img.naturalHeight || img.height;
 
+          if (!origW || !origH) {
+            if (objectUrl) URL.revokeObjectURL(objectUrl);
+            resolve(null);
+            return;
+          }
+
+          let width = origW;
+          let height = origH;
+
+          // Preserve aspect ratio and scale down if exceeding max printable dots
           if (width > maxWidthDots || height > maxHeightDots) {
             const ratio = Math.min(maxWidthDots / width, maxHeightDots / height);
             width = Math.round(width * ratio);
             height = Math.round(height * ratio);
           }
 
-          // Align width to multiple of 8
+          // Width in thermal ESC/POS raster bitmap must be a multiple of 8
           width = Math.max(8, Math.floor(width / 8) * 8);
           if (width <= 0 || height <= 0) {
+            if (objectUrl) URL.revokeObjectURL(objectUrl);
             resolve(null);
             return;
           }
@@ -157,26 +189,38 @@ export async function loadThermalLogoMonochrome(
           canvas.height = height;
           const ctx = canvas.getContext("2d");
           if (!ctx) {
+            if (objectUrl) URL.revokeObjectURL(objectUrl);
             resolve(null);
             return;
           }
 
-          // Fill white background
+          // Fill white background for transparent logos
           ctx.fillStyle = "#ffffff";
           ctx.fillRect(0, 0, width, height);
           ctx.drawImage(img, 0, 0, width, height);
 
           const imgData = ctx.getImageData(0, 0, width, height);
+          if (objectUrl) URL.revokeObjectURL(objectUrl);
+
+          console.log(`[ThermalLogo] Loaded logo (${origW}x${origH}) -> Resized to (${width}x${height}) for 58mm printer.`);
           resolve({ data: imgData.data, width, height });
-        } catch {
+        } catch (rasterErr) {
+          console.warn("[ThermalLogo] Raster conversion error:", rasterErr);
+          if (objectUrl) URL.revokeObjectURL(objectUrl);
           resolve(null);
         }
       };
-      img.onerror = () => {
+
+      img.onerror = (err) => {
+        console.warn("[ThermalLogo] Failed to load logo from URL:", resolvedUrl, err);
+        if (objectUrl) URL.revokeObjectURL(objectUrl);
         resolve(null);
       };
-      img.src = imageUrl;
-    } catch {
+
+      img.src = targetSrc;
+    } catch (err) {
+      console.warn("[ThermalLogo] Unexpected logo loading error:", err);
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
       resolve(null);
     }
   });
@@ -340,9 +384,9 @@ export class EscPosRenderer {
     model: UniversalReceiptModel,
     options?: RenderOptions & { templateConfig?: ReceiptTemplateConfig }
   ): Promise<Uint8Array> {
-    const isSmallPaper = options?.paperWidth === "58mm" || (options?.paperWidth as string) === "55mm";
+    const isSmallPaper = options?.paperWidth === "58mm" || (options?.paperWidth as string) === "55mm" || (options?.paperWidth as string) === "2inch";
     const maxDots = isSmallPaper ? 280 : 384;
-    const logoUrl = options?.showLogo !== false ? (model.business.logoUrl || (model as any).shop?.logo) : undefined;
+    const logoUrl = options?.showLogo !== false ? (model.business?.logoUrl || (model as any).shop?.logo || (model as any).branding?.logo || (model as any).store?.logo || (model as any).logoUrl) : undefined;
     
     let logoBitmap = null;
     if (logoUrl) {

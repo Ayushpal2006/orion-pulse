@@ -53,6 +53,7 @@ export function formatHttpError(status: number, serverError?: string): string {
     case 404: return "Requested resource was not found on the server.";
     case 409: return "Conflict error. The record or invoice already exists.";
     case 422: return "Validation error. Please verify your input data.";
+    case 429: return "Too many requests. Please slow down and try again shortly.";
     case 500: return "Internal server error. Please try again later.";
     case 503: return "Service temporarily unavailable. Please retry shortly.";
     default: return `Server error (HTTP ${status}). Please try again.`;

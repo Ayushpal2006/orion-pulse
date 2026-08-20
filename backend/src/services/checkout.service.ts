@@ -155,50 +155,72 @@ export class CheckoutService {
       let customer: any = null;
 
       if (isExplicitCustomer) {
-        if (customerId) {
-          customer = await customerRepository.getById(Number(customerId), tx);
-        }
-        if (!customer && sanitizedPhone && sanitizedPhone.length >= 10) {
+        // Priority 1: Match by exact 10-digit phone number if provided (Phone is unique per customer per store)
+        if (sanitizedPhone && sanitizedPhone.length >= 10) {
           customer = await customerRepository.getByPhone(sanitizedPhone, true, tx);
-        }
-        if (!customer && name && name.trim() !== "" && name.trim() !== "Walk-in Customer") {
+          if (customer) {
+            // Update customer name if provided and existing is generic
+            if (
+              name &&
+              name.trim() !== "" &&
+              name.trim() !== "Walk-in Customer" &&
+              (customer.name.startsWith("Customer - ") || customer.name === "Walk-in Customer" || customer.name === "Customer")
+            ) {
+              const [updatedCust] = await tx
+                .update(customers)
+                .set({ name: name.trim(), updated_at: new Date() })
+                .where(eq(customers.id, customer.id))
+                .returning();
+              customer = updatedCust;
+            }
+          } else {
+            // Customer does not exist with this phone -> create new customer with THIS EXACT PHONE
+            const [newCust] = await tx
+              .insert(customers)
+              .values({
+                organization_id: orgId,
+                store_id: storeId,
+                name: (name || "").trim() || `Customer - ${sanitizedPhone}`,
+                phone: sanitizedPhone,
+                email: null,
+                address: null,
+                notes: "Auto-created during checkout",
+                total_orders: 0,
+                lifetime_value: 0,
+                is_active: 1,
+              })
+              .returning();
+            customer = newCust;
+          }
+        } else if (customerId) {
+          // Priority 2: Customer ID provided without phone
+          customer = await customerRepository.getById(Number(customerId), tx);
+        } else if (name && name.trim() !== "" && name.trim() !== "Walk-in Customer") {
+          // Priority 3: Name provided without phone
           const [found] = await tx
             .select()
             .from(customers)
-            .where(and(eq(customers.name, name.trim()), eq(customers.store_id, storeId)))
+            .where(and(eq(customers.name, name.trim()), eq(customers.store_id, storeId), eq(customers.organization_id, orgId)))
             .limit(1);
           customer = found;
-        }
-
-        if (!customer) {
-          const [newCust] = await tx
-            .insert(customers)
-            .values({
-              organization_id: orgId,
-              store_id: storeId,
-              name: (name || "").trim() || `Customer - ${sanitizedPhone || "Guest"}`,
-              phone: sanitizedPhone && sanitizedPhone.length >= 10 ? sanitizedPhone : null,
-              email: null,
-              address: null,
-              notes: "Auto-created during checkout",
-              total_orders: 0,
-              lifetime_value: 0,
-              is_active: 1,
-            })
-            .returning();
-          customer = newCust;
-        } else if (
-          name &&
-          name.trim() !== "" &&
-          name.trim() !== "Walk-in Customer" &&
-          (customer.name.startsWith("Customer - ") || customer.name === "Walk-in Customer")
-        ) {
-          const [updatedCust] = await tx
-            .update(customers)
-            .set({ name: name.trim(), updated_at: new Date() })
-            .where(eq(customers.id, customer.id))
-            .returning();
-          customer = updatedCust;
+          if (!customer) {
+            const [newCust] = await tx
+              .insert(customers)
+              .values({
+                organization_id: orgId,
+                store_id: storeId,
+                name: name.trim(),
+                phone: null,
+                email: null,
+                address: null,
+                notes: "Auto-created during checkout",
+                total_orders: 0,
+                lifetime_value: 0,
+                is_active: 1,
+              })
+              .returning();
+            customer = newCust;
+          }
         }
       }
 
@@ -408,11 +430,10 @@ export class CheckoutService {
 
     try {
       const isSystemWalkIn = !isExplicitCustomer || result.syncCustomer?.name === "Walk-in Customer";
-      const customerPhoneDigits = (result.syncCustomer?.phone || "").replace(/\D/g, "");
-      const hasValidPhone = Boolean(customerPhoneDigits && customerPhoneDigits !== "0000000000" && customerPhoneDigits.length >= 10);
+      const { normalizeWhatsAppPhone, ShareService } = require("./share.service");
+      const normalizedPhone = normalizeWhatsAppPhone(result.syncCustomer?.phone);
 
-      if (!isSystemWalkIn && hasValidPhone) {
-        const { ShareService } = require("./share.service");
+      if (!isSystemWalkIn && normalizedPhone) {
         const { SalesService } = require("./sales.service");
         const shareService = new ShareService();
         const salesService = new SalesService();
@@ -422,9 +443,9 @@ export class CheckoutService {
           whatsappUrl = shareService.generateWhatsAppLink(receipt);
           whatsappPrepared = true;
         }
-      } else if (!isSystemWalkIn && !hasValidPhone) {
+      } else if (!isSystemWalkIn && !normalizedPhone) {
         whatsappPrepared = false;
-        whatsappError = "Sale completed successfully. WhatsApp sharing unavailable because no phone number is available.";
+        whatsappError = "Sale completed successfully. Customer phone number is required to share on WhatsApp.";
       }
     } catch (err: any) {
       console.error("[Checkout Flow] WhatsApp message preparation notice (checkout succeeded):", err.message || err);

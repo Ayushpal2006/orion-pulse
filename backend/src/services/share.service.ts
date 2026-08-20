@@ -1,3 +1,35 @@
+export function normalizeWhatsAppPhone(rawPhone?: string | null): string | null {
+  if (!rawPhone) return null;
+  let phone = String(rawPhone).replace(/\D/g, "");
+
+  // Reject empty, all zeros (dummy walk-in), or too short
+  if (!phone || /^0+$/.test(phone) || phone.length < 10) {
+    return null;
+  }
+
+  // Remove leading single zero (e.g. 09315900307 -> 9315900307)
+  if (phone.length === 11 && phone.startsWith("0")) {
+    phone = phone.slice(1);
+  }
+
+  // Already prefixed with 91 for 12-digit Indian number
+  if (phone.length === 12 && phone.startsWith("91")) {
+    return phone;
+  }
+
+  // Standard 10-digit Indian number -> prefix 91
+  if (phone.length === 10) {
+    return "91" + phone;
+  }
+
+  // International format (11 to 15 digits)
+  if (phone.length >= 11 && phone.length <= 15) {
+    return phone;
+  }
+
+  return null;
+}
+
 export class ShareService {
   generateWhatsAppMessage(receipt: any): string {
     const shopName = receipt.branding?.shopName || receipt.shop?.name || "Store";
@@ -42,26 +74,13 @@ export class ShareService {
   }
 
   generateWhatsAppLink(receipt: any): string {
+    const phone = normalizeWhatsAppPhone(receipt.customer?.phone);
+    if (!phone) {
+      throw new Error("Customer phone number is required to share on WhatsApp.");
+    }
+
     const rawMessage = this.generateWhatsAppMessage(receipt);
     const encoded = encodeURIComponent(rawMessage);
-
-    // Normalize phone number: strip spacing, dashes, non-digits
-    let phone = receipt.customer?.phone || "";
-    phone = phone.replace(/\D/g, "");
-
-    // Clear dummy or invalid phone numbers (e.g. Walk-in Customer default "0000000000")
-    if (!phone || /^0+$/.test(phone) || phone.length < 10) {
-      phone = "";
-    } else {
-      // Remove leading zeros if present (e.g. 09876543210 -> 9876543210)
-      if (phone.length === 11 && phone.startsWith("0")) {
-        phone = phone.slice(1);
-      }
-      // Add country code 91 for 10-digit Indian mobile numbers
-      if (phone.length === 10) {
-        phone = "91" + phone;
-      }
-    }
 
     return `https://wa.me/${phone}?text=${encoded}`;
   }

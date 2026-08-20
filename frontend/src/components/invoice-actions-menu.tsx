@@ -89,6 +89,11 @@ export function InvoiceActionsMenu({
   };
 
   const handleWhatsApp = async () => {
+    const phoneDigits = (receipt?.customer?.phone || "").replace(/\D/g, "");
+    if (!phoneDigits || phoneDigits === "0000000000" || phoneDigits.length < 10) {
+      toast.error("Customer phone number is required to share on WhatsApp.");
+      return;
+    }
     setSharingWhatsApp(true);
     try {
       const url = await getWhatsAppShareLink(invoiceNumber);
