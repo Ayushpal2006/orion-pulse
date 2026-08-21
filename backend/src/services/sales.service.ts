@@ -5,7 +5,7 @@ import { formatToKolkataDate, formatToKolkataTime } from "../utils/datetime";
 import QRCode from "qrcode";
 import { db } from "../db";
 import { sales, sale_items, products, customers, audit_logs, inventory_logs, stores, organizations, settings } from "../db/schema";
-import { eq, and } from "drizzle-orm";
+import { eq, and, or } from "drizzle-orm";
 import { storeStorage, getTenantContext } from "../db/context";
 import { SyncQueueManager } from "./sync.service";
 import { InventoryMovementService } from "./inventory-movement.service";
@@ -82,10 +82,16 @@ export class SalesService {
   async voidInvoice(saleId: number, reason: string, voidedBy: string, userId: number): Promise<any> {
     const { organizationId, currentStoreId } = getTenantContext();
     const result = await db.transaction(async (tx) => {
-      // 1. Fetch sale with lock for update strictly scoped to authenticated tenant
+      const numericId = parseInt(String(saleId), 10);
+      const isNumeric = !isNaN(numericId) && String(numericId) === String(saleId);
+
+      const idOrInvoiceCond = isNumeric
+        ? or(eq(sales.id, numericId), eq(sales.invoice_number, String(saleId)))
+        : eq(sales.invoice_number, String(saleId));
+
       const whereClause = (organizationId && organizationId > 0)
-        ? and(eq(sales.id, saleId), eq(sales.organization_id, organizationId), eq(sales.store_id, currentStoreId))
-        : and(eq(sales.id, saleId), eq(sales.store_id, currentStoreId));
+        ? and(idOrInvoiceCond, eq(sales.organization_id, organizationId), eq(sales.store_id, currentStoreId))
+        : and(idOrInvoiceCond, eq(sales.store_id, currentStoreId));
 
       const [sale] = await tx
         .select()
@@ -97,8 +103,14 @@ export class SalesService {
         throw new NotFoundError("Invoice not found or does not belong to your organization/store");
       }
 
-      if (sale.status === "VOID") {
-        throw new Error("Invoice is already voided");
+      if (sale.status === "VOID" || sale.status === "voided") {
+        // Idempotency: Return existing voided sale safely without duplicate inventory reversal
+        return {
+          sale,
+          customer: null,
+          products: [],
+          idempotent: true,
+        };
       }
 
       const storeId = sale.store_id;

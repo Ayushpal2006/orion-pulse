@@ -32,7 +32,7 @@ router.get("/:id/pdf", controller.getPdfReceipt);
 router.post("/:id/return", returnController.processReturn);
 
 // POST void sale
-router.post("/:id/void", authorize("admin", "manager"), controller.voidInvoice);
+router.post("/:id/void", authorize("admin", "manager", "cashier", "staff", "owner"), controller.voidInvoice);
 
 // POST log audit action
 router.post("/:id/audit", controller.logAuditAction);

@@ -174,6 +174,7 @@ app.use("/api/sales", authenticate(), salesRoutes);
 app.use("/invoices", authenticate(), salesRoutes);
 app.use("/api/invoices", authenticate(), salesRoutes);
 app.use("/dashboard", authenticate(), dashboardRoutes);
+app.use("/api/dashboard", authenticate(), dashboardRoutes);
 app.use("/reports", authenticate(), authorize("admin", "manager"), reportsRoutes);
 app.use("/api/reports", authenticate(), authorize("admin", "manager"), reportsRoutes);
 app.use("/printer", authenticate(), printerRoutes);
