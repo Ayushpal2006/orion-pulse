@@ -93,7 +93,8 @@ export class PostgresPurchaseV2Repository {
     return mapPurchaseRow(createdPo);
   }
 
-  async getAll(params?: { q?: string; startDate?: string; endDate?: string }, tx?: any): Promise<any[]> {
+  async getAll(params?: { q?: string; startDate?: string; endDate?: string; limit?: number }, tx?: any): Promise<any[]> {
+
     const client = tx || db;
     const { organizationId, currentStoreId } = getTenantContext();
     const conditions: any[] = [
@@ -122,6 +123,8 @@ export class PostgresPurchaseV2Repository {
     }
 
     const whereClause = and(...conditions);
+
+    const limitNum = params?.limit && params.limit > 0 ? Math.min(params.limit, 200) : 100;
 
     const rows = await client
       .select({
@@ -157,10 +160,12 @@ export class PostgresPurchaseV2Repository {
       .from(purchase_orders)
       .leftJoin(suppliers, eq(purchase_orders.supplier_id, suppliers.id))
       .where(whereClause)
-      .orderBy(desc(purchase_orders.id));
+      .orderBy(desc(purchase_orders.id))
+      .limit(limitNum);
 
     return rows.map((r: any) => mapPurchaseRow(r));
   }
+
 
   async getById(id: number, tx?: any): Promise<any | null> {
     const client = tx || db;

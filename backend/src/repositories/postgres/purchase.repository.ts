@@ -7,9 +7,10 @@ export class PostgresPurchaseRepository implements IPurchaseRepository {
     return purchaseV2Repository.create(poData, itemsData, tx);
   }
 
-  async getAll(params?: { q?: string; startDate?: string; endDate?: string }, tx?: any): Promise<PurchaseOrder[]> {
+  async getAll(params?: { q?: string; startDate?: string; endDate?: string; limit?: number }, tx?: any): Promise<PurchaseOrder[]> {
     return purchaseV2Repository.getAll(params, tx);
   }
+
 
   async getById(id: number, tx?: any): Promise<PurchaseOrder | null> {
     return purchaseV2Repository.getById(id, tx);

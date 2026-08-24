@@ -343,7 +343,8 @@ export class PostgresReportsRepository implements IReportsRepository {
       .from(sales)
       .leftJoin(customers, eq(sales.customer_id, customers.id))
       .where(cond)
-      .orderBy(desc(sales.id));
+      .orderBy(desc(sales.id))
+      .limit(50);
 
     return rows.map((r: any) => ({
       ...r,
@@ -352,6 +353,7 @@ export class PostgresReportsRepository implements IReportsRepository {
       total: Number(r.grandTotal ?? 0) / 100.0,
       payment: r.paymentMethod,
     }));
+
   }
 
   async getTopCustomers(

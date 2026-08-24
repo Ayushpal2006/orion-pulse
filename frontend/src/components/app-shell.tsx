@@ -272,7 +272,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   };
 
   useEffect(() => {
-    // Session validation on route change
+    // 1. Synchronous route & session guard on navigation
     const token = localStorage.getItem("token");
     if (!token && pathname !== "/login") {
       window.location.href = "/login";
@@ -280,61 +280,69 @@ export function AppShell({ children }: { children: ReactNode }) {
     }
 
     const isAdminRoute = pathname === "/admin" || pathname.startsWith("/admin") || pathname.startsWith("/super-admin");
+    const roleLower = (currentUser?.role || role || "").toLowerCase();
+    const isSuperAdminUser = roleLower === "super_admin" || roleLower === "superadmin";
 
-    if (token && pathname !== "/login") {
-      getCurrentUserApi()
-        .then((data) => {
-          if (data?.user) {
-            setCurrentUser(data.user);
-            const roleLower = (data.user.role || "").toLowerCase();
-            const isSuperAdminUser = roleLower === "super_admin" || roleLower === "superadmin";
-            const formattedRole: Role = isSuperAdminUser
-              ? "Super Admin"
-              : roleLower === "cashier"
-              ? "Cashier"
-              : roleLower === "manager"
-              ? "Manager"
-              : "Admin";
-            setRole(formattedRole);
-
-            // Role-Based Portal Guard:
-            // 1. Cashier is restricted to /billing, /customers, /products
-            if (roleLower === "cashier") {
-              const isAllowedForCashier = pathname === "/billing" || pathname === "/customers" || pathname === "/products";
-              if (!isAllowedForCashier) {
-                window.location.href = "/billing";
-                return;
-              }
-            }
-
-            // 2. Super Admin is restricted to /admin
-            if (isSuperAdminUser && !isAdminRoute) {
-              window.location.href = "/admin";
-              return;
-            }
-
-            // 3. Non-Super Admin cannot access /admin
-            if (!isSuperAdminUser && isAdminRoute) {
-              window.location.href = "/dashboard";
-              return;
-            }
-          }
-          if (
-            !isAdminRoute &&
-            data?.organization &&
-            (data.organization.onboarding_completed === 0 || data.organization.onboarding_completed === false) &&
-            pathname !== "/setup-wizard"
-          ) {
-            window.location.href = "/setup-wizard";
-          }
-        })
-        .catch((err) => {
-          console.warn("Session invalid or suspended:", err);
-          handleLogout();
-        });
+    // Role-Based Portal Guard:
+    // 1. Cashier is restricted to /billing, /customers, /products
+    if (roleLower === "cashier") {
+      const isAllowedForCashier = pathname === "/billing" || pathname === "/customers" || pathname === "/products";
+      if (!isAllowedForCashier) {
+        window.location.href = "/billing";
+        return;
+      }
     }
 
-    // 1. Fetch stores first, validate store ownership for current org, then fetch products & customers
+    // 2. Super Admin is restricted to /admin
+    if (isSuperAdminUser && !isAdminRoute) {
+      window.location.href = "/admin";
+      return;
+    }
+
+    // 3. Non-Super Admin cannot access /admin
+    if (!isSuperAdminUser && isAdminRoute && roleLower) {
+      window.location.href = "/dashboard";
+      return;
+    }
+  }, [pathname, currentUser, role]);
+
+  useEffect(() => {
+    // 2. Initial session bootstrap & data loading (runs ONCE on mount, NOT on route changes)
+    const token = localStorage.getItem("token");
+    if (!token || pathname === "/login") return;
+
+    const isAdminRoute = pathname === "/admin" || pathname.startsWith("/admin") || pathname.startsWith("/super-admin");
+
+    getCurrentUserApi()
+      .then((data) => {
+        if (data?.user) {
+          setCurrentUser(data.user);
+          const roleLower = (data.user.role || "").toLowerCase();
+          const isSuperAdminUser = roleLower === "super_admin" || roleLower === "superadmin";
+          const formattedRole: Role = isSuperAdminUser
+            ? "Super Admin"
+            : roleLower === "cashier"
+            ? "Cashier"
+            : roleLower === "manager"
+            ? "Manager"
+            : "Admin";
+          setRole(formattedRole);
+        }
+        if (
+          !isAdminRoute &&
+          data?.organization &&
+          (data.organization.onboarding_completed === 0 || data.organization.onboarding_completed === false) &&
+          pathname !== "/setup-wizard"
+        ) {
+          window.location.href = "/setup-wizard";
+        }
+      })
+      .catch((err) => {
+        console.warn("Session invalid or suspended:", err);
+        handleLogout();
+      });
+
+    // Fetch stores first, validate store ownership for current org, then fetch products & customers
     if (!isAdminRoute) {
       getStores()
         .then((stores) => {
@@ -369,7 +377,8 @@ export function AppShell({ children }: { children: ReactNode }) {
         })
         .catch((err) => console.error("AppShell stores fetch failed:", err));
     }
-  }, [pathname, setProducts, setCustomers, setActiveStoreId, setActiveStoreName, setStoresList, setRole]);
+  }, [setProducts, setCustomers, setActiveStoreId, setActiveStoreName, setStoresList, setRole]);
+
 
   const hasRole = (roles?: Role[]) => {
     if (!roles || roles.length === 0) return true;

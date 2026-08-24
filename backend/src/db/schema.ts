@@ -97,8 +97,10 @@ export const customers = pgTable(
     orgIdx: index("idx_customers_organization_id").on(table.organization_id),
     phoneIdx: index("idx_customers_phone").on(table.store_id, table.phone),
     nameIdx: index("idx_customers_name").on(table.name),
+    storeActiveIdx: index("idx_customers_store_active").on(table.store_id, table.is_active),
   })
 );
+
 
 export const sales = pgTable(
   "sales",
@@ -461,6 +463,7 @@ export const inventory_adjustments = pgTable("inventory_adjustments", {
   created_at: timestamp("created_at").defaultNow().notNull(),
 }, (table) => ({
   orgIdx: index("idx_inv_adj_organization_id").on(table.organization_id),
+  storeCreatedIdx: index("idx_inv_adj_store_created").on(table.store_id, table.created_at),
 }));
 
 // Expenses Module (Phase 6)
@@ -489,6 +492,7 @@ export const expenses = pgTable("expenses", {
   updated_at: timestamp("updated_at").defaultNow().notNull(),
 }, (table) => ({
   orgIdx: index("idx_expenses_organization_id").on(table.organization_id),
+  storeDateIdx: index("idx_expenses_store_date").on(table.store_id, table.date),
 }));
 
 // Offline-First Sync & Hardware profiles (Phase 7)

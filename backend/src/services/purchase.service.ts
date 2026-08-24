@@ -9,9 +9,10 @@ export class PurchaseService {
     return purchaseV2Service.create(data);
   }
 
-  async getAll(params?: { q?: string; startDate?: string; endDate?: string }): Promise<any[]> {
+  async getAll(params?: { q?: string; startDate?: string; endDate?: string; limit?: number }): Promise<any[]> {
     return purchaseV2Service.getAll(params);
   }
+
 
   async getById(id: number): Promise<any> {
     return purchaseV2Service.getById(id);

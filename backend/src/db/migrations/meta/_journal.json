@@ -148,6 +148,20 @@
       "when": 1784900005000,
       "tag": "0020_add_system_walkin_customer_columns",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1784900006000,
+      "tag": "0021_performance_composite_indexes",
+      "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1784900007000,
+      "tag": "0022_add_secondary_performance_indexes",
+      "breakpoints": true
     }
   ]
 }

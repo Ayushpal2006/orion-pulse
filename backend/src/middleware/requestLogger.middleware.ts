@@ -20,13 +20,30 @@ export function requestLogger(req: Request, res: Response, next: NextFunction): 
   res.on("finish", () => {
     const duration = Date.now() - start;
     const { statusCode } = res;
+    const rawContentLength = res.getHeader("content-length");
+    const contentLength = typeof rawContentLength === "number"
+      ? rawContentLength
+      : typeof rawContentLength === "string"
+      ? parseInt(rawContentLength, 10)
+      : undefined;
 
-    logger.info(`<-- ${method} ${url} ${statusCode} - ${duration}ms`, {
+    const sizeFormatted = contentLength !== undefined && !isNaN(contentLength)
+      ? contentLength >= 1024 * 1024
+        ? `${(contentLength / (1024 * 1024)).toFixed(2)} MB`
+        : contentLength >= 1024
+        ? `${(contentLength / 1024).toFixed(1)} KB`
+        : `${contentLength} B`
+      : undefined;
+
+    const sizeStr = sizeFormatted ? ` [${sizeFormatted}]` : "";
+
+    logger.info(`<-- ${method} ${url} ${statusCode} - ${duration}ms${sizeStr}`, {
       requestId,
       method,
       url,
       statusCode,
       duration,
+      contentLength,
     });
   });
 

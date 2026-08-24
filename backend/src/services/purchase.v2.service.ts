@@ -215,13 +215,14 @@ export class PurchaseV2Service {
     });
   }
 
-  async getAll(params?: { q?: string; startDate?: string; endDate?: string }): Promise<any[]> {
+  async getAll(params?: { q?: string; startDate?: string; endDate?: string; limit?: number }): Promise<any[]> {
     const storeId = getStoreId();
     if (storeId === undefined) {
       throw new ValidationError("Store context is required");
     }
     return this.repository.getAll(params);
   }
+
 
   async getById(id: number): Promise<any> {
     const storeId = getStoreId();
@@ -510,6 +511,7 @@ export class PurchaseV2Service {
       return updatedPo;
     });
   }
+
 
   async voidPurchase(id: number, reason: string, voidedBy = "Admin"): Promise<any> {
     const { organizationId, currentStoreId } = getTenantContext();
