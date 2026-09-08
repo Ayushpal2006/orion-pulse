@@ -5,7 +5,12 @@ export type Product = {
   barcode: string;
   category: string;
   purchase: number;
+  purchase_price?: number;
   price: number;
+  selling_price?: number;
+  sellingPrice?: number;
+  unit_price?: number;
+  unitPrice?: number;
   gst: number;
   stock: number;
   reorder: number;

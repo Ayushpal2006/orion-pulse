@@ -7,9 +7,19 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useApp } from "@/lib/store";
 import { editInvoice, getProducts } from "@/lib/api";
 import { inr } from "@/lib/format";
+import { resolveProductSellingPrice } from "@/lib/price-utils";
 import { toast } from "sonner";
 import { Plus, Trash2, Loader2, Edit3, Search, ShoppingBag } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
+
+export interface EditableSaleItem {
+  productId: number | string;
+  name: string;
+  price: number;
+  qty: number;
+  discount: number;
+  gst?: number;
+}
 
 interface EditInvoiceDialogProps {
   receipt: any;
@@ -27,9 +37,7 @@ export function EditInvoiceDialog({
   const queryClient = useQueryClient();
   const allProducts = useApp((s) => s.products);
 
-  const [items, setItems] = useState<
-    { productId: number; name: string; price: number; qty: number; discount: number }[]
-  >([]);
+  const [items, setItems] = useState<EditableSaleItem[]>([]);
   const [customerPhone, setCustomerPhone] = useState("");
   const [customerName, setCustomerName] = useState("");
   const [paymentMethod, setPaymentMethod] = useState("Cash");
@@ -40,18 +48,19 @@ export function EditInvoiceDialog({
   useEffect(() => {
     if (receipt && open) {
       setItems(
-        receipt.items.map((i: any) => ({
-          productId: i.productId,
-          name: i.name,
-          price: i.price,
-          qty: i.qty,
-          discount: i.discount || 0,
+        (receipt.items || []).map((i: any) => ({
+          productId: i.productId ?? i.product_id,
+          name: i.name ?? i.product_name,
+          price: resolveProductSellingPrice(i),
+          qty: Number(i.qty ?? i.quantity ?? 1),
+          discount: Number(i.discount || 0),
+          gst: Number(i.gst ?? i.product_gst ?? 0),
         }))
       );
       setCustomerPhone(receipt.customer?.phone || "");
       setCustomerName(receipt.customer?.name || "Walk-in Customer");
       setPaymentMethod(receipt.paymentMethod || "Cash");
-      setDiscountAmount(receipt.discount || 0);
+      setDiscountAmount(Number(receipt.discount || 0));
     }
   }, [receipt, open]);
 
@@ -79,14 +88,16 @@ export function EditInvoiceDialog({
     if (existingIdx >= 0) {
       handleQtyChange(existingIdx, 1);
     } else {
+      const unitPrice = resolveProductSellingPrice(prod);
       setItems((prev) => [
         ...prev,
         {
           productId: prod.id,
           name: prod.name,
-          price: (prod.selling_price || 0) / 100,
+          price: unitPrice,
           qty: 1,
           discount: 0,
+          gst: Number(prod.gst ?? 0),
         },
       ]);
     }
@@ -94,7 +105,12 @@ export function EditInvoiceDialog({
   };
 
   const subtotal = items.reduce((acc, item) => acc + (item.price - item.discount) * item.qty, 0);
-  const grandTotal = Math.max(0, subtotal - discountAmount);
+  const totalTax = items.reduce(
+    (acc, item) => acc + ((item.price - item.discount) * item.qty * (item.gst || 0)) / 100,
+    0
+  );
+  const hasTax = (receipt?.gst && Number(receipt.gst) > 0) || totalTax > 0;
+  const grandTotal = Math.max(0, subtotal - discountAmount + (hasTax ? totalTax : 0));
 
   const filteredProducts = allProducts.filter((p) =>
     p.name.toLowerCase().includes(productSearch.toLowerCase()) ||
@@ -111,14 +127,18 @@ export function EditInvoiceDialog({
     try {
       const payload = {
         items: items.map((i) => ({
-          productId: i.productId,
+          productId: Number(i.productId),
           quantity: i.qty,
           discount: i.discount,
+          unitPrice: i.price,
+          price: i.price,
+          selling_price: Math.round(i.price * 100),
         })),
         customerPhone: customerPhone.trim() || undefined,
         customerName: customerName.trim() || undefined,
         paymentMethod,
         discountAmount,
+        taxAmount: hasTax ? totalTax : undefined,
       };
 
       await editInvoice(receipt.invoiceNumber, payload);
@@ -214,7 +234,7 @@ export function EditInvoiceDialog({
                       <span className="font-semibold text-foreground">{prod.name}</span>
                       <span className="text-[10px] text-muted-foreground ml-2">Stock: {prod.stock}</span>
                     </div>
-                    <span className="font-mono text-primary font-bold">{inr(prod.price || 0)}</span>
+                    <span className="font-mono text-primary font-bold">{inr(resolveProductSellingPrice(prod))}</span>
                   </button>
                 ))}
               </div>
@@ -279,6 +299,12 @@ export function EditInvoiceDialog({
               <span className="text-muted-foreground font-medium">Subtotal</span>
               <span className="font-mono font-bold">{inr(subtotal)}</span>
             </div>
+            {hasTax && totalTax > 0 && (
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground font-medium">Estimated GST</span>
+                <span className="font-mono font-bold">{inr(totalTax)}</span>
+              </div>
+            )}
             <div className="flex items-center justify-between gap-4">
               <span className="text-muted-foreground font-medium">Overall Discount (₹)</span>
               <Input

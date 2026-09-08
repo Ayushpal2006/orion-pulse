@@ -94,14 +94,53 @@ export function mapBackendProductToFrontend(p: any): Product {
   
   console.log(`[Frontend Map] Backend image_url (Database value): ${p.image_url} -> Mapped image source (Frontend): ${mappedImage}`);
 
+  // Safely resolve selling price in Rupees
+  let priceInRupees = 0;
+  if (p.price !== undefined && p.price !== null && p.price !== "") {
+    const num = Number(p.price);
+    if (!isNaN(num) && num >= 0) priceInRupees = num;
+  } else if (p.unitPrice !== undefined && p.unitPrice !== null && p.unitPrice !== "") {
+    const num = Number(p.unitPrice);
+    if (!isNaN(num) && num >= 0) priceInRupees = num;
+  } else if (p.unit_price !== undefined && p.unit_price !== null && p.unit_price !== "") {
+    const num = Number(p.unit_price);
+    if (!isNaN(num) && num >= 0) priceInRupees = num;
+  } else if (p.sellingPrice !== undefined && p.sellingPrice !== null && p.sellingPrice !== "") {
+    const num = Number(p.sellingPrice);
+    if (!isNaN(num) && num >= 0) priceInRupees = num;
+  } else if (p.selling_price !== undefined && p.selling_price !== null && p.selling_price !== "") {
+    const num = Number(p.selling_price);
+    if (!isNaN(num) && num >= 0) {
+      // Raw backend/SQLite integer paise converted to Rupees
+      priceInRupees = num / 100;
+    }
+  }
+
+  // Safely resolve purchase price in Rupees
+  let purchaseInRupees = 0;
+  if (p.purchase !== undefined && p.purchase !== null && p.purchase !== "") {
+    const num = Number(p.purchase);
+    if (!isNaN(num) && num >= 0) purchaseInRupees = num;
+  } else if (p.purchase_price !== undefined && p.purchase_price !== null && p.purchase_price !== "") {
+    const num = Number(p.purchase_price);
+    if (!isNaN(num) && num >= 0) {
+      purchaseInRupees = num / 100;
+    }
+  }
+
   return {
     id: String(p.id),
     name: p.name,
     sku: p.sku,
     barcode: p.barcode || "",
     category: p.category || "General",
-    purchase: p.purchase_price / 100, // Convert paise (integer) to Rupees (decimal)
-    price: p.selling_price / 100,      // Convert paise (integer) to Rupees (decimal)
+    purchase: purchaseInRupees,
+    purchase_price: purchaseInRupees,
+    price: priceInRupees,
+    selling_price: priceInRupees,
+    sellingPrice: priceInRupees,
+    unit_price: priceInRupees,
+    unitPrice: priceInRupees,
     gst: p.gst ?? 18,
     stock: p.stock ?? 0,
     reorder: p.minimum_stock ?? 0,

@@ -251,7 +251,14 @@ export class SalesService {
   async editInvoice(
     saleId: number,
     data: {
-      items: { productId: number; quantity: number; discount?: number }[];
+      items: {
+        productId: number;
+        quantity: number;
+        discount?: number;
+        unitPrice?: number;
+        price?: number;
+        selling_price?: number;
+      }[];
       customerPhone?: string;
       customerName?: string;
       paymentMethod?: string;
@@ -363,7 +370,24 @@ export class SalesService {
           throw new Error(`Insufficient stock for product ${product.name}. Available: ${product.stock}`);
         }
 
-        const sellingPricePaise = product.selling_price;
+        let sellingPricePaise = product.selling_price;
+        if (itemRequest.unitPrice !== undefined && itemRequest.unitPrice !== null && (itemRequest.unitPrice as any) !== "") {
+          const p = Number(itemRequest.unitPrice);
+          if (!isNaN(p) && p >= 0) {
+            sellingPricePaise = Math.round(p * 100);
+          }
+        } else if (itemRequest.price !== undefined && itemRequest.price !== null && (itemRequest.price as any) !== "") {
+          const p = Number(itemRequest.price);
+          if (!isNaN(p) && p >= 0) {
+            sellingPricePaise = Math.round(p * 100);
+          }
+        } else if (itemRequest.selling_price !== undefined && itemRequest.selling_price !== null && (itemRequest.selling_price as any) !== "") {
+          const p = Number(itemRequest.selling_price);
+          if (!isNaN(p) && p >= 0) {
+            sellingPricePaise = Math.round(p > 1000 ? p : p * 100);
+          }
+        }
+
         const itemDiscountPaise = Math.round((itemRequest.discount || 0) * 100);
         const lineTotalPaise = (sellingPricePaise - itemDiscountPaise) * itemRequest.quantity;
         const itemGstPaise = Math.round((lineTotalPaise * (product.gst || 0)) / 100);
