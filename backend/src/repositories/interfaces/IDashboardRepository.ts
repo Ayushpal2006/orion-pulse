@@ -7,6 +7,8 @@ export interface IDashboardRepository {
     todayProfit: number;
     inventoryCount: number;
     lowStockCount: number;
+    pendingAdjustments?: number;
+    inventoryValuation?: number;
   }>;
   getTopProducts(tx?: DatabaseAdapter): Promise<any[]>;
   getRecentSales(tx?: DatabaseAdapter): Promise<any[]>;

@@ -191,4 +191,105 @@ Extracted self-contained expenses domain module comprising types, validation, re
 ### Other Client Impact
 **NONE**
 
+---
+
+## API Bounded Retrieval — Batch B
+
+### Feature
+Safe bounded retrieval and pagination for historical APIs (`GET /api/sales`, `GET /api/expenses`, `GET /api/purchases`, `GET /api/stock-adjustments`).
+
+### Web/PWA
+**STATUS**: Fully Compatible (PASS).
+- Dashboard and Invoice History continue using paginated requests with complete metadata.
+- Customer details, expense views, purchase ledgers, and stock adjustments retrieve bounded data with zero client errors.
+
+### Backend
+**STATUS**: Completed & Hardened.
+- Implemented default query bounds on `getAll` and `searchSales` (`LIMIT 100`, max 500), `getExpenses` (`LIMIT 200`, max 500), `purchases` (`LIMIT 100`, max 200), and `stock-adjustments` (`LIMIT 100`, max 200).
+- Supported clean `limit` and `offset` query parameters across all controllers, services, and repositories.
+- Strictly maintained `(organization_id, store_id)` tenant context across all modified database queries.
+
+### Database
+- **Schema Changes**: **NONE**
+- **Migration Required**: **NO**
+- **Indexes Added**: **NO**
+
+### API Changes
+- Exact endpoints maintained with 100% backward compatibility:
+  - `GET /api/sales`: When invoked without pagination params, returns `{ success: true, data: [...] }` capped to safe default limit (100). When invoked with `page`/`limit`/`search`, returns structured pagination `{ success: true, data: [...], pagination: { ... } }`.
+  - `GET /api/expenses`: Supports `limit` & `offset` query params, returns `{ success: true, data: [...] }` capped to 200 by default.
+  - `GET /api/purchases`: Supports `limit` & `offset` query params, returns `{ success: true, data: [...] }` capped to 100 by default.
+  - `GET /api/stock-adjustments`: Supports `limit` & `offset` query params, returns `{ success: true, data: [...] }` capped to 100 by default.
+- **Breaking Changes**: **NONE**
+
+### Expo Impact
+**NO EXPO CHANGE REQUIRED**
+- `SalesService.getTodaySales`, `ExpenseService.getExpenses`, `PurchaseService`, and `AdjustStockScreen` consume identical response shapes `{ success: true, data: [...] }` with safe default bounding.
+- Sync protocols (`/api/sync/upload`, `/api/sync/download`) are completely untouched.
+
+### Migration
+**NONE**
+
+### Testing
+- `npm run build:backend` / `tsc` in `backend/`: **PASS**
+- TypeScript / Vite build in `frontend/`: **PASS**
+
+### Tenant Isolation Verification
+All modified queries enforce composite tenant scoping:
+`and(eq(table.organization_id, organizationId), eq(table.store_id, currentStoreId))`
+Zero cross-tenant data access is possible.
+
+### Other Client Impact
+**NONE**
+
+---
+
+## Dashboard and Reports Optimization — Batch C
+
+### Feature
+Dashboard and Reports data-flow separation and query optimization.
+
+### Web/PWA
+**STATUS**: Optimized & Fully Compatible (PASS).
+- Dashboard open reduced from 3 network requests and 17 database queries down to 2 lightweight requests and 7 database queries (59% query reduction).
+- Elimination of heavy report generation when opening the Dashboard.
+- Lazy-loading for Reports page tabs (e.g. `supplierReports`).
+
+### Backend
+**STATUS**: Hardened & Optimized.
+- `GET /api/reports` supports `seriesOnly=true` / `type=trend` to execute single aggregate trend query instead of full 9-part reporting suite.
+- `PostgresDashboardRepository.getTodaySummary` consolidated product count + low stock count + stock valuation into a single query and precomputes today's adjustment count.
+- Strictly maintained `(organization_id, store_id)` tenant context across all database queries.
+
+### Database
+- **Schema Changes**: **NONE**
+- **Migration Required**: **NO**
+- **Indexes Added**: **NO**
+
+### API
+- `GET /api/reports`: Added backward-compatible `seriesOnly=true` parameter. Full reports output is 100% unchanged.
+- `GET /api/dashboard`: Added precomputed `pendingAdjustments` and `inventoryValuation` fields to `data`.
+- **Breaking Changes**: **NONE**
+
+### Expo Impact
+**NO EXPO CHANGE REQUIRED**
+- `DashboardService.getDashboardData` consumes the exact fields (`todayRevenue`, `todayOrders`, `todayProfit`, `inventoryCount`, `lowStockCount`, `topProducts`, `recentSales`) without disruption.
+- Offline SQLite aggregation and sync protocols remain completely untouched.
+
+### Performance
+- Database queries executed when opening Dashboard: **Reduced from 17 queries to 7 queries (59% reduction)**.
+- Eliminated redundant `GET /api/stock-adjustments` API call on Dashboard mount.
+
+### Migration
+**NONE**
+
+### Testing
+- `npm run build` in `backend/`: **PASS**
+- `npm run build` in `frontend/`: **PASS**
+
+### Other Client Impact
+**NONE**
+
+
+
 

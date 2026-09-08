@@ -2,7 +2,7 @@ import { PurchaseOrder, PurchaseItem } from "../../types/purchase.types";
 
 export interface IPurchaseRepository {
   create(poData: any, itemsData: any[], tx?: any): Promise<PurchaseOrder>;
-  getAll(params?: { q?: string; startDate?: string; endDate?: string; limit?: number }, tx?: any): Promise<PurchaseOrder[]>;
+  getAll(params?: { q?: string; startDate?: string; endDate?: string; limit?: number; offset?: number }, tx?: any): Promise<PurchaseOrder[]>;
 
   getById(id: number, tx?: any): Promise<PurchaseOrder | null>;
   getItems(purchaseOrderId: number, tx?: any): Promise<PurchaseItem[]>;

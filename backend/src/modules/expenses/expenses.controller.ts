@@ -43,11 +43,13 @@ export class ExpenseController {
 
   getAll = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const { categoryId, startDate, endDate } = req.query;
+      const { categoryId, startDate, endDate, limit, offset } = req.query;
       const rows = await this.service.getExpenses({
         categoryId: categoryId ? parseInt(categoryId as string, 10) : undefined,
         startDate: startDate ? String(startDate) : undefined,
         endDate: endDate ? String(endDate) : undefined,
+        limit: limit ? parseInt(limit as string, 10) : undefined,
+        offset: offset ? parseInt(offset as string, 10) : undefined,
       });
       res.status(200).json({ success: true, data: rows });
     } catch (error) {

@@ -86,7 +86,7 @@ export class ExpenseService {
       cond = and(cond, gte(expenses.date, start), lte(expenses.date, end)) as SQL<unknown>;
     }
 
-    return this.repo.getExpenses(cond);
+    return this.repo.getExpenses(cond, filter.limit, filter.offset);
   }
 
   async getSummary(query: ExpenseSummaryQuery): Promise<ExpenseSummaryResponse> {

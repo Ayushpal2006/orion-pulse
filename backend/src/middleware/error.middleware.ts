@@ -37,6 +37,20 @@ export function errorMiddleware(
       path: e.path.join("."),
       message: e.message,
     }));
+  } else if (err && typeof err === "object" && (err.code === "23505" || err.code?.startsWith("SQLITE_CONSTRAINT_UNIQUE"))) {
+    statusCode = 409;
+    errorCode = "DUPLICATE_RESOURCE";
+    message = "A resource with this identifier already exists";
+    details = env.NODE_ENV === "production" ? null : { code: err.code, detail: err.detail };
+  } else if (err && typeof err === "object" && (err.code === "23503" || err.code?.startsWith("SQLITE_CONSTRAINT_FOREIGNKEY"))) {
+    statusCode = 400;
+    errorCode = "FOREIGN_KEY_VIOLATION";
+    message = "Referenced parent record or related entity does not exist";
+    details = env.NODE_ENV === "production" ? null : { code: err.code, detail: err.detail };
+  } else if (err && typeof err === "object" && (err.code === "ECONNREFUSED" || err.code === "57P01" || err.code === "57P03")) {
+    statusCode = 503;
+    errorCode = "DATABASE_UNAVAILABLE";
+    message = "Database service is temporarily unavailable. Please try again shortly.";
   } else if (err && typeof err === "object" && err.code?.startsWith("SQLITE_")) {
     statusCode = 400;
     errorCode = "DATABASE_CONSTRAINT_VIOLATION";
@@ -59,10 +73,17 @@ export function errorMiddleware(
     }
   }
 
+  const requestId = req.headers["x-request-id"] || res.getHeader("x-request-id");
+
   res.status(statusCode).json({
     success: false,
     message,
     errorCode,
-    details: env.NODE_ENV === "production" && statusCode === 500 ? null : details,
+    error: {
+      code: errorCode,
+      message,
+    },
+    ...(requestId ? { requestId: String(requestId) } : {}),
+    details: env.NODE_ENV === "production" && statusCode >= 500 ? null : details,
   });
 }

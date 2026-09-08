@@ -51,6 +51,8 @@ export interface ExpenseFilterQuery {
   categoryId?: number;
   startDate?: string;
   endDate?: string;
+  limit?: number;
+  offset?: number;
 }
 
 export interface ExpenseSummaryQuery {

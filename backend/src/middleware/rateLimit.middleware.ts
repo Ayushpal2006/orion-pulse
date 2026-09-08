@@ -51,10 +51,17 @@ export const apiLimiter = rateLimit({
   },
   skip: (req: Request): boolean => {
     // Skip health checks, root ping, static assets, and public token invoice views
-    const p = req.path || "";
+    const p = req.originalUrl || req.path || "";
     if (
       p === "/health" ||
+      p.startsWith("/health/") ||
+      p === "/healthz" ||
+      p === "/api/health" ||
+      p.startsWith("/api/health/") ||
+      p === "/ready" ||
+      p === "/live" ||
       p === "/" ||
+      p === "/favicon.ico" ||
       p.startsWith("/uploads") ||
       p.startsWith("/storage") ||
       p.startsWith("/invoice/v/")

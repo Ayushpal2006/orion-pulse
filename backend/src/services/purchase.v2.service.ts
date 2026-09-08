@@ -215,7 +215,7 @@ export class PurchaseV2Service {
     });
   }
 
-  async getAll(params?: { q?: string; startDate?: string; endDate?: string; limit?: number }): Promise<any[]> {
+  async getAll(params?: { q?: string; startDate?: string; endDate?: string; limit?: number; offset?: number }): Promise<any[]> {
     const storeId = getStoreId();
     if (storeId === undefined) {
       throw new ValidationError("Store context is required");

@@ -9,7 +9,7 @@ export class PurchaseService {
     return purchaseV2Service.create(data);
   }
 
-  async getAll(params?: { q?: string; startDate?: string; endDate?: string; limit?: number }): Promise<any[]> {
+  async getAll(params?: { q?: string; startDate?: string; endDate?: string; limit?: number; offset?: number }): Promise<any[]> {
     return purchaseV2Service.getAll(params);
   }
 

@@ -596,6 +596,41 @@ export async function getReportsData(
   }
 }
 
+export async function getReportsTrendData(
+  filter: string,
+  startDate?: string,
+  endDate?: string,
+  showVoidInvoices: boolean = false
+): Promise<{ salesSeries: Array<{ label: string; value: number; profit?: number }> }> {
+  try {
+    let url = `${API_BASE_URL}/reports?filter=${encodeURIComponent(filter)}&seriesOnly=true`;
+    if (startDate) {
+      url += `&startDate=${encodeURIComponent(startDate)}`;
+    }
+    if (endDate) {
+      url += `&endDate=${encodeURIComponent(endDate)}`;
+    }
+    if (showVoidInvoices) {
+      url += `&showVoidInvoices=true`;
+    }
+    const res = await apiFetch(url);
+    if (!res.ok) {
+      const errorData = await res.json().catch(() => ({}));
+      throw new Error(errorData.error || `HTTP error! status: ${res.status}`);
+    }
+    const payload = await res.json();
+    if (payload.success && payload.data) {
+      return payload.data;
+    }
+    throw new Error("Invalid response format from server");
+  } catch (error) {
+    if (error instanceof TypeError && error.message === "Failed to fetch") {
+      throw new Error("Server is unavailable. Please check if the backend server is running on port 8080.");
+    }
+    throw error;
+  }
+}
+
 export async function downloadReportPdfApi(
   filter: string,
   startDate?: string,

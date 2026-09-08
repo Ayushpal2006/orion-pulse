@@ -4,6 +4,7 @@ import JsBarcode from "jsbarcode";
 import { Plus, Search, ScanBarcode as BarcodeIcon, ArrowUpDown } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Dialog,
   DialogContent,
@@ -38,8 +39,8 @@ import { EditProductDialog } from "@/components/edit-product-dialog";
 import { StockAdjustmentDialog } from "@/components/stock-adjustment-dialog";
 import { ProductDetailsDrawer } from "@/components/product-details-drawer";
 import { EmptyState } from "@/components/empty-state";
-import { Skeleton } from "@/components/ui/skeleton";
-import { getProducts, searchProducts, deleteProductApi, createProduct } from "@/lib/api";
+import { useQueryClient } from "@tanstack/react-query";
+import { getProducts, deleteProductApi, createProduct } from "@/lib/api";
 
 export const Route = createLazyFileRoute("/inventory")({
   component: Inventory,
@@ -76,13 +77,14 @@ function InventorySkeleton() {
 }
 
 export function Inventory() {
+  const queryClient = useQueryClient();
   const products = useApp((s) => s.products);
   const setProducts = useApp((s) => s.setProducts);
   const deleteProduct = useApp((s) => s.deleteProduct);
   const canEdit = useCan(["Admin", "Manager"]);
 
   const [q, setQ] = useState("");
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(products.length === 0);
   const [category, setCategory] = useState<string>("All");
   const [status, setStatus] = useState<StatusFilter>("all");
   const [sort, setSort] = useState<SortKey>("newest");
@@ -98,7 +100,7 @@ export function Inventory() {
   const loadProducts = async () => {
     setLoading(true);
     try {
-      const data = await getProducts();
+      const data = await queryClient.fetchQuery({ queryKey: ["products"], queryFn: getProducts });
       setProducts(data);
     } catch (err: any) {
       toast.error(err.message || "Failed to load products from server");
@@ -107,32 +109,13 @@ export function Inventory() {
     }
   };
 
-  const runSearch = async (query: string) => {
-    setLoading(true);
-    try {
-      const data = await searchProducts(query);
-      setProducts(data);
-    } catch (err: any) {
-      toast.error(err.message || "Search failed");
-    } finally {
+  useEffect(() => {
+    if (products.length === 0) {
+      loadProducts();
+    } else {
       setLoading(false);
     }
-  };
-
-  useEffect(() => {
-    loadProducts();
   }, []);
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      if (q.trim()) {
-        runSearch(q);
-      } else {
-        loadProducts();
-      }
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [q]);
 
   const categories = useMemo(() => {
     const found = Array.from(
@@ -146,7 +129,15 @@ export function Inventory() {
   }, [products]);
 
   const filtered = useMemo(() => {
+    const query = q.trim().toLowerCase();
     let list = products.filter((p) => {
+      if (query) {
+        const matchesName = p.name.toLowerCase().includes(query);
+        const matchesSku = p.sku.toLowerCase().includes(query);
+        const matchesBarcode = p.barcode?.toLowerCase().includes(query);
+        const matchesCategory = p.category?.toLowerCase().includes(query);
+        if (!matchesName && !matchesSku && !matchesBarcode && !matchesCategory) return false;
+      }
       if (category !== "All" && p.category !== category) return false;
       if (status !== "all" && stockLevel(p) !== status) return false;
       return true;
@@ -159,7 +150,7 @@ export function Inventory() {
       case "newest": list.sort((a, b) => b.createdAt.localeCompare(a.createdAt)); break;
     }
     return list;
-  }, [products, category, status, sort]);
+  }, [products, q, category, status, sort]);
 
   const openEdit = (p: Product) => {
     setEditProduct(p);

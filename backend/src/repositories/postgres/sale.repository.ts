@@ -7,7 +7,7 @@ import { getTenantContext } from "../../db/context";
 import { getUtcBoundariesForFilter } from "../../utils/datetime";
 
 export class PostgresSaleRepository implements ISaleRepository {
-  async getAll(tx?: any): Promise<Sale[]> {
+  async getAll(params?: { limit?: number; offset?: number }, tx?: any): Promise<Sale[]> {
     const client = tx || db;
     const { organizationId, currentStoreId } = getTenantContext();
     const conditions: any[] = [
@@ -16,12 +16,16 @@ export class PostgresSaleRepository implements ISaleRepository {
     ];
 
     const whereClause = and(...conditions);
+    const limitNum = params?.limit && params.limit > 0 ? Math.min(params.limit, 500) : 100;
+    const offsetNum = params?.offset && params.offset > 0 ? params.offset : 0;
 
     const rows = await client
       .select()
       .from(sales)
       .where(whereClause)
-      .orderBy(desc(sales.id));
+      .orderBy(desc(sales.id))
+      .limit(limitNum)
+      .offset(offsetNum);
 
     return rows.map((r: any) => ({
       ...r,
@@ -366,6 +370,8 @@ export class PostgresSaleRepository implements ISaleRepository {
       paymentMethod?: string;
       startDate?: string;
       endDate?: string;
+      limit?: number;
+      offset?: number;
     },
     tx?: any
   ): Promise<any[]> {
@@ -403,6 +409,8 @@ export class PostgresSaleRepository implements ISaleRepository {
     }
 
     const whereClause = and(...conditions);
+    const limitNum = params.limit && params.limit > 0 ? Math.min(params.limit, 500) : 100;
+    const offsetNum = params.offset && params.offset > 0 ? params.offset : 0;
 
     const rows = await client
       .select({
@@ -431,7 +439,9 @@ export class PostgresSaleRepository implements ISaleRepository {
       .from(sales)
       .leftJoin(customers, eq(sales.customer_id, customers.id))
       .where(whereClause)
-      .orderBy(desc(sales.id));
+      .orderBy(desc(sales.id))
+      .limit(limitNum)
+      .offset(offsetNum);
 
     return rows;
   }

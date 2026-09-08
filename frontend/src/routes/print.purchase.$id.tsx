@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { Loader2, Printer, ArrowLeft } from "lucide-react";
-import { getPurchaseById, API_BASE_URL, apiFetch } from "@/lib/api";
+import { getPurchaseById, getSettingsApi, API_BASE_URL, apiFetch } from "@/lib/api";
 import { printerService } from "@/lib/printer.service";
 import { waitForReceiptResources } from "@/lib/print-adapter";
 import { Button } from "@/components/ui/button";
@@ -47,11 +47,7 @@ function PrintPurchasePage() {
   // Fetch settings details
   const { data: settings } = useQuery({
     queryKey: ["settings"],
-    queryFn: async () => {
-      const res = await apiFetch(`${API_BASE_URL}/settings`);
-      const json = await res.json();
-      return json.success ? json.data : {};
-    },
+    queryFn: getSettingsApi,
     staleTime: 30000,
   });
 

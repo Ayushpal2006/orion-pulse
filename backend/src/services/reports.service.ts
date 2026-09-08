@@ -38,4 +38,8 @@ export class ReportsService {
       productsSummary,
     };
   }
+
+  async getTrendSeries(filter: string, startDate?: string, endDate?: string, showVoid: boolean = false) {
+    return this.repo.getTrendSeries(filter, startDate, endDate, showVoid);
+  }
 }

@@ -19,8 +19,8 @@ export class SalesService {
   private customerRepo = customerRepository;
   private movementService = new InventoryMovementService();
 
-  async getAll(): Promise<Sale[]> {
-    return this.saleRepo.getAll();
+  async getAll(params?: { limit?: number; offset?: number }): Promise<Sale[]> {
+    return this.saleRepo.getAll(params);
   }
 
   async getByCustomerPhone(phone: string): Promise<Sale[]> {

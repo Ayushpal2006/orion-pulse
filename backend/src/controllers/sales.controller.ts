@@ -25,6 +25,7 @@ export class SalesController {
       const {
         page,
         limit,
+        offset,
         search,
         invoice,
         customer,
@@ -40,7 +41,7 @@ export class SalesController {
         cashier,
       } = req.query;
 
-      if (page || limit || search || status || sort || dateFilter) {
+      if (page || search || status || sort || dateFilter) {
         const pageNum = parseInt(page as string, 10) || 1;
         const limitNum = parseInt(limit as string, 10) || 20;
 
@@ -74,6 +75,9 @@ export class SalesController {
         return;
       }
 
+      const limitParam = limit ? parseInt(limit as string, 10) : undefined;
+      const offsetParam = offset ? parseInt(offset as string, 10) : undefined;
+
       let salesData;
       if (invoice || customer || phone || date || cashier || payment || startDate) {
         salesData = await this.saleRepo.searchSales({
@@ -85,9 +89,14 @@ export class SalesController {
           paymentMethod: payment as string,
           startDate: startDate as string,
           endDate: endDate as string,
+          limit: limitParam,
+          offset: offsetParam,
         });
       } else {
-        salesData = await this.service.getAll();
+        salesData = await this.service.getAll({
+          limit: limitParam,
+          offset: offsetParam,
+        });
       }
 
       res.status(200).json({

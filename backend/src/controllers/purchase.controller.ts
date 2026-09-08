@@ -39,6 +39,8 @@ export class PurchaseController {
         q: req.query.q as string,
         startDate: req.query.startDate as string,
         endDate: req.query.endDate as string,
+        limit: req.query.limit ? parseInt(req.query.limit as string, 10) : undefined,
+        offset: req.query.offset ? parseInt(req.query.offset as string, 10) : undefined,
       };
 
       const result = await this.service.getAll(filters);

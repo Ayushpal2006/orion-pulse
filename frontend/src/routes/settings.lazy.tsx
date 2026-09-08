@@ -60,7 +60,8 @@ import { getPrintAdapter } from "@/lib/print-adapter";
 import { printerService } from "@/lib/printer.service";
 import { DEFAULT_RECEIPT_TEMPLATES, saveActiveTemplateConfig } from "@/lib/receipt-template";
 import { ThemeToggle } from "@/components/theme-toggle";
-import { testPrinter, API_BASE_URL, apiFetch, resetOnboardingApi, changePasswordApi, getStoreHeaders } from "@/lib/api";
+import { useQueryClient } from "@tanstack/react-query";
+import { testPrinter, API_BASE_URL, apiFetch, resetOnboardingApi, changePasswordApi, getStoreHeaders, getSettingsApi } from "@/lib/api";
 import { formatToKolkataDateTime } from "@/lib/datetime";
 import { WhatsAppTemplateManager } from "@/components/whatsapp-template-manager";
 import { BrandingSettings } from "@/components/branding-settings";
@@ -145,6 +146,7 @@ interface BackupHistoryItem {
 }
 
 function SettingsV2() {
+  const queryClient = useQueryClient();
   const s = useApp();
   const [activeSection, setActiveSection] = useState<SettingsSectionId>("general");
   const [searchQuery, setSearchQuery] = useState("");
@@ -422,13 +424,11 @@ function SettingsV2() {
 
   // Load Initial Storage Stats, Connection, and Restore Production Settings
   useEffect(() => {
-    // Fetch Production Settings from Backend Database API
-    apiFetch(`${API_BASE_URL}/settings`)
-      .then((r) => r.json())
-      .then((d) => {
-        if (d.success && d.data) {
-          const cfg = d.data;
-
+    // Fetch Production Settings from Backend Database API or React Query cache
+    queryClient
+      .fetchQuery({ queryKey: ["settings"], queryFn: getSettingsApi })
+      .then((cfg) => {
+        if (cfg && Object.keys(cfg).length > 0) {
           s.setShopName(cfg.shop_name ?? "");
           s.setGstin(cfg.shop_gstin ?? "");
           s.setStoreAddress(cfg.shop_address ?? "");
@@ -566,42 +566,47 @@ function SettingsV2() {
     }
     setSaving(true);
     try {
+      const payload: Record<string, string> = {
+        shop_name: s.shopName,
+        shop_gstin: s.gstin,
+        shop_address: s.storeAddress,
+        shop_phone: s.storePhone,
+        shop_email: s.storeEmail,
+        logo: s.logo || "",
+        shop_upi_id: s.upiId,
+        inv_prefix: invPrefix,
+        po_prefix: poPrefix,
+        receipt_footer: s.receiptFooter,
+        google_sheet_id: sheetId,
+        google_sync_enabled: isConnected ? "1" : "0",
+        theme: s.theme,
+        receipt_template: s.receiptTemplate,
+        primary_color: s.primaryColor || "#2563eb",
+        tagline: s.tagline || "",
+        website: s.website || "",
+        invoice_header: s.invoiceHeader || "",
+        invoice_footer: s.invoiceFooter || "",
+        terms_and_conditions: s.termsAndConditions || "",
+        whatsapp_signature: s.whatsappSignature || "",
+        tax_rate: String(s.taxRate || 12),
+        low_stock_threshold: String(lowStockThreshold || 10),
+        default_report_period: defaultReportPeriod,
+        export_format: exportFormat,
+        require_customer_before_checkout: s.requireCustomerBeforeCheckout ? "1" : "0",
+      };
+
       const res = await apiFetch(`${API_BASE_URL}/settings`, {
         method: "PUT",
         headers: { "Content-Type": "application/json", ...getStoreHeaders() },
-        body: JSON.stringify({
-          shop_name: s.shopName,
-          shop_gstin: s.gstin,
-          shop_address: s.storeAddress,
-          shop_phone: s.storePhone,
-          shop_email: s.storeEmail,
-          logo: s.logo || "",
-          shop_upi_id: s.upiId,
-          inv_prefix: invPrefix,
-          po_prefix: poPrefix,
-          receipt_footer: s.receiptFooter,
-          google_sheet_id: sheetId,
-          google_sync_enabled: isConnected ? "1" : "0",
-          theme: s.theme,
-          receipt_template: s.receiptTemplate,
-          primary_color: s.primaryColor || "#2563eb",
-          tagline: s.tagline || "",
-          website: s.website || "",
-          invoice_header: s.invoiceHeader || "",
-          invoice_footer: s.invoiceFooter || "",
-          terms_and_conditions: s.termsAndConditions || "",
-          whatsapp_signature: s.whatsappSignature || "",
-          tax_rate: String(s.taxRate || 12),
-          low_stock_threshold: String(lowStockThreshold || 10),
-          default_report_period: defaultReportPeriod,
-          export_format: exportFormat,
-          require_customer_before_checkout: s.requireCustomerBeforeCheckout ? "1" : "0",
-        }),
+        body: JSON.stringify(payload),
       });
 
       if (!res.ok) {
         throw new Error(`HTTP ${res.status}`);
       }
+
+      // Update React Query cache so all consumers have immediate fresh settings
+      queryClient.setQueryData(["settings"], payload);
 
       // Success: update deep-cloned saved snapshot to match current form state
       setSavedSettings(structuredClone(getSettingsSnapshot()));

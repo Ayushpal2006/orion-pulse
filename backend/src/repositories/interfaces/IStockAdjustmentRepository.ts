@@ -9,6 +9,8 @@ export interface IStockAdjustmentRepository {
       endDate?: string;
       product_id?: number;
       adjustment_type?: string;
+      limit?: number;
+      offset?: number;
     },
     tx?: any
   ): Promise<StockAdjustment[]>;

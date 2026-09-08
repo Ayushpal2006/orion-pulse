@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { Loader2 } from "lucide-react";
-import { getSaleReceipt, API_BASE_URL, apiFetch } from "@/lib/api";
+import { getSaleReceipt, getSettingsApi, API_BASE_URL, apiFetch } from "@/lib/api";
 import { waitForReceiptResources } from "@/lib/print-adapter";
 import { Button } from "@/components/ui/button";
 import { printerService } from "@/lib/printer.service";
@@ -89,11 +89,7 @@ function PrintInvoicePage() {
   // Fetch settings details to load configured template automatically
   const { data: settings } = useQuery({
     queryKey: ["settings"],
-    queryFn: async () => {
-      const res = await apiFetch(`${API_BASE_URL}/settings`);
-      const json = await res.json();
-      return json.success ? json.data : {};
-    },
+    queryFn: getSettingsApi,
     staleTime: 30000,
   });
 

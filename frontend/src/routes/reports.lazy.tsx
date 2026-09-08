@@ -65,15 +65,20 @@ function Reports() {
   const startDateStr = (filter === "custom" && range?.from) ? format(range.from, "yyyy-MM-dd") : undefined;
   const endDateStr = (filter === "custom" && range?.to) ? format(range.to, "yyyy-MM-dd") : undefined;
 
-  // Fetch reports data from SQLite
+  const [activeTab, setActiveTab] = useState("sales");
+
+  // Fetch reports data from backend
   const { data: reports, isLoading, isError, refetch } = useQuery({
     queryKey: ["reports", filter, startDateStr, endDateStr, showVoidInvoices],
     queryFn: () => getReportsData(filter, startDateStr, endDateStr, showVoidInvoices),
+    staleTime: 60000,
   });
 
   const { data: supplierReports } = useQuery({
     queryKey: ["supplier-reports"],
     queryFn: getSupplierReports,
+    enabled: activeTab === "suppliers",
+    staleTime: 60000,
   });
 
   const [exporting, setExporting] = useState<"pdf" | "excel" | null>(null);
@@ -249,7 +254,7 @@ function Reports() {
         </div>
       </div>
 
-      <Tabs defaultValue="sales">
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="rounded-xl">
           <TabsTrigger value="sales" className="rounded-lg">Sales</TabsTrigger>
           {canProfit && (

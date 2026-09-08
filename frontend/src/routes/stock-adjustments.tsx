@@ -105,13 +105,14 @@ export function StockAdjustmentsPage() {
   });
 
   const { data: productsList = [] } = useQuery({
-    queryKey: ["products-active"],
+    queryKey: ["products"],
     queryFn: () => getProducts(),
   });
 
   const handleRefresh = () => {
     refetch();
     queryClient.invalidateQueries({ queryKey: ["stock-adjustments"] });
+    queryClient.invalidateQueries({ queryKey: ["products"] });
   };
 
   // Convert Date strings to local timezone readable

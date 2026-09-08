@@ -85,7 +85,7 @@ function Billing() {
   const parkSale = useApp((s) => s.parkSale);
 
   const [q, setQ] = useState("");
-  const [loadingProducts, setLoadingProducts] = useState(true);
+  const [loadingProducts, setLoadingProducts] = useState(products.length === 0);
   const [step, setStep] = useState(-1);
   const [showSlip, setShowSlip] = useState(false);
   const [checkoutResult, setCheckoutResult] = useState<any>(null);
@@ -107,7 +107,7 @@ function Billing() {
   const loadProducts = async () => {
     setLoadingProducts(true);
     try {
-      const data = await getProducts();
+      const data = await queryClient.fetchQuery({ queryKey: ["products"], queryFn: getProducts });
       setProducts(data);
     } catch (err: any) {
       toast.error(err.message || "Failed to load products");
@@ -116,17 +116,17 @@ function Billing() {
     }
   };
 
-  const runSearch = async (query: string) => {
-    setLoadingProducts(true);
-    try {
-      const data = await searchProducts(query);
-      setProducts(data);
-    } catch (err: any) {
-      toast.error(err.message || "Search failed");
-    } finally {
-      setLoadingProducts(false);
-    }
-  };
+  const filteredProducts = useMemo(() => {
+    const query = q.trim().toLowerCase();
+    if (!query) return products;
+    return products.filter((p) => {
+      const matchesName = p.name.toLowerCase().includes(query);
+      const matchesSku = p.sku.toLowerCase().includes(query);
+      const matchesBarcode = p.barcode?.toLowerCase().includes(query);
+      const matchesCategory = p.category?.toLowerCase().includes(query);
+      return matchesName || matchesSku || matchesBarcode || matchesCategory;
+    });
+  }, [products, q]);
 
   const runCustomerSearch = async (query: string) => {
     setSearchingCustomer(true);
@@ -141,7 +141,11 @@ function Billing() {
   };
 
   useEffect(() => {
-    loadProducts();
+    if (products.length === 0) {
+      loadProducts();
+    } else {
+      setLoadingProducts(false);
+    }
     // Auto-focus search bar on mount for instant barcode scanning
     setTimeout(() => searchInputRef.current?.focus(), 200);
   }, []);
@@ -193,17 +197,6 @@ function Billing() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [showSlip, step, showCustomerRequiredAlert, payment, q]);
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      if (q.trim()) {
-        runSearch(q);
-      } else {
-        loadProducts();
-      }
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [q]);
 
   useEffect(() => {
     if (!customerQuery.trim()) {
@@ -374,22 +367,37 @@ function Billing() {
       console.log("[Checkout Flow] Mutation Success");
       setCheckoutResult(res);
 
+      // Locally decrement stock of purchased products in Zustand & React Query cache
+      const purchasedMap = new Map<string, number>();
+      cart.forEach((item) => {
+        purchasedMap.set(item.productId, (purchasedMap.get(item.productId) || 0) + item.qty);
+      });
+      const currentProds = useApp.getState().products;
+      if (currentProds && currentProds.length > 0) {
+        const updatedProds = currentProds.map((p) => {
+          const soldQty = purchasedMap.get(p.id);
+          if (soldQty) {
+            return { ...p, stock: Math.max(0, p.stock - soldQty) };
+          }
+          return p;
+        });
+        setProducts(updatedProds);
+        queryClient.setQueryData(["products"], updatedProds);
+      }
+
       clearCart();
       setCustomerQuery("");
       setSelectedCustomer(null);
       setMobile("");
       setName("");
 
-      // Non-blocking background invalidations and state refreshes
+      // Non-blocking targeted invalidations without storming background queries
       setTimeout(() => {
-        queryClient.invalidateQueries({ queryKey: ["dashboard"] });
-        queryClient.invalidateQueries({ queryKey: ["reports"] });
         queryClient.invalidateQueries({ queryKey: ["customers"] });
-        queryClient.invalidateQueries({ queryKey: ["customers-all"] });
-
-        if (res.syncProducts && Array.isArray(res.syncProducts)) {
-          getProducts().then(setProducts).catch(() => {});
-        }
+        queryClient.invalidateQueries({ queryKey: ["dashboard"], refetchType: "none" });
+        queryClient.invalidateQueries({ queryKey: ["dashboard-trend"], refetchType: "none" });
+        queryClient.invalidateQueries({ queryKey: ["reports"], refetchType: "none" });
+        queryClient.invalidateQueries({ queryKey: ["products"], refetchType: "none" });
       }, 0);
 
       if (!res.offline) {
@@ -476,7 +484,7 @@ function Billing() {
 
         {loadingProducts ? (
           <ProductGridSkeleton />
-        ) : products.length === 0 ? (
+        ) : filteredProducts.length === 0 ? (
           <div className="card-soft flex flex-col items-center justify-center p-12 text-center gap-3">
             <div className="grid size-16 place-items-center rounded-2xl bg-muted">
               <Package className="size-7 text-muted-foreground" />
@@ -496,7 +504,7 @@ function Billing() {
           </div>
         ) : (
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
-            {products.map((p) => {
+            {filteredProducts.map((p) => {
               const cartItem = cart.find((item) => item.productId === p.id);
               const inCart = !!cartItem;
               const cartQty = cartItem ? cartItem.qty : 0;

@@ -62,7 +62,7 @@ function Customers() {
 
   // Query search results only when search query is typed
   const { data: searchResults = [], isLoading: isLoadingSearch } = useQuery({
-    queryKey: ["customers-search", debouncedQ],
+    queryKey: ["customers", "search", debouncedQ],
     queryFn: () => searchCustomers(debouncedQ),
     enabled: Boolean(debouncedQ.trim()),
   });
@@ -76,7 +76,6 @@ function Customers() {
   const handleRefresh = () => {
     refetchAll();
     queryClient.invalidateQueries({ queryKey: ["customers"] });
-    queryClient.invalidateQueries({ queryKey: ["customers-search"] });
   };
 
   // Convert backend Customer object schema to frontend Customer object schema

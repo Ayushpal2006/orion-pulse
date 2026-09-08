@@ -18,6 +18,7 @@ import { ThemeToggle, useThemeInit } from "./theme-toggle";
 import { cn } from "@/lib/utils";
 import { getProducts, getCustomers, getStores, switchStore, logoutApi, getCurrentUserApi, getSuperAdminOrganizations, fetchAndApplyStoreSettings } from "@/lib/api";
 import { toast } from "sonner";
+import { useQueryClient } from "@tanstack/react-query";
 
 export type NavItem = { to: string; label: string; icon: any; exact?: boolean; roles?: Role[] };
 export type NavGroup = { label: string; icon: any; items: NavItem[]; roles?: Role[] };
@@ -220,6 +221,7 @@ const navTree: NavElement[] = [
 
 export function AppShell({ children }: { children: ReactNode }) {
   useThemeInit();
+  const queryClient = useQueryClient();
   const setPaletteOpen = useApp((s) => s.setPaletteOpen);
   const role = useApp((s) => s.role);
   const setRole = useApp((s) => s.setRole);
@@ -361,23 +363,33 @@ export function AppShell({ children }: { children: ReactNode }) {
             }
           }
 
-          // Fetch products, customers & store settings ONLY AFTER active store context is set
+          // Prime canonical React Query cache and sync to Zustand store
           Promise.all([
-            getProducts().then(setProducts).catch((err) => console.error("AppShell products fetch failed:", err)),
-            getCustomers().then((data) => {
-              const mapped = data.map((c: any) => ({
-                ...c,
-                loyaltyPoints: c.loyalty_points ?? c.loyaltyPoints ?? 0,
-                totalSpent: c.total_spent ?? c.totalSpent ?? 0,
-              }));
-              setCustomers(mapped);
-            }).catch((err) => console.error("AppShell customers fetch failed:", err)),
-            fetchAndApplyStoreSettings().catch((err) => console.error("AppShell settings fetch failed:", err))
+            queryClient.fetchQuery({ queryKey: ["products"], queryFn: getProducts })
+              .then(setProducts)
+              .catch((err) => console.error("AppShell products fetch failed:", err)),
+            queryClient.fetchQuery({ queryKey: ["customers"], queryFn: getCustomers })
+              .then((data) => {
+                const mapped = (data || []).map((c: any) => ({
+                  ...c,
+                  loyaltyPoints: c.loyalty_points ?? c.loyaltyPoints ?? 0,
+                  totalSpent: c.total_spent ?? c.totalSpent ?? 0,
+                }));
+                setCustomers(mapped);
+              })
+              .catch((err) => console.error("AppShell customers fetch failed:", err)),
+            fetchAndApplyStoreSettings()
+              .then((settings) => {
+                if (settings) {
+                  queryClient.setQueryData(["settings"], settings);
+                }
+              })
+              .catch((err) => console.error("AppShell settings fetch failed:", err))
           ]);
         })
         .catch((err) => console.error("AppShell stores fetch failed:", err));
     }
-  }, [setProducts, setCustomers, setActiveStoreId, setActiveStoreName, setStoresList, setRole]);
+  }, [queryClient, setProducts, setCustomers, setActiveStoreId, setActiveStoreName, setStoresList, setRole]);
 
 
   const hasRole = (roles?: Role[]) => {

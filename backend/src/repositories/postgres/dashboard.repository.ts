@@ -1,6 +1,6 @@
 import { IDashboardRepository } from "../interfaces/IDashboardRepository";
 import { db } from "../../db";
-import { sales, sale_items, products, customers } from "../../db/schema";
+import { sales, sale_items, products, customers, inventory_adjustments } from "../../db/schema";
 import { eq, and, desc, sql, gte, lte, ne } from "drizzle-orm";
 import { getTenantContext } from "../../db/context";
 import { getUtcBoundariesForFilter } from "../../utils/datetime";
@@ -12,28 +12,35 @@ export class PostgresDashboardRepository implements IDashboardRepository {
     todayProfit: number;
     inventoryCount: number;
     lowStockCount: number;
+    pendingAdjustments?: number;
+    inventoryValuation?: number;
   }> {
     const client = tx || db;
     const { organizationId, currentStoreId } = getTenantContext();
 
     const { start, end } = getUtcBoundariesForFilter("today");
-    let salesCond = and(
+    const salesCond = and(
       gte(sales.created_at, start),
       lte(sales.created_at, end),
       ne(sales.status, "VOID"),
       eq(sales.organization_id, organizationId),
       eq(sales.store_id, currentStoreId)
     );
-    let productsCond = and(
+    const productsCond = and(
       eq(products.is_active, 1),
       eq(products.organization_id, organizationId),
       eq(products.store_id, currentStoreId)
     );
-
-    const lowStockCond = and(productsCond, sql`${products.stock} <= ${products.minimum_stock}`);
+    const adjustmentsCond = and(
+      gte(inventory_adjustments.created_at, start),
+      lte(inventory_adjustments.created_at, end),
+      eq(inventory_adjustments.organization_id, organizationId),
+      eq(inventory_adjustments.store_id, currentStoreId)
+    );
 
     // Execute independent queries concurrently via Promise.all
-    const [salesStatsRow, profitRow, invRow, lowStockRow] = await Promise.all([
+    // Consolidates total product count, low stock count, and stock valuation into 1 single query
+    const [salesStatsRow, profitRow, invProductRow, adjustmentsRow] = await Promise.all([
       client
         .select({
           total: sql<string>`COALESCE(SUM(${sales.grand_total}), 0)`,
@@ -48,20 +55,26 @@ export class PostgresDashboardRepository implements IDashboardRepository {
         .innerJoin(products, eq(sale_items.product_id, products.id))
         .where(salesCond),
       client
-        .select({ count: sql<string>`COUNT(*)` })
+        .select({
+          totalCount: sql<string>`COUNT(*)`,
+          lowStockCount: sql<string>`COUNT(CASE WHEN ${products.stock} <= ${products.minimum_stock} THEN 1 END)`,
+          valuation: sql<string>`COALESCE(SUM(${products.selling_price} * ${products.stock}), 0)`,
+        })
         .from(products)
         .where(productsCond),
       client
         .select({ count: sql<string>`COUNT(*)` })
-        .from(products)
-        .where(lowStockCond),
+        .from(inventory_adjustments)
+        .where(adjustmentsCond),
     ]);
 
     const revenue = Number(salesStatsRow[0]?.total || 0);
     const orders = Number(salesStatsRow[0]?.count || 0);
     const profit = Number(profitRow[0]?.profit || 0);
-    const inventoryCount = Number(invRow[0]?.count || 0);
-    const lowStockCount = Number(lowStockRow[0]?.count || 0);
+    const inventoryCount = Number(invProductRow[0]?.totalCount || 0);
+    const lowStockCount = Number(invProductRow[0]?.lowStockCount || 0);
+    const pendingAdjustments = Number(adjustmentsRow[0]?.count || 0);
+    const inventoryValuation = Number(invProductRow[0]?.valuation || 0) / 100.0;
 
     return {
       todayRevenue: revenue / 100.0,
@@ -69,6 +82,8 @@ export class PostgresDashboardRepository implements IDashboardRepository {
       todayProfit: profit / 100.0,
       inventoryCount,
       lowStockCount,
+      pendingAdjustments,
+      inventoryValuation,
     };
   }
 

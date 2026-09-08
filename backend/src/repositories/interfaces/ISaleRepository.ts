@@ -2,7 +2,7 @@ import { Sale } from "../../types/checkout.types";
 import { DatabaseAdapter } from "../../database";
 
 export interface ISaleRepository {
-  getAll(tx?: DatabaseAdapter): Promise<Sale[]>;
+  getAll(params?: { limit?: number; offset?: number }, tx?: DatabaseAdapter): Promise<Sale[]>;
   getById(id: number, tx?: DatabaseAdapter): Promise<Sale | null>;
   getByInvoice(invoice: string, tx?: DatabaseAdapter): Promise<Sale | null>;
   getTodaySales(tx?: DatabaseAdapter): Promise<Sale[]>;
@@ -21,6 +21,8 @@ export interface ISaleRepository {
       paymentMethod?: string;
       startDate?: string;
       endDate?: string;
+      limit?: number;
+      offset?: number;
     },
     tx?: DatabaseAdapter
   ): Promise<any[]>;

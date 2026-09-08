@@ -12,7 +12,7 @@ import { useApp } from "@/lib/store";
 import { inr } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { stockLevel } from "@/components/stock-badge";
-import { getDashboardData, getReportsData, getProducts, getStockAdjustments } from "@/lib/api";
+import { getDashboardData, getReportsTrendData } from "@/lib/api";
 import { formatToKolkataDateTime, formatToKolkataDate, parseDbTimestamp } from "@/lib/datetime";
 import { InvoiceDrawer } from "@/components/invoice-drawer";
 import { OrganizationDashboardCard } from "@/components/organization-dashboard-card";
@@ -92,21 +92,15 @@ export function Dashboard() {
   const { data: dashboard, isLoading: isLoadingDashboard, isError: isErrorDashboard, refetch: refetchDashboard } = useQuery({
     queryKey: ["dashboard"],
     queryFn: getDashboardData,
+    staleTime: 30000,
   });
 
-  // 2. Fetch sales trend series based on range selection
-  const { data: reportData, isLoading: isLoadingTrend } = useQuery({
-    queryKey: ["reports", range],
-    queryFn: () => getReportsData(rangeFilterMap[range]),
+  // 2. Fetch sales trend series based on range selection (lightweight single-query endpoint)
+  const { data: trendData, isLoading: isLoadingTrend } = useQuery({
+    queryKey: ["dashboard-trend", range],
+    queryFn: () => getReportsTrendData(rangeFilterMap[range]),
+    staleTime: 30000,
   });
-
-  // 3. Fetch today's stock adjustments
-  const todayStr = useMemo(() => new Date().toISOString().substring(0, 10), []);
-  const { data: todayAdjustments = [] } = useQuery({
-    queryKey: ["stock-adjustments-today"],
-    queryFn: () => getStockAdjustments({ startDate: todayStr }),
-  });
-
 
   const lowStock = useMemo(() => products.filter((p) => stockLevel(p) !== "ok"), [products]);
   const inventoryValueVal = useMemo(() => products.reduce((sum, p) => sum + (p.price * p.stock), 0), [products]);
@@ -155,11 +149,13 @@ export function Dashboard() {
     todayProfit: 0,
     inventoryCount: 0,
     lowStockCount: 0,
+    pendingAdjustments: 0,
+    inventoryValuation: 0,
     topProducts: [],
     recentSales: [],
   };
 
-  const chartSeries = reportData?.salesSeries || [];
+  const chartSeries = trendData?.salesSeries || [];
   const avgTicket = stats.todayOrders > 0 ? stats.todayRevenue / stats.todayOrders : 0;
   const marginPercent = stats.todayRevenue > 0 ? (stats.todayProfit / stats.todayRevenue) * 100 : 0;
   const listInsights = getInsights(stats.todayRevenue, stats.lowStockCount || lowStock.length);
@@ -221,14 +217,14 @@ export function Dashboard() {
           />
           <MetricCard
             label="Inventory Value"
-            value={inr(inventoryValueVal)}
+            value={inr(stats.inventoryValuation || inventoryValueVal)}
             hint="Total stock valuation"
             accent="default"
             icon={<Package className="size-4" />}
           />
           <MetricCard
             label="Pending Adjustments"
-            value={String(todayAdjustments.length)}
+            value={String(stats.pendingAdjustments ?? 0)}
             hint="Recorded today"
             accent="default"
             icon={<Sliders className="size-4" />}

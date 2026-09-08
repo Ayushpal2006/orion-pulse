@@ -160,7 +160,7 @@ function PurchasesPage() {
   });
 
   const { data: productsList = [] } = useQuery({
-    queryKey: ["products-active"],
+    queryKey: ["products"],
     queryFn: () => getProducts(),
   });
 

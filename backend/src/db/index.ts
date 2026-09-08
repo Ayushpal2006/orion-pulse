@@ -11,6 +11,13 @@ if (!databaseUrl) {
 
 export const pool = new Pool({
   connectionString: databaseUrl,
+  max: 20,
+  idleTimeoutMillis: 30000,
+  connectionTimeoutMillis: 5000,
+});
+
+pool.on("error", (err) => {
+  console.error("💥 [PostgreSQL Pool Error] Unexpected idle client error:", err.message || err);
 });
 
 export const db = drizzle(pool, { schema });

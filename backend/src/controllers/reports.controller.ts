@@ -21,6 +21,16 @@ export class ReportsController {
       const startDate = req.query.startDate ? String(req.query.startDate) : undefined;
       const endDate = req.query.endDate ? String(req.query.endDate) : undefined;
       const showVoid = req.query.showVoidInvoices === "true";
+      const seriesOnly = req.query.seriesOnly === "true" || req.query.type === "trend";
+
+      if (seriesOnly) {
+        const salesSeries = await this.service.getTrendSeries(filter, startDate, endDate, showVoid);
+        res.status(200).json({
+          success: true,
+          data: { salesSeries },
+        });
+        return;
+      }
 
       const data = await this.service.getReportsData(filter, startDate, endDate, showVoid);
       res.status(200).json({

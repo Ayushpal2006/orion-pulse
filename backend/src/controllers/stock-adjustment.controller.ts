@@ -32,6 +32,8 @@ export class StockAdjustmentController {
         endDate: req.query.endDate as string,
         product_id: req.query.product_id ? parseInt(req.query.product_id as string, 10) : undefined,
         adjustment_type: req.query.adjustment_type as string,
+        limit: req.query.limit ? parseInt(req.query.limit as string, 10) : undefined,
+        offset: req.query.offset ? parseInt(req.query.offset as string, 10) : undefined,
       };
 
       const result = await this.service.getAll(filters);

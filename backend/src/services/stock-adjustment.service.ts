@@ -121,6 +121,8 @@ export class StockAdjustmentService {
     endDate?: string;
     product_id?: number;
     adjustment_type?: string;
+    limit?: number;
+    offset?: number;
   }): Promise<StockAdjustment[]> {
     const storeId = getStoreId();
     if (storeId === undefined) {

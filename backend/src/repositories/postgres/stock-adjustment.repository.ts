@@ -50,6 +50,8 @@ export class PostgresStockAdjustmentRepository implements IStockAdjustmentReposi
       endDate?: string;
       product_id?: number;
       adjustment_type?: string;
+      limit?: number;
+      offset?: number;
     },
     tx?: any
   ): Promise<StockAdjustment[]> {
@@ -88,6 +90,8 @@ export class PostgresStockAdjustmentRepository implements IStockAdjustmentReposi
     }
 
     const whereClause = and(...conditions);
+    const limitNum = params?.limit && params.limit > 0 ? Math.min(params.limit, 200) : 100;
+    const offsetNum = params?.offset && params.offset > 0 ? params.offset : 0;
 
     const rows = await client
       .select({
@@ -106,7 +110,9 @@ export class PostgresStockAdjustmentRepository implements IStockAdjustmentReposi
       .from(inventory_adjustments)
       .leftJoin(products, eq(inventory_adjustments.product_id, products.id))
       .where(whereClause)
-      .orderBy(desc(inventory_adjustments.id));
+      .orderBy(desc(inventory_adjustments.id))
+      .limit(limitNum)
+      .offset(offsetNum);
 
     return rows.map((r: any) => ({
       id: r.id,

@@ -103,7 +103,10 @@ export class ExpenseRepository {
     return created as Expense;
   }
 
-  async getExpenses(condition: SQL<unknown>): Promise<any[]> {
+  async getExpenses(condition: SQL<unknown>, limit?: number, offset?: number): Promise<any[]> {
+    const limitNum = limit && limit > 0 ? Math.min(limit, 500) : 200;
+    const offsetNum = offset && offset > 0 ? offset : 0;
+
     const rows = await db
       .select({
         id: expenses.id,
@@ -118,7 +121,9 @@ export class ExpenseRepository {
       .from(expenses)
       .innerJoin(expense_categories, eq(expenses.category_id, expense_categories.id))
       .where(condition)
-      .orderBy(desc(expenses.date));
+      .orderBy(desc(expenses.date))
+      .limit(limitNum)
+      .offset(offsetNum);
 
     return rows;
   }
