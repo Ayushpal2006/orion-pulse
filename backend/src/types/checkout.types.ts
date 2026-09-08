@@ -2,6 +2,9 @@ export interface CheckoutItemRequest {
   productId: number;
   quantity: number;
   discount?: number;
+  unitPrice?: number;
+  price?: number;
+  discountPercent?: number;
 }
 
 export interface CheckoutRequest {
@@ -12,6 +15,7 @@ export interface CheckoutRequest {
   customerName?: string;
   items: CheckoutItemRequest[];
   discount?: number;
+  subtotal?: number;
   paidAmount?: number;
   balance?: number;
   paymentDetails?: any;
