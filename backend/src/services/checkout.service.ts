@@ -271,30 +271,62 @@ export class CheckoutService {
         });
 
         // Calculations
-        const itemDiscount = item.discount ?? 0;
-        const lineTotal = item.quantity * product.selling_price - itemDiscount;
-        const lineGst = Math.round((lineTotal * (product.gst ?? 18)) / 100);
+        let unitPricePaise = product.selling_price;
+        if (item.unitPrice !== undefined && item.unitPrice !== null) {
+          unitPricePaise = item.unitPrice > 1000 ? Math.round(item.unitPrice) : Math.round(item.unitPrice * 100);
+        } else if (item.price !== undefined && item.price !== null) {
+          unitPricePaise = item.price > 1000 ? Math.round(item.price) : Math.round(item.price * 100);
+        }
 
-        subtotal += item.quantity * product.selling_price;
-        totalGst += lineGst;
+        const lineGrossPaise = item.quantity * unitPricePaise;
+
+        let lineDiscountPaise = 0;
+        if (item.discountPercent !== undefined && item.discountPercent !== null) {
+          lineDiscountPaise = Math.round((lineGrossPaise * Number(item.discountPercent)) / 100);
+        } else if (item.discount !== undefined && item.discount !== null) {
+          const rawDisc = Number(item.discount);
+          if (rawDisc > 0 && rawDisc <= 100) {
+            lineDiscountPaise = Math.round((lineGrossPaise * rawDisc) / 100);
+          } else if (rawDisc > 1000) {
+            lineDiscountPaise = Math.round(rawDisc);
+          } else {
+            lineDiscountPaise = Math.round(rawDisc * 100);
+          }
+        }
+
+        const lineTaxablePaise = Math.max(0, lineGrossPaise - lineDiscountPaise);
+        const gstRate = product.gst !== undefined && product.gst !== null ? Number(product.gst) : 18;
+        const lineGstPaise = Math.round((lineTaxablePaise * gstRate) / 100);
+
+        subtotal += lineGrossPaise;
+        totalGst += lineGstPaise;
 
         processedItems.push({
           productId: product.id,
           name: product.name,
           quantity: item.quantity,
-          sellingPrice: product.selling_price,
-          discount: itemDiscount,
-          lineTotal: lineTotal + lineGst,
-          lineGst: lineGst,
+          sellingPrice: unitPricePaise,
+          discount: lineDiscountPaise,
+          lineTotal: lineTaxablePaise + lineGstPaise,
+          lineGst: lineGstPaise,
         });
       }
       const tStockTime = performance.now() - tStockStart;
       console.log("[Checkout Flow] Stock Updated");
 
-      const discount = request.discount ?? 0;
-      const grandTotal = subtotal + totalGst - discount;
-      const paidAmount = request.paidAmount ?? grandTotal;
-      const balance = request.balance ?? Math.max(0, grandTotal - paidAmount);
+      let cartDiscountPaise = 0;
+      if (request.discount !== undefined && request.discount !== null) {
+        const rawDisc = Number(request.discount);
+        if (rawDisc > 1000 && request.subtotal && rawDisc >= request.subtotal) {
+          cartDiscountPaise = Math.round(rawDisc);
+        } else {
+          cartDiscountPaise = Math.round(rawDisc * 100);
+        }
+      }
+      const discount = Math.min(subtotal, cartDiscountPaise);
+      const grandTotal = Math.max(0, subtotal - discount + totalGst);
+      const paidAmount = request.paidAmount !== undefined ? (request.paidAmount > 1000 ? Math.round(request.paidAmount) : Math.round(request.paidAmount * 100)) : grandTotal;
+      const balance = request.balance !== undefined ? (request.balance > 1000 ? Math.round(request.balance) : Math.round(request.balance * 100)) : Math.max(0, grandTotal - paidAmount);
 
       const paymentDetailsJson = request.paymentDetails ? JSON.stringify(request.paymentDetails) : null;
 
@@ -389,10 +421,11 @@ export class CheckoutService {
         success: true,
         invoice: invoiceNumber,
         saleId: sale.id,
-        subtotal,
-        discount,
-        gst: totalGst,
-        grandTotal,
+        subtotal: subtotal / 100,
+        discount: discount / 100,
+        gst: totalGst / 100,
+        grandTotal: grandTotal / 100,
+        total: grandTotal / 100,
         publicToken,
         items: processedItems.map((item) => ({
           productId: item.productId,

@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { type Product, type Customer } from "./mock-data";
+export { type Product, type Customer };
 
 export type Role = "Super Admin" | "Admin" | "Manager" | "Cashier";
 export type Payment = "Cash" | "UPI" | "Card" | "Wallet";
@@ -329,18 +330,19 @@ export const useApp = create<State & Actions>((set, get) => ({
   setPrimaryColor: (primaryColor) => set({ primaryColor }),
 }));
 
-export const cartTotals = (cart: CartLine[]) => {
-  let subtotal = 0;
-  let discount = 0;
-  let gst = 0;
-  for (const l of cart) {
-    const line = l.price * l.qty;
-    const disc = (line * l.discount) / 100;
-    const taxable = line - disc;
-    const tax = (taxable * l.gst) / 100;
-    subtotal += line;
-    discount += disc;
-    gst += tax;
-  }
-  return { subtotal, discount, gst, total: subtotal - discount + gst };
+import { calculateBillingTotals, type DiscountMode, type BillingTotalsResult } from "./billing-math";
+
+export const cartTotals = (
+  cart: CartLine[],
+  cartDiscountValue: number = 0,
+  cartDiscountMode: DiscountMode = "percent",
+  enableRoundOff: boolean = false
+): BillingTotalsResult => {
+  const lineItems = cart.map((l) => ({
+    price: l.price,
+    quantity: l.qty,
+    discountPercent: l.discount || 0,
+    gstRate: l.gst !== undefined ? l.gst : 18,
+  }));
+  return calculateBillingTotals(lineItems, cartDiscountValue, cartDiscountMode, enableRoundOff);
 };

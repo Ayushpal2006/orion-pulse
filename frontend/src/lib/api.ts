@@ -157,8 +157,10 @@ export function mapFrontendProductToBackend(p: Partial<Product>): any {
   if (p.sku !== undefined) result.sku = p.sku;
   if (p.barcode !== undefined) result.barcode = p.barcode.trim() || null;
   if (p.category !== undefined) result.category = p.category || null;
-  if (p.purchase !== undefined) result.purchase_price = Math.round(p.purchase * 100); // Convert Rupees to paise
-  if (p.price !== undefined) result.selling_price = Math.round(p.price * 100);       // Convert Rupees to paise
+  if (p.purchase !== undefined) result.purchase_price = Math.round(Number(p.purchase) * 100);
+  else if ((p as any).purchase_price !== undefined) result.purchase_price = Math.round(Number((p as any).purchase_price) * 100);
+  if (p.price !== undefined) result.selling_price = Math.round(Number(p.price) * 100);
+  else if ((p as any).selling_price !== undefined) result.selling_price = Math.round(Number((p as any).selling_price) * 100);
   if (p.gst !== undefined) result.gst = p.gst;
   if (p.stock !== undefined) result.stock = p.stock;
   if (p.reorder !== undefined) result.minimum_stock = p.reorder;

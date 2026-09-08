@@ -1,7 +1,8 @@
 import { createLazyFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import JsBarcode from "jsbarcode";
-import { Plus, Search, ScanBarcode as BarcodeIcon, ArrowUpDown } from "lucide-react";
+import { Plus, Search, ScanBarcode as BarcodeIcon, ArrowUpDown, Pencil } from "lucide-react";
+import { EditProductPriceDialog } from "@/components/edit-product-price-dialog";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -96,6 +97,8 @@ export function Inventory() {
   const [barcodeProduct, setBarcodeProduct] = useState<Product | null>(null);
   const [drawerProduct, setDrawerProduct] = useState<Product | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Product | null>(null);
+  const [quickPriceProduct, setQuickPriceProduct] = useState<Product | null>(null);
+  const [quickPriceOpen, setQuickPriceOpen] = useState(false);
 
   const loadProducts = async () => {
     setLoading(true);
@@ -288,9 +291,22 @@ export function Inventory() {
                     <td className="px-4 py-3.5 text-right tabular text-xs font-semibold text-muted-foreground">{p.gst}%</td>
                     <td className="px-4 py-3.5 text-right"><StockBadge product={p} /></td>
                     <td className="px-4 py-3.5 text-right" onClick={(e) => e.stopPropagation()}>
-                      <Button variant="outline" size="sm" onClick={() => setBarcodeProduct(p)} className="h-8 rounded-lg text-xs gap-1 border-border/80 hover:bg-muted">
-                        <BarcodeIcon className="size-3.5" /> Barcode
-                      </Button>
+                      <div className="flex items-center justify-end gap-1.5">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setQuickPriceProduct(p);
+                            setQuickPriceOpen(true);
+                          }}
+                          className="h-8 rounded-lg text-xs gap-1 border-border/80 hover:bg-muted"
+                        >
+                          <Pencil className="size-3" /> Price
+                        </Button>
+                        <Button variant="outline" size="sm" onClick={() => setBarcodeProduct(p)} className="h-8 rounded-lg text-xs gap-1 border-border/80 hover:bg-muted">
+                          <BarcodeIcon className="size-3.5" /> Barcode
+                        </Button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -319,7 +335,21 @@ export function Inventory() {
                   <StockBadge product={p} />
                 </div>
                 <div className="mt-3 flex items-center justify-between">
-                  <span className="tabular text-lg font-semibold text-money">{inr(p.price)}</span>
+                  <div className="flex items-center gap-1.5">
+                    <span className="tabular text-lg font-semibold text-money">{inr(p.price)}</span>
+                    <button
+                      type="button"
+                      title="Edit Price"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setQuickPriceProduct(p);
+                        setQuickPriceOpen(true);
+                      }}
+                      className="p-1 rounded-md border border-border/80 hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      <Pencil className="size-3" />
+                    </button>
+                  </div>
                   <span className="text-xs text-muted-foreground">{p.category}</span>
                 </div>
               </button>
@@ -426,6 +456,12 @@ export function Inventory() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <EditProductPriceDialog
+        product={quickPriceProduct}
+        open={quickPriceOpen}
+        onOpenChange={setQuickPriceOpen}
+      />
     </div>
   );
 }

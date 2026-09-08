@@ -1,16 +1,17 @@
 import { createLazyFileRoute } from "@tanstack/react-router";
 import { useMemo, useState, useEffect, useRef, useCallback } from "react";
-import { ScanBarcode, Search, X, Plus, Minus, Trash2, User, ArrowRight, CheckCircle2, Loader2, PauseCircle, Zap, Banknote, Package } from "lucide-react";
+import { ScanBarcode, Search, X, Plus, Minus, Trash2, User, ArrowRight, CheckCircle2, Loader2, PauseCircle, Zap, Banknote, Package, Pencil } from "lucide-react";
 import { toast } from "sonner";
 import { QRCodeSVG } from "qrcode.react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { cartTotals, useApp, type Payment } from "@/lib/store";
+import { cartTotals, useApp, type Payment, type Product } from "@/lib/store";
 import { inr } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { ParkedSalesPopover } from "@/components/parked-sales";
+import { EditProductPriceDialog } from "@/components/edit-product-price-dialog";
 import { getProducts, getCustomers, searchProducts, searchCustomers, checkout as checkoutApi, getSaleReceipt, printSaleReceipt, getWhatsAppShareLink, downloadSalePdf, getSalePublicLink, API_BASE_URL, apiFetch, logSaleAudit } from "@/lib/api";
 import { queueOfflineSale } from "@/lib/offline-db";
 import { refreshPendingCount } from "@/lib/sync-engine";
@@ -91,6 +92,14 @@ function Billing() {
   const [checkoutResult, setCheckoutResult] = useState<any>(null);
   const [scanFlash, setScanFlash] = useState(false);
   const [tenderAmount, setTenderAmount] = useState<string>("");
+
+  // Cart / Bill-level discount states
+  const [cartDiscount, setCartDiscount] = useState<string>("");
+  const [discountMode, setDiscountMode] = useState<"percent" | "fixed">("percent");
+
+  // Direct Product Price Editing state
+  const [quickPriceProduct, setQuickPriceProduct] = useState<Product | null>(null);
+  const [quickPriceOpen, setQuickPriceOpen] = useState(false);
 
   // Customer search states
   const [customerQuery, setCustomerQuery] = useState("");
@@ -272,7 +281,10 @@ function Billing() {
     return customers.find((c) => c.mobile === mobile);
   }, [mobile, customers, selectedCustomer]);
 
-  const totals = cartTotals(cart);
+  const numericCartDiscount = parseFloat(cartDiscount) || 0;
+  const totals = useMemo(() => {
+    return cartTotals(cart, numericCartDiscount, discountMode);
+  }, [cart, numericCartDiscount, discountMode]);
   const hasSelectedCustomer = mobile.length >= 10 && (name || knownCustomer);
 
   const scan = () => {
@@ -307,9 +319,18 @@ function Billing() {
         customerPhone: currentCustomerPhone,
         paymentMethod: payment,
         cashierName: "Admin",
+        subtotal: totals.subtotal,
+        discount: totals.discount,
+        gst: totals.gst,
+        grandTotal: totals.total,
+        paidAmount: totals.total,
         items: cart.map((l) => ({
           productId: Number(l.productId),
           quantity: l.qty,
+          unitPrice: l.price,
+          price: l.price,
+          discount: l.discount,
+          discountPercent: l.discount,
         })),
         customerName: currentCustomerName,
       };
@@ -386,6 +407,7 @@ function Billing() {
       }
 
       clearCart();
+      setCartDiscount("");
       setCustomerQuery("");
       setSelectedCustomer(null);
       setMobile("");
@@ -544,7 +566,21 @@ function Billing() {
                   <div className="mt-3 line-clamp-1 text-sm font-semibold">{p.name}</div>
                   <div className="text-[11px] text-muted-foreground">{p.sku}</div>
                   <div className="mt-2 flex items-center justify-between">
-                    <span className="tabular text-sm font-bold text-money">{inr(p.price)}</span>
+                    <div className="flex items-center gap-1.5">
+                      <span className="tabular text-sm font-bold text-money">{inr(p.price)}</span>
+                      <button
+                        type="button"
+                        title="Edit Selling Price"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setQuickPriceProduct(p);
+                          setQuickPriceOpen(true);
+                        }}
+                        className="p-1 rounded-md hover:bg-muted/80 text-muted-foreground hover:text-foreground transition-colors"
+                      >
+                        <Pencil className="size-3" />
+                      </button>
+                    </div>
                     <span className={cn(
                       "text-[11px] tabular font-medium",
                       isOutOfStock ? "text-rose-500" : isLowStock ? "text-amber-600 dark:text-amber-400" : "text-muted-foreground"
@@ -891,6 +927,53 @@ function Billing() {
               )}
             </div>
 
+            {/* Cart / Overall Discount */}
+            <div className="flex items-center justify-between gap-2 p-2.5 rounded-xl bg-surface border border-border">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-semibold text-foreground">Discount</span>
+                <div className="flex rounded-lg bg-muted border border-border p-0.5 text-[10px] font-bold">
+                  <button
+                    type="button"
+                    onClick={() => setDiscountMode("percent")}
+                    className={cn(
+                      "px-2 py-0.5 rounded-md transition-all",
+                      discountMode === "percent"
+                        ? "bg-primary text-primary-foreground shadow-sm"
+                        : "text-muted-foreground hover:text-foreground"
+                    )}
+                  >
+                    %
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDiscountMode("fixed")}
+                    className={cn(
+                      "px-2 py-0.5 rounded-md transition-all",
+                      discountMode === "fixed"
+                        ? "bg-primary text-primary-foreground shadow-sm"
+                        : "text-muted-foreground hover:text-foreground"
+                    )}
+                  >
+                    ₹
+                  </button>
+                </div>
+              </div>
+              <div className="flex items-center gap-1">
+                <input
+                  type="number"
+                  min={0}
+                  max={discountMode === "percent" ? 100 : undefined}
+                  value={cartDiscount}
+                  placeholder="0"
+                  onChange={(e) => setCartDiscount(e.target.value)}
+                  className="tabular h-8 w-20 rounded-lg border border-border bg-elevated px-2 text-right text-xs font-bold focus-visible:outline-2 focus-visible:outline-ring"
+                />
+                <span className="text-xs font-bold text-muted-foreground w-3 text-center">
+                  {discountMode === "percent" ? "%" : "₹"}
+                </span>
+              </div>
+            </div>
+
             <div className="tabular space-y-1 rounded-xl bg-muted/40 p-3 text-sm">
               <Row label="Subtotal" value={inr(totals.subtotal)} />
               <Row label="Discount" value={`− ${inr(totals.discount)}`} muted />
@@ -955,6 +1038,12 @@ function Billing() {
           </div>
         </DialogContent>
       </Dialog>
+
+      <EditProductPriceDialog
+        product={quickPriceProduct}
+        open={quickPriceOpen}
+        onOpenChange={setQuickPriceOpen}
+      />
     </div>
   );
 }
