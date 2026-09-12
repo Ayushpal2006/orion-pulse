@@ -1,0 +1,14 @@
+name = "orion-pos-api"
+main = "src/worker.ts"
+compatibility_date = "2026-03-01"
+compatibility_flags = ["nodejs_compat"]
+minify = true
+
+[vars]
+NODE_ENV = "production"
+ALLOWED_ORIGINS = "*"
+
+[[hyperdrive]]
+binding = "HYPERDRIVE"
+id = "9a81c8bc8b224db18cd430f43b531b69"
+

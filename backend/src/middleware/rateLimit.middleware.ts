@@ -2,6 +2,22 @@ import rateLimit from "express-rate-limit";
 import type { Request, Response } from "express";
 import { logger } from "../logger/logger";
 
+// Cloudflare Workers has no TCP socket, so `req.socket` is undefined and `req.ip`
+// resolves to undefined. Derive the client IP from edge headers instead — reading
+// `req.socket.remoteAddress` unguarded throws and fails every request.
+function getClientIp(req: Request): string {
+  const cfIp = req.headers["cf-connecting-ip"];
+  if (typeof cfIp === "string" && cfIp.trim()) return cfIp.trim();
+
+  const forwarded = req.headers["x-forwarded-for"];
+  const forwardedValue = Array.isArray(forwarded) ? forwarded[0] : forwarded;
+  if (typeof forwardedValue === "string" && forwardedValue.trim()) {
+    return forwardedValue.split(",")[0].trim();
+  }
+
+  return req.ip || (req.socket as { remoteAddress?: string } | undefined)?.remoteAddress || "127.0.0.1";
+}
+
 /**
  * 1. Auth Rate Limiter (Brute-force protection)
  * Protects login, registration, and password operations.
@@ -13,8 +29,9 @@ export const authLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   validate: false,
+  keyGenerator: getClientIp,
   handler: (req: Request, res: Response, _next, options) => {
-    logger.warn(`⚠️ [RateLimit 429] Auth limiter triggered | Route: ${req.method} ${req.originalUrl || req.baseUrl} | IP: ${req.ip}`);
+    logger.warn(`⚠️ [RateLimit 429] Auth limiter triggered | Route: ${req.method} ${req.originalUrl || req.baseUrl} | IP: ${getClientIp(req)}`);
     res.status(options.statusCode || 429).json(options.message);
   },
   message: {
@@ -47,7 +64,7 @@ export const apiLimiter = rateLimit({
       }
     }
     // Fall back to client IP for unauthenticated public traffic
-    return req.ip || req.socket.remoteAddress || "127.0.0.1";
+    return getClientIp(req);
   },
   skip: (req: Request): boolean => {
     // Skip health checks, root ping, static assets, and public token invoice views
@@ -72,7 +89,7 @@ export const apiLimiter = rateLimit({
   },
   handler: (req: Request, res: Response, _next, options) => {
     const isAuth = Boolean(req.headers.authorization);
-    logger.warn(`⚠️ [RateLimit 429] API limiter triggered | Route: ${req.method} ${req.originalUrl || req.baseUrl} | AuthUser: ${isAuth ? "Authenticated" : "Anonymous"} | IP: ${req.ip}`);
+    logger.warn(`⚠️ [RateLimit 429] API limiter triggered | Route: ${req.method} ${req.originalUrl || req.baseUrl} | AuthUser: ${isAuth ? "Authenticated" : "Anonymous"} | IP: ${getClientIp(req)}`);
     res.status(options.statusCode || 429).json(options.message);
   },
   message: {

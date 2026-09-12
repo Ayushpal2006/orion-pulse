@@ -6,7 +6,10 @@
   "scripts": {
     "dev": "tsx watch src/server.ts",
     "start": "node dist/server.js",
-    "build": "NODE_OPTIONS='--max-old-space-size=1536' tsc && node -e \"require('fs').cpSync('src/db/migrations', 'dist/db/migrations', { recursive: true, force: true }); require('fs').cpSync('src/assets', 'dist/assets', { recursive: true, force: true })\""
+    "build": "NODE_OPTIONS='--max-old-space-size=1536' tsc && node -e \"require('fs').cpSync('src/db/migrations', 'dist/db/migrations', { recursive: true, force: true }); require('fs').cpSync('src/assets', 'dist/assets', { recursive: true, force: true })\"",
+    "worker:dev": "wrangler dev",
+    "worker:deploy": "wrangler deploy",
+    "worker:types": "wrangler types"
   },
   "keywords": [],
   "author": "",
@@ -50,6 +53,7 @@
     "drizzle-kit": "^0.31.10",
     "nodemon": "^3.1.14",
     "tsx": "^4.23.0",
-    "typescript": "^7.0.2"
+    "typescript": "^7.0.2",
+    "wrangler": "^4.131.1"
   }
 }

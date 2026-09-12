@@ -11,7 +11,7 @@
     "esModuleInterop": true,
     "skipLibCheck": true
   },
-  "include": ["src"],
+  "include": ["src", "worker-configuration.d.ts"],
   "exclude": [
     "src/db_test.ts",
     "src/test-reset.ts",
