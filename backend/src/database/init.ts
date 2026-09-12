@@ -41,6 +41,9 @@ export async function initDb(): Promise<void> {
     // 1. Verify connection first
     const isConnected = await DatabaseProvider.verifyConnection();
     if (!isConnected) {
+      if (env.NODE_ENV === "production") {
+        throw new Error("Production database is unreachable. Aborting startup to prevent unsafe offline state.");
+      }
       logger.info("⚠️ Skipping database migrations & seeding (PostgreSQL unreachable / offline mode).");
       return;
     }

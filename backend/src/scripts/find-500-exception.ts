@@ -33,7 +33,7 @@ server.listen(0, async () => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(p.body),
       });
-      const json = await res.json();
+      const json: any = await res.json();
       console.log(`Test '${p.name}': Status ${res.status} | Success: ${json.success} | Error/Message: ${json.error || json.message}`);
     } catch (err: any) {
       console.error(`Test '${p.name}' crashed fetch:`, err.message);

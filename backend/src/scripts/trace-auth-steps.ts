@@ -64,7 +64,7 @@ async function traceAuthSteps() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email: "admin@orion.com", password: testPassword }),
     });
-    const loginJson = await loginRes.json();
+    const loginJson: any = await loginRes.json();
 
     console.log("HTTP Login Status Code:", loginRes.status);
     console.log("JWT created?:", !!loginJson.data?.token ? "YES ✅" : "NO ❌");
@@ -82,7 +82,7 @@ async function traceAuthSteps() {
         Authorization: `Bearer ${loginJson.data.token}`,
       },
     });
-    const meJson = await meRes.json();
+    const meJson: any = await meRes.json();
 
     console.log("HTTP /me Status Code:", meRes.status);
     console.log("middleware result:", meRes.status === 200 ? "ALLOWED (200 OK) ✅" : "REJECTED ❌");

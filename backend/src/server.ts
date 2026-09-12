@@ -182,7 +182,8 @@ app.use("/settings", authenticate(), settingsRoutes);
 app.use("/api/settings", authenticate(), settingsRoutes);
 app.use("/settings/database", authenticate(), databaseRoutes);
 app.use("/api/settings/database", authenticate(), databaseRoutes);
-app.use("/invoice", invoiceRoutes); // Public HTML invoice access
+app.use("/invoice", apiLimiter, invoiceRoutes); // Public HTML/PDF invoice access
+app.use("/r", apiLimiter, invoiceRoutes); // Short Public Receipt link /r/:token
 app.use("/sync", authenticate(), syncRoutes);
 app.use("/api/sync", authenticate(), syncRoutes);
 app.use("/google", googleRoutes);

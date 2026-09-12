@@ -11,15 +11,15 @@ const app = express();
 app.use(express.json());
 
 // Mount limiters
-app.use("/api/auth", authLimiter, (req, res) => {
+app.use("/api/auth", authLimiter, (req: express.Request, res: express.Response) => {
   res.status(200).json({ success: true, route: "auth" });
 });
 
-app.use("/health", (req, res) => {
+app.use("/health", (req: express.Request, res: express.Response) => {
   res.status(200).json({ status: "healthy" });
 });
 
-app.use("/api", apiLimiter, (req, res) => {
+app.use("/api", apiLimiter, (req: express.Request, res: express.Response) => {
   res.status(200).json({ success: true, route: "api", user: req.headers.authorization || "anonymous" });
 });
 

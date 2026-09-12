@@ -80,7 +80,7 @@ async function runWhatsAppPhoneTests() {
       console.log("   Invoice A created:", resA.invoice);
       assert.ok(resA.whatsappUrl, "WhatsApp URL should be prepared for Customer A");
       assert.ok(
-        resA.whatsappUrl.startsWith("https://wa.me/919315900307?text="),
+        resA.whatsappUrl!.startsWith("https://wa.me/919315900307?text="),
         `Customer A WhatsApp URL must target 919315900307, got: ${resA.whatsappUrl}`
       );
 
@@ -109,11 +109,11 @@ async function runWhatsAppPhoneTests() {
       console.log("   Invoice B created:", resB.invoice);
       assert.ok(resB.whatsappUrl, "WhatsApp URL should be prepared for Customer B");
       assert.ok(
-        resB.whatsappUrl.startsWith("https://wa.me/919876543210?text="),
+        resB.whatsappUrl!.startsWith("https://wa.me/919876543210?text="),
         `Customer B WhatsApp URL must target 919876543210, got: ${resB.whatsappUrl}`
       );
       assert.ok(
-        !resB.whatsappUrl.includes("9315900307"),
+        !resB.whatsappUrl!.includes("9315900307"),
         "Customer B MUST NOT leak Customer A's phone number!"
       );
 
@@ -140,7 +140,7 @@ async function runWhatsAppPhoneTests() {
       console.log("   Invoice C created:", resC.invoice);
       assert.ok(resC.whatsappUrl, "WhatsApp URL should be prepared");
       assert.ok(
-        resC.whatsappUrl.startsWith("https://wa.me/919123456789?text="),
+        resC.whatsappUrl!.startsWith("https://wa.me/919123456789?text="),
         `Manual phone WhatsApp URL must target 919123456789, got: ${resC.whatsappUrl}`
       );
       console.log("   ✅ TEST 3 PASSED: Manual formatted phone targets wa.me/919123456789");

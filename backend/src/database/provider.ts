@@ -24,14 +24,18 @@ export class DatabaseProvider {
 
   static async verifyConnection(): Promise<boolean> {
     const connStr = databaseConfig.postgres.connectionString;
+    const isProd = process.env.NODE_ENV === "production";
     if (process.env.MOCK_POSTGRES === "true" || connStrIsPlaceholder(connStr)) {
+      if (isProd) {
+        throw new Error("Cannot run in Mock/Placeholder database mode in production environment.");
+      }
       logger.info(`PostgreSQL connection skipped (Mock / Placeholder mode: ${connStr || "none"})`);
       return false;
     }
 
     const adapter = this.getAdapter();
-    const maxRetries = 10;
-    const retryDelayMs = 3000;
+    const maxRetries = isProd ? 15 : 5;
+    const retryDelayMs = 2000;
 
     for (let i = 1; i <= maxRetries; i++) {
       try {
@@ -41,8 +45,8 @@ export class DatabaseProvider {
         return true;
       } catch (err: any) {
         const isEnotfound = err?.code === "ENOTFOUND" || (err?.message && err.message.includes("ENOTFOUND"));
-        if (isEnotfound) {
-          logger.info("PostgreSQL connection skipped (Unreachable DNS host)");
+        if (isEnotfound && !isProd) {
+          logger.info("PostgreSQL connection skipped (Unreachable DNS host in non-production)");
           return false;
         }
         

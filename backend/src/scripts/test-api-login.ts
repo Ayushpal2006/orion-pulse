@@ -26,7 +26,7 @@ server.listen(0, async () => {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email: "superadmin@apkabill.com", password: "SuperAdmin@123" }),
     });
-    const saJson = await saRes.json();
+    const saJson: any = await saRes.json();
     console.log("\n1. SUPER ADMIN LOGIN HTTP TEST:");
     console.log("Status Code:", saRes.status);
     console.log("Response Success:", saJson.success);
@@ -43,7 +43,7 @@ server.listen(0, async () => {
         Authorization: `Bearer ${saJson.data.token}`,
       },
     });
-    const saMeJson = await saMeRes.json();
+    const saMeJson: any = await saMeRes.json();
     console.log("Super Admin Dashboard Access Code:", saMeRes.status);
     console.log("Super Admin Dashboard Data:", saMeJson);
 
@@ -53,7 +53,7 @@ server.listen(0, async () => {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email: "owner@apkabill.com", password: "OwnerPass@123" }),
     });
-    const ownerJson = await ownerRes.json();
+    const ownerJson: any = await ownerRes.json();
     console.log("\n2. ORGANIZATION OWNER LOGIN HTTP TEST:");
     console.log("Status Code:", ownerRes.status);
     console.log("Response Success:", ownerJson.success);
@@ -70,7 +70,7 @@ server.listen(0, async () => {
         Authorization: `Bearer ${ownerJson.data.token}`,
       },
     });
-    const ownerMeJson = await ownerMeRes.json();
+    const ownerMeJson: any = await ownerMeRes.json();
     console.log("Owner /me Endpoint Access Code:", ownerMeRes.status);
     console.log("Owner /me Endpoint Data:", ownerMeJson);
 
@@ -80,7 +80,7 @@ server.listen(0, async () => {
         Authorization: `Bearer ${ownerJson.data.token}`,
       },
     });
-    const ownerSaJson = await ownerSaRes.json();
+    const ownerSaJson: any = await ownerSaRes.json();
     console.log("Owner Super Admin Block Test (403 Expected): Code=", ownerSaRes.status, "Error=", ownerSaJson.error);
 
     console.log("\n✅ ALL HTTP LOGIN PIPELINE TESTS PASSED CLEANLY!");

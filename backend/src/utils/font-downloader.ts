@@ -1,6 +1,7 @@
 import fs from "fs";
 import path from "path";
 import https from "https";
+import type { IncomingMessage } from "http";
 import { logger } from "../logger/logger";
 
 export async function downloadFonts(): Promise<void> {
@@ -41,7 +42,7 @@ export async function downloadFonts(): Promise<void> {
 function downloadFile(url: string, dest: string): Promise<void> {
   return new Promise((resolve, reject) => {
     const getUrl = (targetUrl: string) => {
-      https.get(targetUrl, (response) => {
+      https.get(targetUrl, (response: IncomingMessage) => {
         if (response.statusCode === 301 || response.statusCode === 302) {
           if (response.headers.location) {
             getUrl(response.headers.location);
@@ -61,11 +62,11 @@ function downloadFile(url: string, dest: string): Promise<void> {
           file.close();
           resolve();
         });
-        file.on("error", (err) => {
+        file.on("error", (err: Error) => {
           fs.unlinkSync(dest);
           reject(err);
         });
-      }).on("error", (err) => {
+      }).on("error", (err: Error) => {
         reject(err);
       });
     };

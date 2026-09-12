@@ -3,6 +3,8 @@
     "target": "ES2022",
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
+    "lib": ["ES2022"],
+    "types": ["node"],
     "strict": true,
     "outDir": "./dist",
     "rootDir": "src",
@@ -15,6 +17,8 @@
     "src/test-reset.ts",
     "src/test-sheets.ts",
     "src/test-timezone.ts",
-    "src/scratch"
+    "src/scratch",
+    "src/scripts",
+    "src/tests"
   ]
 }

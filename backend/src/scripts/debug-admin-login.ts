@@ -206,7 +206,7 @@ async function debugAuthPipeline() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email: inputEmail, password: inputPassword }),
     });
-    const loginData = await loginRes.json();
+    const loginData: any = await loginRes.json();
     console.log("\n[STEP 6a: POST /api/auth/login HTTP Response]");
     console.log("HTTP Status Code:", loginRes.status);
     console.log("JSON Success:", loginData.success);
@@ -224,7 +224,7 @@ async function debugAuthPipeline() {
         Authorization: `Bearer ${loginData.data.token}`,
       },
     });
-    const meData = await meRes.json();
+    const meData: any = await meRes.json();
     console.log("\n[STEP 6b: GET /api/auth/me HTTP Response]");
     console.log("HTTP Status Code:", meRes.status);
     console.log("Session Verified User:", meData.data?.user?.email);
