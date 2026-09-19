@@ -1,6 +1,5 @@
 import { Router, Request, Response } from "express";
 import jwt from "jsonwebtoken";
-import { google } from "googleapis";
 import { db } from "../db";
 import { google_integrations, stores, products, customers, suppliers } from "../db/schema";
 import { eq, and, desc } from "drizzle-orm";
@@ -15,6 +14,18 @@ import { GoogleSyncDispatcher } from "../services/google-sync-dispatcher.service
 
 const router = Router();
 
+let googleApiCache: any = null;
+function getGoogle(): any {
+  if (!googleApiCache) {
+    try {
+      googleApiCache = require("googleapis").google;
+    } catch {
+      googleApiCache = (globalThis as any).google;
+    }
+  }
+  return googleApiCache;
+}
+
 function getOAuth2Client() {
   const clientId = process.env.GOOGLE_CLIENT_ID;
   const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
@@ -24,6 +35,7 @@ function getOAuth2Client() {
     return null;
   }
 
+  const google = getGoogle();
   return new google.auth.OAuth2(clientId, clientSecret, redirectUri);
 }
 
@@ -134,7 +146,7 @@ router.get("/callback", async (req: Request, res: Response): Promise<void> => {
     oauth2Client.setCredentials(tokens);
 
     // Fetch user info from Google
-    const oauth2 = google.oauth2({ version: "v2", auth: oauth2Client });
+    const oauth2 = getGoogle().oauth2({ version: "v2", auth: oauth2Client });
     const userInfo = await oauth2.userinfo.get();
     const googleUserId = userInfo.data.id || "";
     const googleEmail = userInfo.data.email || "";
@@ -302,7 +314,7 @@ router.get("/spreadsheets", authenticate(), async (req: Request, res: Response):
 
     oauth2Client.setCredentials({ refresh_token: refreshToken });
 
-    const drive = google.drive({ version: "v3", auth: oauth2Client });
+    const drive = getGoogle().drive({ version: "v3", auth: oauth2Client });
     const response = await drive.files.list({
       q: "mimeType='application/vnd.google-apps.spreadsheet' and trashed=false",
       fields: "files(id, name, webViewLink, modifiedTime)",
@@ -310,7 +322,7 @@ router.get("/spreadsheets", authenticate(), async (req: Request, res: Response):
       orderBy: "modifiedTime desc",
     });
 
-    const files = (response.data.files || []).map((f) => ({
+    const files = (response.data.files || []).map((f: any) => ({
       id: f.id || "",
       name: f.name || "Untitled Spreadsheet",
       modifiedTime: f.modifiedTime || null,
@@ -359,7 +371,7 @@ const saveSpreadsheetHandler = async (req: Request, res: Response): Promise<void
       const oauth2Client = getOAuth2Client();
       if (oauth2Client && refreshToken) {
         oauth2Client.setCredentials({ refresh_token: refreshToken });
-        const drive = google.drive({ version: "v3", auth: oauth2Client });
+        const drive = getGoogle().drive({ version: "v3", auth: oauth2Client });
         const fileRes = await drive.files.get({ fileId: spreadsheetId, fields: "id, name" });
         if (fileRes.data && fileRes.data.name) {
           resolvedName = fileRes.data.name;
@@ -389,7 +401,7 @@ const saveSpreadsheetHandler = async (req: Request, res: Response): Promise<void
       const oauth2Client = getOAuth2Client();
       if (oauth2Client && refreshToken) {
         oauth2Client.setCredentials({ refresh_token: refreshToken });
-        const sheetsClient = google.sheets({ version: "v4", auth: oauth2Client });
+        const sheetsClient = getGoogle().sheets({ version: "v4", auth: oauth2Client });
         provisioningResult = await GoogleProvisioningService.provisionSpreadsheet(sheetsClient, spreadsheetId);
       }
     } catch (provErr: any) {

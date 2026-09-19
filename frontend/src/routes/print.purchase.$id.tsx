@@ -37,7 +37,13 @@ function PrintPurchasePage() {
   }, []);
 
   // Fetch purchase details
-  const { data: purchase, isLoading, isError, error, refetch } = useQuery({
+  const {
+    data: purchase,
+    isLoading,
+    isError,
+    error,
+    refetch,
+  } = useQuery({
     queryKey: ["purchase-print", id],
     queryFn: () => getPurchaseById(id),
     staleTime: 5000,
@@ -90,10 +96,12 @@ function PrintPurchasePage() {
         styleEl.id = "orion-print-style-inject";
         document.head.appendChild(styleEl);
       }
-      
+
       styleEl.innerHTML = `@media print { @page { size: A4 portrait; margin: 10mm; } }`;
 
-      const isMobile = /Android|iPhone|iPad|iPod|Opera Mini|IEMobile|WPDesktop/i.test(navigator.userAgent);
+      const isMobile = /Android|iPhone|iPad|iPod|Opera Mini|IEMobile|WPDesktop/i.test(
+        navigator.userAgent,
+      );
       const handleAfterPrint = () => {
         if (!isMobile) {
           window.close();
@@ -140,7 +148,11 @@ function PrintPurchasePage() {
           <Button onClick={() => refetch()} className="rounded-xl h-10 px-4">
             Retry
           </Button>
-          <Button variant="outline" onClick={() => window.history.back()} className="rounded-xl h-10 px-4">
+          <Button
+            variant="outline"
+            onClick={() => window.history.back()}
+            className="rounded-xl h-10 px-4"
+          >
             Go Back
           </Button>
         </div>
@@ -158,40 +170,74 @@ function PrintPurchasePage() {
       {/* On-screen controls, hidden during print */}
       <div className="mx-auto mb-6 flex max-w-2xl justify-between gap-4 rounded-2xl border border-neutral-200 bg-neutral-50 p-4 shadow-sm print:hidden">
         <div className="flex flex-col justify-center">
-          <span className="text-[10px] font-bold text-neutral-500 uppercase">Purchase Printing</span>
+          <span className="text-[10px] font-bold text-neutral-500 uppercase">
+            Purchase Printing
+          </span>
           <span className="text-xs font-semibold font-mono">{poNumber}</span>
         </div>
         <div className="flex gap-2">
-          <Button onClick={() => printerService.print({ invoiceNumber: poNumber, ...purchase })} className="rounded-xl h-8 text-[11px] px-3 gap-1.5">
+          <Button
+            onClick={() => printerService.print({ invoiceNumber: poNumber, ...purchase })}
+            className="rounded-xl h-8 text-[11px] px-3 gap-1.5"
+          >
             <Printer className="size-3.5" /> Print
           </Button>
-          <Button variant="outline" onClick={() => window.history.back()} className="rounded-xl h-8 text-[11px] px-3 gap-1.5">
+          <Button
+            variant="outline"
+            onClick={() => window.history.back()}
+            className="rounded-xl h-8 text-[11px] px-3 gap-1.5"
+          >
             <ArrowLeft className="size-3.5" /> Back
           </Button>
         </div>
       </div>
 
       {/* Printable A4 Purchase Voucher */}
-      <div id="orion-purchase-print-section" className="mx-auto max-w-2xl bg-white p-8 rounded-2xl border border-neutral-200 shadow-sm print:shadow-none print:border-none print:p-0">
+      <div
+        id="orion-purchase-print-section"
+        className="mx-auto max-w-2xl bg-white p-8 rounded-2xl border border-neutral-200 shadow-sm print:shadow-none print:border-none print:p-0"
+      >
         <div className="flex justify-between items-start border-b border-neutral-200 pb-4">
           <div>
-            <h1 className="text-xl font-bold text-neutral-900 uppercase tracking-tight">Purchase Voucher</h1>
+            <h1 className="text-xl font-bold text-neutral-900 uppercase tracking-tight">
+              Purchase Voucher
+            </h1>
             <div className="text-xs text-neutral-500 font-mono mt-0.5">PO Number: {poNumber}</div>
-            <div className="text-xs text-neutral-500 font-mono">Supplier Inv #: {supplierInvoice}</div>
+            <div className="text-xs text-neutral-500 font-mono">
+              Supplier Inv #: {supplierInvoice}
+            </div>
           </div>
           <div className="text-right">
-            <div className="text-xs font-semibold text-neutral-700">Date: {new Date(purchase.purchase_date || purchase.created_at).toLocaleDateString("en-IN")}</div>
-            <div className="text-xs text-neutral-500">Status: <span className="font-bold text-neutral-800">{status}</span></div>
-            <div className="text-xs text-neutral-500">Payment: <span className="font-semibold">{purchase.payment_status || "Paid"} ({purchase.payment_method || "Cash"})</span></div>
+            <div className="text-xs font-semibold text-neutral-700">
+              Date:{" "}
+              {new Date(purchase.purchase_date || purchase.created_at).toLocaleDateString("en-IN")}
+            </div>
+            <div className="text-xs text-neutral-500">
+              Status: <span className="font-bold text-neutral-800">{status}</span>
+            </div>
+            <div className="text-xs text-neutral-500">
+              Payment:{" "}
+              <span className="font-semibold">
+                {purchase.payment_status || "Paid"} ({purchase.payment_method || "Cash"})
+              </span>
+            </div>
           </div>
         </div>
 
         {/* Supplier details */}
         <div className="my-4 p-3 bg-neutral-50 rounded-xl text-xs space-y-1">
-          <div className="font-bold uppercase text-[10px] text-neutral-500">Supplier Information</div>
-          <div className="font-semibold text-neutral-900 text-sm">{purchase.supplier_name || "N/A"}</div>
-          {purchase.supplier_phone && <div className="text-neutral-600">Phone: {purchase.supplier_phone}</div>}
-          {purchase.supplier_gstin && <div className="text-neutral-600">GSTIN: {purchase.supplier_gstin}</div>}
+          <div className="font-bold uppercase text-[10px] text-neutral-500">
+            Supplier Information
+          </div>
+          <div className="font-semibold text-neutral-900 text-sm">
+            {purchase.supplier_name || "N/A"}
+          </div>
+          {purchase.supplier_phone && (
+            <div className="text-neutral-600">Phone: {purchase.supplier_phone}</div>
+          )}
+          {purchase.supplier_gstin && (
+            <div className="text-neutral-600">GSTIN: {purchase.supplier_gstin}</div>
+          )}
         </div>
 
         {/* Line Items Table */}
@@ -214,11 +260,17 @@ function PrintPurchasePage() {
                   <td className="p-2 font-mono text-neutral-400">{idx + 1}</td>
                   <td className="p-2 font-semibold text-neutral-800">
                     {item.product_name || `Product #${item.product_id}`}
-                    {item.product_sku && <span className="text-[10px] text-neutral-400 font-mono ml-1">({item.product_sku})</span>}
+                    {item.product_sku && (
+                      <span className="text-[10px] text-neutral-400 font-mono ml-1">
+                        ({item.product_sku})
+                      </span>
+                    )}
                   </td>
                   <td className="p-2 text-center font-mono font-bold">{item.quantity}</td>
                   <td className="p-2 text-right font-mono text-neutral-600">{inr(pPrice)}</td>
-                  <td className="p-2 text-right font-mono font-bold text-neutral-900">{inr(lTotal)}</td>
+                  <td className="p-2 text-right font-mono font-bold text-neutral-900">
+                    {inr(lTotal)}
+                  </td>
                 </tr>
               );
             })}
@@ -229,18 +281,24 @@ function PrintPurchasePage() {
         <div className="flex flex-col items-end gap-1 border-t border-neutral-300 pt-3 text-xs">
           <div className="flex justify-between w-48 text-neutral-600">
             <span>Subtotal:</span>
-            <span className="font-mono font-semibold text-neutral-900">{inr((purchase.subtotal || 0) / 100.0)}</span>
+            <span className="font-mono font-semibold text-neutral-900">
+              {inr((purchase.subtotal || 0) / 100.0)}
+            </span>
           </div>
           {purchase.discount > 0 && (
             <div className="flex justify-between w-48 text-neutral-600">
               <span>Discount:</span>
-              <span className="font-mono font-semibold text-rose-600">-{inr((purchase.discount || 0) / 100.0)}</span>
+              <span className="font-mono font-semibold text-rose-600">
+                -{inr((purchase.discount || 0) / 100.0)}
+              </span>
             </div>
           )}
           {purchase.gst > 0 && (
             <div className="flex justify-between w-48 text-neutral-600">
               <span>GST Tax:</span>
-              <span className="font-mono font-semibold text-neutral-900">+{inr((purchase.gst || 0) / 100.0)}</span>
+              <span className="font-mono font-semibold text-neutral-900">
+                +{inr((purchase.gst || 0) / 100.0)}
+              </span>
             </div>
           )}
           <div className="flex justify-between w-48 text-sm font-bold border-t border-dashed border-neutral-300 pt-2 text-neutral-900">

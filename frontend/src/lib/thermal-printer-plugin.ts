@@ -33,7 +33,9 @@ export interface ThermalPrinterPluginInterface {
   listBluetoothDevices(): Promise<{ devices: BluetoothDeviceItem[] }>;
   listUsbDevices(): Promise<{ devices: UsbDeviceItem[] }>;
   testConnection(options: PrinterConnectionOptions): Promise<{ success: boolean; message: string }>;
-  printReceipt(options: PrinterConnectionOptions & { formattedText: string }): Promise<{ success: boolean; message: string }>;
+  printReceipt(
+    options: PrinterConnectionOptions & { formattedText: string },
+  ): Promise<{ success: boolean; message: string }>;
   testPrint(options: PrinterConnectionOptions): Promise<{ success: boolean; message: string }>;
   getPrinterStatus(options?: PrinterConnectionOptions): Promise<{ success: boolean }>;
 }
@@ -47,7 +49,9 @@ export class ThermalPrinterBridge {
 
   static async listBluetoothDevices(): Promise<BluetoothDeviceItem[]> {
     if (!this.isNativeAvailable()) {
-      console.warn("[ThermalPrinterBridge] Native platform not detected. Bluetooth device listing requires Android app environment.");
+      console.warn(
+        "[ThermalPrinterBridge] Native platform not detected. Bluetooth device listing requires Android app environment.",
+      );
       return [];
     }
     try {
@@ -72,9 +76,15 @@ export class ThermalPrinterBridge {
     }
   }
 
-  static async testConnection(options: PrinterConnectionOptions): Promise<{ success: boolean; message: string }> {
+  static async testConnection(
+    options: PrinterConnectionOptions,
+  ): Promise<{ success: boolean; message: string }> {
     if (!this.isNativeAvailable()) {
-      return { success: false, message: "Native Capacitor Android bridge is only available when running inside the Android App." };
+      return {
+        success: false,
+        message:
+          "Native Capacitor Android bridge is only available when running inside the Android App.",
+      };
     }
     try {
       return await NativeThermalPrinter.testConnection(options);
@@ -83,9 +93,13 @@ export class ThermalPrinterBridge {
     }
   }
 
-  static async printReceipt(options: PrinterConnectionOptions & { formattedText: string }): Promise<boolean> {
+  static async printReceipt(
+    options: PrinterConnectionOptions & { formattedText: string },
+  ): Promise<boolean> {
     if (!this.isNativeAvailable()) {
-      throw new Error("Native Capacitor Android bridge is not available on web browser environment.");
+      throw new Error(
+        "Native Capacitor Android bridge is not available on web browser environment.",
+      );
     }
     const res = await NativeThermalPrinter.printReceipt(options);
     return res.success;
@@ -93,7 +107,9 @@ export class ThermalPrinterBridge {
 
   static async testPrint(options: PrinterConnectionOptions): Promise<boolean> {
     if (!this.isNativeAvailable()) {
-      throw new Error("Native Capacitor Android bridge is not available on web browser environment.");
+      throw new Error(
+        "Native Capacitor Android bridge is not available on web browser environment.",
+      );
     }
     const res = await NativeThermalPrinter.testPrint(options);
     return res.success;

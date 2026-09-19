@@ -3,8 +3,21 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import {
@@ -14,7 +27,17 @@ import {
   type WhatsAppTemplateConfig,
 } from "@/lib/whatsapp-templates";
 import { apiFetch, API_BASE_URL } from "@/lib/api";
-import { Eye, RotateCcw, Send, CheckCircle, MessageSquare, Phone, FileText, Sparkles, Building2 } from "lucide-react";
+import {
+  Eye,
+  RotateCcw,
+  Send,
+  CheckCircle,
+  MessageSquare,
+  Phone,
+  FileText,
+  Sparkles,
+  Building2,
+} from "lucide-react";
 
 interface WhatsAppTemplateManagerProps {
   currentStore?: any;
@@ -62,7 +85,8 @@ export function WhatsAppTemplateManager({ currentStore }: WhatsAppTemplateManage
     }
   };
 
-  const currentConfig = WHATSAPP_TEMPLATES_REGISTRY.find((t) => t.id === activeTab) || WHATSAPP_TEMPLATES_REGISTRY[0];
+  const currentConfig =
+    WHATSAPP_TEMPLATES_REGISTRY.find((t) => t.id === activeTab) || WHATSAPP_TEMPLATES_REGISTRY[0];
   const currentText = templatesState[currentConfig.id] ?? currentConfig.defaultTemplate;
 
   // Handle invoice selection change
@@ -77,7 +101,10 @@ export function WhatsAppTemplateManager({ currentStore }: WhatsAppTemplateManage
   };
 
   // Resolve Live Preview Data
-  const livePlaceholderMap = resolvePlaceholderValues(selectedInvoiceData || currentConfig.sampleData, currentStore);
+  const livePlaceholderMap = resolvePlaceholderValues(
+    selectedInvoiceData || currentConfig.sampleData,
+    currentStore,
+  );
   const previewText = renderWhatsAppTemplate(currentText, livePlaceholderMap);
 
   const handleTemplateChange = (val: string) => {
@@ -195,7 +222,9 @@ export function WhatsAppTemplateManager({ currentStore }: WhatsAppTemplateManage
               {tpl.badge && (
                 <span
                   className={`text-[9px] px-1.5 py-0.2 rounded-md font-mono ${
-                    isActive ? "bg-primary-foreground/20 text-primary-foreground" : "bg-muted text-muted-foreground"
+                    isActive
+                      ? "bg-primary-foreground/20 text-primary-foreground"
+                      : "bg-muted text-muted-foreground"
                   }`}
                 >
                   {tpl.badge}
@@ -275,7 +304,10 @@ export function WhatsAppTemplateManager({ currentStore }: WhatsAppTemplateManage
               <div className="text-xs font-bold text-emerald-800 dark:text-emerald-300 flex items-center gap-1.5">
                 <Eye className="size-4 text-emerald-500" /> Live Message Preview
               </div>
-              <Badge variant="outline" className="text-[9px] font-mono border-emerald-500/30 text-emerald-600 dark:text-emerald-400">
+              <Badge
+                variant="outline"
+                className="text-[9px] font-mono border-emerald-500/30 text-emerald-600 dark:text-emerald-400"
+              >
                 Instant Resolution
               </Badge>
             </div>
@@ -283,16 +315,24 @@ export function WhatsAppTemplateManager({ currentStore }: WhatsAppTemplateManage
             {/* Record Selector for Preview Context */}
             {realInvoices.length > 0 && (
               <div className="space-y-1">
-                <span className="text-[10px] font-semibold text-muted-foreground">Previewing Data From:</span>
+                <span className="text-[10px] font-semibold text-muted-foreground">
+                  Previewing Data From:
+                </span>
                 <Select value={selectedInvoiceId} onValueChange={handleSelectInvoice}>
                   <SelectTrigger className="h-7 text-[11px] rounded-lg bg-background/80 border-emerald-500/30">
                     <SelectValue placeholder="Select invoice for preview" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="latest">Latest Real Invoice ({realInvoices[0]?.invoiceNumber || "INV-001"})</SelectItem>
+                    <SelectItem value="latest">
+                      Latest Real Invoice ({realInvoices[0]?.invoiceNumber || "INV-001"})
+                    </SelectItem>
                     {realInvoices.map((inv) => (
-                      <SelectItem key={inv.id || inv.invoiceNumber} value={String(inv.id || inv.invoiceNumber)}>
-                        {inv.invoiceNumber} — {inv.customerName || inv.customer_name || "Customer"} (₹{inv.total || inv.grandTotal || 0})
+                      <SelectItem
+                        key={inv.id || inv.invoiceNumber}
+                        value={String(inv.id || inv.invoiceNumber)}
+                      >
+                        {inv.invoiceNumber} — {inv.customerName || inv.customer_name || "Customer"}{" "}
+                        (₹{inv.total || inv.grandTotal || 0})
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -341,7 +381,9 @@ export function WhatsAppTemplateManager({ currentStore }: WhatsAppTemplateManage
                   className="rounded-xl text-xs h-9 bg-background"
                 />
               </div>
-              {mobileError && <span className="text-[11px] font-semibold text-rose-500">{mobileError}</span>}
+              {mobileError && (
+                <span className="text-[11px] font-semibold text-rose-500">{mobileError}</span>
+              )}
             </div>
 
             {/* Document / Invoice Context Selector */}
@@ -354,8 +396,12 @@ export function WhatsAppTemplateManager({ currentStore }: WhatsAppTemplateManage
                 <SelectContent>
                   <SelectItem value="latest">Latest Available Real Invoice</SelectItem>
                   {realInvoices.map((inv) => (
-                    <SelectItem key={inv.id || inv.invoiceNumber} value={String(inv.id || inv.invoiceNumber)}>
-                      {inv.invoiceNumber} — {inv.customerName || inv.customer_name || "Customer"} (₹{inv.total || inv.grandTotal || 0})
+                    <SelectItem
+                      key={inv.id || inv.invoiceNumber}
+                      value={String(inv.id || inv.invoiceNumber)}
+                    >
+                      {inv.invoiceNumber} — {inv.customerName || inv.customer_name || "Customer"} (₹
+                      {inv.total || inv.grandTotal || 0})
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -364,7 +410,9 @@ export function WhatsAppTemplateManager({ currentStore }: WhatsAppTemplateManage
 
             {/* Live Message Body Preview Box */}
             <div className="space-y-1">
-              <Label className="text-xs font-semibold text-muted-foreground">Final Generated Message Body</Label>
+              <Label className="text-xs font-semibold text-muted-foreground">
+                Final Generated Message Body
+              </Label>
               <div className="rounded-xl bg-muted/30 border border-border p-3 text-[11px] font-mono whitespace-pre-wrap leading-relaxed max-h-40 overflow-y-auto">
                 {previewText}
               </div>
@@ -372,7 +420,12 @@ export function WhatsAppTemplateManager({ currentStore }: WhatsAppTemplateManage
           </div>
 
           <DialogFooter className="gap-2 sm:gap-0">
-            <Button type="button" variant="outline" onClick={() => setDialogOpen(false)} className="rounded-xl text-xs">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setDialogOpen(false)}
+              className="rounded-xl text-xs"
+            >
               Cancel
             </Button>
             <Button

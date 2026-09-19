@@ -4,11 +4,18 @@ import { IImageStorage, ImageUploadOptions } from "../interfaces/IImageStorage";
 import { getTenantContext } from "../db/context";
 
 export class LocalStorage implements IImageStorage {
-  private targetDir = path.join(__dirname, "../../uploads/products");
+  private targetDir = path.join(
+    typeof __dirname !== "undefined" ? __dirname : (process.cwd ? process.cwd() : "/tmp"),
+    "../../uploads/products"
+  );
 
   constructor() {
-    if (!fs.existsSync(this.targetDir)) {
-      fs.mkdirSync(this.targetDir, { recursive: true });
+    try {
+      if (!fs.existsSync(this.targetDir)) {
+        fs.mkdirSync(this.targetDir, { recursive: true });
+      }
+    } catch {
+      // In serverless / Cloudflare Workers environment, filesystem mkdir may be read-only/virtual
     }
   }
 

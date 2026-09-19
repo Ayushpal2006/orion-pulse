@@ -5,7 +5,15 @@ import { UniversalReceiptModel, createCanonicalReceiptModel } from "./receipt-mo
 import { ThermalPrinterBridge } from "./thermal-printer-plugin";
 
 export interface PrintAdapter {
-  print(receipt: any, options?: RenderOptions & { profile?: any; bluetoothMac?: string; printerIp?: string; printerPort?: number }): Promise<void>;
+  print(
+    receipt: any,
+    options?: RenderOptions & {
+      profile?: any;
+      bluetoothMac?: string;
+      printerIp?: string;
+      printerPort?: number;
+    },
+  ): Promise<void>;
   testConnection?(): Promise<boolean>;
 }
 
@@ -69,7 +77,8 @@ export class BrowserPrintAdapter implements PrintAdapter {
     }
 
     const paperWidth = options?.paperWidth || "80mm";
-    const sizeValue = paperWidth === "80mm" ? "80mm auto" : paperWidth === "A4" ? "A4 portrait" : "58mm auto";
+    const sizeValue =
+      paperWidth === "80mm" ? "80mm auto" : paperWidth === "A4" ? "A4 portrait" : "58mm auto";
     const marginTop = options?.marginTop ?? 0;
     const marginBottom = options?.marginBottom ?? 0;
     const marginLeft = options?.marginLeft ?? 0;
@@ -151,7 +160,9 @@ export class UsbPrinterAdapter implements PrintAdapter {
     // WebUSB API Fallback
     if (typeof navigator === "undefined" || !(navigator as any).usb) {
       toast.dismiss(toastId);
-      throw new Error("WebUSB is not supported in this browser. Please use Chrome or Android Native App.");
+      throw new Error(
+        "WebUSB is not supported in this browser. Please use Chrome or Android Native App.",
+      );
     }
     try {
       const device = await (navigator as any).usb.requestDevice({ filters: [] });
@@ -191,7 +202,10 @@ export class UsbPrinterAdapter implements PrintAdapter {
 
 // 3. BLUETOOTH THERMAL PRINTER ADAPTER (WebBluetooth API & Native Android Capacitor Bridge)
 export class BluetoothPrinterAdapter implements PrintAdapter {
-  async print(receipt: any, options?: RenderOptions & { profile?: any; bluetoothMac?: string }): Promise<void> {
+  async print(
+    receipt: any,
+    options?: RenderOptions & { profile?: any; bluetoothMac?: string },
+  ): Promise<void> {
     const model: UniversalReceiptModel = createCanonicalReceiptModel(receipt);
     const toastId = toast.loading("Sending receipt to Bluetooth KP307 Thermal Printer...");
 
@@ -223,7 +237,9 @@ export class BluetoothPrinterAdapter implements PrintAdapter {
     // WebBluetooth PWA Transport
     if (typeof navigator === "undefined" || !(navigator as any).bluetooth) {
       toast.dismiss(toastId);
-      throw new Error("WebBluetooth is not supported in this browser. Please use Chrome on Android / Desktop with Bluetooth enabled.");
+      throw new Error(
+        "WebBluetooth is not supported in this browser. Please use Chrome on Android / Desktop with Bluetooth enabled.",
+      );
     }
     try {
       const device = await (navigator as any).bluetooth.requestDevice({
@@ -265,7 +281,7 @@ export class BluetoothPrinterAdapter implements PrintAdapter {
       }
 
       const commands = await UniversalReceiptRenderer.toEscPosAsync(model, options);
-      
+
       const chunkSize = 128;
       for (let i = 0; i < commands.length; i += chunkSize) {
         const chunk = commands.slice(i, i + chunkSize);
@@ -288,7 +304,10 @@ export class BluetoothPrinterAdapter implements PrintAdapter {
 
 // 4. NETWORK (LAN / WI-FI) PRINTER ADAPTER
 export class NetworkPrinterAdapter implements PrintAdapter {
-  async print(receipt: any, options?: RenderOptions & { profile?: any; printerIp?: string; printerPort?: number }): Promise<void> {
+  async print(
+    receipt: any,
+    options?: RenderOptions & { profile?: any; printerIp?: string; printerPort?: number },
+  ): Promise<void> {
     const model: UniversalReceiptModel = createCanonicalReceiptModel(receipt);
     const ip = options?.printerIp || options?.profile?.printerIp;
     const port = options?.printerPort || options?.profile?.printerPort || 9100;
@@ -342,14 +361,20 @@ export class AndroidPosPrinterAdapter implements PrintAdapter {
       const payloadJson = JSON.stringify(receipt);
 
       // Check Sunmi Native SDK Interface
-      if ((window as any).SunmiPrinter && typeof (window as any).SunmiPrinter.printReceipt === "function") {
+      if (
+        (window as any).SunmiPrinter &&
+        typeof (window as any).SunmiPrinter.printReceipt === "function"
+      ) {
         (window as any).SunmiPrinter.printReceipt(payloadJson);
         toast.success("Receipt printed to Sunmi POS Thermal Printer");
         return;
       }
 
       // Check iMin Native SDK Interface
-      if ((window as any).iMinPrinter && typeof (window as any).iMinPrinter.printReceipt === "function") {
+      if (
+        (window as any).iMinPrinter &&
+        typeof (window as any).iMinPrinter.printReceipt === "function"
+      ) {
         (window as any).iMinPrinter.printReceipt(payloadJson);
         toast.success("Receipt printed to iMin POS Thermal Printer");
         return;
@@ -375,7 +400,7 @@ export class AndroidPosPrinterAdapter implements PrintAdapter {
       }
     }
     throw new Error(
-      "Built-in Android POS Printer hardware interface is not detected on this device model."
+      "Built-in Android POS Printer hardware interface is not detected on this device model.",
     );
   }
 }

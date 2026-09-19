@@ -1,6 +1,80 @@
 import rateLimit from "express-rate-limit";
+import type { ClientRateLimitInfo, Options, Store } from "express-rate-limit";
 import type { Request, Response } from "express";
 import { logger } from "../logger/logger";
+
+/**
+ * In-memory store that expires entries lazily instead of on a timer.
+ *
+ * express-rate-limit's bundled MemoryStore calls setInterval() from its init(), which
+ * Cloudflare Workers rejects ("Disallowed operation called within global scope") because
+ * the limiters are constructed while the module is evaluated. The library swallows that
+ * failure, so requests still served, but the store logged an error on every cold start
+ * and its expiry sweep never ran.
+ *
+ * Each key carries its own window expiry and is refreshed on read, so no timer is
+ * needed. Entries for idle keys are reclaimed by a bounded sweep on write.
+ *
+ * NOTE: this is per-isolate, exactly like the store it replaces — Workers may run many
+ * isolates, so the effective limit is per isolate rather than global. See the
+ * Cloudflare-native follow-up noted in the module docs below.
+ */
+const MAX_TRACKED_KEYS = 10_000;
+
+class LazyExpiryMemoryStore implements Store {
+  localKeys = true;
+  private windowMs = 60_000;
+  private hits = new Map<string, { count: number; resetTime: number }>();
+
+  init(options: Options): void {
+    this.windowMs = options.windowMs;
+  }
+
+  private currentWindow(key: string): { count: number; resetTime: number } {
+    const now = Date.now();
+    const existing = this.hits.get(key);
+    if (existing && existing.resetTime > now) return existing;
+
+    const fresh = { count: 0, resetTime: now + this.windowMs };
+    this.hits.set(key, fresh);
+    return fresh;
+  }
+
+  /** Drops expired keys; only runs when the map grows past the cap, so it stays O(1) amortised. */
+  private sweepIfCrowded(): void {
+    if (this.hits.size <= MAX_TRACKED_KEYS) return;
+    const now = Date.now();
+    for (const [key, entry] of this.hits) {
+      if (entry.resetTime <= now) this.hits.delete(key);
+    }
+  }
+
+  increment(key: string): ClientRateLimitInfo {
+    this.sweepIfCrowded();
+    const entry = this.currentWindow(key);
+    entry.count += 1;
+    return { totalHits: entry.count, resetTime: new Date(entry.resetTime) };
+  }
+
+  decrement(key: string): void {
+    const entry = this.hits.get(key);
+    if (entry && entry.count > 0) entry.count -= 1;
+  }
+
+  get(key: string): ClientRateLimitInfo | undefined {
+    const entry = this.hits.get(key);
+    if (!entry || entry.resetTime <= Date.now()) return undefined;
+    return { totalHits: entry.count, resetTime: new Date(entry.resetTime) };
+  }
+
+  resetKey(key: string): void {
+    this.hits.delete(key);
+  }
+
+  resetAll(): void {
+    this.hits.clear();
+  }
+}
 
 // Cloudflare Workers has no TCP socket, so `req.socket` is undefined and `req.ip`
 // resolves to undefined. Derive the client IP from edge headers instead — reading
@@ -18,6 +92,16 @@ function getClientIp(req: Request): string {
   return req.ip || (req.socket as { remoteAddress?: string } | undefined)?.remoteAddress || "127.0.0.1";
 }
 
+/*
+ * FOLLOW-UP (not done here — needs infrastructure config, not code):
+ * Both limiters below count hits per Worker isolate. Cloudflare may run many isolates
+ * concurrently, so the effective ceiling is higher than the configured `max` and resets
+ * whenever an isolate is recycled. That is adequate as a safety valve but is not a
+ * strict guarantee. For enforceable global limits, move to Cloudflare's native
+ * Rate Limiting rules (dashboard/WAF) or a `[[unsafe.bindings]]` rate-limiter binding
+ * in wrangler.toml, then this middleware can be reduced to a local backstop.
+ */
+
 /**
  * 1. Auth Rate Limiter (Brute-force protection)
  * Protects login, registration, and password operations.
@@ -29,6 +113,7 @@ export const authLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   validate: false,
+  store: new LazyExpiryMemoryStore(),
   keyGenerator: getClientIp,
   handler: (req: Request, res: Response, _next, options) => {
     logger.warn(`⚠️ [RateLimit 429] Auth limiter triggered | Route: ${req.method} ${req.originalUrl || req.baseUrl} | IP: ${getClientIp(req)}`);
@@ -54,6 +139,7 @@ export const apiLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   validate: false,
+  store: new LazyExpiryMemoryStore(),
   keyGenerator: (req: Request): string => {
     // If request contains a Bearer authorization token, key by token prefix
     const authHeader = req.headers.authorization;

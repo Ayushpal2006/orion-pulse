@@ -65,7 +65,7 @@ export class AccountingFoundationService {
         <ISDEEMEDPOSITIVE>${e.debit > 0 ? "Yes" : "No"}</ISDEEMEDPOSITIVE>
         <AMOUNT>${e.debit > 0 ? -e.debit : e.credit}</AMOUNT>
       </ALLLEDGERENTRIES.LIST>
-    </VOUCHER>`
+    </VOUCHER>`,
       )
       .join("");
 

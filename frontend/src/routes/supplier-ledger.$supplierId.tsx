@@ -2,7 +2,17 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useState, useMemo } from "react";
 import {
-  ChevronLeft, Loader2, Calendar, Sliders, Search, ArrowUpDown, FileText, Download, RefreshCw, Landmark, ArrowUpRight
+  ChevronLeft,
+  Loader2,
+  Calendar,
+  Sliders,
+  Search,
+  ArrowUpDown,
+  FileText,
+  Download,
+  RefreshCw,
+  Landmark,
+  ArrowUpRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { printerService } from "@/lib/printer.service";
@@ -21,7 +31,10 @@ export const Route = createFileRoute("/supplier-ledger/$supplierId")({
   head: () => ({
     meta: [
       { title: "Supplier Ledger · Apka Bill" },
-      { name: "description", content: "Vendor audit trail, purchase history, and running balance statements." },
+      {
+        name: "description",
+        content: "Vendor audit trail, purchase history, and running balance statements.",
+      },
     ],
   }),
   component: SupplierLedgerPage,
@@ -45,13 +58,19 @@ function SupplierLedgerPage() {
   }, [suppliersList, supplierId]);
 
   // Fetch ledger entries
-  const { data: ledger = [], isLoading: isLoadingLedger, isError, refetch } = useQuery({
+  const {
+    data: ledger = [],
+    isLoading: isLoadingLedger,
+    isError,
+    refetch,
+  } = useQuery({
     queryKey: ["supplier-ledger-page", supplierId, filterType, startDate, endDate],
-    queryFn: () => getSupplierLedger(supplierId, {
-      transaction_type: filterType === "all" ? undefined : filterType,
-      startDate: startDate || undefined,
-      endDate: endDate || undefined,
-    }),
+    queryFn: () =>
+      getSupplierLedger(supplierId, {
+        transaction_type: filterType === "all" ? undefined : filterType,
+        startDate: startDate || undefined,
+        endDate: endDate || undefined,
+      }),
   });
 
   // Client-side search filtering by reference
@@ -61,7 +80,7 @@ function SupplierLedgerPage() {
     return ledger.filter(
       (l: any) =>
         (l.reference && l.reference.toLowerCase().includes(query)) ||
-        l.transaction_type.toLowerCase().includes(query)
+        l.transaction_type.toLowerCase().includes(query),
     );
   }, [ledger, q]);
 
@@ -111,7 +130,9 @@ function SupplierLedgerPage() {
       <div className="flex h-[80vh] flex-col items-center justify-center gap-3 text-center">
         <div className="text-sm font-semibold text-foreground">Supplier not found</div>
         <Button asChild variant="outline" size="sm" className="rounded-xl">
-          <Link to="/suppliers"><ChevronLeft className="mr-1.5 size-4" /> Back to suppliers</Link>
+          <Link to="/suppliers">
+            <ChevronLeft className="mr-1.5 size-4" /> Back to suppliers
+          </Link>
         </Button>
       </div>
     );
@@ -124,7 +145,9 @@ function SupplierLedgerPage() {
         <div>
           <div className="flex items-center gap-2">
             <Button asChild variant="ghost" size="sm" className="-ml-2 h-8 rounded-lg">
-              <Link to="/suppliers"><ChevronLeft className="mr-1 size-4" /> Suppliers</Link>
+              <Link to="/suppliers">
+                <ChevronLeft className="mr-1 size-4" /> Suppliers
+              </Link>
             </Button>
           </div>
           <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl mt-1">
@@ -149,14 +172,26 @@ function SupplierLedgerPage() {
         <div className="flex justify-between border-b pb-4">
           <div>
             <h1 className="text-2xl font-bold">{supplier.name}</h1>
-            {supplier.gstin && <div className="text-xs text-muted-foreground">GSTIN: {supplier.gstin}</div>}
-            {supplier.phone && <div className="text-xs text-muted-foreground">Phone: {supplier.phone}</div>}
-            {supplier.email && <div className="text-xs text-muted-foreground">Email: {supplier.email}</div>}
+            {supplier.gstin && (
+              <div className="text-xs text-muted-foreground">GSTIN: {supplier.gstin}</div>
+            )}
+            {supplier.phone && (
+              <div className="text-xs text-muted-foreground">Phone: {supplier.phone}</div>
+            )}
+            {supplier.email && (
+              <div className="text-xs text-muted-foreground">Email: {supplier.email}</div>
+            )}
           </div>
           <div className="text-right">
-            <h2 className="text-lg font-semibold uppercase tracking-wider text-muted-foreground">Ledger Statement</h2>
-            <div className="text-2xl font-black text-foreground mt-2">{inr(supplier.current_balance)}</div>
-            <div className="text-[10px] text-muted-foreground font-medium uppercase mt-0.5">Outstanding Balance</div>
+            <h2 className="text-lg font-semibold uppercase tracking-wider text-muted-foreground">
+              Ledger Statement
+            </h2>
+            <div className="text-2xl font-black text-foreground mt-2">
+              {inr(supplier.current_balance)}
+            </div>
+            <div className="text-[10px] text-muted-foreground font-medium uppercase mt-0.5">
+              Outstanding Balance
+            </div>
           </div>
         </div>
       </div>
@@ -164,26 +199,46 @@ function SupplierLedgerPage() {
       {/* Summary KPI Block */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 print:grid-cols-4">
         <div className="card-soft p-4 space-y-1">
-          <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Outstanding Balance</span>
-          <div className={`text-2xl font-bold tracking-tight ${supplier.current_balance > 0 ? "text-rose-500" : supplier.current_balance < 0 ? "text-emerald-500" : "text-foreground"}`}>
+          <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">
+            Outstanding Balance
+          </span>
+          <div
+            className={`text-2xl font-bold tracking-tight ${supplier.current_balance > 0 ? "text-rose-500" : supplier.current_balance < 0 ? "text-emerald-500" : "text-foreground"}`}
+          >
             {inr(supplier.current_balance)}
           </div>
         </div>
         <div className="card-soft p-4 space-y-1">
-          <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider font-semibold">Total Purchases</span>
+          <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider font-semibold">
+            Total Purchases
+          </span>
           <div className="text-2xl font-bold tracking-tight text-foreground">
-            {inr(ledger.filter((l: any) => l.transaction_type === "PURCHASE").reduce((acc, x) => acc + x.amount, 0))}
+            {inr(
+              ledger
+                .filter((l: any) => l.transaction_type === "PURCHASE")
+                .reduce((acc, x) => acc + x.amount, 0),
+            )}
           </div>
         </div>
         <div className="card-soft p-4 space-y-1">
-          <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider font-semibold">Total Payments</span>
+          <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider font-semibold">
+            Total Payments
+          </span>
           <div className="text-2xl font-bold tracking-tight text-foreground">
-            {inr(ledger.filter((l: any) => l.transaction_type === "PAYMENT").reduce((acc, x) => acc + x.amount, 0))}
+            {inr(
+              ledger
+                .filter((l: any) => l.transaction_type === "PAYMENT")
+                .reduce((acc, x) => acc + x.amount, 0),
+            )}
           </div>
         </div>
         <div className="card-soft p-4 space-y-1">
-          <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Statement Entries</span>
-          <div className="text-2xl font-bold tracking-tight text-foreground">{ledger.length} entries</div>
+          <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">
+            Statement Entries
+          </span>
+          <div className="text-2xl font-bold tracking-tight text-foreground">
+            {ledger.length} entries
+          </div>
         </div>
       </div>
 
@@ -217,7 +272,9 @@ function SupplierLedgerPage() {
           </Select>
 
           <div className="flex items-center gap-2">
-            <span className="text-xs text-muted-foreground font-medium whitespace-nowrap">From</span>
+            <span className="text-xs text-muted-foreground font-medium whitespace-nowrap">
+              From
+            </span>
             <Input
               type="date"
               value={startDate}
@@ -235,7 +292,14 @@ function SupplierLedgerPage() {
             />
           </div>
           {(startDate || endDate) && (
-            <Button variant="outline" onClick={() => { setStartDate(""); setEndDate(""); }} className="h-11 rounded-xl">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setStartDate("");
+                setEndDate("");
+              }}
+              className="h-11 rounded-xl"
+            >
               Clear
             </Button>
           )}
@@ -245,7 +309,9 @@ function SupplierLedgerPage() {
       {/* Ledger Activity Timeline Table (Newest First) */}
       {isError ? (
         <div className="flex h-32 flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-border bg-muted/20 p-6 text-center print:hidden">
-          <div className="text-sm font-semibold text-foreground">Ledger records could not be loaded</div>
+          <div className="text-sm font-semibold text-foreground">
+            Ledger records could not be loaded
+          </div>
           <Button variant="outline" size="sm" onClick={() => refetch()}>
             <RefreshCw className="mr-2 size-4" /> Retry
           </Button>
@@ -269,35 +335,80 @@ function SupplierLedgerPage() {
             </thead>
             <tbody className="divide-y divide-border">
               {filteredLedger.map((row: any) => {
-                const isDebit = row.transaction_type === "PAYMENT" || row.transaction_type === "PURCHASE_CANCEL" || row.transaction_type === "PURCHASE_VOID";
-                const isCredit = row.transaction_type === "PURCHASE" || row.transaction_type === "PURCHASE_EDIT" || row.transaction_type === "OUTSTANDING_CHANGE";
+                const isDebit =
+                  row.transaction_type === "PAYMENT" ||
+                  row.transaction_type === "PURCHASE_CANCEL" ||
+                  row.transaction_type === "PURCHASE_VOID";
+                const isCredit =
+                  row.transaction_type === "PURCHASE" ||
+                  row.transaction_type === "PURCHASE_EDIT" ||
+                  row.transaction_type === "OUTSTANDING_CHANGE";
 
                 const getBadge = () => {
                   switch (row.transaction_type) {
                     case "PURCHASE":
-                      return <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-[9px] font-bold bg-rose-500/10 text-rose-500">Purchase</span>;
+                      return (
+                        <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-[9px] font-bold bg-rose-500/10 text-rose-500">
+                          Purchase
+                        </span>
+                      );
                     case "PAYMENT":
-                      return <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-[9px] font-bold bg-emerald-500/10 text-emerald-500">Payment Out</span>;
+                      return (
+                        <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-[9px] font-bold bg-emerald-500/10 text-emerald-500">
+                          Payment Out
+                        </span>
+                      );
                     case "PURCHASE_EDIT":
-                      return <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-[9px] font-bold bg-amber-500/10 text-amber-500">PO Edit</span>;
+                      return (
+                        <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-[9px] font-bold bg-amber-500/10 text-amber-500">
+                          PO Edit
+                        </span>
+                      );
                     case "PURCHASE_VOID":
-                      return <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-[9px] font-bold bg-rose-600 text-white font-black">PO Voided</span>;
+                      return (
+                        <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-[9px] font-bold bg-rose-600 text-white font-black">
+                          PO Voided
+                        </span>
+                      );
                     case "PURCHASE_CANCEL":
-                      return <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-[9px] font-bold bg-red-900 text-white font-black">Soft Delete Reversal</span>;
+                      return (
+                        <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-[9px] font-bold bg-red-900 text-white font-black">
+                          Soft Delete Reversal
+                        </span>
+                      );
                     case "PURCHASE_DUPLICATE":
-                      return <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-[9px] font-bold bg-purple-500/10 text-purple-500">Draft Duplicated</span>;
+                      return (
+                        <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-[9px] font-bold bg-purple-500/10 text-purple-500">
+                          Draft Duplicated
+                        </span>
+                      );
                     case "OUTSTANDING_CHANGE":
-                      return <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-[9px] font-bold bg-blue-500/10 text-blue-500">Balance Adjustment</span>;
+                      return (
+                        <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-[9px] font-bold bg-blue-500/10 text-blue-500">
+                          Balance Adjustment
+                        </span>
+                      );
                     default:
-                      return <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-[9px] font-bold bg-muted text-muted-foreground">{row.transaction_type}</span>;
+                      return (
+                        <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-[9px] font-bold bg-muted text-muted-foreground">
+                          {row.transaction_type}
+                        </span>
+                      );
                   }
                 };
 
                 return (
-                  <tr key={row.id} className="hover:bg-muted/10 transition-colors print:hover:bg-transparent">
-                    <td className="p-4 text-xs text-muted-foreground font-mono">{formatLocalDate(row.created_at)}</td>
+                  <tr
+                    key={row.id}
+                    className="hover:bg-muted/10 transition-colors print:hover:bg-transparent"
+                  >
+                    <td className="p-4 text-xs text-muted-foreground font-mono">
+                      {formatLocalDate(row.created_at)}
+                    </td>
                     <td className="p-4">{getBadge()}</td>
-                    <td className="p-4 font-mono text-xs text-foreground font-medium">{row.reference || "—"}</td>
+                    <td className="p-4 font-mono text-xs text-foreground font-medium">
+                      {row.reference || "—"}
+                    </td>
                     <td className="p-4 text-right font-medium tabular-nums text-emerald-600 dark:text-emerald-400">
                       {isDebit ? inr(row.amount) : "—"}
                     </td>

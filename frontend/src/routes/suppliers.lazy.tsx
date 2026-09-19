@@ -1,7 +1,27 @@
 import { createLazyFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import {
-  Search, Phone, Calendar, Sparkles, ChevronDown, Plus, Pencil, Trash2, Loader2, Truck, Star, RefreshCw, Mail, MapPin, Hash, ArrowUpDown, ChevronLeft, ChevronRight, Archive, Sliders, Landmark
+  Search,
+  Phone,
+  Calendar,
+  Sparkles,
+  ChevronDown,
+  Plus,
+  Pencil,
+  Trash2,
+  Loader2,
+  Truck,
+  Star,
+  RefreshCw,
+  Mail,
+  MapPin,
+  Hash,
+  ArrowUpDown,
+  ChevronLeft,
+  ChevronRight,
+  Archive,
+  Sliders,
+  Landmark,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -22,11 +42,22 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { EmptyState } from "@/components/empty-state";
 import { toast } from "sonner";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { getSuppliers, deleteSupplierApi, getSupplierLedger, createSupplierPayment } from "@/lib/api";
+import {
+  getSuppliers,
+  deleteSupplierApi,
+  getSupplierLedger,
+  createSupplierPayment,
+} from "@/lib/api";
 import { SupplierDialog } from "@/components/supplier-dialog";
 import { inr } from "@/lib/format";
 
@@ -114,7 +145,12 @@ function SuppliersPage() {
   }, [q]);
 
   // Load all suppliers (both active and archived) for stats computation and local pagination
-  const { data: rawSuppliers = [], isLoading, isError, refetch } = useQuery({
+  const {
+    data: rawSuppliers = [],
+    isLoading,
+    isError,
+    refetch,
+  } = useQuery({
     queryKey: ["suppliers-all", debouncedQ, sort, showArchived],
     queryFn: () => getSuppliers(debouncedQ, sort, true), // fetch all to do frontend counts
   });
@@ -184,23 +220,31 @@ function SuppliersPage() {
       {/* Supplier Stats Grid */}
       <div className="grid grid-cols-3 gap-4">
         <div className="card-soft p-4 flex items-center gap-3">
-          <div className="size-10 rounded-xl bg-primary/10 text-primary grid place-items-center"><Truck className="size-5" /></div>
+          <div className="size-10 rounded-xl bg-primary/10 text-primary grid place-items-center">
+            <Truck className="size-5" />
+          </div>
           <div>
             <div className="text-2xl font-bold tracking-tight text-foreground">{stats.total}</div>
             <div className="text-[10px] text-muted-foreground font-medium">Total Suppliers</div>
           </div>
         </div>
         <div className="card-soft p-4 flex items-center gap-3">
-          <div className="size-10 rounded-xl bg-emerald-500/10 text-emerald-500 grid place-items-center"><Star className="size-5" /></div>
+          <div className="size-10 rounded-xl bg-emerald-500/10 text-emerald-500 grid place-items-center">
+            <Star className="size-5" />
+          </div>
           <div>
             <div className="text-2xl font-bold tracking-tight text-foreground">{stats.active}</div>
             <div className="text-[10px] text-muted-foreground font-medium">Active Suppliers</div>
           </div>
         </div>
         <div className="card-soft p-4 flex items-center gap-3">
-          <div className="size-10 rounded-xl bg-amber-500/10 text-amber-500 grid place-items-center"><Archive className="size-5" /></div>
+          <div className="size-10 rounded-xl bg-amber-500/10 text-amber-500 grid place-items-center">
+            <Archive className="size-5" />
+          </div>
           <div>
-            <div className="text-2xl font-bold tracking-tight text-foreground">{stats.archived}</div>
+            <div className="text-2xl font-bold tracking-tight text-foreground">
+              {stats.archived}
+            </div>
             <div className="text-[10px] text-muted-foreground font-medium">Archived Suppliers</div>
           </div>
         </div>
@@ -218,7 +262,13 @@ function SuppliersPage() {
           />
         </div>
         <div className="flex gap-2 min-w-[200px]">
-          <Select value={sort} onValueChange={(v) => { setSort(v); setPage(1); }}>
+          <Select
+            value={sort}
+            onValueChange={(v) => {
+              setSort(v);
+              setPage(1);
+            }}
+          >
             <SelectTrigger className="h-11 rounded-xl">
               <ArrowUpDown className="mr-2 size-4 text-muted-foreground" />
               <SelectValue placeholder="Sort by" />
@@ -233,9 +283,13 @@ function SuppliersPage() {
           <Button
             variant={showArchived ? "default" : "outline"}
             className="h-11 rounded-xl px-4"
-            onClick={() => { setShowArchived(!showArchived); setPage(1); }}
+            onClick={() => {
+              setShowArchived(!showArchived);
+              setPage(1);
+            }}
           >
-            <Archive className="mr-2 size-4" /> {showArchived ? "Viewing Archived" : "View Archived"}
+            <Archive className="mr-2 size-4" />{" "}
+            {showArchived ? "Viewing Archived" : "View Archived"}
           </Button>
         </div>
       </div>
@@ -248,7 +302,9 @@ function SuppliersPage() {
       ) : isError ? (
         <div className="flex h-32 flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-border bg-muted/20 p-6 text-center">
           <div className="text-sm font-semibold text-foreground">Suppliers could not be loaded</div>
-          <div className="max-w-md text-xs text-muted-foreground">The backend database is not responding. Please retry.</div>
+          <div className="max-w-md text-xs text-muted-foreground">
+            The backend database is not responding. Please retry.
+          </div>
           <Button variant="outline" size="sm" onClick={() => refetch()}>
             <RefreshCw className="mr-2 size-4" /> Retry
           </Button>
@@ -258,7 +314,13 @@ function SuppliersPage() {
           icon={<Truck className="size-5" />}
           title={showArchived ? "No archived suppliers" : "No suppliers found"}
           description="Try searching with another name or GSTIN."
-          action={!showArchived ? <Button onClick={() => setAddOpen(true)}><Plus className="mr-2 size-4" /> Add supplier</Button> : undefined}
+          action={
+            !showArchived ? (
+              <Button onClick={() => setAddOpen(true)}>
+                <Plus className="mr-2 size-4" /> Add supplier
+              </Button>
+            ) : undefined
+          }
         />
       ) : (
         <div className="space-y-4">
@@ -267,17 +329,30 @@ function SuppliersPage() {
               const open = openId === s.id;
               const hasBalance = s.currentBalance !== 0;
               return (
-                <div key={s.id} className={cn("card-soft transition-all duration-200 hover:border-foreground/20 hover:shadow-md", open && "ring-1 ring-primary/30")}>
+                <div
+                  key={s.id}
+                  className={cn(
+                    "card-soft transition-all duration-200 hover:border-foreground/20 hover:shadow-md",
+                    open && "ring-1 ring-primary/30",
+                  )}
+                >
                   <button
                     onClick={() => setOpenId(open ? null : s.id)}
                     className="flex w-full items-center gap-3 p-4 text-left touch-manipulation focus-visible:outline-2 focus-visible:outline-ring"
                   >
                     <div className="grid size-11 place-items-center rounded-2xl bg-muted text-sm font-bold text-muted-foreground shadow-xs shrink-0 transition-transform hover:scale-105">
-                      {s.name.split(" ").map((x) => x[0]).join("").slice(0, 2).toUpperCase()}
+                      {s.name
+                        .split(" ")
+                        .map((x) => x[0])
+                        .join("")
+                        .slice(0, 2)
+                        .toUpperCase()}
                     </div>
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
-                        <div className="truncate font-bold text-foreground text-sm sm:text-base">{s.name}</div>
+                        <div className="truncate font-bold text-foreground text-sm sm:text-base">
+                          {s.name}
+                        </div>
                         {s.gstin && (
                           <span className="rounded-full bg-primary/10 border border-primary/20 px-2 py-0.5 text-[9px] font-bold text-primary font-mono">
                             GSTIN: {s.gstin}
@@ -298,12 +373,21 @@ function SuppliersPage() {
                       </div>
                     </div>
                     <div className="text-right shrink-0 mr-2">
-                      <div className="text-[9px] text-muted-foreground uppercase font-semibold tracking-wider">Balance Due</div>
-                      <div className={`font-extrabold tabular text-sm ${s.currentBalance > 0 ? "text-rose-500" : s.currentBalance < 0 ? "text-emerald-500" : "text-muted-foreground"}`}>
+                      <div className="text-[9px] text-muted-foreground uppercase font-semibold tracking-wider">
+                        Balance Due
+                      </div>
+                      <div
+                        className={`font-extrabold tabular text-sm ${s.currentBalance > 0 ? "text-rose-500" : s.currentBalance < 0 ? "text-emerald-500" : "text-muted-foreground"}`}
+                      >
                         {inr(s.currentBalance)}
                       </div>
                     </div>
-                    <div className={cn("grid size-8 place-items-center rounded-xl bg-muted/60 transition-transform", open && "rotate-180 bg-primary/10 text-primary")}>
+                    <div
+                      className={cn(
+                        "grid size-8 place-items-center rounded-xl bg-muted/60 transition-transform",
+                        open && "rotate-180 bg-primary/10 text-primary",
+                      )}
+                    >
                       <ChevronDown className="size-4" />
                     </div>
                   </button>
@@ -369,13 +453,17 @@ function SuppliersPage() {
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-muted-foreground uppercase">Outstanding Balance</label>
+              <label className="text-xs font-semibold text-muted-foreground uppercase">
+                Outstanding Balance
+              </label>
               <div className="text-lg font-bold text-rose-500 tabular-nums">
                 {paymentTarget && inr(paymentTarget.currentBalance)}
               </div>
             </div>
             <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-muted-foreground uppercase">Payment Amount (₹)</label>
+              <label className="text-xs font-semibold text-muted-foreground uppercase">
+                Payment Amount (₹)
+              </label>
               <Input
                 type="number"
                 min={0}
@@ -387,7 +475,9 @@ function SuppliersPage() {
               />
             </div>
             <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-muted-foreground uppercase">Payment Method</label>
+              <label className="text-xs font-semibold text-muted-foreground uppercase">
+                Payment Method
+              </label>
               <Select value={payMethod} onValueChange={setPayMethod}>
                 <SelectTrigger className="h-11 rounded-xl">
                   <SelectValue placeholder="Select method" />
@@ -403,7 +493,9 @@ function SuppliersPage() {
               </Select>
             </div>
             <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-muted-foreground uppercase">Reference Number</label>
+              <label className="text-xs font-semibold text-muted-foreground uppercase">
+                Reference Number
+              </label>
               <Input
                 value={payRef}
                 onChange={(e) => setPayRef(e.target.value)}
@@ -412,7 +504,9 @@ function SuppliersPage() {
               />
             </div>
             <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-muted-foreground uppercase">Payment Date</label>
+              <label className="text-xs font-semibold text-muted-foreground uppercase">
+                Payment Date
+              </label>
               <Input
                 type="date"
                 value={payDate}
@@ -431,8 +525,18 @@ function SuppliersPage() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" className="rounded-xl h-11" onClick={() => setPaymentTarget(null)}>Cancel</Button>
-            <Button className="rounded-xl h-11" onClick={handleRecordPayment} disabled={isSubmittingPayment}>
+            <Button
+              variant="outline"
+              className="rounded-xl h-11"
+              onClick={() => setPaymentTarget(null)}
+            >
+              Cancel
+            </Button>
+            <Button
+              className="rounded-xl h-11"
+              onClick={handleRecordPayment}
+              disabled={isSubmittingPayment}
+            >
               {isSubmittingPayment ? "Saving..." : "Record Payment"}
             </Button>
           </DialogFooter>
@@ -444,7 +548,8 @@ function SuppliersPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Archive supplier {archiveTarget?.name}?</AlertDialogTitle>
             <AlertDialogDescription>
-              This will archive the supplier profile. They will be removed from your active supplier directory and list.
+              This will archive the supplier profile. They will be removed from your active supplier
+              directory and list.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -584,22 +689,32 @@ function SupplierDetail({
 
       {/* 2. Financial Summary Block */}
       <div className="border-t border-border/40 pt-4 space-y-3">
-        <h4 className="text-xs font-bold text-foreground uppercase tracking-wider">Financial Profile</h4>
+        <h4 className="text-xs font-bold text-foreground uppercase tracking-wider">
+          Financial Profile
+        </h4>
         <div className="grid grid-cols-3 gap-3">
           <div className="bg-background border rounded-xl p-3.5 shadow-sm text-center">
-            <div className="text-[9px] font-bold text-muted-foreground uppercase leading-none">Outstanding Balance</div>
-            <div className={`mt-2 text-base font-extrabold tabular ${supplier.currentBalance > 0 ? "text-rose-500" : supplier.currentBalance < 0 ? "text-emerald-500" : "text-foreground"}`}>
+            <div className="text-[9px] font-bold text-muted-foreground uppercase leading-none">
+              Outstanding Balance
+            </div>
+            <div
+              className={`mt-2 text-base font-extrabold tabular ${supplier.currentBalance > 0 ? "text-rose-500" : supplier.currentBalance < 0 ? "text-emerald-500" : "text-foreground"}`}
+            >
               {inr(supplier.currentBalance)}
             </div>
           </div>
           <div className="bg-background border rounded-xl p-3.5 shadow-sm text-center">
-            <div className="text-[9px] font-bold text-muted-foreground uppercase leading-none">Total Purchases</div>
+            <div className="text-[9px] font-bold text-muted-foreground uppercase leading-none">
+              Total Purchases
+            </div>
             <div className="mt-2 text-base font-bold text-foreground tabular">
               {inr(summary.totalPurchases)}
             </div>
           </div>
           <div className="bg-background border rounded-xl p-3.5 shadow-sm text-center">
-            <div className="text-[9px] font-bold text-muted-foreground uppercase leading-none">Total Paid</div>
+            <div className="text-[9px] font-bold text-muted-foreground uppercase leading-none">
+              Total Paid
+            </div>
             <div className="mt-2 text-base font-bold text-foreground tabular">
               {inr(summary.totalPayments)}
             </div>
@@ -610,9 +725,13 @@ function SupplierDetail({
       {/* 3. Nested Recent Transactions statement list */}
       <div className="space-y-2">
         <div className="flex items-center justify-between">
-          <h4 className="text-xs font-bold text-foreground uppercase tracking-wider">Recent Ledger Logs</h4>
+          <h4 className="text-xs font-bold text-foreground uppercase tracking-wider">
+            Recent Ledger Logs
+          </h4>
           <Button asChild size="sm" variant="link" className="h-auto p-0 text-xs">
-            <Link to="/supplier-ledger/$supplierId" params={{ supplierId: supplier.id }}>Full Statement →</Link>
+            <Link to="/supplier-ledger/$supplierId" params={{ supplierId: supplier.id }}>
+              Full Statement →
+            </Link>
           </Button>
         </div>
 
@@ -639,22 +758,36 @@ function SupplierDetail({
               </thead>
               <tbody className="divide-y divide-border/20">
                 {recentLogs.map((log: any) => {
-                  const isDebit = log.transaction_type === "PAYMENT" || log.transaction_type === "PURCHASE_CANCEL";
+                  const isDebit =
+                    log.transaction_type === "PAYMENT" ||
+                    log.transaction_type === "PURCHASE_CANCEL";
                   const isCredit = log.transaction_type === "PURCHASE";
 
                   return (
                     <tr key={log.id} className="hover:bg-muted/20 transition-colors">
-                      <td className="px-3 py-2.5 text-muted-foreground whitespace-nowrap">{formatLocalDate(log.created_at)}</td>
+                      <td className="px-3 py-2.5 text-muted-foreground whitespace-nowrap">
+                        {formatLocalDate(log.created_at)}
+                      </td>
                       <td className="px-3 py-2.5">
-                        <span className={`inline-flex px-1.5 py-0.5 rounded text-[8px] font-bold ${
-                          log.transaction_type === "PURCHASE" ? "bg-rose-500/10 text-rose-500"
-                          : log.transaction_type === "PAYMENT" ? "bg-emerald-500/10 text-emerald-500"
-                          : "bg-amber-500/10 text-amber-500"
-                        }`}>
-                          {log.transaction_type === "PURCHASE" ? "Purchase" : log.transaction_type === "PAYMENT" ? "Payment" : "Cancelled"}
+                        <span
+                          className={`inline-flex px-1.5 py-0.5 rounded text-[8px] font-bold ${
+                            log.transaction_type === "PURCHASE"
+                              ? "bg-rose-500/10 text-rose-500"
+                              : log.transaction_type === "PAYMENT"
+                                ? "bg-emerald-500/10 text-emerald-500"
+                                : "bg-amber-500/10 text-amber-500"
+                          }`}
+                        >
+                          {log.transaction_type === "PURCHASE"
+                            ? "Purchase"
+                            : log.transaction_type === "PAYMENT"
+                              ? "Payment"
+                              : "Cancelled"}
                         </span>
                       </td>
-                      <td className="px-3 py-2.5 font-mono text-[10px] text-foreground font-medium">{log.reference}</td>
+                      <td className="px-3 py-2.5 font-mono text-[10px] text-foreground font-medium">
+                        {log.reference}
+                      </td>
                       <td className="px-3 py-2.5 text-right font-medium text-emerald-600 dark:text-emerald-400 tabular-nums">
                         {isDebit ? inr(log.amount) : "—"}
                       </td>
@@ -677,7 +810,9 @@ function SupplierDetail({
       <div className="flex items-center justify-between border-t border-border/40 pt-4">
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
           <Calendar className="size-4 text-muted-foreground" />
-          <span>Registered since <span className="font-medium text-foreground">{registeredDate}</span>.</span>
+          <span>
+            Registered since <span className="font-medium text-foreground">{registeredDate}</span>.
+          </span>
         </div>
         <div className="flex gap-2">
           {!supplier.isArchived && (
@@ -689,7 +824,12 @@ function SupplierDetail({
             <Pencil className="mr-1 size-3" /> Edit
           </Button>
           {!supplier.isArchived && (
-            <Button size="sm" variant="outline" className="h-8 rounded-lg text-rose-500 hover:text-rose-500 hover:bg-rose-500/5 border-rose-500/20" onClick={onArchive}>
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-8 rounded-lg text-rose-500 hover:text-rose-500 hover:bg-rose-500/5 border-rose-500/20"
+              onClick={onArchive}
+            >
               <Trash2 className="mr-1 size-3" /> Archive
             </Button>
           )}

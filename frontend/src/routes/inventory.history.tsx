@@ -1,7 +1,18 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState, useMemo, useEffect } from "react";
 import {
-  History, Search, Calendar, RefreshCw, ArrowUpRight, ArrowDownRight, ArrowUpDown, ChevronLeft, ChevronRight, SlidersHorizontal, Package, Tag
+  History,
+  Search,
+  Calendar,
+  RefreshCw,
+  ArrowUpRight,
+  ArrowDownRight,
+  ArrowUpDown,
+  ChevronLeft,
+  ChevronRight,
+  SlidersHorizontal,
+  Package,
+  Tag,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -20,7 +31,11 @@ export const Route = createFileRoute("/inventory/history")({
   head: () => ({
     meta: [
       { title: "Stock History · Apka Bill" },
-      { name: "description", content: "Comprehensive audit trail of all inventory movements, adjustments, purchases, and sales." },
+      {
+        name: "description",
+        content:
+          "Comprehensive audit trail of all inventory movements, adjustments, purchases, and sales.",
+      },
     ],
   }),
   component: StockHistoryPage,
@@ -44,14 +59,19 @@ export function StockHistoryPage() {
   }, [q]);
 
   // Query stock adjustments audit trail
-  const { data: adjustments = [], isLoading, refetch } = useQuery({
+  const {
+    data: adjustments = [],
+    isLoading,
+    refetch,
+  } = useQuery({
     queryKey: ["stock-adjustments-history", debouncedQ, startDate, endDate, movementType],
-    queryFn: () => getStockAdjustments({
-      q: debouncedQ,
-      startDate: startDate || undefined,
-      endDate: endDate || undefined,
-      adjustment_type: movementType === "all" ? undefined : movementType,
-    }),
+    queryFn: () =>
+      getStockAdjustments({
+        q: debouncedQ,
+        startDate: startDate || undefined,
+        endDate: endDate || undefined,
+        adjustment_type: movementType === "all" ? undefined : movementType,
+      }),
   });
 
   const totalPages = Math.ceil(adjustments.length / itemsPerPage) || 1;
@@ -98,7 +118,8 @@ export function StockHistoryPage() {
             <History className="size-6 text-primary" /> Stock History & Audit Logs
           </h1>
           <p className="text-sm text-muted-foreground">
-            Complete transactional ledger of manual stock adjustments, physical counts, and inventory corrections.
+            Complete transactional ledger of manual stock adjustments, physical counts, and
+            inventory corrections.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -111,7 +132,9 @@ export function StockHistoryPage() {
       {/* Stats KPI */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
-          <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Total Adjustments</div>
+          <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            Total Adjustments
+          </div>
           <div className="mt-2 text-3xl font-black text-foreground">{stats.total}</div>
           <div className="mt-1 text-xs text-muted-foreground">Logged adjustment events</div>
         </div>
@@ -120,7 +143,9 @@ export function StockHistoryPage() {
           <div className="text-xs font-semibold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
             <ArrowUpRight className="size-4" /> Stock Additions
           </div>
-          <div className="mt-2 text-3xl font-black text-emerald-600 dark:text-emerald-400">{stats.positive}</div>
+          <div className="mt-2 text-3xl font-black text-emerald-600 dark:text-emerald-400">
+            {stats.positive}
+          </div>
           <div className="mt-1 text-xs text-muted-foreground">Opening stock, found, additions</div>
         </div>
 
@@ -128,8 +153,12 @@ export function StockHistoryPage() {
           <div className="text-xs font-semibold uppercase tracking-wider text-rose-600 dark:text-rose-400 flex items-center gap-1">
             <ArrowDownRight className="size-4" /> Stock Reductions
           </div>
-          <div className="mt-2 text-3xl font-black text-rose-600 dark:text-rose-400">{stats.negative}</div>
-          <div className="mt-1 text-xs text-muted-foreground">Damaged, lost, samples, write-offs</div>
+          <div className="mt-2 text-3xl font-black text-rose-600 dark:text-rose-400">
+            {stats.negative}
+          </div>
+          <div className="mt-1 text-xs text-muted-foreground">
+            Damaged, lost, samples, write-offs
+          </div>
         </div>
       </div>
 
@@ -146,7 +175,13 @@ export function StockHistoryPage() {
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <Select value={movementType} onValueChange={(v) => { setMovementType(v); setPage(1); }}>
+          <Select
+            value={movementType}
+            onValueChange={(v) => {
+              setMovementType(v);
+              setPage(1);
+            }}
+          >
             <SelectTrigger className="w-[180px]">
               <SlidersHorizontal className="mr-2 size-4 text-muted-foreground" />
               <SelectValue placeholder="All Types" />
@@ -169,14 +204,20 @@ export function StockHistoryPage() {
             <input
               type="date"
               value={startDate}
-              onChange={(e) => { setStartDate(e.target.value); setPage(1); }}
+              onChange={(e) => {
+                setStartDate(e.target.value);
+                setPage(1);
+              }}
               className="bg-transparent outline-none"
             />
             <span>to</span>
             <input
               type="date"
               value={endDate}
-              onChange={(e) => { setEndDate(e.target.value); setPage(1); }}
+              onChange={(e) => {
+                setEndDate(e.target.value);
+                setPage(1);
+              }}
               className="bg-transparent outline-none"
             />
           </div>
@@ -221,7 +262,9 @@ export function StockHistoryPage() {
                       </td>
                       <td className="px-5 py-3.5">
                         <div className="font-semibold text-foreground">{row.product_name}</div>
-                        <div className="text-xs text-muted-foreground font-mono">SKU: {row.product_sku || "N/A"}</div>
+                        <div className="text-xs text-muted-foreground font-mono">
+                          SKU: {row.product_sku || "N/A"}
+                        </div>
                       </td>
                       <td className="px-5 py-3.5">
                         <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-1 text-xs font-semibold text-primary">
@@ -231,7 +274,9 @@ export function StockHistoryPage() {
                       <td className="px-5 py-3.5 text-right font-mono text-muted-foreground">
                         {row.quantity_before}
                       </td>
-                      <td className={`px-5 py-3.5 text-right font-mono font-bold ${isPositive ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`}>
+                      <td
+                        className={`px-5 py-3.5 text-right font-mono font-bold ${isPositive ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`}
+                      >
                         {isPositive ? `+${row.quantity_change}` : row.quantity_change}
                       </td>
                       <td className="px-5 py-3.5 text-right font-mono font-bold text-foreground">
@@ -239,7 +284,11 @@ export function StockHistoryPage() {
                       </td>
                       <td className="px-5 py-3.5 text-muted-foreground max-w-xs truncate">
                         {row.reason}
-                        {row.notes && <span className="block text-xs italic text-muted-foreground">{row.notes}</span>}
+                        {row.notes && (
+                          <span className="block text-xs italic text-muted-foreground">
+                            {row.notes}
+                          </span>
+                        )}
                       </td>
                       <td className="px-5 py-3.5 text-xs text-muted-foreground">
                         {row.created_by || "System"}
@@ -282,5 +331,3 @@ export function StockHistoryPage() {
     </div>
   );
 }
-
-

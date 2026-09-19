@@ -5,7 +5,13 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import { toast } from "sonner";
 import {
   Building2,
@@ -28,7 +34,9 @@ import {
 
 export function BrandingSettings() {
   const s = useApp();
-  const [activePreviewTab, setActivePreviewTab] = useState<"invoice" | "receipt" | "whatsapp" | "pdf">("invoice");
+  const [activePreviewTab, setActivePreviewTab] = useState<
+    "invoice" | "receipt" | "whatsapp" | "pdf"
+  >("invoice");
   const [logoPreviewOpen, setLogoPreviewOpen] = useState(false);
 
   const handleSaveBranding = () => {
@@ -54,7 +62,8 @@ export function BrandingSettings() {
     if (s.primaryColor) localStorage.setItem("orion_primary_color", s.primaryColor);
 
     toast.success("Business branding updated successfully!", {
-      description: "Changes applied across all future Invoices, Receipts, PDFs, and WhatsApp shares.",
+      description:
+        "Changes applied across all future Invoices, Receipts, PDFs, and WhatsApp shares.",
     });
   };
 
@@ -67,7 +76,8 @@ export function BrandingSettings() {
             <Building2 className="size-5 text-primary" /> Branding & Business Identity
           </div>
           <div className="text-xs text-muted-foreground mt-0.5">
-            Single source of truth for shop identity, document headers, UPI payment branding, and colors.
+            Single source of truth for shop identity, document headers, UPI payment branding, and
+            colors.
           </div>
         </div>
         <Button
@@ -104,7 +114,11 @@ export function BrandingSettings() {
               <div className="flex flex-col sm:flex-row sm:items-center gap-4">
                 {s.logo ? (
                   <div className="relative group size-20 rounded-xl border border-border bg-muted/10 p-1.5 flex items-center justify-center overflow-hidden shrink-0 shadow-sm">
-                    <img src={s.logo} alt="Shop Logo Preview" className="max-h-full max-w-full object-contain" />
+                    <img
+                      src={s.logo}
+                      alt="Shop Logo Preview"
+                      className="max-h-full max-w-full object-contain"
+                    />
                   </div>
                 ) : (
                   <div className="size-20 rounded-xl border-2 border-dashed border-border bg-muted/20 flex flex-col items-center justify-center text-muted-foreground text-[10px] shrink-0">
@@ -130,7 +144,8 @@ export function BrandingSettings() {
                                 s.setLogo(base64);
                                 localStorage.setItem("orion_logo", base64);
                                 toast.success("Brand logo updated successfully!", {
-                                  description: "Logo will automatically appear on all future Invoices, Thermal Receipts, PDFs, and Shared Links.",
+                                  description:
+                                    "Logo will automatically appear on all future Invoices, Thermal Receipts, PDFs, and Shared Links.",
                                 });
                               }
                             };
@@ -139,7 +154,8 @@ export function BrandingSettings() {
                         }}
                       />
                       <span className="inline-flex items-center justify-center rounded-xl text-xs font-bold h-9 px-3.5 border border-primary/30 text-primary bg-primary/5 hover:bg-primary/10 shadow-sm transition-all cursor-pointer">
-                        <Upload className="size-3.5 mr-1.5" /> {s.logo ? "Replace Logo" : "Upload Logo"}
+                        <Upload className="size-3.5 mr-1.5" />{" "}
+                        {s.logo ? "Replace Logo" : "Upload Logo"}
                       </span>
                     </label>
 
@@ -174,7 +190,8 @@ export function BrandingSettings() {
                     )}
                   </div>
                   <div className="text-[11px] text-muted-foreground leading-relaxed">
-                    Supports PNG, JPG, WebP, or SVG. Uploaded logo automatically cascades to Web Invoices, Thermal Receipts, Server PDFs, and WhatsApp Shared Invoices.
+                    Supports PNG, JPG, WebP, or SVG. Uploaded logo automatically cascades to Web
+                    Invoices, Thermal Receipts, Server PDFs, and WhatsApp Shared Invoices.
                   </div>
                 </div>
               </div>
@@ -257,7 +274,8 @@ export function BrandingSettings() {
           {/* Section 2: Document Branding */}
           <div className="space-y-3 rounded-2xl border border-border/60 bg-muted/10 p-4">
             <div className="text-xs font-bold uppercase tracking-wider text-foreground flex items-center gap-1.5 border-b border-border/40 pb-2">
-              <FileText className="size-4 text-blue-500" /> 2. Document Branding (Invoices & Receipts)
+              <FileText className="size-4 text-blue-500" /> 2. Document Branding (Invoices &
+              Receipts)
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -304,7 +322,10 @@ export function BrandingSettings() {
                 <Label className="text-xs font-semibold">Terms & Conditions</Label>
                 <Textarea
                   rows={2}
-                  value={s.termsAndConditions || "1. Goods once sold will not be taken back.\n2. Subject to local jurisdiction."}
+                  value={
+                    s.termsAndConditions ||
+                    "1. Goods once sold will not be taken back.\n2. Subject to local jurisdiction."
+                  }
                   onChange={(e) => s.setTermsAndConditions?.(e.target.value)}
                   className="rounded-xl text-xs leading-relaxed font-mono"
                 />
@@ -314,7 +335,10 @@ export function BrandingSettings() {
                 <Label className="text-xs font-semibold">Return / Refund Policy</Label>
                 <Textarea
                   rows={2}
-                  value={s.returnPolicy || "Returns accepted within 7 days with original invoice receipt."}
+                  value={
+                    s.returnPolicy ||
+                    "Returns accepted within 7 days with original invoice receipt."
+                  }
                   onChange={(e) => s.setReturnPolicy?.(e.target.value)}
                   className="rounded-xl text-xs leading-relaxed font-mono"
                 />
@@ -332,7 +356,10 @@ export function BrandingSettings() {
               <Label className="text-xs font-semibold">WhatsApp Signature</Label>
               <Textarea
                 rows={2}
-                value={s.whatsappSignature || `Thanks for shopping with ${s.shopName}\nRegards,\n${s.shopName}`}
+                value={
+                  s.whatsappSignature ||
+                  `Thanks for shopping with ${s.shopName}\nRegards,\n${s.shopName}`
+                }
                 onChange={(e) => s.setWhatsappSignature?.(e.target.value)}
                 className="rounded-xl text-xs font-mono"
                 placeholder={`Thanks for shopping with ${s.shopName}`}
@@ -372,7 +399,9 @@ export function BrandingSettings() {
             </div>
 
             <div className="space-y-1">
-              <Label className="text-xs font-semibold">Bank Account Details (Future / Invoices)</Label>
+              <Label className="text-xs font-semibold">
+                Bank Account Details (Future / Invoices)
+              </Label>
               <Input
                 value={s.bankDetails || "HDFC Bank · A/C: 5010099881234 · IFSC: HDFC0001234"}
                 onChange={(e) => s.setBankDetails?.(e.target.value)}
@@ -408,7 +437,11 @@ export function BrandingSettings() {
 
               <div className="space-y-1 flex-1">
                 <Label className="text-xs font-semibold">Secondary Accent Color (Future)</Label>
-                <Input readOnly value="System Auto-Balanced" className="rounded-xl h-9 text-xs bg-muted/40 font-mono text-muted-foreground select-none" />
+                <Input
+                  readOnly
+                  value="System Auto-Balanced"
+                  className="rounded-xl h-9 text-xs bg-muted/40 font-mono text-muted-foreground select-none"
+                />
               </div>
             </div>
           </div>
@@ -420,7 +453,9 @@ export function BrandingSettings() {
             <div className="text-xs font-bold text-foreground flex items-center gap-1.5">
               <Eye className="size-4 text-primary" /> Live Document Preview
             </div>
-            <Badge variant="outline" className="text-[9px] font-mono">Real-time Updates</Badge>
+            <Badge variant="outline" className="text-[9px] font-mono">
+              Real-time Updates
+            </Badge>
           </div>
 
           {/* Preview Tab Buttons */}
@@ -429,7 +464,9 @@ export function BrandingSettings() {
               type="button"
               onClick={() => setActivePreviewTab("invoice")}
               className={`py-1.5 rounded-lg text-[11px] font-semibold transition-all ${
-                activePreviewTab === "invoice" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+                activePreviewTab === "invoice"
+                  ? "bg-background text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
               }`}
             >
               Invoice
@@ -438,7 +475,9 @@ export function BrandingSettings() {
               type="button"
               onClick={() => setActivePreviewTab("receipt")}
               className={`py-1.5 rounded-lg text-[11px] font-semibold transition-all ${
-                activePreviewTab === "receipt" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+                activePreviewTab === "receipt"
+                  ? "bg-background text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
               }`}
             >
               Receipt
@@ -447,7 +486,9 @@ export function BrandingSettings() {
               type="button"
               onClick={() => setActivePreviewTab("whatsapp")}
               className={`py-1.5 rounded-lg text-[11px] font-semibold transition-all ${
-                activePreviewTab === "whatsapp" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+                activePreviewTab === "whatsapp"
+                  ? "bg-background text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
               }`}
             >
               WhatsApp
@@ -456,7 +497,9 @@ export function BrandingSettings() {
               type="button"
               onClick={() => setActivePreviewTab("pdf")}
               className={`py-1.5 rounded-lg text-[11px] font-semibold transition-all ${
-                activePreviewTab === "pdf" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+                activePreviewTab === "pdf"
+                  ? "bg-background text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
               }`}
             >
               PDF
@@ -470,15 +513,22 @@ export function BrandingSettings() {
                 <div className="flex justify-between items-start border-b border-border pb-3">
                   <div>
                     <div className="font-bold text-sm text-foreground">{s.shopName}</div>
-                    {s.tagline && <div className="text-[11px] text-muted-foreground italic">{s.tagline}</div>}
+                    {s.tagline && (
+                      <div className="text-[11px] text-muted-foreground italic">{s.tagline}</div>
+                    )}
                     <div className="text-[10px] text-muted-foreground mt-1">{s.storeAddress}</div>
                     <div className="text-[10px] text-muted-foreground">GSTIN: {s.gstin}</div>
                   </div>
                   <div className="text-right">
-                    <Badge variant="outline" className="font-mono text-[10px] border-primary text-primary">
+                    <Badge
+                      variant="outline"
+                      className="font-mono text-[10px] border-primary text-primary"
+                    >
                       {s.invoiceHeader || "TAX INVOICE"}
                     </Badge>
-                    <div className="text-[10px] font-mono text-muted-foreground mt-1">#INV-00124</div>
+                    <div className="text-[10px] font-mono text-muted-foreground mt-1">
+                      #INV-00124
+                    </div>
                   </div>
                 </div>
 
@@ -516,7 +566,9 @@ export function BrandingSettings() {
               <div className="font-mono text-[11px] space-y-3 bg-muted/10 p-3 rounded-xl border border-dashed border-border">
                 <div className="text-center space-y-0.5">
                   <div className="font-bold text-sm text-foreground uppercase">{s.shopName}</div>
-                  {s.tagline && <div className="text-[10px] italic text-muted-foreground">{s.tagline}</div>}
+                  {s.tagline && (
+                    <div className="text-[10px] italic text-muted-foreground">{s.tagline}</div>
+                  )}
                   <div className="text-[9px] text-muted-foreground">{s.storeAddress}</div>
                   <div className="text-[9px] font-bold">GSTIN: {s.gstin}</div>
                 </div>
@@ -553,15 +605,21 @@ export function BrandingSettings() {
               <div className="space-y-3 border border-border p-4 rounded-xl shadow-xs text-xs">
                 <div className="flex justify-between items-center border-b pb-2">
                   <div className="font-bold text-primary">{s.shopName}</div>
-                  <Badge variant="outline" className="text-[9px]">PDF Document</Badge>
+                  <Badge variant="outline" className="text-[9px]">
+                    PDF Document
+                  </Badge>
                 </div>
                 <div className="text-[10px] text-muted-foreground space-y-0.5">
                   <div>Address: {s.storeAddress}</div>
-                  <div>GSTIN: {s.gstin} · Phone: {s.storePhone}</div>
+                  <div>
+                    GSTIN: {s.gstin} · Phone: {s.storePhone}
+                  </div>
                 </div>
                 <div className="rounded-lg bg-muted/30 p-2 font-mono text-[10px] space-y-1">
                   <div className="font-bold text-foreground">Terms & Conditions:</div>
-                  <div className="text-muted-foreground whitespace-pre-wrap">{s.termsAndConditions || "Standard sales terms apply."}</div>
+                  <div className="text-muted-foreground whitespace-pre-wrap">
+                    {s.termsAndConditions || "Standard sales terms apply."}
+                  </div>
                 </div>
               </div>
             )}
@@ -585,7 +643,11 @@ export function BrandingSettings() {
             {/* Checkerboard Pattern Background for Transparency Check */}
             <div className="relative rounded-2xl border border-border p-8 flex items-center justify-center bg-[radial-gradient(#e5e7eb_1px,transparent_1px)] dark:bg-[radial-gradient(#374151_1px,transparent_1px)] [background-size:16px_16px] bg-muted/30 min-h-[180px]">
               {s.logo ? (
-                <img src={s.logo} alt="Brand Logo High Res" className="max-h-36 max-w-full object-contain drop-shadow-md" />
+                <img
+                  src={s.logo}
+                  alt="Brand Logo High Res"
+                  className="max-h-36 max-w-full object-contain drop-shadow-md"
+                />
               ) : (
                 <div className="text-xs text-muted-foreground italic">No Logo Configured</div>
               )}
@@ -594,20 +656,23 @@ export function BrandingSettings() {
             {/* Target Cascading Checklist */}
             <div className="space-y-2 rounded-xl bg-muted/20 p-3.5 border border-border/50 text-xs">
               <div className="font-bold text-foreground text-[11px] uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
-                <CheckCircle className="size-4 text-emerald-500" /> Automatic Logo Cascading Destinations
+                <CheckCircle className="size-4 text-emerald-500" /> Automatic Logo Cascading
+                Destinations
               </div>
               <div className="grid grid-cols-2 gap-2 text-[11px]">
                 <div className="flex items-center gap-1.5 text-foreground">
                   <span className="size-1.5 rounded-full bg-emerald-500" /> Web & Printable Invoices
                 </div>
                 <div className="flex items-center gap-1.5 text-foreground">
-                  <span className="size-1.5 rounded-full bg-emerald-500" /> 58mm/80mm Thermal Receipts
+                  <span className="size-1.5 rounded-full bg-emerald-500" /> 58mm/80mm Thermal
+                  Receipts
                 </div>
                 <div className="flex items-center gap-1.5 text-foreground">
                   <span className="size-1.5 rounded-full bg-emerald-500" /> Server PDF Export Engine
                 </div>
                 <div className="flex items-center gap-1.5 text-foreground">
-                  <span className="size-1.5 rounded-full bg-emerald-500" /> WhatsApp Shared Online Link
+                  <span className="size-1.5 rounded-full bg-emerald-500" /> WhatsApp Shared Online
+                  Link
                 </div>
               </div>
             </div>

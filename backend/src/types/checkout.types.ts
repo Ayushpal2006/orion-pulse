@@ -5,6 +5,7 @@ export interface CheckoutItemRequest {
   unitPrice?: number;
   price?: number;
   discountPercent?: number;
+  notes?: string;
 }
 
 export interface CheckoutRequest {
@@ -19,6 +20,9 @@ export interface CheckoutRequest {
   paidAmount?: number;
   balance?: number;
   paymentDetails?: any;
+  tableNo?: string;
+  orderType?: "DINE_IN" | "TAKEAWAY" | "DELIVERY";
+  notes?: string;
 }
 
 export interface Sale {
@@ -75,6 +79,8 @@ export interface CheckoutResponse {
   syncCustomer?: any;
   syncProducts?: any[];
   timings?: any;
+  total?: number;
+  kot?: any;
 }
 
 export interface SaleDetailResponse {

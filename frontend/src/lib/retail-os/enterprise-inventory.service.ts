@@ -73,7 +73,9 @@ export class EnterpriseInventoryService {
     return item;
   }
 
-  calculateAbcAnalysis(products: Array<{ id: number; name: string; stock: number; price: number }>): InventoryAbcCategory[] {
+  calculateAbcAnalysis(
+    products: Array<{ id: number; name: string; stock: number; price: number }>,
+  ): InventoryAbcCategory[] {
     const calculated = products.map((p) => ({
       productId: p.id,
       name: p.name,

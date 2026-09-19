@@ -58,7 +58,8 @@ export class ErrorBoundary extends Component<Props, State> {
             <div className="space-y-1.5">
               <h2 className="text-xl font-bold text-foreground">Something went wrong.</h2>
               <p className="text-xs text-muted-foreground leading-relaxed">
-                The application encountered an unexpected rendering error. Your data and sales remain safe.
+                The application encountered an unexpected rendering error. Your data and sales
+                remain safe.
               </p>
             </div>
 

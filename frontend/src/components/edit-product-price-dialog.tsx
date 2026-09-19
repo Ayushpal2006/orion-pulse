@@ -76,13 +76,13 @@ export function EditProductPriceDialog({
       queryClient.setQueryData<Product[]>(["products"], (old) => {
         if (!old) return old;
         return old.map((p) =>
-          p.id === product.id ? { ...p, price: priceNum, selling_price: priceNum } : p
+          p.id === product.id ? { ...p, price: priceNum, selling_price: priceNum } : p,
         );
       });
 
       // 4. Update offline IndexedDB cache
       const updatedList = products.map((p) =>
-        p.id === product.id ? { ...p, price: priceNum, selling_price: priceNum } : p
+        p.id === product.id ? { ...p, price: priceNum, selling_price: priceNum } : p,
       );
       await saveProductsOffline(updatedList as any).catch(() => {});
 
@@ -106,7 +106,8 @@ export function EditProductPriceDialog({
             <DialogTitle>Edit Selling Price</DialogTitle>
           </div>
           <p className="text-xs text-muted-foreground">
-            Update the catalog selling price for this product. Historical bills will preserve their original sale prices.
+            Update the catalog selling price for this product. Historical bills will preserve their
+            original sale prices.
           </p>
         </DialogHeader>
 
@@ -115,7 +116,9 @@ export function EditProductPriceDialog({
             <div className="font-semibold text-foreground text-sm truncate">{product.name}</div>
             <div className="flex items-center justify-between text-xs text-muted-foreground">
               <span>SKU: {product.sku || "N/A"}</span>
-              <span>Current Price: <strong className="text-foreground">{inr(currentPrice)}</strong></span>
+              <span>
+                Current Price: <strong className="text-foreground">{inr(currentPrice)}</strong>
+              </span>
             </div>
           </div>
 
@@ -156,7 +159,9 @@ export function EditProductPriceDialog({
               disabled={saving}
               className="rounded-xl text-xs font-bold gap-1.5"
             >
-              {saving ? "Saving..." : (
+              {saving ? (
+                "Saving..."
+              ) : (
                 <>
                   <Check className="size-3.5" />
                   Save Price

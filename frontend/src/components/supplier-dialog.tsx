@@ -1,12 +1,21 @@
 import { useEffect, useState } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import type { Supplier } from "@/lib/mock-data";
 import { toast } from "sonner";
-import { createSupplier as createSupplierApi, updateSupplier as updateSupplierApi } from "@/lib/api";
+import {
+  createSupplier as createSupplierApi,
+  updateSupplier as updateSupplierApi,
+} from "@/lib/api";
 
 export function SupplierDialog({
   open,
@@ -26,11 +35,7 @@ export function SupplierDialog({
 
   useEffect(() => {
     if (open) {
-      setForm(
-        supplier
-          ? { ...supplier }
-          : blank(),
-      );
+      setForm(supplier ? { ...supplier } : blank());
     }
   }, [open, supplier]);
 
@@ -46,7 +51,7 @@ export function SupplierDialog({
       toast.error("Name is required");
       return;
     }
-    
+
     // Optional phone length check
     if (form.phone && form.phone.replace(/\D/g, "").length !== 10) {
       toast.error("Phone number must be exactly 10 digits");
@@ -122,7 +127,11 @@ export function SupplierDialog({
         </DialogHeader>
         <div className="space-y-3">
           <Field label="Name (Required)">
-            <Input value={form.name ?? ""} onChange={(e) => upd("name", e.target.value)} placeholder="Supplier name" />
+            <Input
+              value={form.name ?? ""}
+              onChange={(e) => upd("name", e.target.value)}
+              placeholder="Supplier name"
+            />
           </Field>
           <Field label="Phone">
             <Input
@@ -143,17 +152,34 @@ export function SupplierDialog({
             />
           </Field>
           <Field label="Email">
-            <Input type="email" value={form.email ?? ""} onChange={(e) => upd("email", e.target.value)} placeholder="supplier@example.com" />
+            <Input
+              type="email"
+              value={form.email ?? ""}
+              onChange={(e) => upd("email", e.target.value)}
+              placeholder="supplier@example.com"
+            />
           </Field>
           <Field label="Address">
-            <Textarea value={form.address ?? ""} onChange={(e) => upd("address", e.target.value)} rows={2} placeholder="Physical address" />
+            <Textarea
+              value={form.address ?? ""}
+              onChange={(e) => upd("address", e.target.value)}
+              rows={2}
+              placeholder="Physical address"
+            />
           </Field>
           <Field label="Notes">
-            <Textarea value={form.notes ?? ""} onChange={(e) => upd("notes", e.target.value)} rows={2} placeholder="Payment details, terms, etc." />
+            <Textarea
+              value={form.notes ?? ""}
+              onChange={(e) => upd("notes", e.target.value)}
+              rows={2}
+              placeholder="Payment details, terms, etc."
+            />
           </Field>
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={submitting}>Cancel</Button>
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={submitting}>
+            Cancel
+          </Button>
           <Button onClick={submit} disabled={submitting}>
             {submitting ? "Saving..." : mode === "add" ? "Add supplier" : "Save"}
           </Button>

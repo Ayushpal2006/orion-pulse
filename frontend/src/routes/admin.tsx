@@ -5,7 +5,10 @@ export const Route = createFileRoute("/admin")({
   head: () => ({
     meta: [
       { title: "Super Admin Panel · Apka Bill" },
-      { name: "description", content: "Internal SaaS Platform Administration and Customer Tenant Control." },
+      {
+        name: "description",
+        content: "Internal SaaS Platform Administration and Customer Tenant Control.",
+      },
     ],
   }),
   component: SuperAdminPage,

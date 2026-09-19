@@ -3,9 +3,36 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Users, Plus, Edit2, Ban, CheckCircle, ShieldCheck, Mail, Phone, Store, Lock, UserCheck, Eye, EyeOff } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Users,
+  Plus,
+  Edit2,
+  Ban,
+  CheckCircle,
+  ShieldCheck,
+  Mail,
+  Phone,
+  Store,
+  Lock,
+  UserCheck,
+  Eye,
+  EyeOff,
+} from "lucide-react";
 import { useApp } from "@/lib/store";
 import { getUsers, createUser, updateUser, disableUser, getStores } from "@/lib/api";
 import { toast } from "sonner";
@@ -150,15 +177,37 @@ export function UsersManagementSection() {
   const getRoleBadge = (roleName: string) => {
     const norm = (roleName || "").toLowerCase();
     if (norm === "owner" || norm === "admin") {
-      return <Badge variant="default" className="text-[10px] bg-primary">Owner</Badge>;
+      return (
+        <Badge variant="default" className="text-[10px] bg-primary">
+          Owner
+        </Badge>
+      );
     }
     if (norm === "manager") {
-      return <Badge variant="secondary" className="text-[10px] bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20">Manager</Badge>;
+      return (
+        <Badge
+          variant="secondary"
+          className="text-[10px] bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20"
+        >
+          Manager
+        </Badge>
+      );
     }
     if (norm === "cashier") {
-      return <Badge variant="outline" className="text-[10px] border-emerald-500/30 text-emerald-600 dark:text-emerald-400">Cashier</Badge>;
+      return (
+        <Badge
+          variant="outline"
+          className="text-[10px] border-emerald-500/30 text-emerald-600 dark:text-emerald-400"
+        >
+          Cashier
+        </Badge>
+      );
     }
-    return <Badge variant="outline" className="text-[10px] text-muted-foreground">Viewer</Badge>;
+    return (
+      <Badge variant="outline" className="text-[10px] text-muted-foreground">
+        Viewer
+      </Badge>
+    );
   };
 
   const isManager = currentRole === "Manager";
@@ -174,13 +223,18 @@ export function UsersManagementSection() {
             Manage team access, assign store permissions, and configure role capabilities.
           </div>
         </div>
-        <Button onClick={handleOpenCreate} className="rounded-xl h-9 px-4 text-xs font-semibold gap-1.5">
+        <Button
+          onClick={handleOpenCreate}
+          className="rounded-xl h-9 px-4 text-xs font-semibold gap-1.5"
+        >
           <Plus className="size-4" /> Add New User
         </Button>
       </div>
 
       {loading ? (
-        <div className="py-8 text-center text-xs text-muted-foreground">Loading organization users…</div>
+        <div className="py-8 text-center text-xs text-muted-foreground">
+          Loading organization users…
+        </div>
       ) : usersList.length === 0 ? (
         <div className="py-8 text-center text-xs text-muted-foreground border border-dashed border-border rounded-xl">
           No users found. Click "Add New User" to invite your team.
@@ -198,7 +252,7 @@ export function UsersManagementSection() {
                   "p-4 rounded-xl border transition-all space-y-3",
                   isDisabled
                     ? "border-border/40 bg-muted/30 opacity-70"
-                    : "border-border bg-card hover:border-primary/30"
+                    : "border-border bg-card hover:border-primary/30",
                 )}
               >
                 <div className="flex items-start justify-between gap-2">
@@ -217,11 +271,17 @@ export function UsersManagementSection() {
 
                   <div>
                     {isDisabled ? (
-                      <Badge variant="outline" className="text-[10px] border-destructive/40 text-destructive">
+                      <Badge
+                        variant="outline"
+                        className="text-[10px] border-destructive/40 text-destructive"
+                      >
                         Disabled
                       </Badge>
                     ) : (
-                      <Badge variant="outline" className="text-[10px] border-emerald-500/40 text-emerald-600 dark:text-emerald-400">
+                      <Badge
+                        variant="outline"
+                        className="text-[10px] border-emerald-500/40 text-emerald-600 dark:text-emerald-400"
+                      >
                         Active
                       </Badge>
                     )}
@@ -238,12 +298,18 @@ export function UsersManagementSection() {
 
                   <div className="flex items-center gap-1.5 flex-wrap">
                     <Store className="size-3 text-muted-foreground shrink-0" />
-                    <span className="text-[11px] font-medium text-foreground">Assigned Stores:</span>
+                    <span className="text-[11px] font-medium text-foreground">
+                      Assigned Stores:
+                    </span>
                     {assignedStores.length === 0 ? (
                       <span className="text-[11px]">Main Store</span>
                     ) : (
                       assignedStores.map((st) => (
-                        <Badge key={st.id || st} variant="secondary" className="text-[10px] py-0 px-1.5">
+                        <Badge
+                          key={st.id || st}
+                          variant="secondary"
+                          className="text-[10px] py-0 px-1.5"
+                        >
                           {st.name || `Store #${st.id || st}`}
                         </Badge>
                       ))
@@ -265,7 +331,10 @@ export function UsersManagementSection() {
                     variant="ghost"
                     size="sm"
                     onClick={() => handleToggleDisable(u)}
-                    className={cn("h-7 size-7 p-0 rounded-lg", isDisabled ? "text-emerald-600" : "text-destructive")}
+                    className={cn(
+                      "h-7 size-7 p-0 rounded-lg",
+                      isDisabled ? "text-emerald-600" : "text-destructive",
+                    )}
                     title={isDisabled ? "Enable User" : "Disable User"}
                   >
                     <Ban className="size-3.5" />
@@ -384,7 +453,9 @@ export function UsersManagementSection() {
                       onClick={() => toggleStoreSelection(st.id)}
                       className={cn(
                         "flex items-center gap-2 p-2 rounded-xl border text-xs cursor-pointer transition-colors",
-                        isChecked ? "border-primary/50 bg-primary/5 font-semibold text-foreground" : "border-border/60 text-muted-foreground hover:bg-muted/40"
+                        isChecked
+                          ? "border-primary/50 bg-primary/5 font-semibold text-foreground"
+                          : "border-border/60 text-muted-foreground hover:bg-muted/40",
                       )}
                     >
                       <input
@@ -401,10 +472,19 @@ export function UsersManagementSection() {
             </div>
 
             <DialogFooter className="pt-3">
-              <Button type="button" variant="outline" onClick={() => setModalOpen(false)} className="rounded-xl h-9 text-xs">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setModalOpen(false)}
+                className="rounded-xl h-9 text-xs"
+              >
                 Cancel
               </Button>
-              <Button type="submit" disabled={saving} className="rounded-xl h-9 text-xs font-semibold">
+              <Button
+                type="submit"
+                disabled={saving}
+                className="rounded-xl h-9 text-xs font-semibold"
+              >
                 {saving ? "Saving…" : editingUser ? "Update User" : "Create User"}
               </Button>
             </DialogFooter>

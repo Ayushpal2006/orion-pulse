@@ -1,9 +1,14 @@
 import { useState, useEffect } from "react";
-import { subscribeSyncStatus, syncPendingSales, refreshPendingCount, SyncStatusState } from "@/lib/sync-engine";
+import {
+  subscribeSyncStatus,
+  syncPendingSales,
+  refreshPendingCount,
+  SyncStatusState,
+} from "@/lib/sync-engine";
 
 export function usePWA() {
   const [isOnline, setIsOnline] = useState<boolean>(
-    typeof window !== "undefined" ? window.navigator.onLine : true
+    typeof window !== "undefined" ? window.navigator.onLine : true,
   );
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [isInstalled, setIsInstalled] = useState<boolean>(false);

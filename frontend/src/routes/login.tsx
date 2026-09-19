@@ -50,7 +50,8 @@ function LoginPage() {
       if (data.user) {
         const userRoleLower = (data.user.role || "").toLowerCase();
         if (data.user.role) {
-          const formattedRole = data.user.role.charAt(0).toUpperCase() + data.user.role.slice(1).toLowerCase();
+          const formattedRole =
+            data.user.role.charAt(0).toUpperCase() + data.user.role.slice(1).toLowerCase();
           setRole(formattedRole as any);
         }
         if (data.user.organization_id) {
@@ -90,8 +91,12 @@ function LoginPage() {
           <div className="inline-flex items-center justify-center size-12 rounded-2xl bg-primary text-primary-foreground font-bold shadow-md mb-1">
             <Building2 className="size-6" />
           </div>
-          <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">Apka Bill</h1>
-          <p className="text-xs text-muted-foreground">Sign in to your organization account to continue</p>
+          <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
+            Apka Bill
+          </h1>
+          <p className="text-xs text-muted-foreground">
+            Sign in to your organization account to continue
+          </p>
         </div>
 
         {/* LOGIN CARD */}
@@ -155,11 +160,16 @@ function LoginPage() {
 
           {/* Quick Demo Login Credentials Chips */}
           <div className="pt-3 border-t border-border/60 space-y-2">
-            <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest text-center">Demo Quick Sign-in</div>
+            <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest text-center">
+              Demo Quick Sign-in
+            </div>
             <div className="grid grid-cols-2 gap-2">
               <button
                 type="button"
-                onClick={() => { setEmail("admin@orion.com"); setPassword("admin123"); }}
+                onClick={() => {
+                  setEmail("admin@orion.com");
+                  setPassword("admin123");
+                }}
                 className="px-2.5 py-2 rounded-xl border border-border bg-muted/30 hover:bg-muted text-[11px] font-semibold text-foreground text-left transition-colors flex items-center justify-between"
               >
                 <span>Org Admin</span>
@@ -167,7 +177,10 @@ function LoginPage() {
               </button>
               <button
                 type="button"
-                onClick={() => { setEmail("superadmin@apkabill.com"); setPassword("SuperAdmin@123"); }}
+                onClick={() => {
+                  setEmail("superadmin@apkabill.com");
+                  setPassword("SuperAdmin@123");
+                }}
                 className="px-2.5 py-2 rounded-xl border border-border bg-muted/30 hover:bg-muted text-[11px] font-semibold text-foreground text-left transition-colors flex items-center justify-between"
               >
                 <span>Super Admin</span>
@@ -179,7 +192,11 @@ function LoginPage() {
           <div className="pt-2 border-t border-border/40 text-center">
             <button
               type="button"
-              onClick={() => toast.info("Please contact your Apka Bill Organization Owner or System Admin to manage account access.")}
+              onClick={() =>
+                toast.info(
+                  "Please contact your Apka Bill Organization Owner or System Admin to manage account access.",
+                )
+              }
               className="text-xs text-muted-foreground hover:text-primary transition-colors inline-flex items-center gap-1.5 font-medium"
             >
               <HelpCircle className="size-3.5" /> Need help logging in? Contact Admin

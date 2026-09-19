@@ -51,8 +51,7 @@ export function EditProductDialog({
     };
   }, [previewUrl]);
 
-  const upd = <K extends keyof Product>(k: K, v: Product[K]) =>
-    setForm((f) => ({ ...f, [k]: v }));
+  const upd = <K extends keyof Product>(k: K, v: Product[K]) => setForm((f) => ({ ...f, [k]: v }));
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -116,7 +115,9 @@ export function EditProductDialog({
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>{mode === "add" ? "New product" : "Edit product"}</DialogTitle>
-          <DialogDescription>All fields are optional except name & selling price.</DialogDescription>
+          <DialogDescription>
+            All fields are optional except name & selling price.
+          </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-3">
@@ -141,18 +142,36 @@ export function EditProductDialog({
           </div>
 
           <Field label="Product name">
-            <Input value={form.name} onChange={(e) => upd("name", e.target.value)} placeholder="Denim Jacket" disabled={submitting} />
+            <Input
+              value={form.name}
+              onChange={(e) => upd("name", e.target.value)}
+              placeholder="Denim Jacket"
+              disabled={submitting}
+            />
           </Field>
           <div className="grid grid-cols-2 gap-3">
             <Field label="SKU">
-              <Input value={form.sku} onChange={(e) => upd("sku", e.target.value)} disabled={submitting} />
+              <Input
+                value={form.sku}
+                onChange={(e) => upd("sku", e.target.value)}
+                disabled={submitting}
+              />
             </Field>
             <Field label="Barcode">
-              <Input value={form.barcode} onChange={(e) => upd("barcode", e.target.value)} disabled={submitting} />
+              <Input
+                value={form.barcode}
+                onChange={(e) => upd("barcode", e.target.value)}
+                disabled={submitting}
+              />
             </Field>
           </div>
           <Field label="Category">
-            <Input value={form.category} onChange={(e) => upd("category", e.target.value)} placeholder="e.g. Beverages, Main Course" disabled={submitting} />
+            <Input
+              value={form.category}
+              onChange={(e) => upd("category", e.target.value)}
+              placeholder="e.g. Beverages, Main Course"
+              disabled={submitting}
+            />
           </Field>
           <div className="grid grid-cols-2 gap-3">
             <Field label="Purchase price">

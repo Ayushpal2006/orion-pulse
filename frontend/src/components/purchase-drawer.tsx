@@ -42,13 +42,30 @@ export function PurchaseDrawer({
 
   if (!open) return null;
 
-  const poNumber = purchase ? (purchase.po_number || purchase.purchase_number || `PO-#${purchase.id}`) : "Purchase Details";
+  const poNumber = purchase
+    ? purchase.po_number || purchase.purchase_number || `PO-#${purchase.id}`
+    : "Purchase Details";
   const status = purchase?.status || "COMPLETED";
 
   const getStatusBadge = () => {
-    if (status === "VOID") return <Badge variant="destructive" className="font-bold text-xs">VOID</Badge>;
-    if (status === "DELETED") return <Badge variant="destructive" className="font-bold text-xs bg-rose-900">DELETED</Badge>;
-    if (status === "Draft") return <Badge variant="secondary" className="font-bold text-xs">DRAFT</Badge>;
+    if (status === "VOID")
+      return (
+        <Badge variant="destructive" className="font-bold text-xs">
+          VOID
+        </Badge>
+      );
+    if (status === "DELETED")
+      return (
+        <Badge variant="destructive" className="font-bold text-xs bg-rose-900">
+          DELETED
+        </Badge>
+      );
+    if (status === "Draft")
+      return (
+        <Badge variant="secondary" className="font-bold text-xs">
+          DRAFT
+        </Badge>
+      );
     return <Badge className="bg-emerald-600 font-bold text-xs">COMPLETED</Badge>;
   };
 
@@ -58,7 +75,7 @@ export function PurchaseDrawer({
         side={side}
         className={cn(
           "w-full overflow-y-auto bg-background p-6 border-border flex flex-col justify-between z-50",
-          isMobile ? "h-[85vh] rounded-t-3xl" : "sm:max-w-md h-full"
+          isMobile ? "h-[85vh] rounded-t-3xl" : "sm:max-w-md h-full",
         )}
       >
         <div className="space-y-6">
@@ -107,8 +124,14 @@ export function PurchaseDrawer({
                   <div className="flex items-center gap-1 text-muted-foreground uppercase font-bold text-[9px] tracking-wider">
                     <Building2 className="size-3" /> Supplier
                   </div>
-                  <div className="font-semibold text-foreground truncate">{purchase.supplier_name || "N/A"}</div>
-                  {purchase.supplier_phone && <div className="text-[10px] text-muted-foreground">{purchase.supplier_phone}</div>}
+                  <div className="font-semibold text-foreground truncate">
+                    {purchase.supplier_name || "N/A"}
+                  </div>
+                  {purchase.supplier_phone && (
+                    <div className="text-[10px] text-muted-foreground">
+                      {purchase.supplier_phone}
+                    </div>
+                  )}
                 </div>
 
                 <div className="rounded-xl border border-border bg-muted/20 p-3 space-y-1">
@@ -116,7 +139,9 @@ export function PurchaseDrawer({
                     <Calendar className="size-3" /> Purchase Date
                   </div>
                   <div className="font-semibold text-foreground">
-                    {new Date(purchase.purchase_date || purchase.created_at).toLocaleDateString("en-IN")}
+                    {new Date(purchase.purchase_date || purchase.created_at).toLocaleDateString(
+                      "en-IN",
+                    )}
                   </div>
                 </div>
 
@@ -157,15 +182,23 @@ export function PurchaseDrawer({
                   <div className="divide-y divide-border/40 max-h-48 overflow-y-auto">
                     {purchase.items?.map((item: any, idx: number) => {
                       const cost = item.purchase_price ? item.purchase_price / 100.0 : 0;
-                      const lineTotal = item.line_total ? item.line_total / 100.0 : cost * item.quantity;
+                      const lineTotal = item.line_total
+                        ? item.line_total / 100.0
+                        : cost * item.quantity;
                       return (
                         <div key={idx} className="px-3 py-2 grid grid-cols-12 items-center">
                           <div className="col-span-6 font-semibold truncate text-foreground">
                             {item.product_name || `Item #${item.product_id}`}
-                            <span className="block text-[10px] text-muted-foreground font-mono">Qty: {item.quantity}</span>
+                            <span className="block text-[10px] text-muted-foreground font-mono">
+                              Qty: {item.quantity}
+                            </span>
                           </div>
-                          <div className="col-span-3 text-center font-mono text-muted-foreground">{inr(cost)}</div>
-                          <div className="col-span-3 text-right font-mono font-bold text-foreground">{inr(lineTotal)}</div>
+                          <div className="col-span-3 text-center font-mono text-muted-foreground">
+                            {inr(cost)}
+                          </div>
+                          <div className="col-span-3 text-right font-mono font-bold text-foreground">
+                            {inr(lineTotal)}
+                          </div>
                         </div>
                       );
                     })}
@@ -177,23 +210,31 @@ export function PurchaseDrawer({
               <div className="border-t border-border pt-3 space-y-1 text-xs">
                 <div className="flex justify-between text-muted-foreground">
                   <span>Subtotal</span>
-                  <span className="font-mono font-semibold text-foreground">{inr((purchase.subtotal || 0) / 100.0)}</span>
+                  <span className="font-mono font-semibold text-foreground">
+                    {inr((purchase.subtotal || 0) / 100.0)}
+                  </span>
                 </div>
                 {purchase.discount > 0 && (
                   <div className="flex justify-between text-muted-foreground">
                     <span>Discount</span>
-                    <span className="font-mono font-semibold text-rose-600">-{inr((purchase.discount || 0) / 100.0)}</span>
+                    <span className="font-mono font-semibold text-rose-600">
+                      -{inr((purchase.discount || 0) / 100.0)}
+                    </span>
                   </div>
                 )}
                 {purchase.gst > 0 && (
                   <div className="flex justify-between text-muted-foreground">
                     <span>GST Tax</span>
-                    <span className="font-mono font-semibold text-foreground">+{inr((purchase.gst || 0) / 100.0)}</span>
+                    <span className="font-mono font-semibold text-foreground">
+                      +{inr((purchase.gst || 0) / 100.0)}
+                    </span>
                   </div>
                 )}
                 <div className="flex justify-between text-sm font-black border-t border-dashed border-border pt-2 text-foreground">
                   <span>Grand Total</span>
-                  <span className="font-mono text-money text-base">{inr((purchase.grand_total || 0) / 100.0)}</span>
+                  <span className="font-mono text-money text-base">
+                    {inr((purchase.grand_total || 0) / 100.0)}
+                  </span>
                 </div>
               </div>
 

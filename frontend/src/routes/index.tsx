@@ -3,7 +3,20 @@ import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "rec
 import { useMemo, useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
-  IndianRupee, ShoppingBag, TrendingUp, Package, Sparkles, Plus, Truck, AlertTriangle, Flame, Loader2, RefreshCw, Sliders, Clock, ArrowUpRight
+  IndianRupee,
+  ShoppingBag,
+  TrendingUp,
+  Package,
+  Sparkles,
+  Plus,
+  Truck,
+  AlertTriangle,
+  Flame,
+  Loader2,
+  RefreshCw,
+  Sliders,
+  Clock,
+  ArrowUpRight,
 } from "lucide-react";
 import { toast } from "sonner";
 import { MetricCard } from "@/components/metric-card";
@@ -21,14 +34,21 @@ export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
       { title: "Dashboard · Apka Bill" },
-      { name: "description", content: "Offline-first retail command center — sales, orders, profit and inventory at a glance." },
+      {
+        name: "description",
+        content:
+          "Offline-first retail command center — sales, orders, profit and inventory at a glance.",
+      },
       { property: "og:title", content: "Dashboard · Apka Bill" },
-      { property: "og:description", content: "Offline-first retail command center — sales, orders, profit and inventory at a glance." },
+      {
+        property: "og:description",
+        content:
+          "Offline-first retail command center — sales, orders, profit and inventory at a glance.",
+      },
     ],
   }),
   component: Dashboard,
 });
-
 
 const ranges = ["Today", "Week", "Month", "Year"] as const;
 type Range = (typeof ranges)[number];
@@ -42,8 +62,17 @@ const rangeFilterMap: Record<Range, string> = {
 
 // Standard AI insights (kept static or adapted based on live metrics)
 const getInsights = (revenue: number, lowStockCount: number) => [
-  { tone: "growth", text: `Your store generated ${inr(revenue)} today. Keep scanning items to update the ledger.` },
-  { tone: "warn", text: lowStockCount > 0 ? `${lowStockCount} items need restock. Review the low stock alerts below.` : "All stock levels are currently healthy! Great job!" },
+  {
+    tone: "growth",
+    text: `Your store generated ${inr(revenue)} today. Keep scanning items to update the ledger.`,
+  },
+  {
+    tone: "warn",
+    text:
+      lowStockCount > 0
+        ? `${lowStockCount} items need restock. Review the low stock alerts below.`
+        : "All stock levels are currently healthy! Great job!",
+  },
   { tone: "info", text: "UPI and Cash continue to lead your checkout payment methods split." },
   { tone: "growth", text: "Calculated margins are fully computed locally with zero cloud delay." },
 ];
@@ -57,13 +86,24 @@ function useGreeting() {
       const now = new Date();
       const h = now.getHours();
       const g =
-        h < 5 ? "Good night 🌙"
-        : h < 12 ? "Good morning ☀️"
-        : h < 17 ? "Good afternoon 🌤"
-        : h < 21 ? "Good evening 🌇"
-        : "Good night 🌙";
+        h < 5
+          ? "Good night 🌙"
+          : h < 12
+            ? "Good morning ☀️"
+            : h < 17
+              ? "Good afternoon 🌤"
+              : h < 21
+                ? "Good evening 🌇"
+                : "Good night 🌙";
       setGreeting(g);
-      setTime(now.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true, timeZone: "Asia/Kolkata" }));
+      setTime(
+        now.toLocaleTimeString("en-IN", {
+          hour: "2-digit",
+          minute: "2-digit",
+          hour12: true,
+          timeZone: "Asia/Kolkata",
+        }),
+      );
     };
     update();
     const id = setInterval(update, 30000);
@@ -89,7 +129,12 @@ export function Dashboard() {
   }, [role]);
 
   // 1. Fetch dashboard summary statistics
-  const { data: dashboard, isLoading: isLoadingDashboard, isError: isErrorDashboard, refetch: refetchDashboard } = useQuery({
+  const {
+    data: dashboard,
+    isLoading: isLoadingDashboard,
+    isError: isErrorDashboard,
+    refetch: refetchDashboard,
+  } = useQuery({
     queryKey: ["dashboard"],
     queryFn: getDashboardData,
     staleTime: 30000,
@@ -103,7 +148,10 @@ export function Dashboard() {
   });
 
   const lowStock = useMemo(() => products.filter((p) => stockLevel(p) !== "ok"), [products]);
-  const inventoryValueVal = useMemo(() => products.reduce((sum, p) => sum + (p.price * p.stock), 0), [products]);
+  const inventoryValueVal = useMemo(
+    () => products.reduce((sum, p) => sum + p.price * p.stock, 0),
+    [products],
+  );
 
   const getProductEmoji = (name: string) => {
     const matched = products.find((p) => p.name === name);
@@ -134,8 +182,12 @@ export function Dashboard() {
   if (isErrorDashboard) {
     return (
       <div className="flex h-[80vh] flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-border bg-muted/20 p-6 text-center">
-        <div className="text-sm font-semibold text-foreground">Dashboard metrics could not be loaded</div>
-        <div className="max-w-md text-sm text-muted-foreground">The backend POS engine is not responding. Please check connection and retry.</div>
+        <div className="text-sm font-semibold text-foreground">
+          Dashboard metrics could not be loaded
+        </div>
+        <div className="max-w-md text-sm text-muted-foreground">
+          The backend POS engine is not responding. Please check connection and retry.
+        </div>
         <Button variant="outline" size="sm" onClick={() => refetchDashboard()}>
           <RefreshCw className="mr-2 size-4" /> Retry
         </Button>
@@ -174,8 +226,8 @@ export function Dashboard() {
             {isOrgAdmin
               ? "Here is your shop overview for today."
               : isStoreManager
-              ? "Here is your store performance for today."
-              : "Here is your platform command center."}
+                ? "Here is your store performance for today."
+                : "Here is your platform command center."}
           </p>
         </div>
         <div className="flex items-center gap-2 rounded-2xl border border-border bg-elevated px-4 py-2.5 shadow-sm">
@@ -233,7 +285,14 @@ export function Dashboard() {
             label="Low Stock Alerts"
             value={String(stats.lowStockCount || lowStock.length)}
             hint={
-              <span className={cn(stats.lowStockCount || lowStock.length ? "text-warn-foreground" : "text-muted-foreground", "font-medium")}>
+              <span
+                className={cn(
+                  stats.lowStockCount || lowStock.length
+                    ? "text-warn-foreground"
+                    : "text-muted-foreground",
+                  "font-medium",
+                )}
+              >
                 {stats.lowStockCount || lowStock.length} items low
               </span>
             }
@@ -271,7 +330,14 @@ export function Dashboard() {
             label="Today's Inventory"
             value={String(stats.inventoryCount || products.length)}
             hint={
-              <span className={cn(stats.lowStockCount || lowStock.length ? "text-warn-foreground" : "text-muted-foreground", "font-medium")}>
+              <span
+                className={cn(
+                  stats.lowStockCount || lowStock.length
+                    ? "text-warn-foreground"
+                    : "text-muted-foreground",
+                  "font-medium",
+                )}
+              >
                 {stats.lowStockCount || lowStock.length} items need restock
               </span>
             }
@@ -298,17 +364,46 @@ export function Dashboard() {
         </div>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           {[
-            { to: "/billing", icon: Plus, label: "New Sale", desc: "Start billing", color: "bg-primary text-primary-foreground" },
-            { to: "/inventory", icon: Package, label: "Add Product", desc: "Manage catalog", color: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400" },
-            { to: "/purchases", icon: Truck, label: "Purchase Stock", desc: "Record intake", color: "bg-blue-500/10 text-blue-700 dark:text-blue-400" },
-            { to: "/stock-adjustments", icon: Sliders, label: "Adjust Stock", desc: "Fix inventory", color: "bg-amber-500/10 text-amber-700 dark:text-amber-400" },
+            {
+              to: "/billing",
+              icon: Plus,
+              label: "New Sale",
+              desc: "Start billing",
+              color: "bg-primary text-primary-foreground",
+            },
+            {
+              to: "/inventory",
+              icon: Package,
+              label: "Add Product",
+              desc: "Manage catalog",
+              color: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400",
+            },
+            {
+              to: "/purchases",
+              icon: Truck,
+              label: "Purchase Stock",
+              desc: "Record intake",
+              color: "bg-blue-500/10 text-blue-700 dark:text-blue-400",
+            },
+            {
+              to: "/stock-adjustments",
+              icon: Sliders,
+              label: "Adjust Stock",
+              desc: "Fix inventory",
+              color: "bg-amber-500/10 text-amber-700 dark:text-amber-400",
+            },
           ].map(({ to, icon: Icon, label, desc, color }) => (
             <Link
               key={to}
               to={to}
               className="group flex flex-col gap-3 rounded-2xl border border-border p-4 transition-all hover:border-foreground/20 hover:shadow-md hover:-translate-y-0.5 active:scale-[0.98]"
             >
-              <div className={cn("grid size-10 place-items-center rounded-xl transition-transform group-hover:scale-105", color)}>
+              <div
+                className={cn(
+                  "grid size-10 place-items-center rounded-xl transition-transform group-hover:scale-105",
+                  color,
+                )}
+              >
                 <Icon className="size-5" />
               </div>
               <div>
@@ -319,7 +414,6 @@ export function Dashboard() {
           ))}
         </div>
       </div>
-
 
       {/* 3. Sales Overview */}
       <div className="card-soft p-5">
@@ -335,7 +429,9 @@ export function Dashboard() {
                 onClick={() => setRange(r)}
                 className={cn(
                   "rounded-lg px-3 py-1.5 text-xs font-medium transition-colors",
-                  range === r ? "bg-elevated text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground",
+                  range === r
+                    ? "bg-elevated text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground",
                 )}
               >
                 {r}
@@ -347,7 +443,9 @@ export function Dashboard() {
           {isLoadingTrend ? (
             <Loader2 className="size-6 animate-spin text-muted-foreground" />
           ) : chartSeries.length === 0 ? (
-            <div className="text-xs text-muted-foreground">No sales transactions in this period</div>
+            <div className="text-xs text-muted-foreground">
+              No sales transactions in this period
+            </div>
           ) : (
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={chartSeries} margin={{ top: 10, right: 8, bottom: 0, left: -20 }}>
@@ -357,14 +455,37 @@ export function Dashboard() {
                     <stop offset="100%" stopColor="var(--color-success)" stopOpacity={0} />
                   </linearGradient>
                 </defs>
-                <XAxis dataKey="label" stroke="var(--color-muted-foreground)" fontSize={11} tickLine={false} axisLine={false} />
-                <YAxis stroke="var(--color-muted-foreground)" fontSize={11} tickLine={false} axisLine={false} width={40} />
+                <XAxis
+                  dataKey="label"
+                  stroke="var(--color-muted-foreground)"
+                  fontSize={11}
+                  tickLine={false}
+                  axisLine={false}
+                />
+                <YAxis
+                  stroke="var(--color-muted-foreground)"
+                  fontSize={11}
+                  tickLine={false}
+                  axisLine={false}
+                  width={40}
+                />
                 <Tooltip
                   cursor={{ stroke: "var(--color-border)" }}
-                  contentStyle={{ background: "var(--color-elevated)", border: "1px solid var(--color-border)", borderRadius: 12, fontSize: 12 }}
+                  contentStyle={{
+                    background: "var(--color-elevated)",
+                    border: "1px solid var(--color-border)",
+                    borderRadius: 12,
+                    fontSize: 12,
+                  }}
                   formatter={((v: unknown) => [inr(Number(v)), "Sales"]) as never}
                 />
-                <Area type="monotone" dataKey="value" stroke="var(--color-success)" strokeWidth={2.5} fill="url(#salesFill)" />
+                <Area
+                  type="monotone"
+                  dataKey="value"
+                  stroke="var(--color-success)"
+                  strokeWidth={2.5}
+                  fill="url(#salesFill)"
+                />
               </AreaChart>
             </ResponsiveContainer>
           )}
@@ -388,9 +509,11 @@ export function Dashboard() {
               key={idx}
               className={cn(
                 "rounded-xl border p-3 text-sm leading-snug",
-                i.tone === "growth" ? "border-success/25 bg-success/5"
-                : i.tone === "warn" ? "border-warn/40 bg-warn/10"
-                : "border-border bg-muted/40",
+                i.tone === "growth"
+                  ? "border-success/25 bg-success/5"
+                  : i.tone === "warn"
+                    ? "border-warn/40 bg-warn/10"
+                    : "border-border bg-muted/40",
               )}
             >
               {i.text}
@@ -409,7 +532,9 @@ export function Dashboard() {
         </div>
         <div className="divide-y divide-border">
           {stats.recentSales.length === 0 ? (
-            <div className="px-5 py-8 text-center text-xs text-muted-foreground">No recent invoices logged.</div>
+            <div className="px-5 py-8 text-center text-xs text-muted-foreground">
+              No recent invoices logged.
+            </div>
           ) : (
             stats.recentSales.map((inv: any) => (
               <button
@@ -463,14 +588,20 @@ export function Dashboard() {
           </div>
           <ul className="mt-3 divide-y divide-border">
             {stats.topProducts.length === 0 ? (
-              <div className="py-8 text-center text-xs text-muted-foreground">No sales recorded yet.</div>
+              <div className="py-8 text-center text-xs text-muted-foreground">
+                No sales recorded yet.
+              </div>
             ) : (
               stats.topProducts.map((p: any) => (
                 <li key={p.name} className="flex items-center gap-3 py-2.5">
-                  <div className="grid size-8 place-items-center rounded-lg bg-muted text-lg">{getProductEmoji(p.name)}</div>
+                  <div className="grid size-8 place-items-center rounded-lg bg-muted text-lg">
+                    {getProductEmoji(p.name)}
+                  </div>
                   <div className="min-w-0 flex-1">
                     <div className="truncate text-sm font-medium text-foreground">{p.name}</div>
-                    <div className="text-[11px] text-muted-foreground">SKU {getProductSku(p.name)} · {p.unitsSold} sold</div>
+                    <div className="text-[11px] text-muted-foreground">
+                      SKU {getProductSku(p.name)} · {p.unitsSold} sold
+                    </div>
                   </div>
                   <div className="tabular text-sm font-semibold text-money">{inr(p.revenue)}</div>
                 </li>
@@ -485,18 +616,34 @@ export function Dashboard() {
               <AlertTriangle className="size-4 text-danger" />
               <div className="text-sm font-semibold">Low stock alerts</div>
             </div>
-            <Link to="/inventory" className="text-xs font-medium text-muted-foreground hover:text-foreground">View →</Link>
+            <Link
+              to="/inventory"
+              className="text-xs font-medium text-muted-foreground hover:text-foreground"
+            >
+              View →
+            </Link>
           </div>
           <ul className="mt-3 divide-y divide-border">
-            {lowStock.length === 0 && <li className="py-4 text-center text-sm text-muted-foreground">All stock healthy 🎉</li>}
+            {lowStock.length === 0 && (
+              <li className="py-4 text-center text-sm text-muted-foreground">
+                All stock healthy 🎉
+              </li>
+            )}
             {lowStock.slice(0, 5).map((p) => (
               <li key={p.id} className="flex items-center gap-3 py-2.5">
-                <div className="grid size-8 place-items-center rounded-lg bg-muted text-lg">{p.emoji}</div>
+                <div className="grid size-8 place-items-center rounded-lg bg-muted text-lg">
+                  {p.emoji}
+                </div>
                 <div className="min-w-0 flex-1">
                   <div className="truncate text-sm font-medium text-foreground">{p.name}</div>
                   <div className="text-[11px] text-muted-foreground">Min {p.reorder}</div>
                 </div>
-                <div className={cn("tabular text-sm font-semibold", p.stock === 0 ? "text-danger" : "text-warn-foreground")}>
+                <div
+                  className={cn(
+                    "tabular text-sm font-semibold",
+                    p.stock === 0 ? "text-danger" : "text-warn-foreground",
+                  )}
+                >
                   {p.stock} left
                 </div>
               </li>

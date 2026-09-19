@@ -1,10 +1,40 @@
 import { createLazyFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import {
-  Search, Phone, Calendar, Plus, Pencil, Trash2, Loader2, ShoppingBag, Receipt,
-  Check, ArrowUpDown, ChevronLeft, ChevronRight, X, Scan, DollarSign, CalendarDays,
-  Percent, FileText, Info, AlertTriangle, RefreshCw, Eye, Printer, Share2, Copy, Tag,
-  Building2, CornerDownLeft, CheckCircle2, ShoppingCart, ChevronDown, ChevronUp, Sparkles
+  Search,
+  Phone,
+  Calendar,
+  Plus,
+  Pencil,
+  Trash2,
+  Loader2,
+  ShoppingBag,
+  Receipt,
+  Check,
+  ArrowUpDown,
+  ChevronLeft,
+  ChevronRight,
+  X,
+  Scan,
+  DollarSign,
+  CalendarDays,
+  Percent,
+  FileText,
+  Info,
+  AlertTriangle,
+  RefreshCw,
+  Eye,
+  Printer,
+  Share2,
+  Copy,
+  Tag,
+  Building2,
+  CornerDownLeft,
+  CheckCircle2,
+  ShoppingCart,
+  ChevronDown,
+  ChevronUp,
+  Sparkles,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -126,7 +156,9 @@ function PurchasesPage() {
   // Selected Products Tray & Click Feedback States
   const [selectedTrayCollapsed, setSelectedTrayCollapsed] = useState(false);
   const [highlightedProductId, setHighlightedProductId] = useState<number | null>(null);
-  const [clickFeedbackMap, setClickFeedbackMap] = useState<Record<number, { text: string; id: number }>>({});
+  const [clickFeedbackMap, setClickFeedbackMap] = useState<
+    Record<number, { text: string; id: number }>
+  >({});
 
   const scrollToProductCard = (productId: number) => {
     const el = document.getElementById(`product-card-${productId}`);
@@ -149,7 +181,12 @@ function PurchasesPage() {
   }, [q]);
 
   // Queries
-  const { data: rawPurchases = [], isLoading, isError, refetch } = useQuery({
+  const {
+    data: rawPurchases = [],
+    isLoading,
+    isError,
+    refetch,
+  } = useQuery({
     queryKey: ["purchases", debouncedQ, startDate, endDate],
     queryFn: () => getPurchases({ q: debouncedQ, startDate, endDate }),
   });
@@ -220,9 +257,14 @@ function PurchasesPage() {
 
   // Statistics
   const stats = useMemo(() => {
-    const activePurchases = rawPurchases.filter((p: any) => p.status !== "VOID" && p.status !== "DELETED");
+    const activePurchases = rawPurchases.filter(
+      (p: any) => p.status !== "VOID" && p.status !== "DELETED",
+    );
     const totalCount = activePurchases.length;
-    const totalValuePaise = activePurchases.reduce((acc: number, p: any) => acc + (p.grand_total || 0), 0);
+    const totalValuePaise = activePurchases.reduce(
+      (acc: number, p: any) => acc + (p.grand_total || 0),
+      0,
+    );
 
     const startOfToday = new Date();
     startOfToday.setHours(0, 0, 0, 0);
@@ -230,7 +272,10 @@ function PurchasesPage() {
       const pDate = new Date(p.purchase_date || p.created_at);
       return pDate >= startOfToday;
     });
-    const todayValuePaise = todayPurchases.reduce((acc: number, p: any) => acc + (p.grand_total || 0), 0);
+    const todayValuePaise = todayPurchases.reduce(
+      (acc: number, p: any) => acc + (p.grand_total || 0),
+      0,
+    );
 
     return {
       totalCount,
@@ -245,9 +290,7 @@ function PurchasesPage() {
     if (!supplierSearch.trim()) return suppliersList;
     const s = supplierSearch.toLowerCase();
     return suppliersList.filter(
-      (sup: any) =>
-        sup.name.toLowerCase().includes(s) ||
-        (sup.phone && sup.phone.includes(s))
+      (sup: any) => sup.name.toLowerCase().includes(s) || (sup.phone && sup.phone.includes(s)),
     );
   }, [supplierSearch, suppliersList]);
 
@@ -357,8 +400,14 @@ function PurchasesPage() {
   // Cart Calculations
   const calculatedTotals = useMemo(() => {
     const subtotal = cartItems.reduce((acc, item) => acc + item.quantity * item.purchase_price, 0);
-    const itemDiscounts = cartItems.reduce((acc, item) => acc + item.quantity * (item.discount || 0), 0);
-    const grandTotal = Math.max(0, subtotal - itemDiscounts - (overallDiscount || 0) + (overallTax || 0));
+    const itemDiscounts = cartItems.reduce(
+      (acc, item) => acc + item.quantity * (item.discount || 0),
+      0,
+    );
+    const grandTotal = Math.max(
+      0,
+      subtotal - itemDiscounts - (overallDiscount || 0) + (overallTax || 0),
+    );
     return {
       subtotal,
       itemDiscounts,
@@ -476,7 +525,11 @@ function PurchasesPage() {
       setSupplierId(Number(po.supplier_id));
       setSupplierInvoiceNumber("");
       setPurchaseDate(new Date().toISOString().substring(0, 16));
-      setNotes(po.notes ? `Duplicated from ${po.po_number}. ${po.notes}` : `Duplicated from ${po.po_number}`);
+      setNotes(
+        po.notes
+          ? `Duplicated from ${po.po_number}. ${po.notes}`
+          : `Duplicated from ${po.po_number}`,
+      );
       setPaymentStatus(po.payment_status || "Paid");
       setPaymentMethod(po.payment_method || "Cash");
       setOverallDiscount(po.discount / 100.0);
@@ -576,9 +629,24 @@ function PurchasesPage() {
   const totalPages = Math.ceil(rawPurchases.length / itemsPerPage);
 
   const renderStatusBadge = (p: any) => {
-    if (p.status === "VOID") return <Badge variant="destructive" className="font-bold text-[10px]">VOID</Badge>;
-    if (p.status === "DELETED") return <Badge variant="destructive" className="font-bold text-[10px] bg-rose-900">DELETED</Badge>;
-    if (p.status === "Draft") return <Badge variant="secondary" className="font-bold text-[10px]">DRAFT</Badge>;
+    if (p.status === "VOID")
+      return (
+        <Badge variant="destructive" className="font-bold text-[10px]">
+          VOID
+        </Badge>
+      );
+    if (p.status === "DELETED")
+      return (
+        <Badge variant="destructive" className="font-bold text-[10px] bg-rose-900">
+          DELETED
+        </Badge>
+      );
+    if (p.status === "Draft")
+      return (
+        <Badge variant="secondary" className="font-bold text-[10px]">
+          DRAFT
+        </Badge>
+      );
     return <Badge className="bg-emerald-600 font-bold text-[10px]">COMPLETED</Badge>;
   };
 
@@ -595,15 +663,33 @@ function PurchasesPage() {
         <div className="flex gap-2">
           {activeTab === "history" ? (
             <>
-              <Button variant="outline" size="sm" className="rounded-xl h-11" onClick={handleRefresh}>
+              <Button
+                variant="outline"
+                size="sm"
+                className="rounded-xl h-11"
+                onClick={handleRefresh}
+              >
                 <RefreshCw className="size-4" />
               </Button>
-              <Button onClick={() => { handleResetForm(); setActiveTab("form"); }} className="h-11 rounded-xl font-bold">
+              <Button
+                onClick={() => {
+                  handleResetForm();
+                  setActiveTab("form");
+                }}
+                className="h-11 rounded-xl font-bold"
+              >
                 <Plus className="mr-2 size-4" /> New Purchase
               </Button>
             </>
           ) : (
-            <Button variant="outline" onClick={() => { handleResetForm(); setActiveTab("history"); }} className="h-11 rounded-xl">
+            <Button
+              variant="outline"
+              onClick={() => {
+                handleResetForm();
+                setActiveTab("history");
+              }}
+              className="h-11 rounded-xl"
+            >
               <CornerDownLeft className="mr-2 size-4" /> Back to Purchase History
             </Button>
           )}
@@ -615,31 +701,55 @@ function PurchasesPage() {
           {/* Stats Bar */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div className="card-soft p-4 flex items-center gap-3">
-              <div className="size-10 rounded-xl bg-primary/10 text-primary grid place-items-center"><ShoppingBag className="size-5" /></div>
+              <div className="size-10 rounded-xl bg-primary/10 text-primary grid place-items-center">
+                <ShoppingBag className="size-5" />
+              </div>
               <div>
-                <div className="text-2xl font-bold tracking-tight text-foreground">{inr(stats.todayValue)}</div>
-                <div className="text-[10px] text-muted-foreground font-medium uppercase">Today's Purchases</div>
+                <div className="text-2xl font-bold tracking-tight text-foreground">
+                  {inr(stats.todayValue)}
+                </div>
+                <div className="text-[10px] text-muted-foreground font-medium uppercase">
+                  Today's Purchases
+                </div>
               </div>
             </div>
             <div className="card-soft p-4 flex items-center gap-3">
-              <div className="size-10 rounded-xl bg-teal-500/10 text-teal-500 grid place-items-center"><Receipt className="size-5" /></div>
+              <div className="size-10 rounded-xl bg-teal-500/10 text-teal-500 grid place-items-center">
+                <Receipt className="size-5" />
+              </div>
               <div>
-                <div className="text-2xl font-bold tracking-tight text-foreground">{stats.todayCount}</div>
-                <div className="text-[10px] text-muted-foreground font-medium uppercase">Today's Orders</div>
+                <div className="text-2xl font-bold tracking-tight text-foreground">
+                  {stats.todayCount}
+                </div>
+                <div className="text-[10px] text-muted-foreground font-medium uppercase">
+                  Today's Orders
+                </div>
               </div>
             </div>
             <div className="card-soft p-4 flex items-center gap-3">
-              <div className="size-10 rounded-xl bg-amber-500/10 text-amber-500 grid place-items-center"><DollarSign className="size-5" /></div>
+              <div className="size-10 rounded-xl bg-amber-500/10 text-amber-500 grid place-items-center">
+                <DollarSign className="size-5" />
+              </div>
               <div>
-                <div className="text-2xl font-bold tracking-tight text-foreground">{inr(stats.totalValue)}</div>
-                <div className="text-[10px] text-muted-foreground font-medium uppercase">Total Procurement Value</div>
+                <div className="text-2xl font-bold tracking-tight text-foreground">
+                  {inr(stats.totalValue)}
+                </div>
+                <div className="text-[10px] text-muted-foreground font-medium uppercase">
+                  Total Procurement Value
+                </div>
               </div>
             </div>
             <div className="card-soft p-4 flex items-center gap-3">
-              <div className="size-10 rounded-xl bg-purple-500/10 text-purple-500 grid place-items-center"><CalendarDays className="size-5" /></div>
+              <div className="size-10 rounded-xl bg-purple-500/10 text-purple-500 grid place-items-center">
+                <CalendarDays className="size-5" />
+              </div>
               <div>
-                <div className="text-2xl font-bold tracking-tight text-foreground">{stats.totalCount}</div>
-                <div className="text-[10px] text-muted-foreground font-medium uppercase">Total PO Count</div>
+                <div className="text-2xl font-bold tracking-tight text-foreground">
+                  {stats.totalCount}
+                </div>
+                <div className="text-[10px] text-muted-foreground font-medium uppercase">
+                  Total PO Count
+                </div>
               </div>
             </div>
           </div>
@@ -661,7 +771,10 @@ function PurchasesPage() {
                 <Input
                   type="date"
                   value={startDate}
-                  onChange={(e) => { setStartDate(e.target.value); setPage(1); }}
+                  onChange={(e) => {
+                    setStartDate(e.target.value);
+                    setPage(1);
+                  }}
                   className="h-11 rounded-xl w-36"
                 />
               </div>
@@ -670,12 +783,23 @@ function PurchasesPage() {
                 <Input
                   type="date"
                   value={endDate}
-                  onChange={(e) => { setEndDate(e.target.value); setPage(1); }}
+                  onChange={(e) => {
+                    setEndDate(e.target.value);
+                    setPage(1);
+                  }}
                   className="h-11 rounded-xl w-36"
                 />
               </div>
               {(startDate || endDate) && (
-                <Button variant="outline" onClick={() => { setStartDate(""); setEndDate(""); setPage(1); }} className="h-11 rounded-xl">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setStartDate("");
+                    setEndDate("");
+                    setPage(1);
+                  }}
+                  className="h-11 rounded-xl"
+                >
                   Clear
                 </Button>
               )}
@@ -689,7 +813,9 @@ function PurchasesPage() {
             </div>
           ) : isError ? (
             <div className="flex h-32 flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-border bg-muted/20 p-6 text-center">
-              <div className="text-sm font-semibold text-foreground">Purchase history could not be loaded</div>
+              <div className="text-sm font-semibold text-foreground">
+                Purchase history could not be loaded
+              </div>
               <Button variant="outline" size="sm" onClick={() => refetch()}>
                 <RefreshCw className="mr-2 size-4" /> Retry
               </Button>
@@ -699,7 +825,11 @@ function PurchasesPage() {
               icon={<Receipt className="size-5" />}
               title="No purchase orders found"
               description="Record your vendor invoices and stock intakes to get started."
-              action={<Button onClick={() => setActiveTab("form")}><Plus className="mr-2 size-4" /> New Purchase</Button>}
+              action={
+                <Button onClick={() => setActiveTab("form")}>
+                  <Plus className="mr-2 size-4" /> New Purchase
+                </Button>
+              }
             />
           ) : (
             <div className="space-y-4">
@@ -721,29 +851,49 @@ function PurchasesPage() {
                       {paginatedPurchases.map((p: any) => (
                         <tr
                           key={p.id}
-                          onClick={() => { setSelectedPoId(p.id); setDrawerOpen(true); }}
+                          onClick={() => {
+                            setSelectedPoId(p.id);
+                            setDrawerOpen(true);
+                          }}
                           className="hover:bg-muted/50 transition-colors cursor-pointer group"
                         >
-                          <td className="p-4 font-mono text-xs font-bold text-primary group-hover:underline">{p.po_number || p.purchase_number}</td>
+                          <td className="p-4 font-mono text-xs font-bold text-primary group-hover:underline">
+                            {p.po_number || p.purchase_number}
+                          </td>
                           <td className="p-4 font-semibold text-foreground">
                             <div>{p.supplier_name || "N/A"}</div>
-                            {p.supplier_phone && <div className="text-[10px] text-muted-foreground font-mono">{p.supplier_phone}</div>}
+                            {p.supplier_phone && (
+                              <div className="text-[10px] text-muted-foreground font-mono">
+                                {p.supplier_phone}
+                              </div>
+                            )}
                           </td>
-                          <td className="p-4 text-xs font-medium text-muted-foreground">{formatLocalDate(p.purchase_date || p.created_at)}</td>
-                          <td className="p-4 text-xs font-mono text-muted-foreground">{p.supplier_invoice_number || p.invoice_number || "-"}</td>
+                          <td className="p-4 text-xs font-medium text-muted-foreground">
+                            {formatLocalDate(p.purchase_date || p.created_at)}
+                          </td>
+                          <td className="p-4 text-xs font-mono text-muted-foreground">
+                            {p.supplier_invoice_number || p.invoice_number || "-"}
+                          </td>
                           <td className="p-4">
                             <div className="flex items-center gap-1.5">
                               {renderStatusBadge(p)}
-                              <span className="text-[10px] text-muted-foreground font-medium">({p.payment_status || "Paid"})</span>
+                              <span className="text-[10px] text-muted-foreground font-medium">
+                                ({p.payment_status || "Paid"})
+                              </span>
                             </div>
                           </td>
-                          <td className="p-4 text-right font-mono font-extrabold text-foreground">{inr((p.grand_total || 0) / 100.0)}</td>
+                          <td className="p-4 text-right font-mono font-extrabold text-foreground">
+                            {inr((p.grand_total || 0) / 100.0)}
+                          </td>
                           <td className="p-4 text-right" onClick={(e) => e.stopPropagation()}>
                             <Button
                               variant="outline"
                               size="sm"
                               className="h-8 text-xs rounded-xl font-semibold hover:bg-primary/10"
-                              onClick={() => { setSelectedPoId(p.id); setDrawerOpen(true); }}
+                              onClick={() => {
+                                setSelectedPoId(p.id);
+                                setDrawerOpen(true);
+                              }}
                             >
                               <Eye className="size-3.5 mr-1.5 text-primary" /> View Details
                             </Button>
@@ -834,9 +984,15 @@ function PurchasesPage() {
                   >
                     <Sparkles className="size-3.5 text-emerald-500" />
                     <span>Selected Products ({cartItems.length})</span>
-                    {selectedTrayCollapsed ? <ChevronDown className="size-3.5" /> : <ChevronUp className="size-3.5" />}
+                    {selectedTrayCollapsed ? (
+                      <ChevronDown className="size-3.5" />
+                    ) : (
+                      <ChevronUp className="size-3.5" />
+                    )}
                   </button>
-                  <span className="text-[10px] font-mono text-muted-foreground">Click item to smart-scroll to card</span>
+                  <span className="text-[10px] font-mono text-muted-foreground">
+                    Click item to smart-scroll to card
+                  </span>
                 </div>
 
                 {!selectedTrayCollapsed && (
@@ -851,7 +1007,11 @@ function PurchasesPage() {
                       >
                         <div className="size-7 rounded-lg overflow-hidden bg-muted/40 border border-border/50 shrink-0 flex items-center justify-center">
                           {item.image ? (
-                            <img src={buildImageUrl(item.image) || item.image} alt={item.name} className="size-full object-cover" />
+                            <img
+                              src={buildImageUrl(item.image) || item.image}
+                              alt={item.name}
+                              className="size-full object-cover"
+                            />
                           ) : (
                             <span className="text-xs">🛍️</span>
                           )}
@@ -899,8 +1059,8 @@ function PurchasesPage() {
                         highlightedProductId === prod.id
                           ? "ring-4 ring-emerald-500 scale-[1.02] shadow-xl bg-emerald-500/20 border-emerald-500 animate-pulse"
                           : isSelected
-                          ? "border-emerald-500/80 bg-emerald-500/10 ring-2 ring-emerald-500/30 shadow-md dark:bg-emerald-950/20"
-                          : "hover:border-primary/50"
+                            ? "border-emerald-500/80 bg-emerald-500/10 ring-2 ring-emerald-500/30 shadow-md dark:bg-emerald-950/20"
+                            : "hover:border-primary/50"
                       }`}
                     >
                       {/* Floating Click Feedback Badge (+1 Added) */}
@@ -915,7 +1075,11 @@ function PurchasesPage() {
                           <div className="relative size-11 rounded-xl overflow-hidden bg-muted/40 border border-border/60 shrink-0 flex items-center justify-center shadow-2xs">
                             {prod.image || prod.image_url ? (
                               <img
-                                src={buildImageUrl(prod.image || prod.image_url) || prod.image || prod.image_url}
+                                src={
+                                  buildImageUrl(prod.image || prod.image_url) ||
+                                  prod.image ||
+                                  prod.image_url
+                                }
                                 alt={prod.name}
                                 className="size-full object-cover rounded-xl transition-transform duration-300 group-hover:scale-105"
                                 onError={(e) => {
@@ -932,27 +1096,46 @@ function PurchasesPage() {
                             )}
                           </div>
                           <div className="flex flex-col items-end gap-1">
-                            <Badge variant="outline" className="text-[9px] font-mono">Stock: {prod.stock}</Badge>
+                            <Badge variant="outline" className="text-[9px] font-mono">
+                              Stock: {prod.stock}
+                            </Badge>
                             {isSelected && (
                               <div className="flex items-center gap-1 animate-in fade-in zoom-in-95">
                                 <Badge className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[9px] px-1.5 py-0.5 shadow-2xs flex items-center gap-0.5">
                                   <Check className="size-2.5 stroke-[3]" /> Selected
                                 </Badge>
-                                <Badge variant="outline" className="border-emerald-500/50 text-emerald-700 dark:text-emerald-300 bg-emerald-500/20 font-mono font-bold text-[9px] px-1.5 py-0.5">
+                                <Badge
+                                  variant="outline"
+                                  className="border-emerald-500/50 text-emerald-700 dark:text-emerald-300 bg-emerald-500/20 font-mono font-bold text-[9px] px-1.5 py-0.5"
+                                >
                                   Qty: {cartItem.quantity}
                                 </Badge>
                               </div>
                             )}
                           </div>
                         </div>
-                        <div className={`font-bold text-xs mt-2 line-clamp-2 transition-colors ${isSelected ? "text-emerald-950 dark:text-emerald-200 font-extrabold" : "text-foreground group-hover:text-primary"}`}>
+                        <div
+                          className={`font-bold text-xs mt-2 line-clamp-2 transition-colors ${isSelected ? "text-emerald-950 dark:text-emerald-200 font-extrabold" : "text-foreground group-hover:text-primary"}`}
+                        >
                           {prod.name}
                         </div>
-                        {prod.sku && <div className="text-[10px] text-muted-foreground font-mono">{prod.sku}</div>}
+                        {prod.sku && (
+                          <div className="text-[10px] text-muted-foreground font-mono">
+                            {prod.sku}
+                          </div>
+                        )}
                       </div>
-                      <div className={`mt-3 pt-2 border-t flex items-center justify-between transition-colors ${isSelected ? "border-emerald-500/30" : "border-border/40"}`}>
-                        <span className="text-[10px] text-muted-foreground uppercase font-semibold">Purchase Cost</span>
-                        <span className={`font-mono font-black text-xs ${isSelected ? "text-emerald-700 dark:text-emerald-300" : "text-foreground"}`}>{inr(costRupees)}</span>
+                      <div
+                        className={`mt-3 pt-2 border-t flex items-center justify-between transition-colors ${isSelected ? "border-emerald-500/30" : "border-border/40"}`}
+                      >
+                        <span className="text-[10px] text-muted-foreground uppercase font-semibold">
+                          Purchase Cost
+                        </span>
+                        <span
+                          className={`font-mono font-black text-xs ${isSelected ? "text-emerald-700 dark:text-emerald-300" : "text-foreground"}`}
+                        >
+                          {inr(costRupees)}
+                        </span>
                       </div>
                     </div>
                   );
@@ -971,20 +1154,30 @@ function PurchasesPage() {
               </div>
               <div className="grid grid-cols-2 gap-2 text-xs font-mono">
                 <div className="p-2 rounded-xl bg-background border border-border/50">
-                  <div className="text-[10px] text-muted-foreground font-sans">Selected Products</div>
+                  <div className="text-[10px] text-muted-foreground font-sans">
+                    Selected Products
+                  </div>
                   <div className="font-bold text-foreground text-sm">{cartItems.length}</div>
                 </div>
                 <div className="p-2 rounded-xl bg-background border border-border/50">
                   <div className="text-[10px] text-muted-foreground font-sans">Total Quantity</div>
-                  <div className="font-bold text-foreground text-sm">{cartItems.reduce((sum, i) => sum + i.quantity, 0)} Pcs</div>
+                  <div className="font-bold text-foreground text-sm">
+                    {cartItems.reduce((sum, i) => sum + i.quantity, 0)} Pcs
+                  </div>
                 </div>
                 <div className="p-2 rounded-xl bg-background border border-border/50">
-                  <div className="text-[10px] text-muted-foreground font-sans">Estimated Amount</div>
-                  <div className="font-bold text-emerald-600 text-sm">{inr(cartItems.reduce((sum, i) => sum + (i.purchase_price * i.quantity), 0))}</div>
+                  <div className="text-[10px] text-muted-foreground font-sans">
+                    Estimated Amount
+                  </div>
+                  <div className="font-bold text-emerald-600 text-sm">
+                    {inr(cartItems.reduce((sum, i) => sum + i.purchase_price * i.quantity, 0))}
+                  </div>
                 </div>
                 <div className="p-2 rounded-xl bg-background border border-border/50">
                   <div className="text-[10px] text-muted-foreground font-sans">Supplier</div>
-                  <div className="font-bold text-foreground text-xs truncate">{selectedSupplierName}</div>
+                  <div className="font-bold text-foreground text-xs truncate">
+                    {selectedSupplierName}
+                  </div>
                 </div>
               </div>
             </div>
@@ -995,7 +1188,9 @@ function PurchasesPage() {
                   <ShoppingBag className="size-5 text-primary" />
                   <h2 className="text-base font-bold text-foreground">Purchase Cart</h2>
                 </div>
-                <Badge variant="outline" className="font-mono text-xs">{cartItems.length} Items</Badge>
+                <Badge variant="outline" className="font-mono text-xs">
+                  {cartItems.length} Items
+                </Badge>
               </div>
 
               {/* Cart Items List */}
@@ -1008,10 +1203,14 @@ function PurchasesPage() {
                     <div className="space-y-1">
                       <h4 className="font-bold text-sm text-foreground">Purchase Cart Empty</h4>
                       <p className="text-xs text-muted-foreground max-w-xs leading-relaxed">
-                        No products selected yet. Click any product card to start creating a purchase order.
+                        No products selected yet. Click any product card to start creating a
+                        purchase order.
                       </p>
                     </div>
-                    <Badge variant="outline" className="text-[10px] font-mono text-emerald-600 border-emerald-500/30 bg-emerald-500/10">
+                    <Badge
+                      variant="outline"
+                      className="text-[10px] font-mono text-emerald-600 border-emerald-500/30 bg-emerald-500/10"
+                    >
                       Selected products will automatically be highlighted
                     </Badge>
                   </div>
@@ -1035,7 +1234,11 @@ function PurchasesPage() {
                         </div>
                         <div className="min-w-0 flex-1">
                           <div className="font-bold text-foreground truncate">{item.name}</div>
-                          {item.sku && <div className="text-[10px] text-muted-foreground font-mono">{item.sku}</div>}
+                          {item.sku && (
+                            <div className="text-[10px] text-muted-foreground font-mono">
+                              {item.sku}
+                            </div>
+                          )}
                         </div>
                         <Button
                           variant="ghost"
@@ -1063,7 +1266,13 @@ function PurchasesPage() {
                             type="number"
                             min={1}
                             value={item.quantity}
-                            onChange={(e) => updateCartItemField(idx, "quantity", parseInt(e.target.value, 10) || 1)}
+                            onChange={(e) =>
+                              updateCartItemField(
+                                idx,
+                                "quantity",
+                                parseInt(e.target.value, 10) || 1,
+                              )
+                            }
                             className="h-6 w-10 text-center font-mono font-bold text-xs p-0 border-none bg-transparent shadow-none"
                           />
                           <Button
@@ -1084,7 +1293,13 @@ function PurchasesPage() {
                             step="0.01"
                             min={0}
                             value={item.purchase_price}
-                            onChange={(e) => updateCartItemField(idx, "purchase_price", parseFloat(e.target.value) || 0)}
+                            onChange={(e) =>
+                              updateCartItemField(
+                                idx,
+                                "purchase_price",
+                                parseFloat(e.target.value) || 0,
+                              )
+                            }
                             className="h-7 rounded-lg text-right font-mono text-xs"
                             placeholder="Price"
                           />
@@ -1145,9 +1360,13 @@ function PurchasesPage() {
                             >
                               <div>
                                 <div className="font-semibold">{s.name}</div>
-                                {s.phone && <div className="text-[10px] text-muted-foreground">{s.phone}</div>}
+                                {s.phone && (
+                                  <div className="text-[10px] text-muted-foreground">{s.phone}</div>
+                                )}
                               </div>
-                              {supplierId === Number(s.id) && <Check className="size-3.5 text-primary" />}
+                              {supplierId === Number(s.id) && (
+                                <Check className="size-3.5 text-primary" />
+                              )}
                             </button>
                           ))}
                         </div>
@@ -1159,7 +1378,9 @@ function PurchasesPage() {
                 {/* Supplier Invoice # & Date */}
                 <div className="grid grid-cols-2 gap-2">
                   <div className="space-y-1">
-                    <label className="text-[11px] font-semibold text-muted-foreground uppercase">Supplier Inv #</label>
+                    <label className="text-[11px] font-semibold text-muted-foreground uppercase">
+                      Supplier Inv #
+                    </label>
                     <Input
                       placeholder="e.g. INV-45872"
                       value={supplierInvoiceNumber}
@@ -1168,7 +1389,9 @@ function PurchasesPage() {
                     />
                   </div>
                   <div className="space-y-1">
-                    <label className="text-[11px] font-semibold text-muted-foreground uppercase">Purchase Date</label>
+                    <label className="text-[11px] font-semibold text-muted-foreground uppercase">
+                      Purchase Date
+                    </label>
                     <Input
                       type="datetime-local"
                       value={purchaseDate}
@@ -1181,7 +1404,9 @@ function PurchasesPage() {
                 {/* Payment Status & Method */}
                 <div className="grid grid-cols-2 gap-2">
                   <div className="space-y-1">
-                    <label className="text-[11px] font-semibold text-muted-foreground uppercase">Payment Status</label>
+                    <label className="text-[11px] font-semibold text-muted-foreground uppercase">
+                      Payment Status
+                    </label>
                     <Select value={paymentStatus} onValueChange={setPaymentStatus}>
                       <SelectTrigger className="h-9 rounded-xl text-xs">
                         <SelectValue />
@@ -1194,7 +1419,9 @@ function PurchasesPage() {
                     </Select>
                   </div>
                   <div className="space-y-1">
-                    <label className="text-[11px] font-semibold text-muted-foreground uppercase">Payment Method</label>
+                    <label className="text-[11px] font-semibold text-muted-foreground uppercase">
+                      Payment Method
+                    </label>
                     <Select value={paymentMethod} onValueChange={setPaymentMethod}>
                       <SelectTrigger className="h-9 rounded-xl text-xs">
                         <SelectValue />
@@ -1214,7 +1441,9 @@ function PurchasesPage() {
                 <div className="border-t border-border pt-3 space-y-1 text-xs">
                   <div className="flex justify-between text-muted-foreground">
                     <span>Subtotal</span>
-                    <span className="font-mono font-bold text-foreground">{inr(calculatedTotals.subtotal)}</span>
+                    <span className="font-mono font-bold text-foreground">
+                      {inr(calculatedTotals.subtotal)}
+                    </span>
                   </div>
                   <div className="flex justify-between items-center text-muted-foreground gap-2">
                     <span>Overall Discount (₹)</span>
@@ -1233,10 +1462,17 @@ function PurchasesPage() {
                 </div>
 
                 <div className="flex gap-2 pt-2">
-                  <Button variant="outline" onClick={handleResetForm} className="flex-1 rounded-xl h-11 text-xs">
+                  <Button
+                    variant="outline"
+                    onClick={handleResetForm}
+                    className="flex-1 rounded-xl h-11 text-xs"
+                  >
                     Reset
                   </Button>
-                  <Button onClick={handleSubmit} className="flex-1 rounded-xl h-11 text-xs font-bold bg-primary text-primary-foreground">
+                  <Button
+                    onClick={handleSubmit}
+                    className="flex-1 rounded-xl h-11 text-xs font-bold bg-primary text-primary-foreground"
+                  >
                     {editId ? "Save Changes" : "Save Purchase"}
                   </Button>
                 </div>
@@ -1270,7 +1506,8 @@ function PurchasesPage() {
             <div className="space-y-1">
               <div className="font-bold text-rose-800">Reversal Warning</div>
               <div className="leading-relaxed opacity-90">
-                Voiding this purchase order will reverse product stock levels and deduct the amount from the supplier's balance ledger.
+                Voiding this purchase order will reverse product stock levels and deduct the amount
+                from the supplier's balance ledger.
               </div>
             </div>
           </div>
@@ -1287,7 +1524,11 @@ function PurchasesPage() {
             </div>
             <div className="space-y-1">
               <label className="text-xs font-semibold text-foreground">
-                Type last 4 digits of PO (<span className="font-mono text-rose-600 font-bold">{(voidTarget?.po_number || "").slice(-4)}</span>) to confirm
+                Type last 4 digits of PO (
+                <span className="font-mono text-rose-600 font-bold">
+                  {(voidTarget?.po_number || "").slice(-4)}
+                </span>
+                ) to confirm
               </label>
               <Input
                 placeholder="Enter last 4 digits"
@@ -1300,13 +1541,21 @@ function PurchasesPage() {
           </div>
 
           <DialogFooter className="gap-2">
-            <Button variant="outline" onClick={() => setVoidTarget(null)} className="rounded-xl h-9 text-xs">
+            <Button
+              variant="outline"
+              onClick={() => setVoidTarget(null)}
+              className="rounded-xl h-9 text-xs"
+            >
               Cancel
             </Button>
             <Button
               variant="destructive"
               onClick={handleVoidAction}
-              disabled={voiding || !voidReason.trim() || confirmPoNum.trim() !== (voidTarget?.po_number || "").slice(-4)}
+              disabled={
+                voiding ||
+                !voidReason.trim() ||
+                confirmPoNum.trim() !== (voidTarget?.po_number || "").slice(-4)
+              }
               className="rounded-xl h-9 text-xs font-bold"
             >
               {voiding ? "Voiding..." : "Confirm Void"}
@@ -1319,9 +1568,12 @@ function PurchasesPage() {
       <AlertDialog open={!!deleteTarget} onOpenChange={(v) => !v && setDeleteTarget(null)}>
         <AlertDialogContent className="rounded-2xl">
           <AlertDialogHeader>
-            <AlertDialogTitle className="text-rose-600 font-bold">Soft Delete Purchase {deleteTarget?.po_number}?</AlertDialogTitle>
+            <AlertDialogTitle className="text-rose-600 font-bold">
+              Soft Delete Purchase {deleteTarget?.po_number}?
+            </AlertDialogTitle>
             <AlertDialogDescription className="text-xs leading-relaxed">
-              This will mark the purchase order as DELETED, reverse inventory stock and supplier ledger balance, and remove it from financial reports. Audit history will be retained.
+              This will mark the purchase order as DELETED, reverse inventory stock and supplier
+              ledger balance, and remove it from financial reports. Audit history will be retained.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -1347,7 +1599,9 @@ function PurchasesPage() {
           </DialogHeader>
           <div className="space-y-3 py-2">
             <div className="space-y-1">
-              <label className="text-xs font-semibold uppercase text-muted-foreground">Supplier Name *</label>
+              <label className="text-xs font-semibold uppercase text-muted-foreground">
+                Supplier Name *
+              </label>
               <Input
                 placeholder="Vendor / Business Name"
                 value={newSupplierName}
@@ -1357,7 +1611,9 @@ function PurchasesPage() {
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
-                <label className="text-xs font-semibold uppercase text-muted-foreground">Phone</label>
+                <label className="text-xs font-semibold uppercase text-muted-foreground">
+                  Phone
+                </label>
                 <Input
                   placeholder="Mobile number"
                   value={newSupplierPhone}
@@ -1366,7 +1622,9 @@ function PurchasesPage() {
                 />
               </div>
               <div className="space-y-1">
-                <label className="text-xs font-semibold uppercase text-muted-foreground">GSTIN</label>
+                <label className="text-xs font-semibold uppercase text-muted-foreground">
+                  GSTIN
+                </label>
                 <Input
                   placeholder="22AAAAA0000A1Z5"
                   value={newSupplierGstin}
@@ -1377,8 +1635,17 @@ function PurchasesPage() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setNewSupplierOpen(false)} className="rounded-xl">Cancel</Button>
-            <Button onClick={handleQuickCreateSupplier} className="rounded-xl font-bold bg-primary text-primary-foreground">
+            <Button
+              variant="outline"
+              onClick={() => setNewSupplierOpen(false)}
+              className="rounded-xl"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleQuickCreateSupplier}
+              className="rounded-xl font-bold bg-primary text-primary-foreground"
+            >
               Save Supplier & Continue
             </Button>
           </DialogFooter>

@@ -1,6 +1,7 @@
 // Module 7: Workflow Approval Engine for Apka Bill V2
 
-export type ApprovalType = "purchase" | "stock_transfer" | "price_change" | "discount" | "void_sale" | "refund";
+export type ApprovalType =
+  "purchase" | "stock_transfer" | "price_change" | "discount" | "void_sale" | "refund";
 
 export type ApprovalStatus = "pending" | "approved" | "rejected";
 
@@ -47,11 +48,18 @@ export class WorkflowApprovalService {
       requestedAt: new Date().toISOString(),
     };
     this.requests.unshift(req);
-    console.log(`[WorkflowApproval] Approval requested for ${input.type} (${input.referenceId}) by ${input.requestedBy}`);
+    console.log(
+      `[WorkflowApproval] Approval requested for ${input.type} (${input.referenceId}) by ${input.requestedBy}`,
+    );
     return req;
   }
 
-  reviewRequest(requestId: string, status: "approved" | "rejected", reviewedBy: string, notes?: string): WorkflowApprovalRequest {
+  reviewRequest(
+    requestId: string,
+    status: "approved" | "rejected",
+    reviewedBy: string,
+    notes?: string,
+  ): WorkflowApprovalRequest {
     const req = this.requests.find((r) => r.id === requestId);
     if (!req) throw new Error("Approval request not found");
 

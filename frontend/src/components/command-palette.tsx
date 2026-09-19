@@ -1,10 +1,33 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import {
-  CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, CommandSeparator,
+  CommandDialog,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+  CommandSeparator,
 } from "@/components/ui/command";
 import {
-  Package, Users, Receipt, LayoutDashboard, ScanBarcode, Plus, Settings, BarChart3, Tag, Sun, Moon, Monitor, Truck, Sliders, TrendingUp, History, CreditCard, FileText,
+  Package,
+  Users,
+  Receipt,
+  LayoutDashboard,
+  ScanBarcode,
+  Plus,
+  Settings,
+  BarChart3,
+  Tag,
+  Sun,
+  Moon,
+  Monitor,
+  Truck,
+  Sliders,
+  TrendingUp,
+  History,
+  CreditCard,
+  FileText,
 } from "lucide-react";
 import { useApp } from "@/lib/store";
 import { API_BASE_URL, apiFetch } from "@/lib/api";
@@ -57,34 +80,89 @@ export function CommandPalette() {
         <CommandEmpty>No results.</CommandEmpty>
 
         <CommandGroup heading="Quick actions">
-          <CommandItem onSelect={() => go("/billing")}><Plus className="mr-2 size-4" /> New sale</CommandItem>
-          <CommandItem onSelect={() => go("/inventory")}><Package className="mr-2 size-4" /> Add product</CommandItem>
-          <CommandItem onSelect={() => go("/reports")}><Receipt className="mr-2 size-4" /> Open reports</CommandItem>
-          <CommandItem onSelect={() => go("/")}><LayoutDashboard className="mr-2 size-4" /> Go to dashboard</CommandItem>
+          <CommandItem onSelect={() => go("/billing")}>
+            <Plus className="mr-2 size-4" /> New sale
+          </CommandItem>
+          <CommandItem onSelect={() => go("/inventory")}>
+            <Package className="mr-2 size-4" /> Add product
+          </CommandItem>
+          <CommandItem onSelect={() => go("/reports")}>
+            <Receipt className="mr-2 size-4" /> Open reports
+          </CommandItem>
+          <CommandItem onSelect={() => go("/")}>
+            <LayoutDashboard className="mr-2 size-4" /> Go to dashboard
+          </CommandItem>
         </CommandGroup>
 
         <CommandSeparator />
         <CommandGroup heading="Navigation">
-          <CommandItem onSelect={() => go("/")}><LayoutDashboard className="mr-2 size-4" /> Dashboard</CommandItem>
-          <CommandItem onSelect={() => go("/billing")}><ScanBarcode className="mr-2 size-4" /> Billing</CommandItem>
-          <CommandItem onSelect={() => go("/products")}><Package className="mr-2 size-4" /> Products</CommandItem>
-          <CommandItem onSelect={() => go("/stock-adjustments")}><Sliders className="mr-2 size-4" /> Stock Adjustments</CommandItem>
-          <CommandItem onSelect={() => go("/inventory/history")}><History className="mr-2 size-4" /> Stock History</CommandItem>
-          <CommandItem onSelect={() => go("/customers")}><Users className="mr-2 size-4" /> Customers</CommandItem>
-          <CommandItem onSelect={() => go("/suppliers")}><Truck className="mr-2 size-4" /> Suppliers</CommandItem>
-          <CommandItem onSelect={() => go("/purchases")}><Receipt className="mr-2 size-4" /> Purchases</CommandItem>
-          <CommandItem onSelect={() => go("/invoice-templates")}><FileText className="mr-2 size-4" /> Invoice Templates</CommandItem>
-          <CommandItem onSelect={() => go("/profit")}><TrendingUp className="mr-2 size-4" /> Profit & Margin</CommandItem>
-          <CommandItem onSelect={() => go("/expenses")}><CreditCard className="mr-2 size-4" /> Expenses</CommandItem>
-          <CommandItem onSelect={() => go("/reports")}><BarChart3 className="mr-2 size-4" /> Reports</CommandItem>
-          <CommandItem onSelect={() => go("/settings")}><Settings className="mr-2 size-4" /> Settings</CommandItem>
+          <CommandItem onSelect={() => go("/")}>
+            <LayoutDashboard className="mr-2 size-4" /> Dashboard
+          </CommandItem>
+          <CommandItem onSelect={() => go("/billing")}>
+            <ScanBarcode className="mr-2 size-4" /> Billing
+          </CommandItem>
+          <CommandItem onSelect={() => go("/products")}>
+            <Package className="mr-2 size-4" /> Products
+          </CommandItem>
+          <CommandItem onSelect={() => go("/stock-adjustments")}>
+            <Sliders className="mr-2 size-4" /> Stock Adjustments
+          </CommandItem>
+          <CommandItem onSelect={() => go("/inventory/history")}>
+            <History className="mr-2 size-4" /> Stock History
+          </CommandItem>
+          <CommandItem onSelect={() => go("/customers")}>
+            <Users className="mr-2 size-4" /> Customers
+          </CommandItem>
+          <CommandItem onSelect={() => go("/suppliers")}>
+            <Truck className="mr-2 size-4" /> Suppliers
+          </CommandItem>
+          <CommandItem onSelect={() => go("/purchases")}>
+            <Receipt className="mr-2 size-4" /> Purchases
+          </CommandItem>
+          <CommandItem onSelect={() => go("/invoice-templates")}>
+            <FileText className="mr-2 size-4" /> Invoice Templates
+          </CommandItem>
+          <CommandItem onSelect={() => go("/profit")}>
+            <TrendingUp className="mr-2 size-4" /> Profit & Margin
+          </CommandItem>
+          <CommandItem onSelect={() => go("/expenses")}>
+            <CreditCard className="mr-2 size-4" /> Expenses
+          </CommandItem>
+          <CommandItem onSelect={() => go("/reports")}>
+            <BarChart3 className="mr-2 size-4" /> Reports
+          </CommandItem>
+          <CommandItem onSelect={() => go("/settings")}>
+            <Settings className="mr-2 size-4" /> Settings
+          </CommandItem>
         </CommandGroup>
 
         <CommandSeparator />
         <CommandGroup heading="Theme">
-          <CommandItem onSelect={() => { setTheme("light"); setOpen(false); }}><Sun className="mr-2 size-4" /> Light theme</CommandItem>
-          <CommandItem onSelect={() => { setTheme("dark"); setOpen(false); }}><Moon className="mr-2 size-4" /> Dark theme</CommandItem>
-          <CommandItem onSelect={() => { setTheme("system"); setOpen(false); }}><Monitor className="mr-2 size-4" /> System theme</CommandItem>
+          <CommandItem
+            onSelect={() => {
+              setTheme("light");
+              setOpen(false);
+            }}
+          >
+            <Sun className="mr-2 size-4" /> Light theme
+          </CommandItem>
+          <CommandItem
+            onSelect={() => {
+              setTheme("dark");
+              setOpen(false);
+            }}
+          >
+            <Moon className="mr-2 size-4" /> Dark theme
+          </CommandItem>
+          <CommandItem
+            onSelect={() => {
+              setTheme("system");
+              setOpen(false);
+            }}
+          >
+            <Monitor className="mr-2 size-4" /> System theme
+          </CommandItem>
         </CommandGroup>
 
         <CommandSeparator />
@@ -102,7 +180,10 @@ export function CommandPalette() {
             <CommandItem
               key={p.id}
               value={`product ${p.name} ${p.sku} ${p.barcode} ${p.category}`}
-              onSelect={() => { addToCart(p); go("/billing"); }}
+              onSelect={() => {
+                addToCart(p);
+                go("/billing");
+              }}
             >
               <ScanBarcode className="mr-2 size-4" />
               <span className="mr-2">{p.emoji}</span>
@@ -129,10 +210,18 @@ export function CommandPalette() {
         <CommandSeparator />
         <CommandGroup heading="Recent Invoices">
           {sales.map((inv) => (
-            <CommandItem key={inv.id} value={`invoice ${inv.invoice_number}`} onSelect={() => go("/reports")}>
+            <CommandItem
+              key={inv.id}
+              value={`invoice ${inv.invoice_number}`}
+              onSelect={() => go("/reports")}
+            >
               <Receipt className="mr-2 size-4" /> {inv.invoice_number}
               <span className="ml-auto text-xs text-muted-foreground">
-                {new Date(inv.created_at).toLocaleDateString("en-IN", { day: "2-digit", month: "short", timeZone: "Asia/Kolkata" })}
+                {new Date(inv.created_at).toLocaleDateString("en-IN", {
+                  day: "2-digit",
+                  month: "short",
+                  timeZone: "Asia/Kolkata",
+                })}
               </span>
             </CommandItem>
           ))}

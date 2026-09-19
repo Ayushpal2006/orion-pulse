@@ -5,7 +5,7 @@ const PRECACHE_ASSETS = [
   "/favicon.ico",
   "/apple-touch-icon.png",
   "/icon-192x192.png",
-  "/icon-512x512.png"
+  "/icon-512x512.png",
 ];
 
 // Install Event: Pre-cache static shell fallback assets
@@ -17,7 +17,7 @@ self.addEventListener("install", (event) => {
         console.log("Service Worker: Pre-caching offline fallback shell assets");
         return cache.addAll(PRECACHE_ASSETS);
       })
-      .then(() => self.skipWaiting())
+      .then(() => self.skipWaiting()),
   );
 });
 
@@ -33,10 +33,10 @@ self.addEventListener("activate", (event) => {
               console.log("Service Worker: Purging outdated cache store:", name);
               return caches.delete(name);
             }
-          })
+          }),
         );
       })
-      .then(() => self.clients.claim())
+      .then(() => self.clients.claim()),
   );
 });
 
@@ -101,7 +101,7 @@ self.addEventListener("fetch", (event) => {
         .catch(() => {
           console.warn("Service Worker: Network offline. Serving offline fallback screen.");
           return caches.match("/offline.html");
-        })
+        }),
     );
     return;
   }
@@ -151,7 +151,7 @@ self.addEventListener("fetch", (event) => {
           }
           return networkResponse;
         });
-      })
+      }),
     );
   }
 });

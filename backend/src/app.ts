@@ -17,6 +17,7 @@ import syncRoutes from "./routes/sync.routes";
 import googleRoutes from "./routes/google.routes";
 import healthRoutes from "./routes/health.routes";
 import adminRoutes from "./routes/admin.routes";
+import kotRoutes from "./routes/kot.routes";
 
 // New Phase 3-7 modules
 import authRoutes from "./routes/auth.routes";
@@ -115,6 +116,7 @@ app.use(apiLimiter);
 
 // Mount Health Check endpoint
 app.use("/health", healthRoutes);
+app.use("/api/health", healthRoutes);
 
 // Auth endpoints (Brute-force protected)
 app.use("/api/auth", authLimiter, authRoutes);
@@ -147,6 +149,8 @@ app.use("/api/sync", authenticate(), syncRoutes);
 app.use("/google", googleRoutes);
 app.use("/api/google", googleRoutes);
 app.use("/api/admin", authenticate(), authorize("admin"), adminRoutes);
+app.use("/kot", authenticate(), kotRoutes);
+app.use("/api/kot", authenticate(), kotRoutes);
 
 // New Modules
 app.use("/api/users", authenticate(), userRoutes);

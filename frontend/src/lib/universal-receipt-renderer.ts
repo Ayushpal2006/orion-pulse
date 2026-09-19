@@ -25,7 +25,10 @@ import { ReceiptRenderer, ReceiptData } from "@/components/receipt-templates";
 
 // 1. HTML OUTPUT RENDERER
 export class HtmlRenderer {
-  static render(model: UniversalReceiptModel | any, options?: RenderOptions & { templateConfig?: ReceiptTemplateConfig }): string {
+  static render(
+    model: UniversalReceiptModel | any,
+    options?: RenderOptions & { templateConfig?: ReceiptTemplateConfig },
+  ): string {
     const tpl = options?.templateConfig || getActiveTemplateConfig();
     const templateName = model.template || (tpl as any).name || "Classic";
     const qrPosition = model.metadata?.qrPosition || (tpl.footer?.showQrCode ? "Bottom" : "None");
@@ -55,7 +58,9 @@ export class HtmlRenderer {
         price: Number(it.price || it.selling_price || 0),
         discount: Number(it.discount || 0),
         gst: Number(it.tax || it.gst || 0),
-        lineTotal: Number(it.total || it.lineTotal || it.line_total || (Number(it.price || 0) * Number(it.qty || 1))),
+        lineTotal: Number(
+          it.total || it.lineTotal || it.line_total || Number(it.price || 0) * Number(it.qty || 1),
+        ),
       })),
       subtotal: Number(model.subtotal || 0),
       discount: Number(model.discount || 0),
@@ -64,7 +69,11 @@ export class HtmlRenderer {
       paymentMethod: model.payment?.method || model.paymentMethod || "Cash",
       upiQrCode: model.metadata?.upiQrCode || model.upiQrCode,
       upiPayload: model.qrCodeUrl || model.upiPayload,
-      thankYouMessage: model.footerText || model.thankYouMessage || tpl.footer?.thankYouMessage || "Thank you for shopping with us",
+      thankYouMessage:
+        model.footerText ||
+        model.thankYouMessage ||
+        tpl.footer?.thankYouMessage ||
+        "Thank you for shopping with us",
       invoiceHeader: model.metadata?.invoiceHeader || model.invoiceHeader,
       primaryColor: model.metadata?.primaryColor || model.primaryColor,
     };
@@ -77,7 +86,7 @@ export class HtmlRenderer {
         templateName,
         qrPosition: qrPosition as any,
         paperWidth: paperWidth as any,
-      })
+      }),
     );
 
     return `
@@ -124,7 +133,7 @@ export function wrapText(str: string, width: number): string[] {
 export async function loadThermalLogoMonochrome(
   imageUrl?: string,
   maxWidthDots: number = 280,
-  maxHeightDots: number = 140
+  maxHeightDots: number = 140,
 ): Promise<{ data: Uint8ClampedArray; width: number; height: number } | null> {
   if (!imageUrl || typeof window === "undefined" || typeof document === "undefined") {
     return null;
@@ -133,22 +142,24 @@ export async function loadThermalLogoMonochrome(
   const resolvedUrl = buildImageUrl(imageUrl) || imageUrl.trim();
   if (!resolvedUrl) return null;
 
-  return new Promise(async (resolve) => {
-    let objectUrl: string | null = null;
+  // 1. Try to fetch as Blob to create a same-origin URL that avoids canvas tainting.
+  // Awaited before the Promise below rather than inside it: the image load is
+  // callback-based, and an async executor would swallow a rejection thrown here.
+  let objectUrl: string | null = null;
+  if (!resolvedUrl.startsWith("data:image/")) {
     try {
-      // 1. Try to fetch as Blob to create a same-origin URL that avoids canvas tainting
-      if (!resolvedUrl.startsWith("data:image/")) {
-        try {
-          const res = await fetch(resolvedUrl, { mode: "cors" });
-          if (res.ok) {
-            const blob = await res.blob();
-            objectUrl = URL.createObjectURL(blob);
-          }
-        } catch {
-          // Fall back to direct image loading
-        }
+      const res = await fetch(resolvedUrl, { mode: "cors" });
+      if (res.ok) {
+        const blob = await res.blob();
+        objectUrl = URL.createObjectURL(blob);
       }
+    } catch {
+      // Fall back to direct image loading
+    }
+  }
 
+  return new Promise((resolve) => {
+    try {
       const targetSrc = objectUrl || resolvedUrl;
       const img = new Image();
       if (!objectUrl && !resolvedUrl.startsWith("data:")) {
@@ -202,7 +213,9 @@ export async function loadThermalLogoMonochrome(
           const imgData = ctx.getImageData(0, 0, width, height);
           if (objectUrl) URL.revokeObjectURL(objectUrl);
 
-          console.log(`[ThermalLogo] Loaded logo (${origW}x${origH}) -> Resized to (${width}x${height}) for 58mm printer.`);
+          console.log(
+            `[ThermalLogo] Loaded logo (${origW}x${origH}) -> Resized to (${width}x${height}) for 58mm printer.`,
+          );
           resolve({ data: imgData.data, width, height });
         } catch (rasterErr) {
           console.warn("[ThermalLogo] Raster conversion error:", rasterErr);
@@ -233,17 +246,22 @@ export class EscPosRenderer {
     options?: RenderOptions & {
       templateConfig?: ReceiptTemplateConfig;
       logoBitmap?: { data: Uint8ClampedArray | Uint8Array; width: number; height: number } | null;
-    }
+    },
   ): Uint8Array {
     const encoder = new EscPosEncoder();
     const tpl = options?.templateConfig || getActiveTemplateConfig();
     const paperWidth = options?.paperWidth || tpl.paperWidth || "58mm";
-    const isSmallPaper = paperWidth === "58mm" || (paperWidth as string) === "55mm" || (paperWidth as string) === "2inch";
+    const isSmallPaper =
+      paperWidth === "58mm" ||
+      (paperWidth as string) === "55mm" ||
+      (paperWidth as string) === "2inch";
     const maxLen = options?.charsPerLine || (isSmallPaper ? 32 : 48);
     const divider = "-".repeat(maxLen);
 
-    const padRight = (str: string, len: number) => (str.length > len ? str.substring(0, len) : str.padEnd(len, " "));
-    const padLeft = (str: string, len: number) => (str.length > len ? str.substring(str.length - len) : str.padStart(len, " "));
+    const padRight = (str: string, len: number) =>
+      str.length > len ? str.substring(0, len) : str.padEnd(len, " ");
+    const padLeft = (str: string, len: number) =>
+      str.length > len ? str.substring(str.length - len) : str.padStart(len, " ");
 
     if (options?.openDrawer) {
       encoder.openCashDrawer();
@@ -252,14 +270,23 @@ export class EscPosRenderer {
     // 1. Centered Shop Logo (if available)
     encoder.align("center");
     if (options?.showLogo !== false && options?.logoBitmap) {
-      encoder.rasterImage(options.logoBitmap.data, options.logoBitmap.width, options.logoBitmap.height);
+      encoder.rasterImage(
+        options.logoBitmap.data,
+        options.logoBitmap.width,
+        options.logoBitmap.height,
+      );
       encoder.line();
     }
 
     // 2. Business Header
     encoder.align("center");
     if (model.business.name) {
-      encoder.bold(true).size(isSmallPaper ? 1 : 2, isSmallPaper ? 2 : 2).line(model.business.name).size(1, 1).bold(false);
+      encoder
+        .bold(true)
+        .size(isSmallPaper ? 1 : 2, isSmallPaper ? 2 : 2)
+        .line(model.business.name)
+        .size(1, 1)
+        .bold(false);
     }
     if (model.store?.name && model.store.name !== model.business.name) {
       encoder.line(model.store.name);
@@ -281,13 +308,28 @@ export class EscPosRenderer {
     if (model.time) {
       encoder.line(`TIME: ${model.time}`);
     }
-    if (model.customer?.name && model.customer.name.trim() !== "" && model.customer.name !== "undefined" && model.customer.name !== "null") {
+    if (
+      model.customer?.name &&
+      model.customer.name.trim() !== "" &&
+      model.customer.name !== "undefined" &&
+      model.customer.name !== "null"
+    ) {
       wrapText(`CUSTOMER: ${model.customer.name}`, maxLen).forEach((l) => encoder.line(l));
     }
-    if (model.customer?.phone && model.customer.phone.trim() !== "" && model.customer.phone !== "undefined" && model.customer.phone !== "null") {
+    if (
+      model.customer?.phone &&
+      model.customer.phone.trim() !== "" &&
+      model.customer.phone !== "undefined" &&
+      model.customer.phone !== "null"
+    ) {
       encoder.line(`PHONE: ${model.customer.phone}`);
     }
-    if (model.cashierName && model.cashierName.trim() !== "" && model.cashierName !== "undefined" && model.cashierName !== "null") {
+    if (
+      model.cashierName &&
+      model.cashierName.trim() !== "" &&
+      model.cashierName !== "undefined" &&
+      model.cashierName !== "null"
+    ) {
       encoder.line(`CASHIER: ${model.cashierName}`);
     }
     encoder.line(divider);
@@ -365,7 +407,8 @@ export class EscPosRenderer {
 
     // 10. Footer (CENTERED)
     encoder.align("center");
-    const footerMsg = model.footerText || tpl.footer.thankYouMessage || "Thank you for shopping with us!";
+    const footerMsg =
+      model.footerText || tpl.footer.thankYouMessage || "Thank you for shopping with us!";
     wrapText(footerMsg, maxLen).forEach((l) => encoder.line(l));
     if (tpl.footer.termsText) {
       wrapText(tpl.footer.termsText, maxLen).forEach((l) => encoder.line(l));
@@ -382,12 +425,22 @@ export class EscPosRenderer {
 
   static async renderAsync(
     model: UniversalReceiptModel,
-    options?: RenderOptions & { templateConfig?: ReceiptTemplateConfig }
+    options?: RenderOptions & { templateConfig?: ReceiptTemplateConfig },
   ): Promise<Uint8Array> {
-    const isSmallPaper = options?.paperWidth === "58mm" || (options?.paperWidth as string) === "55mm" || (options?.paperWidth as string) === "2inch";
+    const isSmallPaper =
+      options?.paperWidth === "58mm" ||
+      (options?.paperWidth as string) === "55mm" ||
+      (options?.paperWidth as string) === "2inch";
     const maxDots = isSmallPaper ? 280 : 384;
-    const logoUrl = options?.showLogo !== false ? (model.business?.logoUrl || (model as any).shop?.logo || (model as any).branding?.logo || (model as any).store?.logo || (model as any).logoUrl) : undefined;
-    
+    const logoUrl =
+      options?.showLogo !== false
+        ? model.business?.logoUrl ||
+          (model as any).shop?.logo ||
+          (model as any).branding?.logo ||
+          (model as any).store?.logo ||
+          (model as any).logoUrl
+        : undefined;
+
     let logoBitmap = null;
     if (logoUrl) {
       logoBitmap = await loadThermalLogoMonochrome(logoUrl, maxDots, 140);
@@ -411,21 +464,26 @@ export class PdfRenderer {
 export class DantsuFormattedRenderer {
   static render(model: UniversalReceiptModel, options?: RenderOptions): string {
     const paperWidth = options?.paperWidth || "58mm";
-    const isSmallPaper = paperWidth === "58mm" || (paperWidth as string) === "55mm" || (paperWidth as string) === "2inch";
+    const isSmallPaper =
+      paperWidth === "58mm" ||
+      (paperWidth as string) === "55mm" ||
+      (paperWidth as string) === "2inch";
     const maxLen = options?.charsPerLine || (isSmallPaper ? 32 : 48);
     const divider = "-".repeat(maxLen);
 
     const sb: string[] = [];
 
     // 1. Centered Shop Logo
-    const logoUrl = options?.showLogo !== false ? (model.business.logoUrl || (model as any).shop?.logo) : undefined;
+    const logoUrl =
+      options?.showLogo !== false ? model.business.logoUrl || (model as any).shop?.logo : undefined;
     if (logoUrl) {
       sb.push(`[C]<img>${logoUrl}</img>`);
     }
 
     // 2. Header
     if (model.business.name) sb.push(`[C]<b><font size='big'>${model.business.name}</font></b>`);
-    if (model.store?.name && model.store.name !== model.business.name) sb.push(`[C]${model.store.name}`);
+    if (model.store?.name && model.store.name !== model.business.name)
+      sb.push(`[C]${model.store.name}`);
     if (model.business.address) sb.push(`[C]${model.business.address}`);
     if (model.business.phone) sb.push(`[C]Ph: ${model.business.phone}`);
     if (model.business.gstin) sb.push(`[C]GSTIN: ${model.business.gstin}`);
@@ -436,13 +494,28 @@ export class DantsuFormattedRenderer {
     sb.push(`[L]INV: ${model.invoiceNumber}`);
     sb.push(`[L]DATE: ${model.date}`);
     if (model.time) sb.push(`[L]TIME: ${model.time}`);
-    if (model.customer?.name && model.customer.name.trim() !== "" && model.customer.name !== "undefined" && model.customer.name !== "null") {
+    if (
+      model.customer?.name &&
+      model.customer.name.trim() !== "" &&
+      model.customer.name !== "undefined" &&
+      model.customer.name !== "null"
+    ) {
       sb.push(`[L]CUSTOMER: ${model.customer.name}`);
     }
-    if (model.customer?.phone && model.customer.phone.trim() !== "" && model.customer.phone !== "undefined" && model.customer.phone !== "null") {
+    if (
+      model.customer?.phone &&
+      model.customer.phone.trim() !== "" &&
+      model.customer.phone !== "undefined" &&
+      model.customer.phone !== "null"
+    ) {
       sb.push(`[L]PHONE: ${model.customer.phone}`);
     }
-    if (model.cashierName && model.cashierName.trim() !== "" && model.cashierName !== "undefined" && model.cashierName !== "null") {
+    if (
+      model.cashierName &&
+      model.cashierName.trim() !== "" &&
+      model.cashierName !== "undefined" &&
+      model.cashierName !== "null"
+    ) {
       sb.push(`[L]CASHIER: ${model.cashierName}`);
     }
 
@@ -514,7 +587,10 @@ export class UniversalReceiptRenderer {
     return EscPosRenderer.render(model, options);
   }
 
-  static async toEscPosAsync(model: UniversalReceiptModel, options?: RenderOptions): Promise<Uint8Array> {
+  static async toEscPosAsync(
+    model: UniversalReceiptModel,
+    options?: RenderOptions,
+  ): Promise<Uint8Array> {
     return await EscPosRenderer.renderAsync(model, options);
   }
 

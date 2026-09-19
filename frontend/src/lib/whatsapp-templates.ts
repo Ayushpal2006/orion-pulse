@@ -113,34 +113,71 @@ export const WHATSAPP_TEMPLATES_REGISTRY: WhatsAppTemplateConfig[] = [
 /**
  * Resolves a dictionary of all supported placeholders using live record data and store context
  */
-export function resolvePlaceholderValues(recordData?: any, storeInfo?: any, orgInfo?: any): Record<string, string> {
-  const shopName = storeInfo?.name || storeInfo?.shop_name || orgInfo?.name || "Orion POS Main Store";
+export function resolvePlaceholderValues(
+  recordData?: any,
+  storeInfo?: any,
+  orgInfo?: any,
+): Record<string, string> {
+  const shopName =
+    storeInfo?.name || storeInfo?.shop_name || orgInfo?.name || "Orion POS Main Store";
   const origin = typeof window !== "undefined" ? window.location.origin : "https://apkabill.in";
 
-  const customerName = recordData?.customerName || recordData?.customer_name || recordData?.customer?.name || recordData?.name || "Rahul Sharma";
-  const supplierName = recordData?.supplierName || recordData?.supplier_name || recordData?.supplier?.name || "Apex Electronics Supplies";
+  const customerName =
+    recordData?.customerName ||
+    recordData?.customer_name ||
+    recordData?.customer?.name ||
+    recordData?.name ||
+    "Rahul Sharma";
+  const supplierName =
+    recordData?.supplierName ||
+    recordData?.supplier_name ||
+    recordData?.supplier?.name ||
+    "Apex Electronics Supplies";
 
-  const invoiceNumber = recordData?.invoiceNumber || recordData?.invoice_number || recordData?.invoice || "INV-00124";
-  const purchaseNumber = recordData?.purchaseNumber || recordData?.purchase_number || recordData?.po_number || recordData?.poNumber || "PO-PRCH-2026-0001";
-  const quotationNumber = recordData?.quotationNumber || recordData?.quotation_number || recordData?.qtn_number || "QTN-2026-0089";
+  const invoiceNumber =
+    recordData?.invoiceNumber || recordData?.invoice_number || recordData?.invoice || "INV-00124";
+  const purchaseNumber =
+    recordData?.purchaseNumber ||
+    recordData?.purchase_number ||
+    recordData?.po_number ||
+    recordData?.poNumber ||
+    "PO-PRCH-2026-0001";
+  const quotationNumber =
+    recordData?.quotationNumber ||
+    recordData?.quotation_number ||
+    recordData?.qtn_number ||
+    "QTN-2026-0089";
 
   const rawAmount = recordData?.total ?? recordData?.grandTotal ?? recordData?.amount ?? 2450;
-  const amountStr = typeof rawAmount === "number" ? rawAmount.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : String(rawAmount);
+  const amountStr =
+    typeof rawAmount === "number"
+      ? rawAmount.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+      : String(rawAmount);
 
-  const rawBalance = recordData?.balanceDue ?? recordData?.balance_due ?? recordData?.due_amount ?? 0;
-  const balanceStr = typeof rawBalance === "number" ? rawBalance.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : String(rawBalance);
+  const rawBalance =
+    recordData?.balanceDue ?? recordData?.balance_due ?? recordData?.due_amount ?? 0;
+  const balanceStr =
+    typeof rawBalance === "number"
+      ? rawBalance.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+      : String(rawBalance);
 
   let dateStr = "01 Aug 2026";
   if (recordData?.date || recordData?.created_at) {
     try {
-      dateStr = new Date(recordData.date || recordData.created_at).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+      dateStr = new Date(recordData.date || recordData.created_at).toLocaleDateString("en-IN", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+      });
     } catch {
       dateStr = String(recordData.date || recordData.created_at);
     }
   }
 
-  const invoiceLink = recordData?.invoiceLink || recordData?.invoice_link || `${origin}/v/${invoiceNumber}`;
-  const paymentLink = recordData?.paymentLink || recordData?.payment_link || `${origin}/pay/${invoiceNumber}`;
+  const invoiceLink =
+    recordData?.invoiceLink || recordData?.invoice_link || `${origin}/v/${invoiceNumber}`;
+  const paymentLink =
+    recordData?.paymentLink || recordData?.payment_link || `${origin}/pay/${invoiceNumber}`;
 
   return {
     customer_name: customerName,

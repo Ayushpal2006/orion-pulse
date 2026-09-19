@@ -10,13 +10,16 @@ const BaseProductSchema = z.object({
   stock: z.number().int("Stock must be an integer").nonnegative("Stock cannot be negative"),
   minimum_stock: z.number().int("Minimum stock must be an integer").nonnegative("Minimum stock cannot be negative"),
   gst: z.number().int("GST must be an integer").nonnegative("GST cannot be negative"),
+  is_kitchen_item: z.union([z.number().int(), z.boolean()]).transform((val) => (typeof val === "boolean" ? (val ? 1 : 0) : val)).optional().default(0),
 });
 
 export const CreateProductSchema = BaseProductSchema.extend({
   stock: BaseProductSchema.shape.stock.default(0),
   minimum_stock: BaseProductSchema.shape.minimum_stock.default(0),
   gst: BaseProductSchema.shape.gst.default(18),
+  is_kitchen_item: z.union([z.number().int(), z.boolean()]).transform((val) => (typeof val === "boolean" ? (val ? 1 : 0) : val)).optional().default(0),
 });
 
 export const UpdateProductSchema = BaseProductSchema.partial();
+
 

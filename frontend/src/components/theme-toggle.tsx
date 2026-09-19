@@ -34,6 +34,9 @@ export function useThemeInit() {
     } else {
       applyTheme(theme);
     }
+    // Reads the persisted theme once. The effect below owns applying `theme` on change,
+    // so listing it here would re-apply the saved value on every theme switch.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Apply + persist on theme change
@@ -82,7 +85,12 @@ export function ThemeToggle({ variant = "icon" }: { variant?: "icon" | "full" })
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon" className="size-10 rounded-full" aria-label="Toggle theme">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="size-10 rounded-full"
+          aria-label="Toggle theme"
+        >
           <Icon className="size-4 transition-transform" />
         </Button>
       </DropdownMenuTrigger>

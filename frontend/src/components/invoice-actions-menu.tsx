@@ -1,6 +1,12 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { useQueryClient } from "@tanstack/react-query";
 import { useApp } from "@/lib/store";
@@ -15,8 +21,26 @@ import {
 } from "@/lib/api";
 import { printerService } from "@/lib/printer.service";
 import { EditInvoiceDialog } from "@/components/edit-invoice-dialog";
-import { Eye, Printer, FileText, Share2, Link, Copy, Trash2, Edit3, AlertTriangle, RefreshCw, Mail } from "lucide-react";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Eye,
+  Printer,
+  FileText,
+  Share2,
+  Link,
+  Copy,
+  Trash2,
+  Edit3,
+  AlertTriangle,
+  RefreshCw,
+  Mail,
+} from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 
 export function InvoiceActionsMenu({
@@ -58,7 +82,11 @@ export function InvoiceActionsMenu({
       const ok = await printerService.print(receipt);
       if (ok) {
         toast.success("Receipt printed successfully");
-        await logSaleAudit(invoiceNumber, "INVOICE_PRINT", `${role} printed Invoice ${invoiceNumber}`);
+        await logSaleAudit(
+          invoiceNumber,
+          "INVOICE_PRINT",
+          `${role} printed Invoice ${invoiceNumber}`,
+        );
       }
     } catch (err: any) {
       toast.error(err.message || "Failed to print receipt");
@@ -80,7 +108,11 @@ export function InvoiceActionsMenu({
       a.remove();
       URL.revokeObjectURL(url);
       toast.success("PDF downloaded successfully");
-      await logSaleAudit(invoiceNumber, "INVOICE_PDF", `${role} downloaded PDF for ${invoiceNumber}`);
+      await logSaleAudit(
+        invoiceNumber,
+        "INVOICE_PDF",
+        `${role} downloaded PDF for ${invoiceNumber}`,
+      );
     } catch (err: any) {
       toast.error(err.message || "Failed to download PDF");
     } finally {
@@ -98,7 +130,11 @@ export function InvoiceActionsMenu({
     try {
       const url = await getWhatsAppShareLink(invoiceNumber);
       window.open(url, "_blank");
-      await logSaleAudit(invoiceNumber, "INVOICE_SHARE", `${role} shared invoice ${invoiceNumber} on WhatsApp`);
+      await logSaleAudit(
+        invoiceNumber,
+        "INVOICE_SHARE",
+        `${role} shared invoice ${invoiceNumber} on WhatsApp`,
+      );
     } catch (err: any) {
       toast.error(err.message || "Failed to generate WhatsApp share link");
     } finally {
@@ -142,12 +178,18 @@ export function InvoiceActionsMenu({
 
       useApp.setState({
         cart: duplicatedCartLines,
-        customerMobile: receipt.customer?.phone === "0000000000" ? "" : (receipt.customer?.phone || ""),
-        customerName: receipt.customer?.name === "Walk-in Customer" ? "" : (receipt.customer?.name || ""),
+        customerMobile:
+          receipt.customer?.phone === "0000000000" ? "" : receipt.customer?.phone || "",
+        customerName:
+          receipt.customer?.name === "Walk-in Customer" ? "" : receipt.customer?.name || "",
         payment: receipt.paymentMethod,
       });
 
-      await logSaleAudit(invoiceNumber, "INVOICE_DUPLICATE", `${role} duplicated Invoice ${invoiceNumber}`);
+      await logSaleAudit(
+        invoiceNumber,
+        "INVOICE_DUPLICATE",
+        `${role} duplicated Invoice ${invoiceNumber}`,
+      );
       toast.success("Draft bill created in checkout cart");
       if (onCloseDrawer) onCloseDrawer();
       window.location.href = "/billing";
@@ -172,7 +214,11 @@ export function InvoiceActionsMenu({
     setVoiding(true);
     try {
       await voidSaleInvoice(invoiceNumber, reasonToUse);
-      await logSaleAudit(invoiceNumber, "INVOICE_VOID", `${role} voided Invoice ${invoiceNumber}. Reason: ${reasonToUse}`);
+      await logSaleAudit(
+        invoiceNumber,
+        "INVOICE_VOID",
+        `${role} voided Invoice ${invoiceNumber}. Reason: ${reasonToUse}`,
+      );
       toast.success(`Invoice ${invoiceNumber} voided successfully`);
       setVoidDialogOpen(false);
       setConfirmInvoiceNumber("");
@@ -220,22 +266,49 @@ export function InvoiceActionsMenu({
             Invoice Actions
           </div>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-            <Button variant="outline" size="sm" onClick={handleViewReceipt} className="h-10 rounded-xl justify-start font-medium text-xs">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleViewReceipt}
+              className="h-10 rounded-xl justify-start font-medium text-xs"
+            >
               <Eye className="mr-2 size-3.5 text-muted-foreground" /> View Receipt
             </Button>
             {receipt.status !== "VOID" && receipt.status !== "DELETED" && (
-              <Button variant="outline" size="sm" onClick={() => setEditDialogOpen(true)} className="h-10 rounded-xl justify-start font-medium text-xs">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setEditDialogOpen(true)}
+                className="h-10 rounded-xl justify-start font-medium text-xs"
+              >
                 <Edit3 className="mr-2 size-3.5 text-blue-500" /> Edit Bill
               </Button>
             )}
-            <Button variant="outline" size="sm" onClick={handleDuplicateInvoice} className="h-10 rounded-xl justify-start font-medium text-xs">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleDuplicateInvoice}
+              className="h-10 rounded-xl justify-start font-medium text-xs"
+            >
               <Copy className="mr-2 size-3.5 text-purple-500" /> Duplicate POS
             </Button>
-            <Button variant="outline" size="sm" onClick={handlePrint} disabled={printing} className="h-10 rounded-xl justify-start font-medium text-xs">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handlePrint}
+              disabled={printing}
+              className="h-10 rounded-xl justify-start font-medium text-xs"
+            >
               <Printer className="mr-2 size-3.5 text-muted-foreground" />
               {printing ? "Printing..." : "Print"}
             </Button>
-            <Button variant="outline" size="sm" onClick={handleDownloadPdf} disabled={downloadingPdf} className="h-10 rounded-xl justify-start font-medium text-xs">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleDownloadPdf}
+              disabled={downloadingPdf}
+              className="h-10 rounded-xl justify-start font-medium text-xs"
+            >
               <FileText className="mr-2 size-3.5 text-muted-foreground" />
               {downloadingPdf ? "Loading..." : "PDF Download"}
             </Button>
@@ -246,7 +319,8 @@ export function InvoiceActionsMenu({
               disabled={sharingWhatsApp}
               className="h-10 rounded-xl justify-start font-medium text-xs text-green-600 border-green-500/30 hover:bg-green-500/10"
             >
-              <Share2 className="mr-2 size-3.5 text-green-500" /> {sharingWhatsApp ? "Opening..." : "WhatsApp"}
+              <Share2 className="mr-2 size-3.5 text-green-500" />{" "}
+              {sharingWhatsApp ? "Opening..." : "WhatsApp"}
             </Button>
           </div>
         </div>
@@ -271,30 +345,41 @@ export function InvoiceActionsMenu({
         )}
       </div>
 
-        {/* Future Placeholders */}
-        <div className="border-t border-border/60 pt-3">
-          <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">
-            Future Features (Placeholders)
-          </div>
-          <div className="grid grid-cols-3 gap-2">
-            <Button variant="ghost" disabled className="h-8 rounded-lg text-[10px] opacity-40 cursor-not-allowed justify-center font-normal">
-              <RefreshCw className="mr-1 size-3" /> Refund
-            </Button>
-            <Button variant="ghost" disabled className="h-8 rounded-lg text-[10px] opacity-40 cursor-not-allowed justify-center font-normal">
-              <Mail className="mr-1 size-3" /> Email
-            </Button>
-          </div>
+      {/* Future Placeholders */}
+      <div className="border-t border-border/60 pt-3">
+        <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+          Future Features (Placeholders)
         </div>
+        <div className="grid grid-cols-3 gap-2">
+          <Button
+            variant="ghost"
+            disabled
+            className="h-8 rounded-lg text-[10px] opacity-40 cursor-not-allowed justify-center font-normal"
+          >
+            <RefreshCw className="mr-1 size-3" /> Refund
+          </Button>
+          <Button
+            variant="ghost"
+            disabled
+            className="h-8 rounded-lg text-[10px] opacity-40 cursor-not-allowed justify-center font-normal"
+          >
+            <Mail className="mr-1 size-3" /> Email
+          </Button>
+        </div>
+      </div>
 
       {/* Void Confirmation Dialog */}
-      <Dialog open={voidDialogOpen} onOpenChange={(v) => {
-        setVoidDialogOpen(v);
-        if (!v) {
-          setConfirmInvoiceNumber("");
-          setVoidReason("");
-          setSelectedReason("");
-        }
-      }}>
+      <Dialog
+        open={voidDialogOpen}
+        onOpenChange={(v) => {
+          setVoidDialogOpen(v);
+          if (!v) {
+            setConfirmInvoiceNumber("");
+            setVoidReason("");
+            setSelectedReason("");
+          }
+        }}
+      >
         <DialogContent className="sm:max-w-md rounded-2xl gap-4 p-5">
           <DialogHeader className="space-y-1">
             <DialogTitle className="text-rose-600 font-bold flex items-center gap-2 text-lg">
@@ -311,7 +396,8 @@ export function InvoiceActionsMenu({
             <div className="space-y-1">
               <div className="font-bold text-rose-800">Critical Warning</div>
               <div className="leading-relaxed opacity-90">
-                Voiding this transaction will restore stock levels, deduct customer loyalty spend/visits, and update the sheets ledger. This action is final.
+                Voiding this transaction will restore stock levels, deduct customer loyalty
+                spend/visits, and update the sheets ledger. This action is final.
               </div>
             </div>
           </div>
@@ -359,7 +445,11 @@ export function InvoiceActionsMenu({
 
             <div className="space-y-1 pt-1">
               <label className="text-xs font-semibold text-foreground">
-                Type the last 4 digits of the invoice number (<span className="font-mono text-rose-600 font-bold bg-rose-100/70 px-1.5 py-0.5 rounded">{invoiceNumber ? invoiceNumber.slice(-4) : ""}</span>) to confirm
+                Type the last 4 digits of the invoice number (
+                <span className="font-mono text-rose-600 font-bold bg-rose-100/70 px-1.5 py-0.5 rounded">
+                  {invoiceNumber ? invoiceNumber.slice(-4) : ""}
+                </span>
+                ) to confirm
               </label>
               <Input
                 placeholder="Enter last 4 digits"
@@ -404,11 +494,7 @@ export function InvoiceActionsMenu({
       </Dialog>
 
       {/* Edit Invoice Modal */}
-      <EditInvoiceDialog
-        receipt={receipt}
-        open={editDialogOpen}
-        onOpenChange={setEditDialogOpen}
-      />
+      <EditInvoiceDialog receipt={receipt} open={editDialogOpen} onOpenChange={setEditDialogOpen} />
 
       {/* Admin Delete Confirmation Dialog */}
       <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
@@ -427,7 +513,9 @@ export function InvoiceActionsMenu({
             <div className="space-y-1">
               <div className="font-bold text-rose-800">Admin Action Warning</div>
               <div className="leading-relaxed opacity-90">
-                This will soft-delete invoice #{invoiceNumber}, reverse customer totals, restore stock if applicable, and exclude this sale from Reports and Dashboard metrics. Audit records will be preserved.
+                This will soft-delete invoice #{invoiceNumber}, reverse customer totals, restore
+                stock if applicable, and exclude this sale from Reports and Dashboard metrics. Audit
+                records will be preserved.
               </div>
             </div>
           </div>

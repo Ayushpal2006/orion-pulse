@@ -6,12 +6,7 @@ import { EditProductPriceDialog } from "@/components/edit-product-price-dialog";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -118,15 +113,14 @@ export function Inventory() {
     } else {
       setLoading(false);
     }
+    // Mount-only bootstrap: `products.length` is an initial emptiness check and
+    // loadProducts is not memoised, so listing either would re-load in a loop.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const categories = useMemo(() => {
     const found = Array.from(
-      new Set(
-        products
-          .map((p) => p.category?.trim())
-          .filter((c): c is string => Boolean(c))
-      )
+      new Set(products.map((p) => p.category?.trim()).filter((c): c is string => Boolean(c))),
     );
     return ["All", ...found];
   }, [products]);
@@ -147,10 +141,18 @@ export function Inventory() {
     });
     list = [...list];
     switch (sort) {
-      case "name": list.sort((a, b) => a.name.localeCompare(b.name)); break;
-      case "price": list.sort((a, b) => b.price - a.price); break;
-      case "stock": list.sort((a, b) => b.stock - a.stock); break;
-      case "newest": list.sort((a, b) => b.createdAt.localeCompare(a.createdAt)); break;
+      case "name":
+        list.sort((a, b) => a.name.localeCompare(b.name));
+        break;
+      case "price":
+        list.sort((a, b) => b.price - a.price);
+        break;
+      case "stock":
+        list.sort((a, b) => b.stock - a.stock);
+        break;
+      case "newest":
+        list.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+        break;
     }
     return list;
   }, [products, q, category, status, sort]);
@@ -276,20 +278,38 @@ export function Inventory() {
                     <td className="px-4 py-3.5">
                       <div className="flex items-center gap-3">
                         <div className="grid size-10 place-items-center overflow-hidden rounded-xl bg-muted text-xl shadow-xs group-hover:scale-105 transition-transform">
-                          {p.image ? <img src={p.image} className="size-full object-cover" alt="" /> : p.emoji}
+                          {p.image ? (
+                            <img src={p.image} className="size-full object-cover" alt="" />
+                          ) : (
+                            p.emoji
+                          )}
                         </div>
                         <div>
-                          <div className="font-bold text-foreground text-sm leading-tight">{p.name}</div>
+                          <div className="font-bold text-foreground text-sm leading-tight">
+                            {p.name}
+                          </div>
                           <div className="text-xs text-muted-foreground mt-0.5">{p.category}</div>
                         </div>
                       </div>
                     </td>
-                    <td className="px-4 py-3.5 text-xs font-mono font-medium text-muted-foreground">{p.sku}</td>
-                    <td className="px-4 py-3.5 tabular text-xs font-mono text-muted-foreground">{p.barcode}</td>
-                    <td className="px-4 py-3.5 text-right tabular text-muted-foreground">{inr(p.purchase)}</td>
-                    <td className="px-4 py-3.5 text-right tabular font-bold text-money">{inr(p.price)}</td>
-                    <td className="px-4 py-3.5 text-right tabular text-xs font-semibold text-muted-foreground">{p.gst}%</td>
-                    <td className="px-4 py-3.5 text-right"><StockBadge product={p} /></td>
+                    <td className="px-4 py-3.5 text-xs font-mono font-medium text-muted-foreground">
+                      {p.sku}
+                    </td>
+                    <td className="px-4 py-3.5 tabular text-xs font-mono text-muted-foreground">
+                      {p.barcode}
+                    </td>
+                    <td className="px-4 py-3.5 text-right tabular text-muted-foreground">
+                      {inr(p.purchase)}
+                    </td>
+                    <td className="px-4 py-3.5 text-right tabular font-bold text-money">
+                      {inr(p.price)}
+                    </td>
+                    <td className="px-4 py-3.5 text-right tabular text-xs font-semibold text-muted-foreground">
+                      {p.gst}%
+                    </td>
+                    <td className="px-4 py-3.5 text-right">
+                      <StockBadge product={p} />
+                    </td>
                     <td className="px-4 py-3.5 text-right" onClick={(e) => e.stopPropagation()}>
                       <div className="flex items-center justify-end gap-1.5">
                         <Button
@@ -303,7 +323,12 @@ export function Inventory() {
                         >
                           <Pencil className="size-3" /> Price
                         </Button>
-                        <Button variant="outline" size="sm" onClick={() => setBarcodeProduct(p)} className="h-8 rounded-lg text-xs gap-1 border-border/80 hover:bg-muted">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setBarcodeProduct(p)}
+                          className="h-8 rounded-lg text-xs gap-1 border-border/80 hover:bg-muted"
+                        >
                           <BarcodeIcon className="size-3.5" /> Barcode
                         </Button>
                       </div>
@@ -324,7 +349,11 @@ export function Inventory() {
               >
                 <div className="flex items-start gap-3">
                   <div className="grid size-11 place-items-center overflow-hidden rounded-xl bg-muted text-xl">
-                    {p.image ? <img src={p.image} className="size-full object-cover" alt="" /> : p.emoji}
+                    {p.image ? (
+                      <img src={p.image} className="size-full object-cover" alt="" />
+                    ) : (
+                      p.emoji
+                    )}
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="truncate text-sm font-semibold">{p.name}</div>
@@ -369,8 +398,20 @@ export function Inventory() {
         </button>
       )}
 
-      <EditProductDialog open={addOpen} onOpenChange={setAddOpen} product={null} mode="add" onSuccess={loadProducts} />
-      <EditProductDialog open={editOpen} onOpenChange={setEditOpen} product={editProduct} mode="edit" onSuccess={loadProducts} />
+      <EditProductDialog
+        open={addOpen}
+        onOpenChange={setAddOpen}
+        product={null}
+        mode="add"
+        onSuccess={loadProducts}
+      />
+      <EditProductDialog
+        open={editOpen}
+        onOpenChange={setEditOpen}
+        product={editProduct}
+        mode="edit"
+        onSuccess={loadProducts}
+      />
       <StockAdjustmentDialog
         open={!!adjustProduct}
         onOpenChange={(v) => !v && setAdjustProduct(null)}

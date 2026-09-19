@@ -4,9 +4,21 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
 import { RoleGate } from "@/components/role-gate";
 import { useApp, type Role, type PaperWidth } from "@/lib/store";
@@ -61,7 +73,15 @@ import { printerService } from "@/lib/printer.service";
 import { DEFAULT_RECEIPT_TEMPLATES, saveActiveTemplateConfig } from "@/lib/receipt-template";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { useQueryClient } from "@tanstack/react-query";
-import { testPrinter, API_BASE_URL, apiFetch, resetOnboardingApi, changePasswordApi, getStoreHeaders, getSettingsApi } from "@/lib/api";
+import {
+  testPrinter,
+  API_BASE_URL,
+  apiFetch,
+  resetOnboardingApi,
+  changePasswordApi,
+  getStoreHeaders,
+  getSettingsApi,
+} from "@/lib/api";
 import { formatToKolkataDateTime } from "@/lib/datetime";
 import { WhatsAppTemplateManager } from "@/components/whatsapp-template-manager";
 import { BrandingSettings } from "@/components/branding-settings";
@@ -115,25 +135,234 @@ interface SectionMeta {
 }
 
 const SECTIONS: SectionMeta[] = [
-  { id: "general", name: "General", category: "Core", icon: SlidersHorizontal, description: "Business defaults, currency & localization", keywords: ["general", "currency", "timezone", "language", "theme", "color"] },
-  { id: "organization", name: "Organization Profile", category: "Core", icon: Building2, description: "Business profile, GST/PAN, logo & SaaS parameters", badge: "Owner", keywords: ["organization", "profile", "business", "gst", "pan", "logo", "address", "saas", "owner"] },
-  { id: "security", name: "Security & Password", category: "Core", icon: Key, description: "Change owner login password & account security", badge: "Auth", keywords: ["security", "password", "owner", "login", "reset", "auth", "change password"] },
-  { id: "shop", name: "Shop Information", category: "Core", icon: Building2, description: "Store name, GSTIN & contact details", keywords: ["shop", "store", "address", "phone", "email", "mobile", "contact", "identity"] },
-  { id: "stores", name: "Stores Management", category: "Core", icon: Store, description: "Multi-store outlets, branches & switching", badge: "New", keywords: ["stores", "store", "multi-store", "branches", "outlets", "locations", "switching"] },
-  { id: "users", name: "Users & Roles", category: "Core", icon: Users, description: "Team accounts, roles & store permissions", badge: "Roles", keywords: ["users", "user", "role", "permissions", "access", "manager", "cashier", "viewer", "team"] },
-  { id: "branding", name: "Branding", category: "Core", icon: Palette, description: "Logo, headers, footers & theme colors", badge: "Live", keywords: ["logo", "branding", "color", "palette", "header", "footer", "tagline", "brand", "accent"] },
-  { id: "billing", name: "Billing POS", category: "Sales & Operations", icon: Receipt, description: "Invoice prefixes, payment modes & checkout", keywords: ["billing", "invoice", "prefix", "sequence", "pos", "checkout", "payment", "inv-"] },
-  { id: "purchase", name: "Purchase POS", category: "Sales & Operations", icon: ShoppingBag, description: "PO prefixes, cost autofill & suppliers", keywords: ["purchase", "po", "supplier", "cost", "autofill", "vendor", "po-", "void"] },
-  { id: "inventory", name: "Inventory", category: "Sales & Operations", icon: Package, description: "Stock alerts, SKU formats & barcodes", keywords: ["inventory", "stock", "sku", "barcode", "threshold", "low stock", "adjust"] },
-  { id: "customers", name: "Customers", category: "Sales & Operations", icon: Users, description: "Auto customer creation & walk-in defaults", keywords: ["customer", "customers", "walk-in", "orders", "crm", "ledger"] },
-  { id: "reports", name: "Reports & Analytics", category: "Sales & Operations", icon: BarChart3, description: "Default date ranges & export formats", keywords: ["reports", "analytics", "export", "period", "date", "csv", "pdf", "month"] },
-  { id: "printing", name: "Printing & Hardware", category: "Communication & Output", icon: Printer, description: "Thermal widths (58mm/80mm) & POS setup", keywords: ["print", "printing", "printer", "thermal", "58mm", "80mm", "paper", "hardware", "escpos"] },
-  { id: "whatsapp", name: "WhatsApp Templates", category: "Communication & Output", icon: MessageSquare, description: "Share message templates & live previews", keywords: ["whatsapp", "wa", "template", "templates", "message", "signature", "share", "messaging"] },
-  { id: "invoice_templates", name: "Invoice Templates", category: "Communication & Output", icon: FileText, description: "Invoice layout designs & live previews", keywords: ["invoice template", "templates", "specimen", "classic", "retail", "premium", "compact", "preview"] },
-  { id: "taxes", name: "Taxes & GST", category: "Communication & Output", icon: Percent, description: "Default GST rates & HSN configurations", keywords: ["gst", "taxes", "tax", "hsn", "cgst", "sgst", "igst", "gstin", "rate"] },
-  { id: "backup", name: "Backup & Restore", category: "System & Data", icon: Cloud, description: "Google Sheets sync & database backups", badge: "Sync", keywords: ["google", "sheets", "google sheets", "backup", "restore", "snapshot", "sync", "drive", "cloud", "spreadsheet"] },
-  { id: "data", name: "Data Management", category: "System & Data", icon: Archive, description: "PDF storage cleanup & product archives", keywords: ["data", "cleanup", "storage", "pdf cleanup", "archive", "retention"] },
-  { id: "advanced", name: "Advanced & System", category: "System & Data", icon: Terminal, description: "Developer logs, API URLs & system health", badge: "System", keywords: ["advanced", "system", "logs", "api", "diagnostics", "health", "environment"] },
+  {
+    id: "general",
+    name: "General",
+    category: "Core",
+    icon: SlidersHorizontal,
+    description: "Business defaults, currency & localization",
+    keywords: ["general", "currency", "timezone", "language", "theme", "color"],
+  },
+  {
+    id: "organization",
+    name: "Organization Profile",
+    category: "Core",
+    icon: Building2,
+    description: "Business profile, GST/PAN, logo & SaaS parameters",
+    badge: "Owner",
+    keywords: [
+      "organization",
+      "profile",
+      "business",
+      "gst",
+      "pan",
+      "logo",
+      "address",
+      "saas",
+      "owner",
+    ],
+  },
+  {
+    id: "security",
+    name: "Security & Password",
+    category: "Core",
+    icon: Key,
+    description: "Change owner login password & account security",
+    badge: "Auth",
+    keywords: ["security", "password", "owner", "login", "reset", "auth", "change password"],
+  },
+  {
+    id: "shop",
+    name: "Shop Information",
+    category: "Core",
+    icon: Building2,
+    description: "Store name, GSTIN & contact details",
+    keywords: ["shop", "store", "address", "phone", "email", "mobile", "contact", "identity"],
+  },
+  {
+    id: "stores",
+    name: "Stores Management",
+    category: "Core",
+    icon: Store,
+    description: "Multi-store outlets, branches & switching",
+    badge: "New",
+    keywords: ["stores", "store", "multi-store", "branches", "outlets", "locations", "switching"],
+  },
+  {
+    id: "users",
+    name: "Users & Roles",
+    category: "Core",
+    icon: Users,
+    description: "Team accounts, roles & store permissions",
+    badge: "Roles",
+    keywords: [
+      "users",
+      "user",
+      "role",
+      "permissions",
+      "access",
+      "manager",
+      "cashier",
+      "viewer",
+      "team",
+    ],
+  },
+  {
+    id: "branding",
+    name: "Branding",
+    category: "Core",
+    icon: Palette,
+    description: "Logo, headers, footers & theme colors",
+    badge: "Live",
+    keywords: [
+      "logo",
+      "branding",
+      "color",
+      "palette",
+      "header",
+      "footer",
+      "tagline",
+      "brand",
+      "accent",
+    ],
+  },
+  {
+    id: "billing",
+    name: "Billing POS",
+    category: "Sales & Operations",
+    icon: Receipt,
+    description: "Invoice prefixes, payment modes & checkout",
+    keywords: ["billing", "invoice", "prefix", "sequence", "pos", "checkout", "payment", "inv-"],
+  },
+  {
+    id: "purchase",
+    name: "Purchase POS",
+    category: "Sales & Operations",
+    icon: ShoppingBag,
+    description: "PO prefixes, cost autofill & suppliers",
+    keywords: ["purchase", "po", "supplier", "cost", "autofill", "vendor", "po-", "void"],
+  },
+  {
+    id: "inventory",
+    name: "Inventory",
+    category: "Sales & Operations",
+    icon: Package,
+    description: "Stock alerts, SKU formats & barcodes",
+    keywords: ["inventory", "stock", "sku", "barcode", "threshold", "low stock", "adjust"],
+  },
+  {
+    id: "customers",
+    name: "Customers",
+    category: "Sales & Operations",
+    icon: Users,
+    description: "Auto customer creation & walk-in defaults",
+    keywords: ["customer", "customers", "walk-in", "orders", "crm", "ledger"],
+  },
+  {
+    id: "reports",
+    name: "Reports & Analytics",
+    category: "Sales & Operations",
+    icon: BarChart3,
+    description: "Default date ranges & export formats",
+    keywords: ["reports", "analytics", "export", "period", "date", "csv", "pdf", "month"],
+  },
+  {
+    id: "printing",
+    name: "Printing & Hardware",
+    category: "Communication & Output",
+    icon: Printer,
+    description: "Thermal widths (58mm/80mm) & POS setup",
+    keywords: [
+      "print",
+      "printing",
+      "printer",
+      "thermal",
+      "58mm",
+      "80mm",
+      "paper",
+      "hardware",
+      "escpos",
+    ],
+  },
+  {
+    id: "whatsapp",
+    name: "WhatsApp Templates",
+    category: "Communication & Output",
+    icon: MessageSquare,
+    description: "Share message templates & live previews",
+    keywords: [
+      "whatsapp",
+      "wa",
+      "template",
+      "templates",
+      "message",
+      "signature",
+      "share",
+      "messaging",
+    ],
+  },
+  {
+    id: "invoice_templates",
+    name: "Invoice Templates",
+    category: "Communication & Output",
+    icon: FileText,
+    description: "Invoice layout designs & live previews",
+    keywords: [
+      "invoice template",
+      "templates",
+      "specimen",
+      "classic",
+      "retail",
+      "premium",
+      "compact",
+      "preview",
+    ],
+  },
+  {
+    id: "taxes",
+    name: "Taxes & GST",
+    category: "Communication & Output",
+    icon: Percent,
+    description: "Default GST rates & HSN configurations",
+    keywords: ["gst", "taxes", "tax", "hsn", "cgst", "sgst", "igst", "gstin", "rate"],
+  },
+  {
+    id: "backup",
+    name: "Backup & Restore",
+    category: "System & Data",
+    icon: Cloud,
+    description: "Google Sheets sync & database backups",
+    badge: "Sync",
+    keywords: [
+      "google",
+      "sheets",
+      "google sheets",
+      "backup",
+      "restore",
+      "snapshot",
+      "sync",
+      "drive",
+      "cloud",
+      "spreadsheet",
+    ],
+  },
+  {
+    id: "data",
+    name: "Data Management",
+    category: "System & Data",
+    icon: Archive,
+    description: "PDF storage cleanup & product archives",
+    keywords: ["data", "cleanup", "storage", "pdf cleanup", "archive", "retention"],
+  },
+  {
+    id: "advanced",
+    name: "Advanced & System",
+    category: "System & Data",
+    icon: Terminal,
+    description: "Developer logs, API URLs & system health",
+    badge: "System",
+    keywords: ["advanced", "system", "logs", "api", "diagnostics", "health", "environment"],
+  },
 ];
 
 interface BackupHistoryItem {
@@ -156,7 +385,9 @@ function SettingsV2() {
   const [lastSaved, setLastSaved] = useState<string>("Today, 02:40 AM");
 
   // Billing Extended Settings State (Prefilled)
-  const [invPrefix, setInvPrefix] = useState(() => localStorage.getItem("orion_inv_prefix") || "INV-");
+  const [invPrefix, setInvPrefix] = useState(
+    () => localStorage.getItem("orion_inv_prefix") || "INV-",
+  );
   const [invStartNo, setInvStartNo] = useState("00001");
   const [allowNegativeStock, setAllowNegativeStock] = useState(false);
   const [quickBilling, setQuickBilling] = useState(true);
@@ -168,12 +399,18 @@ function SettingsV2() {
   const [autoSaveDraft, setAutoSaveDraft] = useState(true);
 
   // Inventory Extended Settings State (Prefilled)
-  const [lowStockThreshold, setLowStockThreshold] = useState(() => Number(localStorage.getItem("orion_low_stock_threshold")) || 10);
+  const [lowStockThreshold, setLowStockThreshold] = useState(
+    () => Number(localStorage.getItem("orion_low_stock_threshold")) || 10,
+  );
   const [autoGenSku, setAutoGenSku] = useState(true);
 
   // Reports Settings State (Prefilled)
-  const [defaultReportPeriod, setDefaultReportPeriod] = useState(() => localStorage.getItem("orion_default_report_period") || "Month");
-  const [exportFormat, setExportFormat] = useState(() => localStorage.getItem("orion_export_format") || "PDF");
+  const [defaultReportPeriod, setDefaultReportPeriod] = useState(
+    () => localStorage.getItem("orion_default_report_period") || "Month",
+  );
+  const [exportFormat, setExportFormat] = useState(
+    () => localStorage.getItem("orion_export_format") || "PDF",
+  );
 
   // Hardware State
   const [testingPrint, setTestingPrint] = useState(false);
@@ -198,7 +435,9 @@ function SettingsV2() {
   }>({ connected: false, syncMethod: "oauth" });
 
   const [syncMethod, setSyncMethod] = useState<"oauth" | "service_account">("oauth");
-  const [spreadsheetsList, setSpreadsheetsList] = useState<Array<{ id: string; name: string; modifiedTime?: string }>>([]);
+  const [spreadsheetsList, setSpreadsheetsList] = useState<
+    Array<{ id: string; name: string; modifiedTime?: string }>
+  >([]);
   const [loadingSpreadsheets, setLoadingSpreadsheets] = useState(false);
   const [connectingGoogle, setConnectingGoogle] = useState(false);
 
@@ -259,7 +498,11 @@ function SettingsV2() {
       .then((d) => {
         if (d.success) {
           setSheetId(id);
-          setGoogleStatus((prev) => ({ ...prev, spreadsheetId: id, spreadsheetName: d.spreadsheetName || name }));
+          setGoogleStatus((prev) => ({
+            ...prev,
+            spreadsheetId: id,
+            spreadsheetName: d.spreadsheetName || name,
+          }));
           toast.success(`Connected to spreadsheet: ${d.spreadsheetName || name}`);
         } else {
           toast.error(d.error || "Failed to update spreadsheet selection");
@@ -269,7 +512,8 @@ function SettingsV2() {
   };
 
   const handleDisconnectGoogle = () => {
-    if (!window.confirm("Are you sure you want to disconnect your Google Workspace account?")) return;
+    if (!window.confirm("Are you sure you want to disconnect your Google Workspace account?"))
+      return;
     apiFetch(`${API_BASE_URL}/api/google/disconnect`, { method: "POST" })
       .then((r) => r.json())
       .then((d) => {
@@ -294,7 +538,9 @@ function SettingsV2() {
       .then((r) => r.json())
       .then((d) => {
         if (d.success) {
-          toast.success(`Google sync method updated to ${method === "oauth" ? "Google Account (OAuth)" : "Service Account (Legacy)"}`);
+          toast.success(
+            `Google sync method updated to ${method === "oauth" ? "Google Account (OAuth)" : "Service Account (Legacy)"}`,
+          );
           setGoogleStatus((prev) => ({ ...prev, syncMethod: method }));
         }
       })
@@ -313,9 +559,30 @@ function SettingsV2() {
     Array<{ category: string; field: string; currentValue: string; importedValue: string }>
   >([]);
   const [backupHistory, setBackupHistory] = useState<BackupHistoryItem[]>([
-    { id: "1", name: "Manual-Snapshot-2026-07-25.json", timestamp: "2026-07-25 02:30 AM", size: "2.4 MB", type: "Manual", status: "Success" },
-    { id: "2", name: "Auto-Nightly-2026-07-24.json", timestamp: "2026-07-24 12:00 AM", size: "2.3 MB", type: "Auto", status: "Success" },
-    { id: "3", name: "Restore-Point-Pre-Sprint.json", timestamp: "2026-07-23 04:15 PM", size: "2.1 MB", type: "Restore Point", status: "Success" },
+    {
+      id: "1",
+      name: "Manual-Snapshot-2026-07-25.json",
+      timestamp: "2026-07-25 02:30 AM",
+      size: "2.4 MB",
+      type: "Manual",
+      status: "Success",
+    },
+    {
+      id: "2",
+      name: "Auto-Nightly-2026-07-24.json",
+      timestamp: "2026-07-24 12:00 AM",
+      size: "2.3 MB",
+      type: "Auto",
+      status: "Success",
+    },
+    {
+      id: "3",
+      name: "Restore-Point-Pre-Sprint.json",
+      timestamp: "2026-07-23 04:15 PM",
+      size: "2.1 MB",
+      type: "Restore Point",
+      status: "Success",
+    },
   ]);
 
   // Deep Dirty State Snapshot System
@@ -440,7 +707,8 @@ function SettingsV2() {
           setPoPrefix(cfg.po_prefix ?? "PO-");
           s.setReceiptFooter(cfg.receipt_footer ?? "");
           if (cfg.google_sheet_id !== undefined) setSheetId(cfg.google_sheet_id ?? "");
-          if (cfg.google_sync_enabled !== undefined) setIsConnected(cfg.google_sync_enabled === "1");
+          if (cfg.google_sync_enabled !== undefined)
+            setIsConnected(cfg.google_sync_enabled === "1");
           if (cfg.theme) s.setTheme(cfg.theme as any);
           if (cfg.receipt_template) s.setReceiptTemplate(cfg.receipt_template as any);
           if (s.setPrimaryColor) s.setPrimaryColor(cfg.primary_color ?? "#2563eb");
@@ -451,7 +719,10 @@ function SettingsV2() {
           if (s.setTermsAndConditions) s.setTermsAndConditions(cfg.terms_and_conditions ?? "");
           if (s.setWhatsappSignature) s.setWhatsappSignature(cfg.whatsapp_signature ?? "");
           if (s.setRequireCustomerBeforeCheckout) {
-            s.setRequireCustomerBeforeCheckout(cfg.require_customer_before_checkout === "1" || cfg.require_customer_before_checkout === "true");
+            s.setRequireCustomerBeforeCheckout(
+              cfg.require_customer_before_checkout === "1" ||
+                cfg.require_customer_before_checkout === "true",
+            );
           }
 
           // Capture clean baseline snapshot after applying backend settings
@@ -489,6 +760,9 @@ function SettingsV2() {
         window.history.replaceState({}, document.title, window.location.pathname);
       }
     }
+    // Mount-only bootstrap: `s`, `queryClient` and getSettingsSnapshot are stable or
+    // re-created each render; listing them would re-run this one-time hydration.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Filtered sections array based on search query or keywords
@@ -506,7 +780,10 @@ function SettingsV2() {
   // Keyboard Navigation Listener (Cmd+K / / to search, Arrow keys to navigate, Enter to select)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.key === "k" && (e.metaKey || e.ctrlKey)) || (e.key === "/" && document.activeElement !== searchInputRef.current)) {
+      if (
+        (e.key === "k" && (e.metaKey || e.ctrlKey)) ||
+        (e.key === "/" && document.activeElement !== searchInputRef.current)
+      ) {
         e.preventDefault();
         searchInputRef.current?.focus();
       } else if (e.key === "Escape" && document.activeElement === searchInputRef.current) {
@@ -518,7 +795,9 @@ function SettingsV2() {
           setFocusedNavIndex((prev) => (prev + 1) % (filteredSections.length || 1));
         } else if (e.key === "ArrowUp") {
           e.preventDefault();
-          setFocusedNavIndex((prev) => (prev - 1 + filteredSections.length) % (filteredSections.length || 1));
+          setFocusedNavIndex(
+            (prev) => (prev - 1 + filteredSections.length) % (filteredSections.length || 1),
+          );
         } else if (e.key === "Enter") {
           e.preventDefault();
           if (filteredSections[focusedNavIndex]) {
@@ -536,23 +815,67 @@ function SettingsV2() {
   useEffect(() => {
     const q = searchQuery.toLowerCase().trim();
     if (!q) return;
-    if (q.includes("gst") || q.includes("tax") || q.includes("hsn") || q.includes("cgst") || q.includes("sgst")) {
+    if (
+      q.includes("gst") ||
+      q.includes("tax") ||
+      q.includes("hsn") ||
+      q.includes("cgst") ||
+      q.includes("sgst")
+    ) {
       setActiveSection("taxes");
-    } else if (q.includes("logo") || q.includes("brand") || q.includes("tagline") || q.includes("color") || q.includes("palette")) {
+    } else if (
+      q.includes("logo") ||
+      q.includes("brand") ||
+      q.includes("tagline") ||
+      q.includes("color") ||
+      q.includes("palette")
+    ) {
       setActiveSection("branding");
-    } else if (q.includes("google") || q.includes("sheet") || q.includes("sheets") || q.includes("drive") || q.includes("spreadsheet")) {
+    } else if (
+      q.includes("google") ||
+      q.includes("sheet") ||
+      q.includes("sheets") ||
+      q.includes("drive") ||
+      q.includes("spreadsheet")
+    ) {
       setActiveSection("backup");
-    } else if (q.includes("whatsapp") || q.includes("wa") || q.includes("template") || q.includes("signature")) {
+    } else if (
+      q.includes("whatsapp") ||
+      q.includes("wa") ||
+      q.includes("template") ||
+      q.includes("signature")
+    ) {
       setActiveSection("whatsapp");
-    } else if (q.includes("backup") || q.includes("restore") || q.includes("snapshot") || q.includes("json")) {
+    } else if (
+      q.includes("backup") ||
+      q.includes("restore") ||
+      q.includes("snapshot") ||
+      q.includes("json")
+    ) {
       setActiveSection("backup");
-    } else if (q.includes("prefix") || q.includes("invoice") || q.includes("sequence") || q.includes("billing")) {
+    } else if (
+      q.includes("prefix") ||
+      q.includes("invoice") ||
+      q.includes("sequence") ||
+      q.includes("billing")
+    ) {
       setActiveSection("billing");
     } else if (q.includes("purchase") || q.includes("supplier") || q.includes("po")) {
       setActiveSection("purchase");
-    } else if (q.includes("print") || q.includes("thermal") || q.includes("58mm") || q.includes("80mm")) {
+    } else if (
+      q.includes("print") ||
+      q.includes("thermal") ||
+      q.includes("58mm") ||
+      q.includes("80mm")
+    ) {
       setActiveSection("printing");
-    } else if (q.includes("shop") || q.includes("store") || q.includes("phone") || q.includes("email") || q.includes("address")) {
+    } else if (
+      q.includes("shop") ||
+      q.includes("store") ||
+      q.includes("phone") ||
+      q.includes("email") ||
+      q.includes("address")
+    ) {
       setActiveSection("shop");
     } else if (q.includes("inventory") || q.includes("stock") || q.includes("sku")) {
       setActiveSection("inventory");
@@ -610,7 +933,10 @@ function SettingsV2() {
 
       // Success: update deep-cloned saved snapshot to match current form state
       setSavedSettings(structuredClone(getSettingsSnapshot()));
-      const nowFormatted = new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" });
+      const nowFormatted = new Date().toLocaleTimeString("en-IN", {
+        hour: "2-digit",
+        minute: "2-digit",
+      });
       setLastSaved(`Today, ${nowFormatted}`);
 
       toast.success("Settings saved successfully");
@@ -646,7 +972,8 @@ function SettingsV2() {
           logo: s.logo || "",
           primaryColor: s.primaryColor || "#2563eb",
           invoiceHeader: s.invoiceHeader || "TAX INVOICE",
-          invoiceFooter: s.invoiceFooter || "Terms: Goods once sold can be exchanged within 7 days.",
+          invoiceFooter:
+            s.invoiceFooter || "Terms: Goods once sold can be exchanged within 7 days.",
           receiptFooter: s.receiptFooter || "*** Thank you — visit again ***",
           thankYouMessage: s.thankYouMessage || "Thank you for shopping with us!",
           termsAndConditions: s.termsAndConditions || "",
@@ -778,45 +1105,124 @@ function SettingsV2() {
         }
 
         // Build diff list between current settings and imported settings
-        const diffs: Array<{ category: string; field: string; currentValue: string; importedValue: string }> = [];
+        const diffs: Array<{
+          category: string;
+          field: string;
+          currentValue: string;
+          importedValue: string;
+        }> = [];
         const cfg = json.settings || {};
 
         if (cfg.shopInformation?.shopName && cfg.shopInformation.shopName !== s.shopName) {
-          diffs.push({ category: "Shop Info", field: "Shop Name", currentValue: s.shopName, importedValue: cfg.shopInformation.shopName });
+          diffs.push({
+            category: "Shop Info",
+            field: "Shop Name",
+            currentValue: s.shopName,
+            importedValue: cfg.shopInformation.shopName,
+          });
         }
         if (cfg.shopInformation?.gstin && cfg.shopInformation.gstin !== s.gstin) {
-          diffs.push({ category: "GST", field: "GSTIN", currentValue: s.gstin, importedValue: cfg.shopInformation.gstin });
+          diffs.push({
+            category: "GST",
+            field: "GSTIN",
+            currentValue: s.gstin,
+            importedValue: cfg.shopInformation.gstin,
+          });
         }
         if (cfg.shopInformation?.storePhone && cfg.shopInformation.storePhone !== s.storePhone) {
-          diffs.push({ category: "Shop Info", field: "Phone Number", currentValue: s.storePhone, importedValue: cfg.shopInformation.storePhone });
+          diffs.push({
+            category: "Shop Info",
+            field: "Phone Number",
+            currentValue: s.storePhone,
+            importedValue: cfg.shopInformation.storePhone,
+          });
         }
-        if (cfg.shopInformation?.storeAddress && cfg.shopInformation.storeAddress !== s.storeAddress) {
-          diffs.push({ category: "Shop Info", field: "Store Address", currentValue: s.storeAddress, importedValue: cfg.shopInformation.storeAddress });
+        if (
+          cfg.shopInformation?.storeAddress &&
+          cfg.shopInformation.storeAddress !== s.storeAddress
+        ) {
+          diffs.push({
+            category: "Shop Info",
+            field: "Store Address",
+            currentValue: s.storeAddress,
+            importedValue: cfg.shopInformation.storeAddress,
+          });
         }
         if (cfg.billing?.invPrefix && cfg.billing.invPrefix !== invPrefix) {
-          diffs.push({ category: "Billing POS", field: "Invoice Prefix", currentValue: invPrefix, importedValue: cfg.billing.invPrefix });
+          diffs.push({
+            category: "Billing POS",
+            field: "Invoice Prefix",
+            currentValue: invPrefix,
+            importedValue: cfg.billing.invPrefix,
+          });
         }
         if (cfg.purchase?.poPrefix && cfg.purchase.poPrefix !== poPrefix) {
-          diffs.push({ category: "Purchase POS", field: "PO Prefix", currentValue: poPrefix, importedValue: cfg.purchase.poPrefix });
+          diffs.push({
+            category: "Purchase POS",
+            field: "PO Prefix",
+            currentValue: poPrefix,
+            importedValue: cfg.purchase.poPrefix,
+          });
         }
         if (cfg.googleSheets?.sheetId && cfg.googleSheets.sheetId !== sheetId) {
-          diffs.push({ category: "Google Sheets", field: "Spreadsheet ID", currentValue: sheetId, importedValue: cfg.googleSheets.sheetId });
+          diffs.push({
+            category: "Google Sheets",
+            field: "Spreadsheet ID",
+            currentValue: sheetId,
+            importedValue: cfg.googleSheets.sheetId,
+          });
         }
         if (cfg.upiAndPayment?.upiId && cfg.upiAndPayment.upiId !== s.upiId) {
-          diffs.push({ category: "UPI & Payment", field: "UPI ID", currentValue: s.upiId, importedValue: cfg.upiAndPayment.upiId });
+          diffs.push({
+            category: "UPI & Payment",
+            field: "UPI ID",
+            currentValue: s.upiId,
+            importedValue: cfg.upiAndPayment.upiId,
+          });
         }
         if (cfg.branding?.primaryColor && cfg.branding.primaryColor !== s.primaryColor) {
-          diffs.push({ category: "Branding", field: "Brand Accent Color", currentValue: s.primaryColor || "#2563eb", importedValue: cfg.branding.primaryColor });
+          diffs.push({
+            category: "Branding",
+            field: "Brand Accent Color",
+            currentValue: s.primaryColor || "#2563eb",
+            importedValue: cfg.branding.primaryColor,
+          });
         }
-        if (cfg.invoiceTemplates?.receiptTemplate && cfg.invoiceTemplates.receiptTemplate !== s.receiptTemplate) {
-          diffs.push({ category: "Invoice Templates", field: "Receipt Theme", currentValue: s.receiptTemplate, importedValue: cfg.invoiceTemplates.receiptTemplate });
+        if (
+          cfg.invoiceTemplates?.receiptTemplate &&
+          cfg.invoiceTemplates.receiptTemplate !== s.receiptTemplate
+        ) {
+          diffs.push({
+            category: "Invoice Templates",
+            field: "Receipt Theme",
+            currentValue: s.receiptTemplate,
+            importedValue: cfg.invoiceTemplates.receiptTemplate,
+          });
         }
 
         // Support legacy snapshot format
         if (diffs.length === 0 && json.store) {
-          if (json.store.shopName) diffs.push({ category: "Shop Info", field: "Shop Name", currentValue: s.shopName, importedValue: json.store.shopName });
-          if (json.store.gstin) diffs.push({ category: "GST", field: "GSTIN", currentValue: s.gstin, importedValue: json.store.gstin });
-          if (json.store.storePhone) diffs.push({ category: "Shop Info", field: "Store Phone", currentValue: s.storePhone, importedValue: json.store.storePhone });
+          if (json.store.shopName)
+            diffs.push({
+              category: "Shop Info",
+              field: "Shop Name",
+              currentValue: s.shopName,
+              importedValue: json.store.shopName,
+            });
+          if (json.store.gstin)
+            diffs.push({
+              category: "GST",
+              field: "GSTIN",
+              currentValue: s.gstin,
+              importedValue: json.store.gstin,
+            });
+          if (json.store.storePhone)
+            diffs.push({
+              category: "Shop Info",
+              field: "Store Phone",
+              currentValue: s.storePhone,
+              importedValue: json.store.storePhone,
+            });
         }
 
         setImportPendingPayload(json);
@@ -941,7 +1347,9 @@ function SettingsV2() {
         break;
     }
 
-    toast.success(`Restored factory default settings for ${SECTIONS.find((x) => x.id === activeSection)?.name}.`);
+    toast.success(
+      `Restored factory default settings for ${SECTIONS.find((x) => x.id === activeSection)?.name}.`,
+    );
   };
 
   const SectionHeaderActions = () => (
@@ -976,11 +1384,16 @@ function SettingsV2() {
         <div>
           <div className="flex items-center gap-2">
             <SlidersHorizontal className="size-6 text-primary" />
-            <h1 className="text-xl font-bold tracking-tight text-foreground">Orion Configuration Center V2</h1>
-            <Badge variant="outline" className="text-[10px] font-mono border-primary text-primary">Enterprise</Badge>
+            <h1 className="text-xl font-bold tracking-tight text-foreground">
+              Orion Configuration Center V2
+            </h1>
+            <Badge variant="outline" className="text-[10px] font-mono border-primary text-primary">
+              Enterprise
+            </Badge>
           </div>
           <p className="text-xs text-muted-foreground mt-1">
-            Centralized configuration manager for store branding, checkout rules, hardware & cloud sync.
+            Centralized configuration manager for store branding, checkout rules, hardware & cloud
+            sync.
           </p>
         </div>
 
@@ -999,7 +1412,12 @@ function SettingsV2() {
 
           {/* Import Settings Button */}
           <label className="cursor-pointer">
-            <input type="file" accept=".json" onChange={handleImportFileSelect} className="hidden" />
+            <input
+              type="file"
+              accept=".json"
+              onChange={handleImportFileSelect}
+              className="hidden"
+            />
             <span className="inline-flex items-center justify-center rounded-xl text-xs font-semibold h-9 px-3 border border-emerald-500/40 text-emerald-600 bg-emerald-500/10 hover:bg-emerald-500/20 shadow-2xs transition-all cursor-pointer">
               <FileUp className="size-3.5 mr-1.5" /> Import Config
             </span>
@@ -1042,16 +1460,22 @@ function SettingsV2() {
           <div className="flex items-center gap-2">
             <Sparkles className="size-4 text-amber-500 animate-pulse" />
             <span>
-              Searching for &ldquo;<strong>{searchQuery}</strong>&rdquo; — Automatically navigating to{" "}
-              <strong>{SECTIONS.find((s) => s.id === activeSection)?.name}</strong>
+              Searching for &ldquo;<strong>{searchQuery}</strong>&rdquo; — Automatically navigating
+              to <strong>{SECTIONS.find((s) => s.id === activeSection)?.name}</strong>
             </span>
           </div>
-          <div className="text-[10px] font-mono opacity-80 hidden sm:block">Use ↑↓ keys to navigate list, Enter to select</div>
+          <div className="text-[10px] font-mono opacity-80 hidden sm:block">
+            Use ↑↓ keys to navigate list, Enter to select
+          </div>
         </div>
       )}
 
       {/* Mobile Horizontal Scrollable Tab Bar (UX Improvement for Mobile) */}
-      <div className="lg:hidden flex items-center gap-1.5 overflow-x-auto pb-2 scrollbar-none border-b border-border" role="tablist" aria-label="Settings Mobile Navigation">
+      <div
+        className="lg:hidden flex items-center gap-1.5 overflow-x-auto pb-2 scrollbar-none border-b border-border"
+        role="tablist"
+        aria-label="Settings Mobile Navigation"
+      >
         {SECTIONS.map((sec) => {
           const Icon = sec.icon;
           const isActive = activeSection === sec.id;
@@ -1082,18 +1506,25 @@ function SettingsV2() {
         <div className="hidden lg:block lg:col-span-3 space-y-1">
           <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground px-3 mb-2 flex justify-between items-center">
             <span>Configuration Navigation</span>
-            <span className="text-[9px] font-mono text-muted-foreground">{filteredSections.length} Sections</span>
+            <span className="text-[9px] font-mono text-muted-foreground">
+              {filteredSections.length} Sections
+            </span>
           </div>
-          <div className="space-y-1 max-h-[calc(100vh-220px)] overflow-y-auto pr-1" role="tablist" aria-label="Settings Configuration Navigation">
+          <div
+            className="space-y-1 max-h-[calc(100vh-220px)] overflow-y-auto pr-1"
+            role="tablist"
+            aria-label="Settings Configuration Navigation"
+          >
             {filteredSections.map((sec, idx) => {
               const Icon = sec.icon;
               const isActive = activeSection === sec.id;
-              const isKeyboardFocused = focusedNavIndex === idx && document.activeElement === searchInputRef.current;
+              const isKeyboardFocused =
+                focusedNavIndex === idx && document.activeElement === searchInputRef.current;
               const isMatchedKeyword = Boolean(
                 searchQuery.trim() &&
-                  (sec.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                    sec.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                    sec.keywords.some((k) => k.toLowerCase().includes(searchQuery.toLowerCase())))
+                (sec.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                  sec.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                  sec.keywords.some((k) => k.toLowerCase().includes(searchQuery.toLowerCase()))),
               );
 
               return (
@@ -1112,10 +1543,10 @@ function SettingsV2() {
                     isActive
                       ? "bg-primary text-primary-foreground shadow-sm"
                       : isKeyboardFocused
-                      ? "bg-primary/20 text-primary border border-primary/40"
-                      : isMatchedKeyword
-                      ? "bg-amber-500/10 text-amber-700 border border-amber-500/30"
-                      : "text-muted-foreground hover:bg-muted/40 hover:text-foreground"
+                        ? "bg-primary/20 text-primary border border-primary/40"
+                        : isMatchedKeyword
+                          ? "bg-amber-500/10 text-amber-700 border border-amber-500/30"
+                          : "text-muted-foreground hover:bg-muted/40 hover:text-foreground"
                   }`}
                 >
                   <div className="flex items-center gap-2.5 truncate">
@@ -1124,8 +1555,8 @@ function SettingsV2() {
                         isActive
                           ? "text-primary-foreground"
                           : isMatchedKeyword
-                          ? "text-amber-500"
-                          : "text-muted-foreground group-hover:text-foreground"
+                            ? "text-amber-500"
+                            : "text-muted-foreground group-hover:text-foreground"
                       }`}
                     />
                     <span className="truncate">{sec.name}</span>
@@ -1171,7 +1602,9 @@ function SettingsV2() {
               <div className="space-y-1">
                 <h3 className="text-base font-bold text-foreground">No Settings Found</h3>
                 <p className="text-xs text-muted-foreground max-w-md mx-auto">
-                  No configuration sections matched your search term &ldquo;<strong>{searchQuery}</strong>&rdquo;. Try searching for keywords like <em>GST, Logo, Google, WhatsApp, Backup, or Invoice</em>.
+                  No configuration sections matched your search term &ldquo;
+                  <strong>{searchQuery}</strong>&rdquo;. Try searching for keywords like{" "}
+                  <em>GST, Logo, Google, WhatsApp, Backup, or Invoice</em>.
                 </p>
               </div>
               <Button
@@ -1196,7 +1629,9 @@ function SettingsV2() {
                   <div className="text-base font-bold text-foreground flex items-center gap-2">
                     <SlidersHorizontal className="size-5 text-primary" /> General Business Settings
                   </div>
-                  <div className="text-xs text-muted-foreground mt-0.5">Global defaults for currency, timezone, and appearance theme.</div>
+                  <div className="text-xs text-muted-foreground mt-0.5">
+                    Global defaults for currency, timezone, and appearance theme.
+                  </div>
                 </div>
                 <SectionHeaderActions />
               </div>
@@ -1228,7 +1663,11 @@ function SettingsV2() {
 
                 <div className="space-y-1.5">
                   <Label className="text-xs font-semibold">Time Zone</Label>
-                  <Input readOnly value="Asia/Kolkata (IST +5:30)" className="rounded-xl h-9 text-xs bg-muted/40 font-mono text-muted-foreground" />
+                  <Input
+                    readOnly
+                    value="Asia/Kolkata (IST +5:30)"
+                    className="rounded-xl h-9 text-xs bg-muted/40 font-mono text-muted-foreground"
+                  />
                 </div>
 
                 <div className="space-y-1.5">
@@ -1250,7 +1689,9 @@ function SettingsV2() {
                 <Label className="text-xs font-semibold">Interface Theme</Label>
                 <div className="flex items-center gap-3">
                   <ThemeToggle />
-                  <span className="text-xs text-muted-foreground">Switch between Light, Dark, or System Sync mode.</span>
+                  <span className="text-xs text-muted-foreground">
+                    Switch between Light, Dark, or System Sync mode.
+                  </span>
                 </div>
               </div>
 
@@ -1259,7 +1700,10 @@ function SettingsV2() {
                   <Sparkles className="size-4 text-primary" /> First-Time Setup Wizard
                 </Label>
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                  <span className="text-xs text-muted-foreground">Restart the 5-minute express onboarding wizard to reconfigure business defaults, store info, and receipt settings.</span>
+                  <span className="text-xs text-muted-foreground">
+                    Restart the 5-minute express onboarding wizard to reconfigure business defaults,
+                    store info, and receipt settings.
+                  </span>
                   <Button
                     type="button"
                     variant="outline"
@@ -1302,7 +1746,9 @@ function SettingsV2() {
                   <div className="text-base font-bold text-foreground flex items-center gap-2">
                     <Building2 className="size-5 text-primary" /> Shop Information
                   </div>
-                  <div className="text-xs text-muted-foreground mt-0.5">Store details printed on invoices, receipts and tax filings.</div>
+                  <div className="text-xs text-muted-foreground mt-0.5">
+                    Store details printed on invoices, receipts and tax filings.
+                  </div>
                 </div>
                 <SectionHeaderActions />
               </div>
@@ -1368,7 +1814,9 @@ function SettingsV2() {
                   <div className="text-base font-bold text-foreground flex items-center gap-2">
                     <Receipt className="size-5 text-primary" /> Billing POS Configuration
                   </div>
-                  <div className="text-xs text-muted-foreground mt-0.5">Customize invoice prefix, starting numbers, and checkout controls.</div>
+                  <div className="text-xs text-muted-foreground mt-0.5">
+                    Customize invoice prefix, starting numbers, and checkout controls.
+                  </div>
                 </div>
                 <SectionHeaderActions />
               </div>
@@ -1410,7 +1858,10 @@ function SettingsV2() {
 
                 <div className="space-y-1.5">
                   <Label className="text-xs font-semibold">Receipt Template</Label>
-                  <Select value={s.receiptTemplate} onValueChange={(v: any) => s.setReceiptTemplate(v)}>
+                  <Select
+                    value={s.receiptTemplate}
+                    onValueChange={(v: any) => s.setReceiptTemplate(v)}
+                  >
                     <SelectTrigger className="rounded-xl h-9 text-xs">
                       <SelectValue />
                     </SelectTrigger>
@@ -1428,7 +1879,9 @@ function SettingsV2() {
                 <div className="flex items-center justify-between">
                   <div className="space-y-0.5">
                     <Label className="text-xs font-semibold">Allow Negative Stock Checkout</Label>
-                    <div className="text-[10px] text-muted-foreground">Permit billing products even if stock level is 0.</div>
+                    <div className="text-[10px] text-muted-foreground">
+                      Permit billing products even if stock level is 0.
+                    </div>
                   </div>
                   <input
                     type="checkbox"
@@ -1441,7 +1894,9 @@ function SettingsV2() {
                 <div className="flex items-center justify-between">
                   <div className="space-y-0.5">
                     <Label className="text-xs font-semibold">Require Customer Selection</Label>
-                    <div className="text-[10px] text-muted-foreground">Force customer attach before completing checkout.</div>
+                    <div className="text-[10px] text-muted-foreground">
+                      Force customer attach before completing checkout.
+                    </div>
                   </div>
                   <input
                     type="checkbox"
@@ -1462,7 +1917,9 @@ function SettingsV2() {
                   <div className="text-base font-bold text-foreground flex items-center gap-2">
                     <ShoppingBag className="size-5 text-primary" /> Purchase POS Configuration
                   </div>
-                  <div className="text-xs text-muted-foreground mt-0.5">Configure PO numbers, cost autofill from inventory & draft handling.</div>
+                  <div className="text-xs text-muted-foreground mt-0.5">
+                    Configure PO numbers, cost autofill from inventory & draft handling.
+                  </div>
                 </div>
                 <SectionHeaderActions />
               </div>
@@ -1491,8 +1948,12 @@ function SettingsV2() {
               <div className="space-y-3 pt-3 border-t border-border">
                 <div className="flex items-center justify-between">
                   <div className="space-y-0.5">
-                    <Label className="text-xs font-semibold">Auto-fill Purchase Cost from Inventory</Label>
-                    <div className="text-[10px] text-muted-foreground">Automatically populate stored purchase price when adding products to cart.</div>
+                    <Label className="text-xs font-semibold">
+                      Auto-fill Purchase Cost from Inventory
+                    </Label>
+                    <div className="text-[10px] text-muted-foreground">
+                      Automatically populate stored purchase price when adding products to cart.
+                    </div>
                   </div>
                   <input
                     type="checkbox"
@@ -1505,7 +1966,9 @@ function SettingsV2() {
                 <div className="flex items-center justify-between">
                   <div className="space-y-0.5">
                     <Label className="text-xs font-semibold">Auto-save Purchase Drafts</Label>
-                    <div className="text-[10px] text-muted-foreground">Persist uncommitted cart items locally across page reloads.</div>
+                    <div className="text-[10px] text-muted-foreground">
+                      Persist uncommitted cart items locally across page reloads.
+                    </div>
                   </div>
                   <input
                     type="checkbox"
@@ -1526,7 +1989,9 @@ function SettingsV2() {
                   <div className="text-base font-bold text-foreground flex items-center gap-2">
                     <Package className="size-5 text-primary" /> Inventory Settings
                   </div>
-                  <div className="text-xs text-muted-foreground mt-0.5">Low stock alert thresholds, SKU generation, and barcode rules.</div>
+                  <div className="text-xs text-muted-foreground mt-0.5">
+                    Low stock alert thresholds, SKU generation, and barcode rules.
+                  </div>
                 </div>
                 <SectionHeaderActions />
               </div>
@@ -1560,8 +2025,12 @@ function SettingsV2() {
               <div className="space-y-3 pt-3 border-t border-border">
                 <div className="flex items-center justify-between">
                   <div className="space-y-0.5">
-                    <Label className="text-xs font-semibold">Auto-generate SKU for new products</Label>
-                    <div className="text-[10px] text-muted-foreground">Generates unique SKU string if left blank during product creation.</div>
+                    <Label className="text-xs font-semibold">
+                      Auto-generate SKU for new products
+                    </Label>
+                    <div className="text-[10px] text-muted-foreground">
+                      Generates unique SKU string if left blank during product creation.
+                    </div>
                   </div>
                   <input
                     type="checkbox"
@@ -1581,13 +2050,19 @@ function SettingsV2() {
                 <div className="text-base font-bold text-foreground flex items-center gap-2">
                   <Users className="size-5 text-primary" /> Customer Management Settings
                 </div>
-                <div className="text-xs text-muted-foreground mt-0.5">Walk-in customer defaults and automatic customer record creation.</div>
+                <div className="text-xs text-muted-foreground mt-0.5">
+                  Walk-in customer defaults and automatic customer record creation.
+                </div>
               </div>
 
               <div className="space-y-4">
                 <div className="space-y-1.5">
                   <Label className="text-xs font-semibold">Default Walk-in Customer Name</Label>
-                  <Input readOnly value="Walk-in Customer (System Default)" className="rounded-xl h-9 text-xs bg-muted/40 text-muted-foreground" />
+                  <Input
+                    readOnly
+                    value="Walk-in Customer (System Default)"
+                    className="rounded-xl h-9 text-xs bg-muted/40 text-muted-foreground"
+                  />
                 </div>
               </div>
             </div>
@@ -1601,7 +2076,9 @@ function SettingsV2() {
                   <div className="text-base font-bold text-foreground flex items-center gap-2">
                     <BarChart3 className="size-5 text-primary" /> Reports & Export Settings
                   </div>
-                  <div className="text-xs text-muted-foreground mt-0.5">Default date range filter presets and export file formats.</div>
+                  <div className="text-xs text-muted-foreground mt-0.5">
+                    Default date range filter presets and export file formats.
+                  </div>
                 </div>
                 <SectionHeaderActions />
               </div>
@@ -1609,7 +2086,10 @@ function SettingsV2() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <Label className="text-xs font-semibold">Default Report Date Filter</Label>
-                  <Select value={defaultReportPeriod} onValueChange={(v) => setDefaultReportPeriod(v)}>
+                  <Select
+                    value={defaultReportPeriod}
+                    onValueChange={(v) => setDefaultReportPeriod(v)}
+                  >
                     <SelectTrigger className="rounded-xl h-9 text-xs">
                       <SelectValue />
                     </SelectTrigger>
@@ -1650,7 +2130,9 @@ function SettingsV2() {
           )}
 
           {/* 10. WHATSAPP TEMPLATES */}
-          {activeSection === "whatsapp" && <WhatsAppTemplateManager currentStore={(s as any).currentStore} />}
+          {activeSection === "whatsapp" && (
+            <WhatsAppTemplateManager currentStore={(s as any).currentStore} />
+          )}
 
           {/* 11. INVOICE TEMPLATES & LIVE PREVIEW */}
           {activeSection === "invoice_templates" && <InvoiceTemplatesPage />}
@@ -1663,7 +2145,9 @@ function SettingsV2() {
                   <div className="text-base font-bold text-foreground flex items-center gap-2">
                     <Percent className="size-5 text-primary" /> Taxes & GST Configuration
                   </div>
-                  <div className="text-xs text-muted-foreground mt-0.5">Set default GST rates and tax breakdown preferences.</div>
+                  <div className="text-xs text-muted-foreground mt-0.5">
+                    Set default GST rates and tax breakdown preferences.
+                  </div>
                 </div>
                 <SectionHeaderActions />
               </div>
@@ -1706,7 +2190,8 @@ function SettingsV2() {
                       <Cloud className="size-5 text-blue-500" /> Google Workspace Integration
                     </div>
                     <div className="text-xs text-muted-foreground mt-0.5">
-                      Connect your Google account to automatically sync Sales, Products, Customers and Reports.
+                      Connect your Google account to automatically sync Sales, Products, Customers
+                      and Reports.
                     </div>
                   </div>
 
@@ -1745,7 +2230,10 @@ function SettingsV2() {
                       />
                       <div>
                         <div className="flex items-center gap-1.5 font-bold text-foreground">
-                          Google Account <Badge className="text-[9px] bg-emerald-500 text-white px-1.5 py-0">Recommended</Badge>
+                          Google Account{" "}
+                          <Badge className="text-[9px] bg-emerald-500 text-white px-1.5 py-0">
+                            Recommended
+                          </Badge>
                         </div>
                         <div className="text-[11px] text-muted-foreground mt-0.5">
                           Connect via OAuth 2.0 & pick spreadsheets directly.
@@ -1786,18 +2274,30 @@ function SettingsV2() {
                         {/* Connected Account & Sheet Details */}
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
                           <div className="p-3 bg-muted/20 rounded-xl border border-border/40 space-y-0.5">
-                            <div className="text-[10px] text-muted-foreground uppercase font-bold">Connected Email</div>
-                            <div className="font-semibold text-foreground truncate font-mono">{googleStatus.email || "owner@gmail.com"}</div>
+                            <div className="text-[10px] text-muted-foreground uppercase font-bold">
+                              Connected Email
+                            </div>
+                            <div className="font-semibold text-foreground truncate font-mono">
+                              {googleStatus.email || "owner@gmail.com"}
+                            </div>
                           </div>
 
                           <div className="p-3 bg-muted/20 rounded-xl border border-border/40 space-y-0.5">
-                            <div className="text-[10px] text-muted-foreground uppercase font-bold">Selected Spreadsheet</div>
-                            <div className="font-semibold text-emerald-600 truncate">{googleStatus.spreadsheetName || "Select Spreadsheet..."}</div>
+                            <div className="text-[10px] text-muted-foreground uppercase font-bold">
+                              Selected Spreadsheet
+                            </div>
+                            <div className="font-semibold text-emerald-600 truncate">
+                              {googleStatus.spreadsheetName || "Select Spreadsheet..."}
+                            </div>
                           </div>
 
                           <div className="p-3 bg-muted/20 rounded-xl border border-border/40 space-y-0.5">
-                            <div className="text-[10px] text-muted-foreground uppercase font-bold">Status</div>
-                            <div className="font-semibold text-foreground font-mono">Healthy (OAuth 2.0)</div>
+                            <div className="text-[10px] text-muted-foreground uppercase font-bold">
+                              Status
+                            </div>
+                            <div className="font-semibold text-foreground font-mono">
+                              Healthy (OAuth 2.0)
+                            </div>
                           </div>
                         </div>
 
@@ -1805,7 +2305,8 @@ function SettingsV2() {
                         <div className="p-4 bg-muted/10 rounded-xl border border-border/40 space-y-2">
                           <div className="flex items-center justify-between">
                             <Label className="text-xs font-bold text-foreground flex items-center gap-1.5">
-                              <FileSpreadsheet className="size-4 text-emerald-500" /> Select Spreadsheet
+                              <FileSpreadsheet className="size-4 text-emerald-500" /> Select
+                              Spreadsheet
                             </Label>
                             <Button
                               type="button"
@@ -1815,7 +2316,11 @@ function SettingsV2() {
                               onClick={fetchSpreadsheets}
                               disabled={loadingSpreadsheets}
                             >
-                              {loadingSpreadsheets ? <Loader2 className="size-3 animate-spin mr-1" /> : <RefreshCw className="size-3 mr-1" />}
+                              {loadingSpreadsheets ? (
+                                <Loader2 className="size-3 animate-spin mr-1" />
+                              ) : (
+                                <RefreshCw className="size-3 mr-1" />
+                              )}
                               Refresh List
                             </Button>
                           </div>
@@ -1825,13 +2330,17 @@ function SettingsV2() {
                               className="w-full h-10 px-3 rounded-xl border border-border bg-background text-xs font-medium focus:ring-2 focus:ring-primary"
                               value={googleStatus.spreadsheetId || ""}
                               onChange={(e) => {
-                                const selected = spreadsheetsList.find((s) => s.id === e.target.value);
+                                const selected = spreadsheetsList.find(
+                                  (s) => s.id === e.target.value,
+                                );
                                 if (selected) {
                                   handleSelectSpreadsheet(selected.id, selected.name);
                                 }
                               }}
                             >
-                              <option value="" disabled>-- Choose a Google Spreadsheet --</option>
+                              <option value="" disabled>
+                                -- Choose a Google Spreadsheet --
+                              </option>
                               {spreadsheetsList.map((sheet) => (
                                 <option key={sheet.id} value={sheet.id}>
                                   📊 {sheet.name} (ID: {sheet.id.slice(0, 8)}...)
@@ -1847,7 +2356,11 @@ function SettingsV2() {
                               onClick={fetchSpreadsheets}
                               disabled={loadingSpreadsheets}
                             >
-                              {loadingSpreadsheets ? <Loader2 className="size-3.5 animate-spin mr-1.5" /> : <FileSpreadsheet className="size-3.5 mr-1.5 text-blue-500" />}
+                              {loadingSpreadsheets ? (
+                                <Loader2 className="size-3.5 animate-spin mr-1.5" />
+                              ) : (
+                                <FileSpreadsheet className="size-3.5 mr-1.5 text-blue-500" />
+                              )}
                               Fetch My Google Spreadsheets
                             </Button>
                           )}
@@ -1863,7 +2376,11 @@ function SettingsV2() {
                             onClick={handleConnectGoogle}
                             disabled={connectingGoogle}
                           >
-                            {connectingGoogle ? <Loader2 className="size-3.5 animate-spin mr-1.5" /> : <RefreshCw className="size-3.5 mr-1.5 text-blue-500" />}
+                            {connectingGoogle ? (
+                              <Loader2 className="size-3.5 animate-spin mr-1.5" />
+                            ) : (
+                              <RefreshCw className="size-3.5 mr-1.5 text-blue-500" />
+                            )}
                             Reconnect
                           </Button>
 
@@ -1882,7 +2399,12 @@ function SettingsV2() {
                               type="button"
                               variant="ghost"
                               size="sm"
-                              onClick={() => window.open(`https://docs.google.com/spreadsheets/d/${googleStatus.spreadsheetId}`, "_blank")}
+                              onClick={() =>
+                                window.open(
+                                  `https://docs.google.com/spreadsheets/d/${googleStatus.spreadsheetId}`,
+                                  "_blank",
+                                )
+                              }
                               className="rounded-xl h-8 text-xs font-semibold text-primary hover:underline ml-auto"
                             >
                               Open Spreadsheet <ExternalLink className="size-3 ml-1" />
@@ -1897,9 +2419,12 @@ function SettingsV2() {
                           <Cloud className="size-6" />
                         </div>
                         <div className="max-w-md mx-auto space-y-1">
-                          <h4 className="text-sm font-bold text-foreground">Google Workspace — Not Connected</h4>
+                          <h4 className="text-sm font-bold text-foreground">
+                            Google Workspace — Not Connected
+                          </h4>
                           <p className="text-xs text-muted-foreground">
-                            Connect your Google account to automatically sync Sales, Products, Customers and Reports.
+                            Connect your Google account to automatically sync Sales, Products,
+                            Customers and Reports.
                           </p>
                         </div>
                         <Button
@@ -1908,7 +2433,11 @@ function SettingsV2() {
                           onClick={handleConnectGoogle}
                           disabled={connectingGoogle}
                         >
-                          {connectingGoogle ? <Loader2 className="size-4 animate-spin mr-2" /> : <Cloud className="size-4 mr-2" />}
+                          {connectingGoogle ? (
+                            <Loader2 className="size-4 animate-spin mr-2" />
+                          ) : (
+                            <Cloud className="size-4 mr-2" />
+                          )}
                           Connect Google
                         </Button>
                       </div>
@@ -1921,7 +2450,9 @@ function SettingsV2() {
                   <div className="space-y-4 pt-2 border-t border-border">
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
                       <div className="space-y-1">
-                        <Label className="text-xs font-semibold">Spreadsheet ID (Legacy Service Account)</Label>
+                        <Label className="text-xs font-semibold">
+                          Spreadsheet ID (Legacy Service Account)
+                        </Label>
                         <Input
                           value={sheetId}
                           onChange={(e) => setSheetId(e.target.value)}
@@ -1931,10 +2462,19 @@ function SettingsV2() {
                       </div>
                       <div className="p-3 bg-muted/20 rounded-xl border border-border/40 flex justify-between items-center text-xs">
                         <div>
-                          <div className="text-[10px] text-muted-foreground uppercase font-bold">Service Account Mode</div>
-                          <div className="font-semibold text-foreground font-mono mt-0.5">Legacy Active</div>
+                          <div className="text-[10px] text-muted-foreground uppercase font-bold">
+                            Service Account Mode
+                          </div>
+                          <div className="font-semibold text-foreground font-mono mt-0.5">
+                            Legacy Active
+                          </div>
                         </div>
-                        <Badge variant="outline" className="text-[9px] font-mono border-amber-500/30 text-amber-600">Manual Setup</Badge>
+                        <Badge
+                          variant="outline"
+                          className="text-[9px] font-mono border-amber-500/30 text-amber-600"
+                        >
+                          Manual Setup
+                        </Badge>
                       </div>
                     </div>
 
@@ -1966,13 +2506,19 @@ function SettingsV2() {
                               toast.error(data.error || "Connection test failed.");
                             }
                           } catch (e: any) {
-                            toast.error("Connection test failed: " + (e.message || "Network error"));
+                            toast.error(
+                              "Connection test failed: " + (e.message || "Network error"),
+                            );
                           } finally {
                             setTestingConnection(false);
                           }
                         }}
                       >
-                        {testingConnection ? <Loader2 className="size-3.5 animate-spin mr-1.5" /> : <RefreshCw className="size-3.5 mr-1.5 text-blue-500" />}
+                        {testingConnection ? (
+                          <Loader2 className="size-3.5 animate-spin mr-1.5" />
+                        ) : (
+                          <RefreshCw className="size-3.5 mr-1.5 text-blue-500" />
+                        )}
                         Test Connection
                       </Button>
 
@@ -1985,7 +2531,9 @@ function SettingsV2() {
                         onClick={async () => {
                           setSyncingNow(true);
                           try {
-                            const res = await apiFetch(`${API_BASE_URL}/sync/trigger`, { method: "POST" });
+                            const res = await apiFetch(`${API_BASE_URL}/sync/trigger`, {
+                              method: "POST",
+                            });
                             const data = await res.json();
                             if (data.success) {
                               toast.success("Manual sync completed successfully!");
@@ -1999,7 +2547,11 @@ function SettingsV2() {
                           }
                         }}
                       >
-                        {syncingNow ? <Loader2 className="size-3.5 animate-spin mr-1.5" /> : <Cloud className="size-3.5 mr-1.5 text-emerald-500" />}
+                        {syncingNow ? (
+                          <Loader2 className="size-3.5 animate-spin mr-1.5" />
+                        ) : (
+                          <Cloud className="size-3.5 mr-1.5 text-emerald-500" />
+                        )}
                         Manual Sync
                       </Button>
                     </div>
@@ -2012,17 +2564,21 @@ function SettingsV2() {
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border pb-3">
                   <div>
                     <div className="text-base font-bold text-foreground flex items-center gap-2">
-                      <Database className="size-5 text-primary" /> Complete Database Backup & Restore Center
+                      <Database className="size-5 text-primary" /> Complete Database Backup &
+                      Restore Center
                     </div>
                     <div className="text-xs text-muted-foreground mt-0.5">
-                      Download catalog snapshots, create restore points, manage history, and monitor storage health.
+                      Download catalog snapshots, create restore points, manage history, and monitor
+                      storage health.
                     </div>
                   </div>
 
                   {/* Auto Backup Status & Last Backup Info */}
                   <div className="flex items-center gap-3">
                     <div className="text-right text-xs">
-                      <div className="text-[10px] text-muted-foreground uppercase font-bold">Last Backup Time</div>
+                      <div className="text-[10px] text-muted-foreground uppercase font-bold">
+                        Last Backup Time
+                      </div>
                       <div className="font-semibold text-foreground font-mono">Today, 02:40 AM</div>
                     </div>
                     <div className="flex items-center gap-2 bg-muted/20 px-3 py-1.5 rounded-xl border border-border/50">
@@ -2030,12 +2586,18 @@ function SettingsV2() {
                         checked={autoBackupEnabled}
                         onCheckedChange={(val) => {
                           setAutoBackupEnabled(val);
-                          toast.info(val ? "Auto Backup enabled (Nightly at 12:00 AM)." : "Auto Backup paused.");
+                          toast.info(
+                            val
+                              ? "Auto Backup enabled (Nightly at 12:00 AM)."
+                              : "Auto Backup paused.",
+                          );
                         }}
                       />
                       <div className="text-xs font-semibold">
                         <div className="text-foreground">Auto Backup</div>
-                        <div className="text-[10px] text-muted-foreground">{autoBackupEnabled ? "Nightly 12:00 AM" : "Paused"}</div>
+                        <div className="text-[10px] text-muted-foreground">
+                          {autoBackupEnabled ? "Nightly 12:00 AM" : "Paused"}
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -2044,24 +2606,36 @@ function SettingsV2() {
                 {/* Storage Usage Metrics Breakdown */}
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
                   <div className="p-3 bg-muted/20 rounded-xl border border-border/40 space-y-0.5">
-                    <div className="text-[10px] text-muted-foreground uppercase font-bold">Total Storage Used</div>
+                    <div className="text-[10px] text-muted-foreground uppercase font-bold">
+                      Total Storage Used
+                    </div>
                     <div className="font-bold text-foreground font-mono text-sm">7.7 MB</div>
-                    <div className="text-[10px] text-emerald-600 font-semibold">Healthy (0.8% of 1 GB)</div>
+                    <div className="text-[10px] text-emerald-600 font-semibold">
+                      Healthy (0.8% of 1 GB)
+                    </div>
                   </div>
                   <div className="p-3 bg-muted/20 rounded-xl border border-border/40 space-y-0.5">
-                    <div className="text-[10px] text-muted-foreground uppercase font-bold">Database File Size</div>
+                    <div className="text-[10px] text-muted-foreground uppercase font-bold">
+                      Database File Size
+                    </div>
                     <div className="font-bold text-primary font-mono text-sm">2.4 MB</div>
                     <div className="text-[10px] text-muted-foreground">PostgreSQL / SQLite</div>
                   </div>
                   <div className="p-3 bg-muted/20 rounded-xl border border-border/40 space-y-0.5">
-                    <div className="text-[10px] text-muted-foreground uppercase font-bold">Generated PDFs</div>
+                    <div className="text-[10px] text-muted-foreground uppercase font-bold">
+                      Generated PDFs
+                    </div>
                     <div className="font-bold text-foreground font-mono text-sm">4.2 MB</div>
                     <div className="text-[10px] text-muted-foreground">18 Tax Invoice PDFs</div>
                   </div>
                   <div className="p-3 bg-muted/20 rounded-xl border border-border/40 space-y-0.5">
-                    <div className="text-[10px] text-muted-foreground uppercase font-bold">Media & Logo Assets</div>
+                    <div className="text-[10px] text-muted-foreground uppercase font-bold">
+                      Media & Logo Assets
+                    </div>
                     <div className="font-bold text-foreground font-mono text-sm">1.1 MB</div>
-                    <div className="text-[10px] text-muted-foreground font-mono">Brand Image Cache</div>
+                    <div className="text-[10px] text-muted-foreground font-mono">
+                      Brand Image Cache
+                    </div>
                   </div>
                 </div>
 
@@ -2073,12 +2647,20 @@ function SettingsV2() {
                       <span className="flex items-center gap-1.5">
                         <Download className="size-4 text-primary" /> 1. Manual Backup
                       </span>
-                      <Badge variant="outline" className="text-[9px]">JSON Format</Badge>
+                      <Badge variant="outline" className="text-[9px]">
+                        JSON Format
+                      </Badge>
                     </div>
                     <div className="text-[11px] text-muted-foreground leading-relaxed">
-                      Download instant snapshot of store settings, branding, GST parameters, and catalog records.
+                      Download instant snapshot of store settings, branding, GST parameters, and
+                      catalog records.
                     </div>
-                    <Button type="button" size="sm" onClick={handleManualJsonBackup} className="w-full rounded-xl h-9 text-xs font-bold mt-1">
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={handleManualJsonBackup}
+                      className="w-full rounded-xl h-9 text-xs font-bold mt-1"
+                    >
                       <Download className="size-3.5 mr-1.5" /> Download Manual Backup
                     </Button>
                   </div>
@@ -2089,13 +2671,24 @@ function SettingsV2() {
                       <span className="flex items-center gap-1.5">
                         <Upload className="size-4 text-emerald-500" /> 2. Restore Backup
                       </span>
-                      <Badge variant="outline" className="text-[9px] border-emerald-500/30 text-emerald-600">Requires Confirmation</Badge>
+                      <Badge
+                        variant="outline"
+                        className="text-[9px] border-emerald-500/30 text-emerald-600"
+                      >
+                        Requires Confirmation
+                      </Badge>
                     </div>
                     <div className="text-[11px] text-muted-foreground leading-relaxed">
-                      Upload JSON snapshot file to apply configuration preferences. Existing history is preserved.
+                      Upload JSON snapshot file to apply configuration preferences. Existing history
+                      is preserved.
                     </div>
                     <label className="w-full block">
-                      <input type="file" accept=".json" onChange={handleJsonRestore} className="hidden" />
+                      <input
+                        type="file"
+                        accept=".json"
+                        onChange={handleJsonRestore}
+                        className="hidden"
+                      />
                       <span className="inline-flex items-center justify-center w-full rounded-xl text-xs font-bold h-9 px-3 border border-emerald-500/40 text-emerald-600 bg-emerald-500/10 hover:bg-emerald-500/20 shadow-xs cursor-pointer transition-all">
                         <Upload className="size-3.5 mr-1.5" /> Select File to Restore
                       </span>
@@ -2108,10 +2701,16 @@ function SettingsV2() {
                       <span className="flex items-center gap-1.5">
                         <ShieldCheck className="size-4 text-purple-500" /> 3. Restore Point
                       </span>
-                      <Badge variant="outline" className="text-[9px] border-purple-500/30 text-purple-600">Rollback Guard</Badge>
+                      <Badge
+                        variant="outline"
+                        className="text-[9px] border-purple-500/30 text-purple-600"
+                      >
+                        Rollback Guard
+                      </Badge>
                     </div>
                     <div className="text-[11px] text-muted-foreground leading-relaxed">
-                      Create an instant system rollback snapshot before performing bulk updates or catalog changes.
+                      Create an instant system rollback snapshot before performing bulk updates or
+                      catalog changes.
                     </div>
                     <Button
                       type="button"
@@ -2146,7 +2745,9 @@ function SettingsV2() {
                     <span className="flex items-center gap-1.5">
                       <HardDrive className="size-4 text-primary" /> Backup Snapshot History
                     </span>
-                    <Badge variant="outline" className="text-[10px] font-mono">{backupHistory.length} Saved Snapshots</Badge>
+                    <Badge variant="outline" className="text-[10px] font-mono">
+                      {backupHistory.length} Saved Snapshots
+                    </Badge>
                   </div>
 
                   <div className="rounded-xl border border-border overflow-hidden shadow-2xs">
@@ -2163,8 +2764,12 @@ function SettingsV2() {
                       <tbody className="divide-y divide-border/60">
                         {backupHistory.map((item) => (
                           <tr key={item.id} className="hover:bg-muted/20 transition-all">
-                            <td className="p-2.5 font-mono text-foreground font-medium">{item.name}</td>
-                            <td className="p-2.5 text-muted-foreground font-mono">{item.timestamp}</td>
+                            <td className="p-2.5 font-mono text-foreground font-medium">
+                              {item.name}
+                            </td>
+                            <td className="p-2.5 text-muted-foreground font-mono">
+                              {item.timestamp}
+                            </td>
                             <td className="p-2.5">
                               <Badge
                                 variant="outline"
@@ -2172,8 +2777,8 @@ function SettingsV2() {
                                   item.type === "Manual"
                                     ? "border-blue-500/30 text-blue-600"
                                     : item.type === "Auto"
-                                    ? "border-emerald-500/30 text-emerald-600"
-                                    : "border-purple-500/30 text-purple-600"
+                                      ? "border-emerald-500/30 text-emerald-600"
+                                      : "border-purple-500/30 text-purple-600"
                                 }`}
                               >
                                 {item.type}
@@ -2222,25 +2827,41 @@ function SettingsV2() {
                 <div className="text-base font-bold text-foreground flex items-center gap-2">
                   <Archive className="size-5 text-primary" /> Data Storage & Cleanup
                 </div>
-                <div className="text-xs text-muted-foreground mt-0.5">Clean old PDF files and review disk usage statistics.</div>
+                <div className="text-xs text-muted-foreground mt-0.5">
+                  Clean old PDF files and review disk usage statistics.
+                </div>
               </div>
 
               {storageStats && (
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
                   <div className="p-3 bg-muted/20 rounded-xl border border-border/40">
-                    <div className="text-[10px] text-muted-foreground uppercase font-bold">Total Invoices</div>
-                    <div className="text-base font-bold text-foreground mt-0.5">{storageStats.totalInvoices || 0}</div>
+                    <div className="text-[10px] text-muted-foreground uppercase font-bold">
+                      Total Invoices
+                    </div>
+                    <div className="text-base font-bold text-foreground mt-0.5">
+                      {storageStats.totalInvoices || 0}
+                    </div>
                   </div>
                   <div className="p-3 bg-muted/20 rounded-xl border border-border/40">
-                    <div className="text-[10px] text-muted-foreground uppercase font-bold">PDF Files</div>
-                    <div className="text-base font-bold text-foreground mt-0.5">{storageStats.totalPdfs || 0}</div>
+                    <div className="text-[10px] text-muted-foreground uppercase font-bold">
+                      PDF Files
+                    </div>
+                    <div className="text-base font-bold text-foreground mt-0.5">
+                      {storageStats.totalPdfs || 0}
+                    </div>
                   </div>
                   <div className="p-3 bg-muted/20 rounded-xl border border-border/40">
-                    <div className="text-[10px] text-muted-foreground uppercase font-bold">Storage Used</div>
-                    <div className="text-base font-bold text-foreground mt-0.5">{storageStats.formattedSize || "0 MB"}</div>
+                    <div className="text-[10px] text-muted-foreground uppercase font-bold">
+                      Storage Used
+                    </div>
+                    <div className="text-base font-bold text-foreground mt-0.5">
+                      {storageStats.formattedSize || "0 MB"}
+                    </div>
                   </div>
                   <div className="p-3 bg-muted/20 rounded-xl border border-border/40">
-                    <div className="text-[10px] text-muted-foreground uppercase font-bold">PDF Retention</div>
+                    <div className="text-[10px] text-muted-foreground uppercase font-bold">
+                      PDF Retention
+                    </div>
                     <div className="text-base font-bold text-foreground mt-0.5">30 Days</div>
                   </div>
                 </div>
@@ -2255,7 +2876,9 @@ function SettingsV2() {
                 onClick={async () => {
                   setCleaningStorage(true);
                   try {
-                    const res = await apiFetch(`${API_BASE_URL}/settings/storage/cleanup`, { method: "POST" });
+                    const res = await apiFetch(`${API_BASE_URL}/settings/storage/cleanup`, {
+                      method: "POST",
+                    });
                     const json = await res.json();
                     if (json.success) toast.success(json.message);
                   } catch (e) {
@@ -2278,7 +2901,9 @@ function SettingsV2() {
                 <div className="text-base font-bold text-foreground flex items-center gap-2">
                   <Terminal className="size-5 text-primary" /> Advanced System & Health Diagnostics
                 </div>
-                <div className="text-xs text-muted-foreground mt-0.5">Backend environment specs, API endpoints, and system logs.</div>
+                <div className="text-xs text-muted-foreground mt-0.5">
+                  Backend environment specs, API endpoints, and system logs.
+                </div>
               </div>
 
               <div className="space-y-2 text-xs font-mono rounded-2xl bg-muted/20 p-4 border border-border/40">
@@ -2312,8 +2937,9 @@ function SettingsV2() {
               <AlertCircle className="size-5 text-amber-500" /> Confirm Database Snapshot Restore
             </DialogTitle>
             <DialogDescription className="text-xs leading-relaxed">
-              Restoring this snapshot will apply store settings, branding identity, GST parameters, and catalog configurations.
-              Existing backup history will NOT be removed and production data remains safe.
+              Restoring this snapshot will apply store settings, branding identity, GST parameters,
+              and catalog configurations. Existing backup history will NOT be removed and production
+              data remains safe.
             </DialogDescription>
           </DialogHeader>
 
@@ -2321,11 +2947,15 @@ function SettingsV2() {
             <div className="rounded-xl border border-border bg-muted/20 p-3 text-xs space-y-1 font-mono my-1">
               <div className="flex justify-between">
                 <span className="text-muted-foreground">App Architecture:</span>
-                <span className="font-bold text-foreground">{pendingRestoreData.app || "Orion POS"}</span>
+                <span className="font-bold text-foreground">
+                  {pendingRestoreData.app || "Orion POS"}
+                </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Snapshot Store:</span>
-                <span className="font-bold text-foreground">{pendingRestoreData.store?.shopName || "Store"}</span>
+                <span className="font-bold text-foreground">
+                  {pendingRestoreData.store?.shopName || "Store"}
+                </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Snapshot Timestamp:</span>
@@ -2384,7 +3014,8 @@ function SettingsV2() {
               <FileUp className="size-5 text-emerald-500" /> Preview & Confirm Settings Import
             </DialogTitle>
             <DialogDescription className="text-xs leading-relaxed">
-              Review configuration changes before applying. Existing production data remains safe until confirmed.
+              Review configuration changes before applying. Existing production data remains safe
+              until confirmed.
             </DialogDescription>
           </DialogHeader>
 
@@ -2393,11 +3024,17 @@ function SettingsV2() {
               {/* Metadata Badge Bar */}
               <div className="flex flex-wrap items-center justify-between gap-2 p-3 bg-muted/20 rounded-xl border border-border/50 text-xs">
                 <div className="flex items-center gap-2">
-                  <Badge variant="outline" className="text-[10px] font-mono border-emerald-500/30 text-emerald-600">
+                  <Badge
+                    variant="outline"
+                    className="text-[10px] font-mono border-emerald-500/30 text-emerald-600"
+                  >
                     Schema V{importPendingPayload.schemaVersion || "1.0"}
                   </Badge>
                   <span className="font-semibold text-foreground">
-                    Store: {importPendingPayload.multiStoreMetadata?.storeName || importPendingPayload.store?.shopName || "Store"}
+                    Store:{" "}
+                    {importPendingPayload.multiStoreMetadata?.storeName ||
+                      importPendingPayload.store?.shopName ||
+                      "Store"}
                   </span>
                 </div>
                 <Badge className="bg-amber-500/10 text-amber-600 border-amber-500/30 text-[10px] font-mono">
@@ -2420,9 +3057,15 @@ function SettingsV2() {
                     {importDiffList.length > 0 ? (
                       importDiffList.map((diff, idx) => (
                         <tr key={idx} className="hover:bg-muted/20 transition-all">
-                          <td className="p-2.5 font-sans font-medium text-muted-foreground">{diff.category}</td>
-                          <td className="p-2.5 font-sans font-semibold text-foreground">{diff.field}</td>
-                          <td className="p-2.5 text-rose-600/90 truncate max-w-[120px]">{diff.currentValue || "(Empty)"}</td>
+                          <td className="p-2.5 font-sans font-medium text-muted-foreground">
+                            {diff.category}
+                          </td>
+                          <td className="p-2.5 font-sans font-semibold text-foreground">
+                            {diff.field}
+                          </td>
+                          <td className="p-2.5 text-rose-600/90 truncate max-w-[120px]">
+                            {diff.currentValue || "(Empty)"}
+                          </td>
                           <td className="p-2.5 text-emerald-600 font-bold flex items-center gap-1.5 truncate max-w-[140px]">
                             <ArrowRight className="size-3 text-emerald-500 shrink-0" />
                             {diff.importedValue}
@@ -2431,7 +3074,10 @@ function SettingsV2() {
                       ))
                     ) : (
                       <tr>
-                        <td colSpan={4} className="p-4 text-center text-muted-foreground font-sans italic">
+                        <td
+                          colSpan={4}
+                          className="p-4 text-center text-muted-foreground font-sans italic"
+                        >
                           All settings match current production values cleanly.
                         </td>
                       </tr>
@@ -2496,7 +3142,10 @@ function SettingsV2() {
                   // Persist to PostgreSQL database & local storage
                   try {
                     await handleGlobalSave();
-                  } catch (e) {}
+                  } catch {
+                    // Local state is already applied; a failed persist is reported by
+                    // handleGlobalSave itself, so the import still counts as applied.
+                  }
 
                   toast.success("Settings imported successfully!", {
                     description: `${importDiffList.length || 1} configuration fields applied cleanly.`,
@@ -2538,7 +3187,11 @@ function SettingsV2() {
               disabled={saving}
               className="rounded-xl h-8 text-xs font-bold bg-primary text-primary-foreground px-4 shadow-sm"
             >
-              {saving ? <Loader2 className="size-3 animate-spin mr-1.5" /> : <Check className="size-3.5 mr-1.5" />}
+              {saving ? (
+                <Loader2 className="size-3 animate-spin mr-1.5" />
+              ) : (
+                <Check className="size-3.5 mr-1.5" />
+              )}
               {saving ? "Saving..." : "Save All Changes"}
             </Button>
           </div>
@@ -2632,7 +3285,11 @@ function SecuritySettingsSection() {
         </div>
 
         <div className="pt-2">
-          <Button type="submit" disabled={submitting} className="rounded-xl h-10 px-5 text-xs font-bold gap-2">
+          <Button
+            type="submit"
+            disabled={submitting}
+            className="rounded-xl h-10 px-5 text-xs font-bold gap-2"
+          >
             <Lock className="size-4" /> {submitting ? "Updating Password…" : "Update Password"}
           </Button>
         </div>

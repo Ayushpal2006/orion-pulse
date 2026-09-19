@@ -5,9 +5,7 @@ import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxi
 import { useQuery } from "@tanstack/react-query";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import {
-  Popover, PopoverContent, PopoverTrigger,
-} from "@/components/ui/popover";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { FileText, FileSpreadsheet, CalendarIcon, Loader2, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
@@ -15,7 +13,12 @@ import { inr } from "@/lib/format";
 import { useCan } from "@/components/role-gate";
 import { cn } from "@/lib/utils";
 import type { DateRange } from "react-day-picker";
-import { getReportsData, getSupplierReports, downloadReportPdfApi, downloadReportExcelApi } from "@/lib/api";
+import {
+  getReportsData,
+  getSupplierReports,
+  downloadReportPdfApi,
+  downloadReportExcelApi,
+} from "@/lib/api";
 import { InvoiceHistory } from "@/components/invoice-history";
 
 export const Route = createLazyFileRoute("/reports")({
@@ -23,14 +26,7 @@ export const Route = createLazyFileRoute("/reports")({
 });
 
 type Filter =
-  | "today"
-  | "yesterday"
-  | "last7"
-  | "last30"
-  | "thisMonth"
-  | "lastMonth"
-  | "thisYear"
-  | "custom";
+  "today" | "yesterday" | "last7" | "last30" | "thisMonth" | "lastMonth" | "thisYear" | "custom";
 
 const FILTERS: { key: Filter; label: string }[] = [
   { key: "today", label: "Today" },
@@ -62,13 +58,19 @@ function Reports() {
   }, []);
 
   // Format dates for backend custom queries
-  const startDateStr = (filter === "custom" && range?.from) ? format(range.from, "yyyy-MM-dd") : undefined;
-  const endDateStr = (filter === "custom" && range?.to) ? format(range.to, "yyyy-MM-dd") : undefined;
+  const startDateStr =
+    filter === "custom" && range?.from ? format(range.from, "yyyy-MM-dd") : undefined;
+  const endDateStr = filter === "custom" && range?.to ? format(range.to, "yyyy-MM-dd") : undefined;
 
   const [activeTab, setActiveTab] = useState("sales");
 
   // Fetch reports data from backend
-  const { data: reports, isLoading, isError, refetch } = useQuery({
+  const {
+    data: reports,
+    isLoading,
+    isError,
+    refetch,
+  } = useQuery({
     queryKey: ["reports", filter, startDateStr, endDateStr, showVoidInvoices],
     queryFn: () => getReportsData(filter, startDateStr, endDateStr, showVoidInvoices),
     staleTime: 60000,
@@ -87,9 +89,10 @@ function Reports() {
     try {
       setExporting(type);
       toast.info(`Preparing ${type.toUpperCase()} report...`);
-      const blob = type === "pdf"
-        ? await downloadReportPdfApi(filter, startDateStr, endDateStr, showVoidInvoices)
-        : await downloadReportExcelApi(filter, startDateStr, endDateStr, showVoidInvoices);
+      const blob =
+        type === "pdf"
+          ? await downloadReportPdfApi(filter, startDateStr, endDateStr, showVoidInvoices)
+          : await downloadReportExcelApi(filter, startDateStr, endDateStr, showVoidInvoices);
 
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -101,7 +104,9 @@ function Reports() {
       setTimeout(() => URL.revokeObjectURL(url), 1000);
       toast.success(`${type.toUpperCase()} report downloaded successfully!`);
     } catch (err: any) {
-      toast.error(`Failed to export ${type.toUpperCase()} report: ` + (err.message || "Unknown error"));
+      toast.error(
+        `Failed to export ${type.toUpperCase()} report: ` + (err.message || "Unknown error"),
+      );
     } finally {
       setExporting(null);
     }
@@ -119,7 +124,10 @@ function Reports() {
     return (
       <div className="flex h-[80vh] flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-border bg-muted/20 p-6 text-center">
         <div className="text-sm font-semibold text-foreground">Reports could not be loaded</div>
-        <div className="max-w-md text-sm text-muted-foreground">The backend could not produce the selected report. Please retry or verify the SQLite data source.</div>
+        <div className="max-w-md text-sm text-muted-foreground">
+          The backend could not produce the selected report. Please retry or verify the SQLite data
+          source.
+        </div>
         <Button variant="outline" size="sm" onClick={() => refetch()}>
           <RefreshCw className="mr-2 size-4" /> Retry
         </Button>
@@ -143,7 +151,7 @@ function Reports() {
     orders: 0,
     profit: 0,
     averageOrderValue: 0,
-    lowStockCount: 0
+    lowStockCount: 0,
   };
 
   const marginPercent = summary.revenue > 0 ? (summary.profit / summary.revenue) * 100 : 0;
@@ -158,10 +166,20 @@ function Reports() {
           </p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" className="rounded-xl" onClick={() => handleExport("pdf")}>
+          <Button
+            variant="outline"
+            size="sm"
+            className="rounded-xl"
+            onClick={() => handleExport("pdf")}
+          >
             <FileText className="mr-1.5 size-4" /> PDF Report
           </Button>
-          <Button variant="outline" size="sm" className="rounded-xl" onClick={() => handleExport("excel")}>
+          <Button
+            variant="outline"
+            size="sm"
+            className="rounded-xl"
+            onClick={() => handleExport("excel")}
+          >
             <FileSpreadsheet className="mr-1.5 size-4" /> Excel Sheets
           </Button>
         </div>
@@ -192,7 +210,10 @@ function Reports() {
             onChange={(e) => setShowVoidInvoices(e.target.checked)}
             className="rounded border-border bg-surface text-primary focus:ring-primary size-4"
           />
-          <label htmlFor="show-void-invoices" className="text-xs font-semibold text-muted-foreground select-none cursor-pointer">
+          <label
+            htmlFor="show-void-invoices"
+            className="text-xs font-semibold text-muted-foreground select-none cursor-pointer"
+          >
             Show Void Invoices
           </label>
         </div>
@@ -233,22 +254,38 @@ function Reports() {
       {/* KPI Cards Grid */}
       <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
         <div className="card-soft p-5 border-t-2 border-t-emerald-500 space-y-1">
-          <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Revenue</span>
-          <div className="text-2xl font-extrabold tracking-tight text-foreground tabular">{inr(summary.revenue)}</div>
+          <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+            Revenue
+          </span>
+          <div className="text-2xl font-extrabold tracking-tight text-foreground tabular">
+            {inr(summary.revenue)}
+          </div>
         </div>
         <div className="card-soft p-5 border-t-2 border-t-primary space-y-1">
-          <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Orders Count</span>
-          <div className="text-2xl font-extrabold tracking-tight text-foreground tabular">{summary.orders}</div>
+          <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+            Orders Count
+          </span>
+          <div className="text-2xl font-extrabold tracking-tight text-foreground tabular">
+            {summary.orders}
+          </div>
         </div>
         {canProfit && (
           <div className="card-soft p-5 border-t-2 border-t-emerald-500 bg-emerald-500/[0.02] space-y-1">
-            <span className="text-[10px] font-semibold uppercase tracking-widest text-emerald-600 dark:text-emerald-400">Gross Profit ({marginPercent.toFixed(1)}%)</span>
-            <div className="text-2xl font-extrabold tracking-tight text-emerald-600 dark:text-emerald-400 tabular">{inr(summary.profit)}</div>
+            <span className="text-[10px] font-semibold uppercase tracking-widest text-emerald-600 dark:text-emerald-400">
+              Gross Profit ({marginPercent.toFixed(1)}%)
+            </span>
+            <div className="text-2xl font-extrabold tracking-tight text-emerald-600 dark:text-emerald-400 tabular">
+              {inr(summary.profit)}
+            </div>
           </div>
         )}
         <div className="card-soft p-5 border-t-2 border-t-amber-500 space-y-1">
-          <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Low Stock Alerts</span>
-          <div className={`text-2xl font-extrabold tracking-tight tabular ${summary.lowStockCount > 0 ? "text-amber-500" : "text-foreground"}`}>
+          <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+            Low Stock Alerts
+          </span>
+          <div
+            className={`text-2xl font-extrabold tracking-tight tabular ${summary.lowStockCount > 0 ? "text-amber-500" : "text-foreground"}`}
+          >
             {summary.lowStockCount} items
           </div>
         </div>
@@ -256,21 +293,37 @@ function Reports() {
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="rounded-xl">
-          <TabsTrigger value="sales" className="rounded-lg">Sales</TabsTrigger>
+          <TabsTrigger value="sales" className="rounded-lg">
+            Sales
+          </TabsTrigger>
           {canProfit && (
-            <TabsTrigger value="profit" className="rounded-lg">Profit</TabsTrigger>
+            <TabsTrigger value="profit" className="rounded-lg">
+              Profit
+            </TabsTrigger>
           )}
-          <TabsTrigger value="gst" className="rounded-lg">GST</TabsTrigger>
-          <TabsTrigger value="suppliers" className="rounded-lg">Suppliers</TabsTrigger>
+          <TabsTrigger value="gst" className="rounded-lg">
+            GST
+          </TabsTrigger>
+          <TabsTrigger value="suppliers" className="rounded-lg">
+            Suppliers
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="sales" className="mt-4 space-y-4 animate-fade-in">
-          <ChartCard title="Sales Trend" subtitle={FILTERS.find((f) => f.key === filter)?.label ?? "Custom range"} data={data} dataKey="value" color="var(--color-success)" />
-          
+          <ChartCard
+            title="Sales Trend"
+            subtitle={FILTERS.find((f) => f.key === filter)?.label ?? "Custom range"}
+            data={data}
+            dataKey="value"
+            color="var(--color-success)"
+          />
+
           <div className="grid gap-4 md:grid-cols-2">
             <div className="card-soft overflow-hidden flex flex-col justify-between">
               <div>
-                <div className="border-b border-border p-4 text-sm font-semibold">Top Selling Products</div>
+                <div className="border-b border-border p-4 text-sm font-semibold">
+                  Top Selling Products
+                </div>
                 <table className="w-full text-sm">
                   <thead className="bg-muted/40 text-xs uppercase tracking-wide text-muted-foreground">
                     <tr>
@@ -283,7 +336,10 @@ function Reports() {
                   <tbody className="divide-y divide-border">
                     {topProducts.length === 0 ? (
                       <tr>
-                        <td colSpan={4} className="px-4 py-8 text-center text-xs text-muted-foreground">
+                        <td
+                          colSpan={4}
+                          className="px-4 py-8 text-center text-xs text-muted-foreground"
+                        >
                           No product sales logs found.
                         </td>
                       </tr>
@@ -291,9 +347,15 @@ function Reports() {
                       topProducts.slice(0, 5).map((p: any, idx: number) => (
                         <tr key={idx}>
                           <td className="px-4 py-3 font-medium text-foreground">{p.name}</td>
-                          <td className="px-4 py-3 text-right text-muted-foreground">{p.unitsSold}</td>
-                          <td className="px-4 py-3 text-right font-semibold text-foreground">{inr(p.revenue)}</td>
-                          <td className="px-4 py-3 text-right text-muted-foreground">{inr(p.avgPrice || (p.unitsSold > 0 ? p.revenue / p.unitsSold : 0))}</td>
+                          <td className="px-4 py-3 text-right text-muted-foreground">
+                            {p.unitsSold}
+                          </td>
+                          <td className="px-4 py-3 text-right font-semibold text-foreground">
+                            {inr(p.revenue)}
+                          </td>
+                          <td className="px-4 py-3 text-right text-muted-foreground">
+                            {inr(p.avgPrice || (p.unitsSold > 0 ? p.revenue / p.unitsSold : 0))}
+                          </td>
                         </tr>
                       ))
                     )}
@@ -305,23 +367,37 @@ function Reports() {
               <div className="border-t border-border bg-muted/20 p-4 mt-auto">
                 <div className="grid grid-cols-3 gap-2.5">
                   <div className="rounded-xl border border-border bg-background p-3 text-center shadow-sm">
-                    <div className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider leading-tight">Total Sold</div>
-                    <div className="mt-1.5 text-sm font-bold text-foreground truncate">{productsSummary.totalUnitsSold} Units</div>
+                    <div className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider leading-tight">
+                      Total Sold
+                    </div>
+                    <div className="mt-1.5 text-sm font-bold text-foreground truncate">
+                      {productsSummary.totalUnitsSold} Units
+                    </div>
                   </div>
                   <div className="rounded-xl border border-border bg-background p-3 text-center shadow-sm">
-                    <div className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider leading-tight">Product Revenue</div>
-                    <div className="mt-1.5 text-sm font-bold text-money truncate">{inr(productsSummary.totalRevenue)}</div>
+                    <div className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider leading-tight">
+                      Product Revenue
+                    </div>
+                    <div className="mt-1.5 text-sm font-bold text-money truncate">
+                      {inr(productsSummary.totalRevenue)}
+                    </div>
                   </div>
                   <div className="rounded-xl border border-border bg-background p-3 text-center shadow-sm">
-                    <div className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider leading-tight">Unique Sold</div>
-                    <div className="mt-1.5 text-sm font-bold text-foreground truncate">{productsSummary.uniqueProductsSold}</div>
+                    <div className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider leading-tight">
+                      Unique Sold
+                    </div>
+                    <div className="mt-1.5 text-sm font-bold text-foreground truncate">
+                      {productsSummary.uniqueProductsSold}
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
 
             <div className="card-soft overflow-hidden">
-              <div className="border-b border-border p-4 text-sm font-semibold">Top Spender Customers</div>
+              <div className="border-b border-border p-4 text-sm font-semibold">
+                Top Spender Customers
+              </div>
               <table className="w-full text-sm">
                 <thead className="bg-muted/40 text-xs uppercase tracking-wide text-muted-foreground">
                   <tr>
@@ -333,7 +409,10 @@ function Reports() {
                 <tbody className="divide-y divide-border">
                   {topCustomers.length === 0 ? (
                     <tr>
-                      <td colSpan={3} className="px-4 py-8 text-center text-xs text-muted-foreground">
+                      <td
+                        colSpan={3}
+                        className="px-4 py-8 text-center text-xs text-muted-foreground"
+                      >
                         No customer spends found.
                       </td>
                     </tr>
@@ -345,7 +424,9 @@ function Reports() {
                           <div className="text-[10px] text-muted-foreground">{c.phone}</div>
                         </td>
                         <td className="px-4 py-3 text-right text-muted-foreground">{c.orders}</td>
-                        <td className="px-4 py-3 text-right font-semibold text-foreground">{inr(c.spend)}</td>
+                        <td className="px-4 py-3 text-right font-semibold text-foreground">
+                          {inr(c.spend)}
+                        </td>
                       </tr>
                     ))
                   )}
@@ -362,7 +443,13 @@ function Reports() {
 
         {canProfit && (
           <TabsContent value="profit" className="mt-4 space-y-4 animate-fade-in">
-            <ChartCard title="Profit Trend" subtitle="Selected range" data={data} dataKey="profit" color="var(--color-primary)" />
+            <ChartCard
+              title="Profit Trend"
+              subtitle="Selected range"
+              data={data}
+              dataKey="profit"
+              color="var(--color-primary)"
+            />
           </TabsContent>
         )}
 
@@ -390,8 +477,12 @@ function Reports() {
                   gstRows.map((r: any) => (
                     <tr key={r.slab}>
                       <td className="px-4 py-3 font-medium text-foreground">GST {r.slab}%</td>
-                      <td className="px-4 py-3 text-right tabular text-muted-foreground">{inr(r.taxable)}</td>
-                      <td className="px-4 py-3 text-right tabular font-semibold text-foreground">{inr(r.tax)}</td>
+                      <td className="px-4 py-3 text-right tabular text-muted-foreground">
+                        {inr(r.taxable)}
+                      </td>
+                      <td className="px-4 py-3 text-right tabular font-semibold text-foreground">
+                        {inr(r.tax)}
+                      </td>
                     </tr>
                   ))
                 )}
@@ -413,19 +504,25 @@ function Reports() {
           {/* Payables KPI Grid */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="card-soft p-5 text-center">
-              <span className="text-xs text-muted-foreground font-semibold uppercase tracking-wider">Total Outstanding Payables</span>
+              <span className="text-xs text-muted-foreground font-semibold uppercase tracking-wider">
+                Total Outstanding Payables
+              </span>
               <div className="text-3xl font-black text-rose-500 mt-2">
                 {inr(supplierReports?.totalPayables || 0)}
               </div>
             </div>
             <div className="card-soft p-5 text-center">
-              <span className="text-xs text-muted-foreground font-semibold uppercase tracking-wider">Outstanding Suppliers</span>
+              <span className="text-xs text-muted-foreground font-semibold uppercase tracking-wider">
+                Outstanding Suppliers
+              </span>
               <div className="text-3xl font-black text-foreground mt-2">
                 {supplierReports?.outstandingSuppliers?.length || 0} vendors
               </div>
             </div>
             <div className="card-soft p-5 text-center">
-              <span className="text-xs text-muted-foreground font-semibold uppercase tracking-wider">Payments Tracked</span>
+              <span className="text-xs text-muted-foreground font-semibold uppercase tracking-wider">
+                Payments Tracked
+              </span>
               <div className="text-3xl font-black text-foreground mt-2">
                 {supplierReports?.recentPayments?.length || 0} logs
               </div>
@@ -435,18 +532,28 @@ function Reports() {
           <div className="grid gap-4 md:grid-cols-2">
             {/* Outstanding Suppliers List */}
             <div className="card-soft overflow-hidden">
-              <div className="border-b border-border p-4 text-sm font-bold uppercase tracking-wide text-foreground">Outstanding Balances</div>
+              <div className="border-b border-border p-4 text-sm font-bold uppercase tracking-wide text-foreground">
+                Outstanding Balances
+              </div>
               <div className="divide-y divide-border">
-                {!supplierReports?.outstandingSuppliers || supplierReports.outstandingSuppliers.length === 0 ? (
-                  <div className="p-6 text-center text-xs text-muted-foreground">All suppliers fully paid! 🎉</div>
+                {!supplierReports?.outstandingSuppliers ||
+                supplierReports.outstandingSuppliers.length === 0 ? (
+                  <div className="p-6 text-center text-xs text-muted-foreground">
+                    All suppliers fully paid! 🎉
+                  </div>
                 ) : (
                   supplierReports.outstandingSuppliers.map((s: any) => (
-                    <div key={s.id} className="flex items-center justify-between p-4 hover:bg-muted/10">
+                    <div
+                      key={s.id}
+                      className="flex items-center justify-between p-4 hover:bg-muted/10"
+                    >
                       <div>
                         <div className="font-semibold text-foreground">{s.name}</div>
                         <div className="text-xs text-muted-foreground">{s.phone || "No phone"}</div>
                       </div>
-                      <div className="font-bold text-rose-500 tabular-nums">{inr(s.current_balance)}</div>
+                      <div className="font-bold text-rose-500 tabular-nums">
+                        {inr(s.current_balance)}
+                      </div>
                     </div>
                   ))
                 )}
@@ -455,18 +562,27 @@ function Reports() {
 
             {/* Top Suppliers by purchase volume */}
             <div className="card-soft overflow-hidden">
-              <div className="border-b border-border p-4 text-sm font-bold uppercase tracking-wide text-foreground">Top Suppliers (Volume)</div>
+              <div className="border-b border-border p-4 text-sm font-bold uppercase tracking-wide text-foreground">
+                Top Suppliers (Volume)
+              </div>
               <div className="divide-y divide-border">
                 {!supplierReports?.topSuppliers || supplierReports.topSuppliers.length === 0 ? (
-                  <div className="p-6 text-center text-xs text-muted-foreground">No purchase records found.</div>
+                  <div className="p-6 text-center text-xs text-muted-foreground">
+                    No purchase records found.
+                  </div>
                 ) : (
                   supplierReports.topSuppliers.map((s: any) => (
-                    <div key={s.id} className="flex items-center justify-between p-4 hover:bg-muted/10">
+                    <div
+                      key={s.id}
+                      className="flex items-center justify-between p-4 hover:bg-muted/10"
+                    >
                       <div>
                         <div className="font-semibold text-foreground">{s.name}</div>
                         <div className="text-xs text-muted-foreground">{s.phone || "No phone"}</div>
                       </div>
-                      <div className="font-bold text-foreground tabular-nums">{inr(s.totalPurchases)}</div>
+                      <div className="font-bold text-foreground tabular-nums">
+                        {inr(s.totalPurchases)}
+                      </div>
                     </div>
                   ))
                 )}
@@ -476,7 +592,9 @@ function Reports() {
 
           {/* Recent Payments table */}
           <div className="card-soft overflow-hidden">
-            <div className="border-b border-border p-4 text-sm font-bold uppercase tracking-wide text-foreground">Recent Payments</div>
+            <div className="border-b border-border p-4 text-sm font-bold uppercase tracking-wide text-foreground">
+              Recent Payments
+            </div>
             <div className="overflow-x-auto">
               <table className="w-full text-sm text-left border-collapse">
                 <thead>
@@ -490,21 +608,34 @@ function Reports() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
-                  {!supplierReports?.recentPayments || supplierReports.recentPayments.length === 0 ? (
+                  {!supplierReports?.recentPayments ||
+                  supplierReports.recentPayments.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="p-6 text-center text-xs text-muted-foreground">No payments recorded.</td>
+                      <td colSpan={6} className="p-6 text-center text-xs text-muted-foreground">
+                        No payments recorded.
+                      </td>
                     </tr>
                   ) : (
                     supplierReports.recentPayments.map((p: any) => (
                       <tr key={p.id} className="hover:bg-muted/10 transition-colors">
                         <td className="p-4 text-xs text-muted-foreground">
-                          {new Date(p.payment_date).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "2-digit" })}
+                          {new Date(p.payment_date).toLocaleDateString("en-IN", {
+                            day: "numeric",
+                            month: "short",
+                            year: "2-digit",
+                          })}
                         </td>
-                        <td className="p-4 font-mono text-xs font-medium text-foreground">{p.payment_number}</td>
+                        <td className="p-4 font-mono text-xs font-medium text-foreground">
+                          {p.payment_number}
+                        </td>
                         <td className="p-4 font-semibold text-foreground">{p.supplier_name}</td>
                         <td className="p-4 text-xs">{p.payment_method}</td>
-                        <td className="p-4 font-mono text-xs text-muted-foreground">{p.reference_number || "—"}</td>
-                        <td className="p-4 text-right font-bold text-foreground tabular-nums">{inr(p.amount)}</td>
+                        <td className="p-4 font-mono text-xs text-muted-foreground">
+                          {p.reference_number || "—"}
+                        </td>
+                        <td className="p-4 text-right font-bold text-foreground tabular-nums">
+                          {inr(p.amount)}
+                        </td>
                       </tr>
                     ))
                   )}
@@ -542,8 +673,20 @@ function ChartCard({
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={data} margin={{ top: 8, right: 8, bottom: 0, left: -20 }}>
               <CartesianGrid vertical={false} stroke="var(--color-border)" />
-              <XAxis dataKey="label" fontSize={11} tickLine={false} axisLine={false} stroke="var(--color-muted-foreground)" />
-              <YAxis fontSize={11} tickLine={false} axisLine={false} width={45} stroke="var(--color-muted-foreground)" />
+              <XAxis
+                dataKey="label"
+                fontSize={11}
+                tickLine={false}
+                axisLine={false}
+                stroke="var(--color-muted-foreground)"
+              />
+              <YAxis
+                fontSize={11}
+                tickLine={false}
+                axisLine={false}
+                width={45}
+                stroke="var(--color-muted-foreground)"
+              />
               <Tooltip
                 cursor={{ fill: "var(--color-muted)" }}
                 contentStyle={{

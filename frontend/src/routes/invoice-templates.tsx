@@ -6,7 +6,11 @@ export const Route = createFileRoute("/invoice-templates")({
   head: () => ({
     meta: [
       { title: "Invoice Templates · Apka Bill" },
-      { name: "description", content: "Customize invoice templates, header notices, footers, logo, and preview live receipt designs." },
+      {
+        name: "description",
+        content:
+          "Customize invoice templates, header notices, footers, logo, and preview live receipt designs.",
+      },
     ],
   }),
   component: InvoiceTemplatesRouteComponent,

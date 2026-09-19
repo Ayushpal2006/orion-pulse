@@ -4,8 +4,28 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Building2, Save, Users, Store, ShieldCheck, Mail, Phone, MapPin, Globe, CreditCard, FileText, Calendar, Clock } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Building2,
+  Save,
+  Users,
+  Store,
+  ShieldCheck,
+  Mail,
+  Phone,
+  MapPin,
+  Globe,
+  CreditCard,
+  FileText,
+  Calendar,
+  Clock,
+} from "lucide-react";
 import { useApp } from "@/lib/store";
 import { getOrganizationCurrent, updateOrganizationCurrent } from "@/lib/api";
 import { toast } from "sonner";
@@ -86,6 +106,9 @@ export function OrganizationSettingsSection() {
 
   useEffect(() => {
     fetchOrgData();
+    // Mount-only load: fetchOrgData is re-created each render and is not memoised, so
+    // listing it would re-fetch in a loop.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleSave = async (e: React.FormEvent) => {
@@ -145,7 +168,11 @@ export function OrganizationSettingsSection() {
         </div>
 
         {isOwnerOrAdmin && (
-          <Button onClick={handleSave} disabled={saving || loading} className="rounded-xl h-9 px-4 text-xs font-semibold gap-1.5">
+          <Button
+            onClick={handleSave}
+            disabled={saving || loading}
+            className="rounded-xl h-9 px-4 text-xs font-semibold gap-1.5"
+          >
             <Save className="size-4" /> {saving ? "Saving…" : "Save Organization Profile"}
           </Button>
         )}
@@ -180,14 +207,21 @@ export function OrganizationSettingsSection() {
             <span>Active Users</span>
             <ShieldCheck className="size-3.5 text-emerald-500" />
           </div>
-          <div className="text-xl font-bold text-emerald-600 dark:text-emerald-400">{stats.activeUsers}</div>
+          <div className="text-xl font-bold text-emerald-600 dark:text-emerald-400">
+            {stats.activeUsers}
+          </div>
           <div className="text-[10px] text-muted-foreground">Team Members Authorized</div>
         </div>
 
         <div className="p-3.5 rounded-xl border border-border/60 bg-card space-y-1">
           <div className="flex items-center justify-between text-xs text-muted-foreground">
             <span>Disabled Users</span>
-            <Badge variant="outline" className="text-[9px] py-0 border-destructive/30 text-destructive">Deactivated</Badge>
+            <Badge
+              variant="outline"
+              className="text-[9px] py-0 border-destructive/30 text-destructive"
+            >
+              Deactivated
+            </Badge>
           </div>
           <div className="text-xl font-bold text-destructive">{stats.disabledUsers}</div>
           <div className="text-[10px] text-muted-foreground">Access Suspended</div>
@@ -351,7 +385,11 @@ export function OrganizationSettingsSection() {
 
         {isOwnerOrAdmin && (
           <div className="flex justify-end pt-2">
-            <Button type="submit" disabled={saving || loading} className="rounded-xl h-9 px-5 text-xs font-semibold gap-1.5">
+            <Button
+              type="submit"
+              disabled={saving || loading}
+              className="rounded-xl h-9 px-5 text-xs font-semibold gap-1.5"
+            >
               <Save className="size-4" /> {saving ? "Saving…" : "Save Organization Profile"}
             </Button>
           </div>

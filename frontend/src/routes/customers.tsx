@@ -1,7 +1,22 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import {
-  Search, Phone, Calendar, Sparkles, ChevronDown, Plus, Pencil, Trash2, ExternalLink, Printer, FileText, Loader2, Users, Award, RefreshCw, Star
+  Search,
+  Phone,
+  Calendar,
+  Sparkles,
+  ChevronDown,
+  Plus,
+  Pencil,
+  Trash2,
+  ExternalLink,
+  Printer,
+  FileText,
+  Loader2,
+  Users,
+  Award,
+  RefreshCw,
+  Star,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -23,14 +38,26 @@ import type { Customer } from "@/lib/mock-data";
 import { formatToKolkataDateTime, formatToKolkataDate, parseDbTimestamp } from "@/lib/datetime";
 import { toast } from "sonner";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { getCustomers, searchCustomers, deleteCustomerApi, getCustomerInvoices, getWhatsAppShareLink, getSalePublicLink, API_BASE_URL } from "@/lib/api";
+import {
+  getCustomers,
+  searchCustomers,
+  deleteCustomerApi,
+  getCustomerInvoices,
+  getWhatsAppShareLink,
+  getSalePublicLink,
+  API_BASE_URL,
+} from "@/lib/api";
 import { InvoiceHistory } from "@/components/invoice-history";
 
 export const Route = createFileRoute("/customers")({
   head: () => ({
     meta: [
       { title: "Customers · Apka Bill" },
-      { name: "description", content: "Customer CRM with lifetime value, visit history and full invoice timeline — sorted by mobile." },
+      {
+        name: "description",
+        content:
+          "Customer CRM with lifetime value, visit history and full invoice timeline — sorted by mobile.",
+      },
       { property: "og:title", content: "Customers · Apka Bill" },
       { property: "og:description", content: "Know every shopper's story." },
     ],
@@ -55,7 +82,12 @@ function Customers() {
   }, [q]);
 
   // Single canonical query for initial customers list (prevents duplicate GET /customers calls)
-  const { data: allCustomers = [], isLoading: isLoadingAll, isError, refetch: refetchAll } = useQuery({
+  const {
+    data: allCustomers = [],
+    isLoading: isLoadingAll,
+    isError,
+    refetch: refetchAll,
+  } = useQuery({
     queryKey: ["customers"],
     queryFn: getCustomers,
   });
@@ -87,7 +119,13 @@ function Customers() {
       ltv: (c.lifetime_value ?? 0) / 100, // paise to INR
       visits: c.total_orders ?? 0,
       lastVisit: c.last_visit ? formatToKolkataDate(c.last_visit) : "Never",
-      since: c.created_at ? parseDbTimestamp(c.created_at).toLocaleDateString("en-IN", { month: "short", year: "numeric", timeZone: "Asia/Kolkata" }) : "Recently",
+      since: c.created_at
+        ? parseDbTimestamp(c.created_at).toLocaleDateString("en-IN", {
+            month: "short",
+            year: "numeric",
+            timeZone: "Asia/Kolkata",
+          })
+        : "Recently",
       email: c.email || undefined,
       address: c.address || undefined,
       notes: c.notes || undefined,
@@ -99,9 +137,11 @@ function Customers() {
     const total = allCustomers.length;
     const vip = allCustomers.filter((c: any) => (c.lifetime_value ?? 0) >= 500000).length; // Spends > INR 5,000
     const returning = allCustomers.filter((c: any) => (c.total_orders ?? 0) > 1).length;
-    
+
     const todayStr = new Date().toISOString().substring(0, 10);
-    const newToday = allCustomers.filter((c: any) => c.created_at && c.created_at.substring(0, 10) === todayStr).length;
+    const newToday = allCustomers.filter(
+      (c: any) => c.created_at && c.created_at.substring(0, 10) === todayStr,
+    ).length;
 
     return { total, vip, returning, newToday };
   }, [allCustomers]);
@@ -128,30 +168,42 @@ function Customers() {
       {/* CRM Stats Grid */}
       <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
         <div className="card-soft p-4 flex items-center gap-3">
-          <div className="size-10 rounded-xl bg-primary/10 text-primary grid place-items-center"><Users className="size-5" /></div>
+          <div className="size-10 rounded-xl bg-primary/10 text-primary grid place-items-center">
+            <Users className="size-5" />
+          </div>
           <div>
             <div className="text-2xl font-bold tracking-tight text-foreground">{stats.total}</div>
             <div className="text-[10px] text-muted-foreground font-medium">Total Customers</div>
           </div>
         </div>
         <div className="card-soft p-4 flex items-center gap-3">
-          <div className="size-10 rounded-xl bg-emerald-500/10 text-emerald-500 grid place-items-center"><Star className="size-5" /></div>
+          <div className="size-10 rounded-xl bg-emerald-500/10 text-emerald-500 grid place-items-center">
+            <Star className="size-5" />
+          </div>
           <div>
             <div className="text-2xl font-bold tracking-tight text-foreground">{stats.vip}</div>
             <div className="text-[10px] text-muted-foreground font-medium">VIP Shoppers</div>
           </div>
         </div>
         <div className="card-soft p-4 flex items-center gap-3">
-          <div className="size-10 rounded-xl bg-purple-500/10 text-purple-500 grid place-items-center"><Award className="size-5" /></div>
+          <div className="size-10 rounded-xl bg-purple-500/10 text-purple-500 grid place-items-center">
+            <Award className="size-5" />
+          </div>
           <div>
-            <div className="text-2xl font-bold tracking-tight text-foreground">{stats.returning}</div>
+            <div className="text-2xl font-bold tracking-tight text-foreground">
+              {stats.returning}
+            </div>
             <div className="text-[10px] text-muted-foreground font-medium">Returning Buyers</div>
           </div>
         </div>
         <div className="card-soft p-4 flex items-center gap-3">
-          <div className="size-10 rounded-xl bg-amber-500/10 text-amber-500 grid place-items-center"><Calendar className="size-5" /></div>
+          <div className="size-10 rounded-xl bg-amber-500/10 text-amber-500 grid place-items-center">
+            <Calendar className="size-5" />
+          </div>
           <div>
-            <div className="text-2xl font-bold tracking-tight text-foreground">{stats.newToday}</div>
+            <div className="text-2xl font-bold tracking-tight text-foreground">
+              {stats.newToday}
+            </div>
             <div className="text-[10px] text-muted-foreground font-medium">Acquired Today</div>
           </div>
         </div>
@@ -176,7 +228,9 @@ function Customers() {
       ) : isError ? (
         <div className="flex h-32 flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-border bg-muted/20 p-6 text-center">
           <div className="text-sm font-semibold text-foreground">Customers could not be loaded</div>
-          <div className="max-w-md text-xs text-muted-foreground">The backend database is not responding. Please retry.</div>
+          <div className="max-w-md text-xs text-muted-foreground">
+            The backend database is not responding. Please retry.
+          </div>
           <Button variant="outline" size="sm" onClick={() => refetchAll()}>
             <RefreshCw className="mr-2 size-4" /> Retry
           </Button>
@@ -186,7 +240,11 @@ function Customers() {
           icon={<Search className="size-5" />}
           title="No customers found"
           description="Try searching with another name or mobile phone number."
-          action={<Button onClick={() => setAddOpen(true)}><Plus className="mr-2 size-4" /> Add customer</Button>}
+          action={
+            <Button onClick={() => setAddOpen(true)}>
+              <Plus className="mr-2 size-4" /> Add customer
+            </Button>
+          }
         />
       ) : (
         <div className="grid gap-3">
@@ -194,20 +252,37 @@ function Customers() {
             const open = openId === c.id;
             const isVip = c.visits > 5 || c.ltv > 5000;
             return (
-              <div key={c.id} className={cn("card-soft transition-all duration-200 hover:border-foreground/20 hover:shadow-md", open && "ring-1 ring-primary/30")}>
+              <div
+                key={c.id}
+                className={cn(
+                  "card-soft transition-all duration-200 hover:border-foreground/20 hover:shadow-md",
+                  open && "ring-1 ring-primary/30",
+                )}
+              >
                 <button
                   onClick={() => setOpenId(open ? null : c.id)}
                   className="flex w-full items-center gap-3 p-4 text-left touch-manipulation focus-visible:outline-2 focus-visible:outline-ring"
                 >
-                  <div className={cn(
-                    "grid size-11 place-items-center rounded-2xl text-sm font-bold shadow-xs shrink-0 transition-transform hover:scale-105",
-                    isVip ? "bg-gradient-to-br from-amber-500/20 to-amber-600/10 text-amber-600 dark:text-amber-400 border border-amber-500/30" : "bg-muted text-muted-foreground"
-                  )}>
-                    {c.name.split(" ").map((s) => s[0]).join("").slice(0, 2).toUpperCase()}
+                  <div
+                    className={cn(
+                      "grid size-11 place-items-center rounded-2xl text-sm font-bold shadow-xs shrink-0 transition-transform hover:scale-105",
+                      isVip
+                        ? "bg-gradient-to-br from-amber-500/20 to-amber-600/10 text-amber-600 dark:text-amber-400 border border-amber-500/30"
+                        : "bg-muted text-muted-foreground",
+                    )}
+                  >
+                    {c.name
+                      .split(" ")
+                      .map((s) => s[0])
+                      .join("")
+                      .slice(0, 2)
+                      .toUpperCase()}
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
-                      <div className="truncate font-bold text-foreground text-sm sm:text-base">{c.name}</div>
+                      <div className="truncate font-bold text-foreground text-sm sm:text-base">
+                        {c.name}
+                      </div>
                       {isVip && (
                         <span className="rounded-full bg-amber-500/15 border border-amber-500/30 px-2 py-0.5 text-[10px] font-extrabold text-amber-600 dark:text-amber-400 tracking-wide uppercase">
                           ★ VIP
@@ -215,22 +290,36 @@ function Customers() {
                       )}
                     </div>
                     <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
-                      <Phone className="size-3 shrink-0" /> {c.mobile && c.mobile !== "0000000000" ? `+91 ${c.mobile}` : "System Account (No Phone)"}
+                      <Phone className="size-3 shrink-0" />{" "}
+                      {c.mobile && c.mobile !== "0000000000"
+                        ? `+91 ${c.mobile}`
+                        : "System Account (No Phone)"}
                     </div>
                   </div>
                   <div className="hidden text-right sm:block">
                     <div className="tabular text-sm font-extrabold text-money">{inr(c.ltv)}</div>
-                    <div className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider">Lifetime Spend</div>
+                    <div className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider">
+                      Lifetime Spend
+                    </div>
                   </div>
                   <div className="hidden text-right sm:block">
                     <div className="tabular text-sm font-bold">{c.visits}</div>
-                    <div className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider">Purchases</div>
+                    <div className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider">
+                      Purchases
+                    </div>
                   </div>
                   <div className="hidden text-right md:block">
                     <div className="text-xs font-semibold text-foreground">{c.lastVisit}</div>
-                    <div className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider">Last Visit</div>
+                    <div className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider">
+                      Last Visit
+                    </div>
                   </div>
-                  <div className={cn("grid size-8 place-items-center rounded-xl bg-muted/60 transition-transform", open && "rotate-180 bg-primary/10 text-primary")}>
+                  <div
+                    className={cn(
+                      "grid size-8 place-items-center rounded-xl bg-muted/60 transition-transform",
+                      open && "rotate-180 bg-primary/10 text-primary",
+                    )}
+                  >
                     <ChevronDown className="size-4" />
                   </div>
                 </button>
@@ -263,7 +352,8 @@ function Customers() {
           <AlertDialogHeader>
             <AlertDialogTitle>Delete {deleteTarget?.name}?</AlertDialogTitle>
             <AlertDialogDescription>
-              This will soft-delete the customer profile from lists, but keep their past billing record ledger logs intact.
+              This will soft-delete the customer profile from lists, but keep their past billing
+              record ledger logs intact.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -312,9 +402,21 @@ function CustomerDetail({
       </div>
       {(customer.email || customer.address || customer.notes) && (
         <div className="mb-3 grid gap-2 text-xs text-muted-foreground sm:grid-cols-3 border-b border-border/40 pb-3">
-          {customer.email && <div><span className="font-semibold text-foreground">Email:</span> {customer.email}</div>}
-          {customer.address && <div><span className="font-semibold text-foreground">Address:</span> {customer.address}</div>}
-          {customer.notes && <div><span className="font-semibold text-foreground">Notes:</span> {customer.notes}</div>}
+          {customer.email && (
+            <div>
+              <span className="font-semibold text-foreground">Email:</span> {customer.email}
+            </div>
+          )}
+          {customer.address && (
+            <div>
+              <span className="font-semibold text-foreground">Address:</span> {customer.address}
+            </div>
+          )}
+          {customer.notes && (
+            <div>
+              <span className="font-semibold text-foreground">Notes:</span> {customer.notes}
+            </div>
+          )}
         </div>
       )}
       <div className="mb-3 flex items-center justify-between">
@@ -324,7 +426,9 @@ function CustomerDetail({
             Registered since <span className="font-medium text-foreground">{customer.since}</span>.
           </span>
         </div>
-        {customer.name === "Walk-in Customer" || (customer as any).is_protected || (customer as any).is_system ? (
+        {customer.name === "Walk-in Customer" ||
+        (customer as any).is_protected ||
+        (customer as any).is_system ? (
           <span className="rounded-full bg-primary/10 px-2.5 py-1 text-[11px] font-semibold text-primary border border-primary/20">
             Protected System Account
           </span>
@@ -333,14 +437,21 @@ function CustomerDetail({
             <Button size="sm" variant="outline" className="h-8 rounded-lg" onClick={onEdit}>
               <Pencil className="mr-1 size-3" /> Edit
             </Button>
-            <Button size="sm" variant="outline" className="h-8 rounded-lg text-rose-500 hover:text-rose-500 hover:bg-rose-500/5 border-rose-500/20" onClick={onDelete}>
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-8 rounded-lg text-rose-500 hover:text-rose-500 hover:bg-rose-500/5 border-rose-500/20"
+              onClick={onDelete}
+            >
               <Trash2 className="mr-1 size-3" /> Delete
             </Button>
           </div>
         )}
       </div>
 
-      <div className="text-xs font-semibold text-muted-foreground mb-3 mt-4">Transaction History Timeline</div>
+      <div className="text-xs font-semibold text-muted-foreground mb-3 mt-4">
+        Transaction History Timeline
+      </div>
       <InvoiceHistory customerId={customer.id} />
     </div>
   );

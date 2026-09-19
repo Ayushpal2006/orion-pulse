@@ -6,18 +6,20 @@ import { logger } from "../logger/logger";
 
 export class DatabaseProvider {
   private static adapterInstance: DatabaseAdapter | null = null;
+  private static currentConnStr: string | null = null;
 
   static getAdapter(): DatabaseAdapter {
-    if (this.adapterInstance) {
+    const connStr = databaseConfig.postgres.connectionString;
+    if (this.adapterInstance && this.currentConnStr === connStr && connStr) {
       return this.adapterInstance;
     }
 
-    const connStr = databaseConfig.postgres.connectionString;
     if (!connStr) {
       throw new Error("PostgreSQL connection string is not configured in DATABASE_URL.");
     }
     const pool = createPostgresPool(connStr);
     this.adapterInstance = new PostgresAdapter(pool);
+    this.currentConnStr = connStr;
 
     return this.adapterInstance;
   }

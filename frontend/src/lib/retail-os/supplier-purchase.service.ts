@@ -77,11 +77,17 @@ export class SupplierPurchaseService {
     };
 
     this.purchaseOrders.unshift(po);
-    console.log(`[PurchaseService] Created Purchase Order ${po.poNumber} for Supplier ${input.supplierName}`);
+    console.log(
+      `[PurchaseService] Created Purchase Order ${po.poNumber} for Supplier ${input.supplierName}`,
+    );
     return po;
   }
 
-  updatePoStatus(poId: string, newStatus: PurchaseOrderStatus, approvedBy?: string): PurchaseOrderRequest {
+  updatePoStatus(
+    poId: string,
+    newStatus: PurchaseOrderStatus,
+    approvedBy?: string,
+  ): PurchaseOrderRequest {
     const po = this.purchaseOrders.find((p) => p.id === poId);
     if (!po) throw new Error("Purchase Order not found");
 

@@ -1,9 +1,21 @@
 import { useState, useEffect } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useApp } from "@/lib/store";
 import { editInvoice, getProducts } from "@/lib/api";
 import { inr } from "@/lib/format";
@@ -55,7 +67,7 @@ export function EditInvoiceDialog({
           qty: Number(i.qty ?? i.quantity ?? 1),
           discount: Number(i.discount || 0),
           gst: Number(i.gst ?? i.product_gst ?? 0),
-        }))
+        })),
       );
       setCustomerPhone(receipt.customer?.phone || "");
       setCustomerName(receipt.customer?.name || "Walk-in Customer");
@@ -107,14 +119,15 @@ export function EditInvoiceDialog({
   const subtotal = items.reduce((acc, item) => acc + (item.price - item.discount) * item.qty, 0);
   const totalTax = items.reduce(
     (acc, item) => acc + ((item.price - item.discount) * item.qty * (item.gst || 0)) / 100,
-    0
+    0,
   );
   const hasTax = (receipt?.gst && Number(receipt.gst) > 0) || totalTax > 0;
   const grandTotal = Math.max(0, subtotal - discountAmount + (hasTax ? totalTax : 0));
 
-  const filteredProducts = allProducts.filter((p) =>
-    p.name.toLowerCase().includes(productSearch.toLowerCase()) ||
-    (p.sku && p.sku.toLowerCase().includes(productSearch.toLowerCase()))
+  const filteredProducts = allProducts.filter(
+    (p) =>
+      p.name.toLowerCase().includes(productSearch.toLowerCase()) ||
+      (p.sku && p.sku.toLowerCase().includes(productSearch.toLowerCase())),
   );
 
   const handleSave = async () => {
@@ -211,7 +224,9 @@ export function EditInvoiceDialog({
           <div className="space-y-2">
             <Label className="text-xs font-semibold flex items-center justify-between">
               <span>Add Products to Bill</span>
-              <span className="text-[10px] text-muted-foreground">{allProducts.length} active products</span>
+              <span className="text-[10px] text-muted-foreground">
+                {allProducts.length} active products
+              </span>
             </Label>
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
@@ -232,9 +247,13 @@ export function EditInvoiceDialog({
                   >
                     <div>
                       <span className="font-semibold text-foreground">{prod.name}</span>
-                      <span className="text-[10px] text-muted-foreground ml-2">Stock: {prod.stock}</span>
+                      <span className="text-[10px] text-muted-foreground ml-2">
+                        Stock: {prod.stock}
+                      </span>
                     </div>
-                    <span className="font-mono text-primary font-bold">{inr(resolveProductSellingPrice(prod))}</span>
+                    <span className="font-mono text-primary font-bold">
+                      {inr(resolveProductSellingPrice(prod))}
+                    </span>
                   </button>
                 ))}
               </div>
@@ -251,7 +270,9 @@ export function EditInvoiceDialog({
                 <div key={idx} className="flex items-center justify-between py-2 px-1 text-xs">
                   <div className="flex-1 pr-2 min-w-0">
                     <div className="font-semibold text-foreground truncate">{item.name}</div>
-                    <div className="text-[10px] text-muted-foreground font-mono">{inr(item.price)} each</div>
+                    <div className="text-[10px] text-muted-foreground font-mono">
+                      {inr(item.price)} each
+                    </div>
                   </div>
                   <div className="flex items-center gap-2">
                     <div className="flex items-center gap-1 border border-border rounded-lg p-0.5">
@@ -264,7 +285,9 @@ export function EditInvoiceDialog({
                       >
                         -
                       </Button>
-                      <span className="w-6 text-center font-mono font-bold text-xs">{item.qty}</span>
+                      <span className="w-6 text-center font-mono font-bold text-xs">
+                        {item.qty}
+                      </span>
                       <Button
                         type="button"
                         variant="ghost"

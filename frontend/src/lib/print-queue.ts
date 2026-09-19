@@ -42,7 +42,7 @@ class PrintQueueManager {
     options?: RenderOptions,
     destination: PrinterDestination = "counter",
     printerType: string = "browser",
-    priority: Priority = "normal"
+    priority: Priority = "normal",
   ): QueuedPrintJob {
     const job: QueuedPrintJob = {
       id: `JOB-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
@@ -69,7 +69,9 @@ class PrintQueueManager {
       this.queue.push(job);
     }
 
-    console.log(`[PrintQueue] Enqueued job ${job.id} (Priority: ${priority}, Target: ${destination})`);
+    console.log(
+      `[PrintQueue] Enqueued job ${job.id} (Priority: ${priority}, Target: ${destination})`,
+    );
     this.processQueue();
     return job;
   }
@@ -85,7 +87,7 @@ class PrintQueueManager {
       const adapter = getPrintAdapter(job.printerType);
       console.log(`[PrintQueue] Executing job ${job.id} via ${adapter.constructor.name}...`);
       await adapter.print(job.model, job.options);
-      
+
       job.status = "success";
       job.completedAt = Date.now();
       this.history.unshift(job);

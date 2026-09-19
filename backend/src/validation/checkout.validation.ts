@@ -7,6 +7,7 @@ const CheckoutItemSchema = z.object({
   price: z.number().optional(),
   discount: z.number().optional(),
   discountPercent: z.number().optional(),
+  notes: z.string().optional().nullable(),
 });
 
 export const CheckoutRequestSchema = z.object({
@@ -25,4 +26,7 @@ export const CheckoutRequestSchema = z.object({
   paidAmount: z.number().optional(),
   balance: z.number().optional(),
   paymentDetails: z.any().optional(),
+  tableNo: z.string().optional().nullable(),
+  orderType: z.enum(["DINE_IN", "TAKEAWAY", "DELIVERY"]).optional().default("DINE_IN"),
+  notes: z.string().optional().nullable(),
 });

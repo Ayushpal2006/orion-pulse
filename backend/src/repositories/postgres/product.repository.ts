@@ -120,6 +120,7 @@ export class PostgresProductRepository implements IProductRepository {
         stock: product.stock ?? 0,
         minimum_stock: product.minimum_stock ?? 0,
         gst: product.gst ?? 18,
+        is_kitchen_item: product.is_kitchen_item ?? 0,
         is_active: product.is_active ?? 1,
         image_url: product.image_url ?? null,
         margin_percent: margin,

@@ -187,15 +187,21 @@ export const useApp = create<State & Actions>((set, get) => ({
       const existing = s.cart.find((l) => l.productId === p.id);
       if (existing) {
         return {
-          cart: s.cart.map((l) =>
-            l.productId === p.id ? { ...l, qty: l.qty + 1 } : l,
-          ),
+          cart: s.cart.map((l) => (l.productId === p.id ? { ...l, qty: l.qty + 1 } : l)),
         };
       }
       return {
         cart: [
           ...s.cart,
-          { productId: p.id, name: p.name, price: p.price, gst: p.gst, qty: 1, discount: 0, emoji: p.emoji },
+          {
+            productId: p.id,
+            name: p.name,
+            price: p.price,
+            gst: p.gst,
+            qty: 1,
+            discount: 0,
+            emoji: p.emoji,
+          },
         ],
       };
     }),
@@ -203,12 +209,16 @@ export const useApp = create<State & Actions>((set, get) => ({
     set((s) => ({ cart: s.cart.map((l) => (l.productId === id ? { ...l, qty: l.qty + 1 } : l)) })),
   decQty: (id) =>
     set((s) => ({
-      cart: s.cart.map((l) => (l.productId === id ? { ...l, qty: l.qty - 1 } : l)).filter((l) => l.qty > 0),
+      cart: s.cart
+        .map((l) => (l.productId === id ? { ...l, qty: l.qty - 1 } : l))
+        .filter((l) => l.qty > 0),
     })),
   removeLine: (id) => set((s) => ({ cart: s.cart.filter((l) => l.productId !== id) })),
   setLineDiscount: (id, d) =>
     set((s) => ({
-      cart: s.cart.map((l) => (l.productId === id ? { ...l, discount: Math.max(0, Math.min(100, d)) } : l)),
+      cart: s.cart.map((l) =>
+        l.productId === id ? { ...l, discount: Math.max(0, Math.min(100, d)) } : l,
+      ),
     })),
   clearCart: () => set({ cart: [], customerMobile: "", customerName: "" }),
   setPayment: (payment) => set({ payment }),
@@ -251,15 +261,16 @@ export const useApp = create<State & Actions>((set, get) => ({
     })),
 
   setCustomers: (customers) => set({ customers }),
-  addCustomer: (c) => set((s) => {
-    const exists = s.customers.some((x) => x.mobile === c.mobile);
-    if (exists) {
-      return {
-        customers: s.customers.map((x) => x.mobile === c.mobile ? { ...x, ...c } : x)
-      };
-    }
-    return { customers: [c, ...s.customers] };
-  }),
+  addCustomer: (c) =>
+    set((s) => {
+      const exists = s.customers.some((x) => x.mobile === c.mobile);
+      if (exists) {
+        return {
+          customers: s.customers.map((x) => (x.mobile === c.mobile ? { ...x, ...c } : x)),
+        };
+      }
+      return { customers: [c, ...s.customers] };
+    }),
   updateCustomer: (id, patch) =>
     set((s) => ({ customers: s.customers.map((c) => (c.id === id ? { ...c, ...patch } : c)) })),
   deleteCustomer: (id) => set((s) => ({ customers: s.customers.filter((c) => c.id !== id) })),
@@ -267,7 +278,9 @@ export const useApp = create<State & Actions>((set, get) => ({
   parkSale: () => {
     const { cart, customerMobile, customerName, payment } = get();
     if (cart.length === 0) return;
-    const label = customerName || (customerMobile ? `+91 ${customerMobile}` : `Sale ${new Date().toLocaleTimeString()}`);
+    const label =
+      customerName ||
+      (customerMobile ? `+91 ${customerMobile}` : `Sale ${new Date().toLocaleTimeString()}`);
     const parked: ParkedSale = {
       id: `park-${Date.now()}`,
       label,
@@ -314,7 +327,8 @@ export const useApp = create<State & Actions>((set, get) => ({
   setStorePhone: (storePhone) => set({ storePhone }),
   setStoreEmail: (storeEmail) => set({ storeEmail }),
   setWhatsappFooter: (whatsappFooter) => set({ whatsappFooter }),
-  setRequireCustomerBeforeCheckout: (requireCustomerBeforeCheckout) => set({ requireCustomerBeforeCheckout }),
+  setRequireCustomerBeforeCheckout: (requireCustomerBeforeCheckout) =>
+    set({ requireCustomerBeforeCheckout }),
   setReceiptTemplate: (receiptTemplate) => set({ receiptTemplate }),
   setTagline: (tagline) => set({ tagline }),
   setWebsite: (website) => set({ website }),
@@ -330,13 +344,17 @@ export const useApp = create<State & Actions>((set, get) => ({
   setPrimaryColor: (primaryColor) => set({ primaryColor }),
 }));
 
-import { calculateBillingTotals, type DiscountMode, type BillingTotalsResult } from "./billing-math";
+import {
+  calculateBillingTotals,
+  type DiscountMode,
+  type BillingTotalsResult,
+} from "./billing-math";
 
 export const cartTotals = (
   cart: CartLine[],
   cartDiscountValue: number = 0,
   cartDiscountMode: DiscountMode = "percent",
-  enableRoundOff: boolean = false
+  enableRoundOff: boolean = false,
 ): BillingTotalsResult => {
   const lineItems = cart.map((l) => ({
     price: l.price,

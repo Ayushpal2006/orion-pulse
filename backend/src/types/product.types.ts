@@ -9,6 +9,7 @@ export interface Product {
   stock: number;
   minimum_stock: number;
   gst: number;            // Percentage (default 18)
+  is_kitchen_item?: number; // 1 = kitchen item (routed to KOT), 0 = general product
   is_active?: number;     // 1 = active, 0 = archived (soft deleted)
   image_url?: string | null;
   created_at: string;
@@ -25,6 +26,7 @@ export type CreateProductDTO = {
   stock: number;
   minimum_stock: number;
   gst: number;
+  is_kitchen_item?: number;
   is_active?: number;
   image_url?: string | null;
 };

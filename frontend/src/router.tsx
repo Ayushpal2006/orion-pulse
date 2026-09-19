@@ -9,7 +9,7 @@ if (typeof window !== "undefined" && !(window as any).__fetchPatched__) {
   window.fetch = async function (input, init) {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 10000);
-    
+
     try {
       const response = await originalFetch(input, {
         ...init,

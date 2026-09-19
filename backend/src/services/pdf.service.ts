@@ -13,7 +13,7 @@ function getPDFDocument() {
 }
 
 export class PdfService {
-  async generateInvoicePdf(receipt: any, outputPath: string): Promise<string> {
+  async generateInvoicePdf(receipt: any, outputPath?: string): Promise<Buffer | string> {
     const signature = receipt.branding?.signature || receipt.signature || "Authorized Signatory";
     const dbPrimaryColor = receipt.branding?.primaryColor || "";
     const pdfTemplate = receipt.branding?.pdfTemplate || receipt.pdfTemplate || "Professional A4";
@@ -30,8 +30,18 @@ export class PdfService {
           bufferPages: true,
         });
 
-        const stream = fs.createWriteStream(outputPath);
-        doc.pipe(stream);
+        const chunks: Buffer[] = [];
+        doc.on("data", (chunk: Buffer) => chunks.push(chunk));
+
+        let stream: any = null;
+        if (outputPath) {
+          try {
+            stream = fs.createWriteStream(outputPath);
+            doc.pipe(stream);
+          } catch (e) {
+            // File system write skipped in ephemeral runtime
+          }
+        }
         doc.on("error", (err: any) => reject(err));
 
         configurePdfFonts(doc);
@@ -374,8 +384,15 @@ export class PdfService {
         doc.page.margins.bottom = oldBottomMargin;
 
         doc.end();
-        stream.on("finish", () => resolve(outputPath));
-        stream.on("error", (err: any) => reject(err));
+
+        doc.on("end", () => {
+          const finalBuffer = Buffer.concat(chunks);
+          if (outputPath && stream) {
+            stream.on("finish", () => resolve(outputPath));
+          } else {
+            resolve(finalBuffer);
+          }
+        });
       } catch (err) {
         reject(err);
       }

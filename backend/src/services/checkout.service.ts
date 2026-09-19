@@ -6,22 +6,19 @@ import { ValidationError, NotFoundError } from "../utils/errors";
 import { getStoreId, getOrganizationId, getUserId } from "../db/context";
 import { getKolkataDateString } from "../utils/datetime";
 import { formatInTimeZone } from "date-fns-tz";
-import { settingsRepository, customerRepository } from "../repositories";
+import { settingsRepository, customerRepository, kotRepository } from "../repositories";
 import { InventoryMovementService } from "./inventory-movement.service";
 import { logger } from "../logger/logger";
 
 const idempotencyCache = new Map<string, { timestamp: number; response: any }>();
 
-// Clean up stale cache keys periodically
-if (typeof global !== "undefined" && typeof setInterval === "function") {
-  setInterval(() => {
-    const now = Date.now();
-    for (const [key, val] of idempotencyCache.entries()) {
-      if (now - val.timestamp > 10000) {
-        idempotencyCache.delete(key);
-      }
+function cleanStaleIdempotencyKeys() {
+  const now = Date.now();
+  for (const [key, val] of idempotencyCache.entries()) {
+    if (now - val.timestamp > 10000) {
+      idempotencyCache.delete(key);
     }
-  }, 30000).unref?.();
+  }
 }
 
 export class CheckoutService {
@@ -66,6 +63,7 @@ export class CheckoutService {
     const storeId = getStoreId() || 1;
     const orgId = getOrganizationId() || 1;
 
+    cleanStaleIdempotencyKeys();
     const offlineId = request.offlineIdentifier || (request as any).offline_identifier || (request as any).offlineIdentifier;
     const offlineInvoice = (request as any).offlineInvoiceNumber || (request as any).offline_invoice_number;
 
@@ -309,6 +307,8 @@ export class CheckoutService {
           discount: lineDiscountPaise,
           lineTotal: lineTaxablePaise + lineGstPaise,
           lineGst: lineGstPaise,
+          isKitchenItem: Boolean(product.is_kitchen_item && product.is_kitchen_item === 1),
+          notes: item.notes || null,
         });
       }
       const tStockTime = performance.now() - tStockStart;
@@ -414,6 +414,33 @@ export class CheckoutService {
         .returning();
       const tCustUpdateTime = performance.now() - tCustUpdateStart;
 
+      // 7. Atomic KOT Generation for Kitchen Items
+      const kitchenItems = processedItems
+        .filter((it) => it.isKitchenItem)
+        .map((it) => ({
+          productId: it.productId,
+          productName: it.name,
+          quantity: it.quantity,
+          notes: it.notes || undefined,
+        }));
+
+      let generatedKot: any = null;
+      if (kitchenItems.length > 0) {
+        generatedKot = await kotRepository.createKot(
+          orgId,
+          storeId,
+          {
+            saleId: sale.id,
+            tableNo: request.tableNo,
+            orderType: (request.orderType as any) || "DINE_IN",
+            notes: request.notes,
+            items: kitchenItems,
+          },
+          tx
+        );
+        console.log(`[Checkout Flow] KOT #${generatedKot.kotNumber} Generated for Sale #${sale.id}`);
+      }
+
       console.log("[Checkout Flow] Receipt Generated");
       console.log("[Checkout Flow] Cloudinary Uploaded (N/A)");
 
@@ -427,6 +454,7 @@ export class CheckoutService {
         grandTotal: grandTotal / 100,
         total: grandTotal / 100,
         publicToken,
+        kot: generatedKot,
         items: processedItems.map((item) => ({
           productId: item.productId,
           name: item.name,

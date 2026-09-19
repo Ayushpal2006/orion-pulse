@@ -1,5 +1,11 @@
 import { useState, useEffect } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -55,10 +61,9 @@ export function StockAdjustmentDialog({
     try {
       await updateProductApi(product.id, { stock: newStock });
       adjustStock(product.id, delta, reason);
-      toast.success(
-        `${mode === "inc" ? "+" : "−"}${qty} · ${product.name}`,
-        { description: `${reason} · new stock: ${newStock}` },
-      );
+      toast.success(`${mode === "inc" ? "+" : "−"}${qty} · ${product.name}`, {
+        description: `${reason} · new stock: ${newStock}`,
+      });
       if (onSuccess) onSuccess();
       onOpenChange(false);
     } catch (error: any) {
@@ -81,8 +86,10 @@ export function StockAdjustmentDialog({
               disabled={submitting}
               className={cn(
                 "flex items-center justify-center gap-2 rounded-xl border p-3 text-sm font-medium transition-colors",
-                mode === "inc" ? "border-success bg-success/10 text-success-foreground" : "border-border",
-                submitting ? "opacity-50 cursor-not-allowed" : ""
+                mode === "inc"
+                  ? "border-success bg-success/10 text-success-foreground"
+                  : "border-border",
+                submitting ? "opacity-50 cursor-not-allowed" : "",
               )}
             >
               <ArrowUp className="size-4" /> Increase
@@ -93,7 +100,7 @@ export function StockAdjustmentDialog({
               className={cn(
                 "flex items-center justify-center gap-2 rounded-xl border p-3 text-sm font-medium transition-colors",
                 mode === "dec" ? "border-danger bg-danger/10 text-danger" : "border-border",
-                submitting ? "opacity-50 cursor-not-allowed" : ""
+                submitting ? "opacity-50 cursor-not-allowed" : "",
               )}
             >
               <ArrowDown className="size-4" /> Decrease
@@ -111,7 +118,11 @@ export function StockAdjustmentDialog({
           </div>
           <div>
             <Label className="text-xs font-medium text-muted-foreground">Reason</Label>
-            <Select value={reason} onValueChange={(v) => setReason(v as StockAdjustReason)} disabled={submitting}>
+            <Select
+              value={reason}
+              onValueChange={(v) => setReason(v as StockAdjustReason)}
+              disabled={submitting}
+            >
               <SelectTrigger className="mt-1 h-11 rounded-xl">
                 <SelectValue />
               </SelectTrigger>
@@ -124,8 +135,8 @@ export function StockAdjustmentDialog({
             </Select>
           </div>
           <div className="rounded-xl bg-muted/40 p-3 text-xs text-muted-foreground">
-            Current stock: <span className="font-medium text-foreground">{product?.stock ?? 0}</span> →
-            {" "}
+            Current stock:{" "}
+            <span className="font-medium text-foreground">{product?.stock ?? 0}</span> →{" "}
             <span className="font-medium text-foreground">
               {Math.max(0, (product?.stock ?? 0) + (mode === "inc" ? qty : -qty))}
             </span>

@@ -27,14 +27,22 @@ export interface PrinterProfile {
   printableWidthMm?: number;
 }
 
-export function validatePrinterProfile(profile: Partial<PrinterProfile>): { valid: boolean; error?: string } {
+export function validatePrinterProfile(profile: Partial<PrinterProfile>): {
+  valid: boolean;
+  error?: string;
+} {
   if (!profile.name || profile.name.trim() === "") {
     return { valid: false, error: "Profile name is required." };
   }
 
-  const paperWidthMm = profile.paperWidth === "58mm" ? 58 : profile.paperWidth === "80mm" ? 80 : 210;
-  const printableWidth = profile.printableWidthMm ?? (profile.paperWidth === "58mm" ? 48 : profile.paperWidth === "80mm" ? 72 : 190);
-  const charsPerLine = profile.charactersPerLine ?? (profile.paperWidth === "58mm" ? 32 : profile.paperWidth === "80mm" ? 48 : 80);
+  const paperWidthMm =
+    profile.paperWidth === "58mm" ? 58 : profile.paperWidth === "80mm" ? 80 : 210;
+  const printableWidth =
+    profile.printableWidthMm ??
+    (profile.paperWidth === "58mm" ? 48 : profile.paperWidth === "80mm" ? 72 : 190);
+  const charsPerLine =
+    profile.charactersPerLine ??
+    (profile.paperWidth === "58mm" ? 32 : profile.paperWidth === "80mm" ? 48 : 80);
   const dpi = profile.printerDpi ?? 203;
 
   if (printableWidth <= 0) {
@@ -133,10 +141,12 @@ export class PrinterProfileService {
   /**
    * Load printer settings & profiles per store context
    */
-  async getStorePrinterConfig(storeId?: number): Promise<{ profiles: PrinterProfile[]; activeProfile: PrinterProfile }> {
+  async getStorePrinterConfig(
+    storeId?: number,
+  ): Promise<{ profiles: PrinterProfile[]; activeProfile: PrinterProfile }> {
     const cacheKey = `store_${storeId || "active"}`;
     const storageKey = `orion_printer_config_${cacheKey}`;
-    
+
     try {
       const res = await apiFetch(`${API_BASE_URL}/settings`);
       if (res.ok) {
@@ -148,7 +158,8 @@ export class PrinterProfileService {
           let loadedProfiles: PrinterProfile[] = DEFAULT_PRINTER_PROFILES;
           if (rawProfiles) {
             try {
-              const parsed = typeof rawProfiles === "string" ? JSON.parse(rawProfiles) : rawProfiles;
+              const parsed =
+                typeof rawProfiles === "string" ? JSON.parse(rawProfiles) : rawProfiles;
               if (Array.isArray(parsed) && parsed.length > 0) {
                 loadedProfiles = parsed;
               }
@@ -157,23 +168,31 @@ export class PrinterProfileService {
             }
           }
 
-          const activeId = rawActiveId || loadedProfiles.find((p) => p.isDefault)?.id || loadedProfiles[0].id;
+          const activeId =
+            rawActiveId || loadedProfiles.find((p) => p.isDefault)?.id || loadedProfiles[0].id;
           const activeProfile = loadedProfiles.find((p) => p.id === activeId) || loadedProfiles[0];
 
           this.profileCache.set(cacheKey, { profiles: loadedProfiles, activeId });
           if (typeof window !== "undefined" && window.localStorage) {
-            window.localStorage.setItem(storageKey, JSON.stringify({ profiles: loadedProfiles, activeId }));
+            window.localStorage.setItem(
+              storageKey,
+              JSON.stringify({ profiles: loadedProfiles, activeId }),
+            );
           }
           return { profiles: loadedProfiles, activeProfile };
         }
       }
     } catch (err) {
-      console.warn("[PrinterProfileService] Error fetching store settings, returning cached/local:", err);
+      console.warn(
+        "[PrinterProfileService] Error fetching store settings, returning cached/local:",
+        err,
+      );
     }
 
     const cached = this.profileCache.get(cacheKey);
     if (cached) {
-      const activeProf = cached.profiles.find((p) => p.id === cached.activeId) || cached.profiles[0];
+      const activeProf =
+        cached.profiles.find((p) => p.id === cached.activeId) || cached.profiles[0];
       return { profiles: cached.profiles, activeProfile: activeProf };
     }
 
@@ -183,10 +202,14 @@ export class PrinterProfileService {
         try {
           const parsed = JSON.parse(localData);
           if (parsed.profiles && parsed.activeId) {
-            const activeProf = parsed.profiles.find((p: PrinterProfile) => p.id === parsed.activeId) || parsed.profiles[0];
+            const activeProf =
+              parsed.profiles.find((p: PrinterProfile) => p.id === parsed.activeId) ||
+              parsed.profiles[0];
             return { profiles: parsed.profiles, activeProfile: activeProf };
           }
-        } catch (e) {}
+        } catch {
+          // Corrupt localStorage payload — fall through to the defaults below.
+        }
       }
     }
 
@@ -199,7 +222,7 @@ export class PrinterProfileService {
   async saveStorePrinterConfig(
     profiles: PrinterProfile[],
     activeProfileId: string,
-    storeId?: number
+    storeId?: number,
   ): Promise<boolean> {
     const cacheKey = `store_${storeId || "active"}`;
     const storageKey = `orion_printer_config_${cacheKey}`;
@@ -213,7 +236,10 @@ export class PrinterProfileService {
     this.profileCache.set(cacheKey, { profiles: updatedProfiles, activeId: activeProfileId });
 
     if (typeof window !== "undefined" && window.localStorage) {
-      window.localStorage.setItem(storageKey, JSON.stringify({ profiles: updatedProfiles, activeId: activeProfileId }));
+      window.localStorage.setItem(
+        storageKey,
+        JSON.stringify({ profiles: updatedProfiles, activeId: activeProfileId }),
+      );
     }
 
     try {

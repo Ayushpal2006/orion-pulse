@@ -1,6 +1,7 @@
 // Module 1: Multi-Store Stock Transfer & Reconciliation Engine for Apka Bill V2
 
-export type TransferStatus = "requested" | "approved" | "in_transit" | "received" | "rejected" | "cancelled";
+export type TransferStatus =
+  "requested" | "approved" | "in_transit" | "received" | "rejected" | "cancelled";
 
 export interface StockTransferItem {
   productId: number;
@@ -63,14 +64,17 @@ export class StockTransferService {
       updatedAt: new Date().toISOString(),
     };
     this.transfers.unshift(transfer);
-    console.log(`[StockTransfer] Created transfer request ${transfer.transferNumber} from Store #${input.sourceStoreId} to Store #${input.targetStoreId}`);
+    console.log(
+      `[StockTransfer] Created transfer request ${transfer.transferNumber} from Store #${input.sourceStoreId} to Store #${input.targetStoreId}`,
+    );
     return transfer;
   }
 
   approveTransfer(transferId: string, approvedBy: string): StockTransferRequest {
     const trf = this.transfers.find((t) => t.id === transferId);
     if (!trf) throw new Error("Transfer request not found");
-    if (trf.status !== "requested") throw new Error(`Cannot approve transfer in ${trf.status} status`);
+    if (trf.status !== "requested")
+      throw new Error(`Cannot approve transfer in ${trf.status} status`);
 
     trf.status = "approved";
     trf.approvedBy = approvedBy;
@@ -82,7 +86,8 @@ export class StockTransferService {
   dispatchTransit(transferId: string): StockTransferRequest {
     const trf = this.transfers.find((t) => t.id === transferId);
     if (!trf) throw new Error("Transfer request not found");
-    if (trf.status !== "approved") throw new Error("Transfer must be approved before dispatching to transit");
+    if (trf.status !== "approved")
+      throw new Error("Transfer must be approved before dispatching to transit");
 
     trf.status = "in_transit";
     trf.updatedAt = new Date().toISOString();
@@ -98,7 +103,9 @@ export class StockTransferService {
     trf.status = "received";
     trf.receivedBy = receivedBy;
     trf.updatedAt = new Date().toISOString();
-    console.log(`[StockTransfer] Transfer ${trf.transferNumber} RECEIVED at Store #${trf.targetStoreId} by ${receivedBy}`);
+    console.log(
+      `[StockTransfer] Transfer ${trf.transferNumber} RECEIVED at Store #${trf.targetStoreId} by ${receivedBy}`,
+    );
     return trf;
   }
 

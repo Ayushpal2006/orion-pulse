@@ -52,7 +52,9 @@ export function ProductDetailsDrawer({
               <div className="min-w-0">
                 <div className="truncate text-lg font-semibold">{product.name}</div>
                 <div className="text-xs text-muted-foreground">{product.category}</div>
-                <div className="mt-1"><StockBadge product={product} /></div>
+                <div className="mt-1">
+                  <StockBadge product={product} />
+                </div>
               </div>
             </div>
 
@@ -106,7 +108,9 @@ export function ProductDetailsDrawer({
                 ) : movements.length === 0 ? (
                   <div className="flex flex-col items-center justify-center p-6 border border-dashed border-border rounded-2xl text-center space-y-2">
                     <ClipboardList className="size-8 text-muted-foreground/60" />
-                    <div className="text-xs text-muted-foreground">No stock history recorded yet.</div>
+                    <div className="text-xs text-muted-foreground">
+                      No stock history recorded yet.
+                    </div>
                   </div>
                 ) : (
                   <div className="relative border-l border-border pl-4 space-y-6 ml-2 my-2">
@@ -116,26 +120,35 @@ export function ProductDetailsDrawer({
                       const formattedDate = dateObj.toLocaleDateString("en-IN", {
                         day: "2-digit",
                         month: "short",
-                        year: "numeric"
+                        year: "numeric",
                       });
                       const formattedTime = dateObj.toLocaleTimeString("en-IN", {
                         hour: "2-digit",
                         minute: "2-digit",
-                        hour12: true
+                        hour12: true,
                       });
 
                       return (
                         <div key={mov.id} className="relative group">
-                          <div className={`absolute -left-[21px] top-1.5 size-2 rounded-full border-2 bg-background ${
-                            mov.movement_type === "SALE" || mov.movement_type === "PURCHASE_CANCEL" || mov.quantity < 0
-                              ? "border-rose-500"
-                              : "border-emerald-500"
-                          }`} />
-                          
+                          <div
+                            className={`absolute -left-[21px] top-1.5 size-2 rounded-full border-2 bg-background ${
+                              mov.movement_type === "SALE" ||
+                              mov.movement_type === "PURCHASE_CANCEL" ||
+                              mov.quantity < 0
+                                ? "border-rose-500"
+                                : "border-emerald-500"
+                            }`}
+                          />
+
                           <div className="text-xs text-muted-foreground font-medium flex items-center justify-between mb-1">
-                            <span>{formattedDate} · {formattedTime}</span>
-                            <span className={`font-bold tabular ${isPositive ? "text-emerald-500" : "text-rose-500"}`}>
-                              {isPositive ? "+" : ""}{mov.quantity}
+                            <span>
+                              {formattedDate} · {formattedTime}
+                            </span>
+                            <span
+                              className={`font-bold tabular ${isPositive ? "text-emerald-500" : "text-rose-500"}`}
+                            >
+                              {isPositive ? "+" : ""}
+                              {mov.quantity}
                             </span>
                           </div>
 
@@ -152,8 +165,12 @@ export function ProductDetailsDrawer({
                             </div>
 
                             <div className="text-[11px] text-muted-foreground flex justify-between items-center">
-                              <span>Stock: {mov.previous_stock} → {mov.new_stock}</span>
-                              <span className="text-[10px] italic">by {mov.created_by || "System"}</span>
+                              <span>
+                                Stock: {mov.previous_stock} → {mov.new_stock}
+                              </span>
+                              <span className="text-[10px] italic">
+                                by {mov.created_by || "System"}
+                              </span>
                             </div>
 
                             {mov.reason && (
@@ -176,7 +193,17 @@ export function ProductDetailsDrawer({
   );
 }
 
-function Info({ label, value, mono, money }: { label: string; value: string; mono?: boolean; money?: boolean }) {
+function Info({
+  label,
+  value,
+  mono,
+  money,
+}: {
+  label: string;
+  value: string;
+  mono?: boolean;
+  money?: boolean;
+}) {
   return (
     <div className="rounded-xl border border-border bg-muted/30 p-2.5">
       <div className="text-[10px] uppercase tracking-wide text-muted-foreground">{label}</div>

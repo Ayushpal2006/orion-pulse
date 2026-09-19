@@ -66,23 +66,40 @@ export interface UniversalDocumentModel {
 export class UniversalDocumentRenderer {
   static getTitleForDocumentType(type: DocumentType): string {
     switch (type) {
-      case "receipt": return "THERMAL RECEIPT";
-      case "invoice": return "TAX INVOICE";
-      case "purchase_order": return "PURCHASE ORDER";
-      case "quotation": return "QUOTATION / ESTIMATE";
-      case "delivery_challan": return "DELIVERY CHALLAN";
-      case "payment_receipt": return "PAYMENT RECEIPT";
-      case "credit_note": return "CREDIT NOTE";
-      case "debit_note": return "DEBIT NOTE";
-      case "expense_voucher": return "EXPENSE VOUCHER";
-      case "inventory_report": return "INVENTORY SUMMARY REPORT";
-      case "purchase_report": return "PURCHASE SUMMARY REPORT";
-      case "sales_report": return "SALES SUMMARY REPORT";
-      case "customer_statement": return "CUSTOMER STATEMENT OF ACCOUNT";
-      case "barcode_label": return "BARCODE LABEL";
-      case "shelf_label": return "SHELF EDGE PRICE LABEL";
-      case "gift_voucher": return "GIFT VOUCHER";
-      case "warranty_card": return "WARRANTY CARD";
+      case "receipt":
+        return "THERMAL RECEIPT";
+      case "invoice":
+        return "TAX INVOICE";
+      case "purchase_order":
+        return "PURCHASE ORDER";
+      case "quotation":
+        return "QUOTATION / ESTIMATE";
+      case "delivery_challan":
+        return "DELIVERY CHALLAN";
+      case "payment_receipt":
+        return "PAYMENT RECEIPT";
+      case "credit_note":
+        return "CREDIT NOTE";
+      case "debit_note":
+        return "DEBIT NOTE";
+      case "expense_voucher":
+        return "EXPENSE VOUCHER";
+      case "inventory_report":
+        return "INVENTORY SUMMARY REPORT";
+      case "purchase_report":
+        return "PURCHASE SUMMARY REPORT";
+      case "sales_report":
+        return "SALES SUMMARY REPORT";
+      case "customer_statement":
+        return "CUSTOMER STATEMENT OF ACCOUNT";
+      case "barcode_label":
+        return "BARCODE LABEL";
+      case "shelf_label":
+        return "SHELF EDGE PRICE LABEL";
+      case "gift_voucher":
+        return "GIFT VOUCHER";
+      case "warranty_card":
+        return "WARRANTY CARD";
     }
   }
 
@@ -97,7 +114,7 @@ export class UniversalDocumentRenderer {
           <td style="padding: 8px; text-align: center;">${item.qty} ${item.unit || ""}</td>
           <td style="padding: 8px; text-align: right;">₹${item.unitPrice.toFixed(2)}</td>
           <td style="padding: 8px; text-align: right; font-weight: 600;">₹${item.totalAmount.toFixed(2)}</td>
-        </tr>`
+        </tr>`,
       )
       .join("");
 

@@ -1,7 +1,24 @@
 import { createLazyFileRoute } from "@tanstack/react-router";
 import { useState, useMemo, useEffect } from "react";
 import {
-  CreditCard, Plus, Search, Calendar, RefreshCw, Trash2, Edit3, Download, FileSpreadsheet, Tag, DollarSign, Wallet, Building2, User, ChevronLeft, ChevronRight, Filter, AlertCircle
+  CreditCard,
+  Plus,
+  Search,
+  Calendar,
+  RefreshCw,
+  Trash2,
+  Edit3,
+  Download,
+  FileSpreadsheet,
+  Tag,
+  DollarSign,
+  Wallet,
+  Building2,
+  User,
+  ChevronLeft,
+  ChevronRight,
+  Filter,
+  AlertCircle,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -17,7 +34,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogFooter
+  DialogFooter,
 } from "@/components/ui/dialog";
 import {
   AlertDialog,
@@ -34,7 +51,14 @@ import { EmptyState } from "@/components/empty-state";
 import { toast } from "sonner";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  getExpenses, getExpenseSummary, getExpenseCategories, createExpense, updateExpense, deleteExpense, createExpenseCategory, API_BASE_URL
+  getExpenses,
+  getExpenseSummary,
+  getExpenseCategories,
+  createExpense,
+  updateExpense,
+  deleteExpense,
+  createExpenseCategory,
+  API_BASE_URL,
 } from "@/lib/api";
 
 export const Route = createLazyFileRoute("/expenses")({
@@ -83,13 +107,19 @@ function ExpensesPage() {
     queryFn: () => getExpenseCategories(),
   });
 
-  const { data: expensesList = [], isLoading, isError, refetch } = useQuery({
+  const {
+    data: expensesList = [],
+    isLoading,
+    isError,
+    refetch,
+  } = useQuery({
     queryKey: ["expenses", selectedCategory, startDate, endDate],
-    queryFn: () => getExpenses({
-      categoryId: selectedCategory === "all" ? undefined : Number(selectedCategory),
-      startDate: startDate || undefined,
-      endDate: endDate || undefined,
-    }),
+    queryFn: () =>
+      getExpenses({
+        categoryId: selectedCategory === "all" ? undefined : Number(selectedCategory),
+        startDate: startDate || undefined,
+        endDate: endDate || undefined,
+      }),
   });
 
   const { data: summaryData } = useQuery({
@@ -143,7 +173,11 @@ function ExpensesPage() {
     setPaymentMethod(expense.payment_method || "Cash");
     setVendor(expense.vendor || "");
     setDescription(expense.description || "");
-    setExpenseDate(expense.date ? new Date(expense.date).toISOString().split("T")[0] : new Date().toISOString().split("T")[0]);
+    setExpenseDate(
+      expense.date
+        ? new Date(expense.date).toISOString().split("T")[0]
+        : new Date().toISOString().split("T")[0],
+    );
     setModalOpen(true);
   };
 
@@ -248,7 +282,11 @@ function ExpensesPage() {
           <Button variant="outline" size="sm" onClick={handleExportCSV} className="gap-2">
             <Download className="size-4" /> Export CSV
           </Button>
-          <Button size="sm" onClick={openAddModal} className="gap-2 bg-primary text-primary-foreground">
+          <Button
+            size="sm"
+            onClick={openAddModal}
+            className="gap-2 bg-primary text-primary-foreground"
+          >
             <Plus className="size-4" /> Add Expense
           </Button>
         </div>
@@ -263,7 +301,9 @@ function ExpensesPage() {
           <div className="mt-2 text-3xl font-black text-foreground tabular">
             ₹{(totalAmountPaise / 100).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
           </div>
-          <div className="mt-1 text-xs text-muted-foreground">{filteredExpenses.length} entries matching current view</div>
+          <div className="mt-1 text-xs text-muted-foreground">
+            {filteredExpenses.length} entries matching current view
+          </div>
         </div>
 
         <div className="card-soft p-5 border-t-2 border-t-emerald-500">
@@ -271,7 +311,10 @@ function ExpensesPage() {
             <Building2 className="size-4 text-emerald-500" /> Current Month Total
           </div>
           <div className="mt-2 text-3xl font-black text-emerald-600 dark:text-emerald-400 tabular">
-            ₹{(summaryData?.totalAmount_INR || (totalAmountPaise / 100)).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+            ₹
+            {(summaryData?.totalAmount_INR || totalAmountPaise / 100).toLocaleString("en-IN", {
+              minimumFractionDigits: 2,
+            })}
           </div>
           <div className="mt-1 text-xs text-muted-foreground">Operational outflow this period</div>
         </div>
@@ -283,7 +326,9 @@ function ExpensesPage() {
           <div className="mt-2 text-3xl font-black text-foreground tabular">
             {categories.length}
           </div>
-          <div className="mt-1 text-xs text-muted-foreground">Rent, Electricity, Salary, Marketing etc.</div>
+          <div className="mt-1 text-xs text-muted-foreground">
+            Rent, Electricity, Salary, Marketing etc.
+          </div>
         </div>
       </div>
 
@@ -300,7 +345,13 @@ function ExpensesPage() {
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <Select value={selectedCategory} onValueChange={(v) => { setSelectedCategory(v); setPage(1); }}>
+          <Select
+            value={selectedCategory}
+            onValueChange={(v) => {
+              setSelectedCategory(v);
+              setPage(1);
+            }}
+          >
             <SelectTrigger className="w-[170px] h-11 rounded-xl">
               <Tag className="mr-2 size-4 text-muted-foreground" />
               <SelectValue placeholder="All Categories" />
@@ -308,12 +359,20 @@ function ExpensesPage() {
             <SelectContent>
               <SelectItem value="all">All Categories</SelectItem>
               {categories.map((c: any) => (
-                <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>
+                <SelectItem key={c.id} value={String(c.id)}>
+                  {c.name}
+                </SelectItem>
               ))}
             </SelectContent>
           </Select>
 
-          <Select value={paymentFilter} onValueChange={(v) => { setPaymentFilter(v); setPage(1); }}>
+          <Select
+            value={paymentFilter}
+            onValueChange={(v) => {
+              setPaymentFilter(v);
+              setPage(1);
+            }}
+          >
             <SelectTrigger className="w-[160px] h-11 rounded-xl">
               <Wallet className="mr-2 size-4 text-muted-foreground" />
               <SelectValue placeholder="All Methods" />
@@ -333,14 +392,20 @@ function ExpensesPage() {
             <input
               type="date"
               value={startDate}
-              onChange={(e) => { setStartDate(e.target.value); setPage(1); }}
+              onChange={(e) => {
+                setStartDate(e.target.value);
+                setPage(1);
+              }}
               className="bg-transparent outline-none"
             />
             <span>to</span>
             <input
               type="date"
               value={endDate}
-              onChange={(e) => { setEndDate(e.target.value); setPage(1); }}
+              onChange={(e) => {
+                setEndDate(e.target.value);
+                setPage(1);
+              }}
               className="bg-transparent outline-none"
             />
           </div>
@@ -465,8 +530,15 @@ function ExpensesPage() {
           <div className="space-y-4 py-2">
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
-                <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Category *</label>
-                <Button variant="link" size="sm" onClick={() => setCategoryModalOpen(true)} className="h-auto p-0 text-xs text-primary">
+                <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  Category *
+                </label>
+                <Button
+                  variant="link"
+                  size="sm"
+                  onClick={() => setCategoryModalOpen(true)}
+                  className="h-auto p-0 text-xs text-primary"
+                >
                   + Add Category
                 </Button>
               </div>
@@ -476,7 +548,9 @@ function ExpensesPage() {
                 </SelectTrigger>
                 <SelectContent>
                   {categories.map((c: any) => (
-                    <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>
+                    <SelectItem key={c.id} value={String(c.id)}>
+                      {c.name}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -484,7 +558,9 @@ function ExpensesPage() {
 
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Amount (₹) *</label>
+                <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  Amount (₹) *
+                </label>
                 <Input
                   type="number"
                   step="0.01"
@@ -495,7 +571,9 @@ function ExpensesPage() {
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Payment Method</label>
+                <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  Payment Method
+                </label>
                 <Select value={paymentMethod} onValueChange={setPaymentMethod}>
                   <SelectTrigger>
                     <SelectValue />
@@ -513,7 +591,9 @@ function ExpensesPage() {
 
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Vendor / Payee</label>
+                <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  Vendor / Payee
+                </label>
                 <Input
                   placeholder="e.g. Landlord, EB Board"
                   value={vendor}
@@ -522,7 +602,9 @@ function ExpensesPage() {
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Date</label>
+                <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  Date
+                </label>
                 <Input
                   type="date"
                   value={expenseDate}
@@ -532,7 +614,9 @@ function ExpensesPage() {
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Description / Remarks</label>
+              <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Description / Remarks
+              </label>
               <Textarea
                 placeholder="Details of the expense..."
                 rows={2}
@@ -543,7 +627,9 @@ function ExpensesPage() {
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setModalOpen(false)}>Cancel</Button>
+            <Button variant="outline" onClick={() => setModalOpen(false)}>
+              Cancel
+            </Button>
             <Button onClick={handleSaveExpense} className="bg-primary text-primary-foreground">
               {editingExpense ? "Update Expense" : "Save Expense"}
             </Button>
@@ -569,8 +655,12 @@ function ExpensesPage() {
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setCategoryModalOpen(false)}>Cancel</Button>
-            <Button onClick={handleAddCategory} className="bg-primary text-primary-foreground">Create Category</Button>
+            <Button variant="outline" onClick={() => setCategoryModalOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleAddCategory} className="bg-primary text-primary-foreground">
+              Create Category
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -583,12 +673,16 @@ function ExpensesPage() {
               <AlertCircle className="size-5" /> Confirm Expense Deletion
             </AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to permanently delete this expense record? This operation will update store expense calculations and cannot be undone.
+              Are you sure you want to permanently delete this expense record? This operation will
+              update store expense calculations and cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteExpense} className="bg-rose-600 text-white hover:bg-rose-700">
+            <AlertDialogAction
+              onClick={handleDeleteExpense}
+              className="bg-rose-600 text-white hover:bg-rose-700"
+            >
               Delete Record
             </AlertDialogAction>
           </AlertDialogFooter>

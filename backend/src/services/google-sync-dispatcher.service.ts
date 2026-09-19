@@ -1,4 +1,3 @@
-import { google } from "googleapis";
 import { db } from "../db";
 import { google_integrations } from "../db/schema";
 import { eq } from "drizzle-orm";
@@ -6,6 +5,18 @@ import { decryptToken } from "../utils/crypto";
 import { logger } from "../logger/logger";
 import { GoogleProvisioningService } from "./google-provisioning.service";
 import { formatInTimeZone } from "date-fns-tz";
+
+let googleApiCache: any = null;
+function getGoogle(): any {
+  if (!googleApiCache) {
+    try {
+      googleApiCache = require("googleapis").google;
+    } catch {
+      googleApiCache = (globalThis as any).google;
+    }
+  }
+  return googleApiCache;
+}
 
 export type GoogleSyncEventType =
   | "SALE_CREATED"
@@ -92,6 +103,7 @@ export class GoogleSyncDispatcher {
           return false;
         }
 
+        const google = getGoogle();
         const oauth2Client = new google.auth.OAuth2(clientId, clientSecret);
         oauth2Client.setCredentials({ refresh_token: refreshToken });
         const sheetsClient = google.sheets({ version: "v4", auth: oauth2Client });

@@ -5,7 +5,13 @@ import { InvoiceCard } from "./invoice-card";
 import { InvoiceDrawer } from "./invoice-drawer";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { format } from "date-fns";
@@ -14,18 +20,16 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import type { DateRange } from "react-day-picker";
 
-export function InvoiceHistory({
-  customerId,
-}: {
-  customerId?: string | number;
-}) {
+export function InvoiceHistory({ customerId }: { customerId?: string | number }) {
   const customers = useApp((s) => s.customers);
   const setCustomers = useApp((s) => s.setCustomers);
 
   // Load customers if not loaded
   useEffect(() => {
     if (customers.length === 0) {
-      getCustomers().then(setCustomers).catch(() => {});
+      getCustomers()
+        .then(setCustomers)
+        .catch(() => {});
     }
   }, [customers, setCustomers]);
 
@@ -66,9 +70,14 @@ export function InvoiceHistory({
           search,
           status: status === "ALL" ? undefined : status,
           paymentMethod: payment === "ALL" ? undefined : payment,
-          customerId: (customerId !== undefined)
-            ? (typeof customerId === "string" ? parseInt(customerId, 10) : customerId)
-            : (selectedCustomerId === "ALL" ? undefined : parseInt(selectedCustomerId, 10)),
+          customerId:
+            customerId !== undefined
+              ? typeof customerId === "string"
+                ? parseInt(customerId, 10)
+                : customerId
+              : selectedCustomerId === "ALL"
+                ? undefined
+                : parseInt(selectedCustomerId, 10),
           dateFilter: dateFilter === "all" ? undefined : dateFilter,
           sort,
         };
@@ -113,9 +122,14 @@ export function InvoiceHistory({
         search,
         status: status === "ALL" ? undefined : status,
         paymentMethod: payment === "ALL" ? undefined : payment,
-        customerId: (customerId !== undefined)
-          ? (typeof customerId === "string" ? parseInt(customerId, 10) : customerId)
-          : (selectedCustomerId === "ALL" ? undefined : parseInt(selectedCustomerId, 10)),
+        customerId:
+          customerId !== undefined
+            ? typeof customerId === "string"
+              ? parseInt(customerId, 10)
+              : customerId
+            : selectedCustomerId === "ALL"
+              ? undefined
+              : parseInt(selectedCustomerId, 10),
         dateFilter: dateFilter === "all" ? undefined : dateFilter,
         sort,
       };
@@ -216,7 +230,12 @@ export function InvoiceHistory({
           <div className="flex items-center gap-1.5 text-xs font-bold text-muted-foreground uppercase tracking-wider">
             <SlidersHorizontal className="size-3.5" /> Filters
           </div>
-          {(search || status !== "ALL" || payment !== "ALL" || selectedCustomerId !== "ALL" || dateFilter !== "all" || sort !== "newest") && (
+          {(search ||
+            status !== "ALL" ||
+            payment !== "ALL" ||
+            selectedCustomerId !== "ALL" ||
+            dateFilter !== "all" ||
+            sort !== "newest") && (
             <Button
               variant="ghost"
               size="sm"
@@ -318,15 +337,11 @@ export function InvoiceHistory({
                   className="rounded-xl text-[11px] font-medium border-border h-9 bg-surface text-muted-foreground flex gap-1.5"
                 >
                   <CalendarIcon className="size-3.5 text-muted-foreground" />
-                  {dateRange?.from ? (
-                    dateRange.to ? (
-                      `${format(dateRange.from, "d MMM yyyy")} – ${format(dateRange.to, "d MMM yyyy")}`
-                    ) : (
-                      format(dateRange.from, "d MMM yyyy")
-                    )
-                  ) : (
-                    "Select date range"
-                  )}
+                  {dateRange?.from
+                    ? dateRange.to
+                      ? `${format(dateRange.from, "d MMM yyyy")} – ${format(dateRange.to, "d MMM yyyy")}`
+                      : format(dateRange.from, "d MMM yyyy")
+                    : "Select date range"}
                 </Button>
               </PopoverTrigger>
               <PopoverContent align="start" className="w-auto p-0 rounded-2xl">
@@ -384,9 +399,7 @@ export function InvoiceHistory({
             disabled={loadingMore}
             className="rounded-xl px-6 h-10 border-border bg-surface text-xs font-semibold text-muted-foreground hover:text-foreground transition-all flex gap-1.5"
           >
-            {loadingMore ? (
-              <Loader2 className="size-3.5 animate-spin" />
-            ) : null}
+            {loadingMore ? <Loader2 className="size-3.5 animate-spin" /> : null}
             {loadingMore ? "Loading Invoices..." : "Load More Invoices"}
           </Button>
         </div>

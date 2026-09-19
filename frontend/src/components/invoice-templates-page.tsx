@@ -6,18 +6,22 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { useApp } from "@/lib/store";
-import { DEFAULT_RECEIPT_TEMPLATES, saveActiveTemplateConfig, type TemplatePreset } from "@/lib/receipt-template";
+import {
+  DEFAULT_RECEIPT_TEMPLATES,
+  saveActiveTemplateConfig,
+  type TemplatePreset,
+} from "@/lib/receipt-template";
 import { InvoiceTemplateRenderer } from "@/components/invoice-template-renderer";
 import { API_BASE_URL, apiFetch } from "@/lib/api";
 
 export function InvoiceTemplatesPage() {
   const s = useApp();
-  const [invPrefix, setInvPrefix] = useState(() => localStorage.getItem("orion_inv_prefix") || "INV-");
+  const [invPrefix, setInvPrefix] = useState(
+    () => localStorage.getItem("orion_inv_prefix") || "INV-",
+  );
   const [pdfInvoiceTemplate, setPdfInvoiceTemplate] = useState("Professional A4");
   const [isDirty, setIsDirty] = useState(false);
   const [saving, setSaving] = useState(false);
-
-
 
   const handleSaveSettings = async () => {
     setSaving(true);
@@ -80,7 +84,8 @@ export function InvoiceTemplatesPage() {
             <FileText className="size-6 text-primary" /> Invoice Templates & Layout Designer
           </h1>
           <p className="text-xs text-muted-foreground mt-1">
-            Choose invoice templates, customize headers, footers, brand colors, and preview live sample receipts.
+            Choose invoice templates, customize headers, footers, brand colors, and preview live
+            sample receipts.
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -105,7 +110,9 @@ export function InvoiceTemplatesPage() {
         {/* Separation Section 1: Receipt / Thermal Template */}
         <div className="space-y-2">
           <div className="flex items-center justify-between">
-            <Label className="text-xs font-semibold">1. Thermal / Receipt Template (Controls View Receipt & POS Thermal Print)</Label>
+            <Label className="text-xs font-semibold">
+              1. Thermal / Receipt Template (Controls View Receipt & POS Thermal Print)
+            </Label>
             <Badge variant="outline" className="text-[10px] text-muted-foreground font-mono">
               Selected: {s.receiptTemplate}
             </Badge>
@@ -132,32 +139,32 @@ export function InvoiceTemplatesPage() {
                   {tpl === "Classic"
                     ? "📜"
                     : tpl === "Modern"
-                    ? "✨"
-                    : tpl === "Minimal"
-                    ? "⚡"
-                    : tpl === "Retail"
-                    ? "🛍️"
-                    : tpl === "Wholesale"
-                    ? "📦"
-                    : tpl === "GST Professional"
-                    ? "🏛️"
-                    : tpl === "Restaurant"
-                    ? "🍽️"
-                    : tpl === "Medical"
-                    ? "💊"
-                    : tpl === "Fashion"
-                    ? "👗"
-                    : tpl === "Compact"
-                    ? "📱"
-                    : "🖨️"}
+                      ? "✨"
+                      : tpl === "Minimal"
+                        ? "⚡"
+                        : tpl === "Retail"
+                          ? "🛍️"
+                          : tpl === "Wholesale"
+                            ? "📦"
+                            : tpl === "GST Professional"
+                              ? "🏛️"
+                              : tpl === "Restaurant"
+                                ? "🍽️"
+                                : tpl === "Medical"
+                                  ? "💊"
+                                  : tpl === "Fashion"
+                                    ? "👗"
+                                    : tpl === "Compact"
+                                      ? "📱"
+                                      : "🖨️"}
                 </div>
                 <div className="text-xs font-bold text-foreground truncate">{tpl}</div>
                 <div className="text-[10px] text-muted-foreground mt-0.5 truncate">
                   {tpl === "Wholesale" || tpl === "GST Professional"
                     ? "Thermal Wide"
                     : tpl === "Compact"
-                    ? "58mm Mini"
-                    : "80mm Standard"}
+                      ? "58mm Mini"
+                      : "80mm Standard"}
                 </div>
               </button>
             ))}
@@ -167,8 +174,13 @@ export function InvoiceTemplatesPage() {
         {/* Separation Section 2: PDF Invoice Template */}
         <div className="space-y-2 pt-3 border-t border-border/40">
           <div className="flex items-center justify-between">
-            <Label className="text-xs font-semibold">2. PDF Invoice Template (Controls Dedicated A4 PDF Downloads & WhatsApp PDF)</Label>
-            <Badge variant="outline" className="text-[10px] text-emerald-600 border-emerald-500/30 bg-emerald-500/10 font-bold">
+            <Label className="text-xs font-semibold">
+              2. PDF Invoice Template (Controls Dedicated A4 PDF Downloads & WhatsApp PDF)
+            </Label>
+            <Badge
+              variant="outline"
+              className="text-[10px] text-emerald-600 border-emerald-500/30 bg-emerald-500/10 font-bold"
+            >
               Active: {pdfInvoiceTemplate}
             </Badge>
           </div>
@@ -321,7 +333,8 @@ export function InvoiceTemplatesPage() {
         <div className="space-y-3 pt-2">
           <div className="text-xs font-bold uppercase tracking-wider text-foreground flex items-center justify-between">
             <div className="flex items-center gap-1.5">
-              <CheckCircle className="size-4 text-emerald-500" /> Dynamic Live Specimen ({s.receiptTemplate} Theme)
+              <CheckCircle className="size-4 text-emerald-500" /> Dynamic Live Specimen (
+              {s.receiptTemplate} Theme)
             </div>
             <span className="text-[11px] font-mono text-muted-foreground">
               Format: <span className="font-bold text-foreground">{invPrefix}00125</span>
@@ -331,35 +344,54 @@ export function InvoiceTemplatesPage() {
           <div className="rounded-2xl border border-border/80 bg-white p-5 shadow-lg max-w-xl mx-auto transition-all text-black">
             <InvoiceTemplateRenderer
               templateName={s.receiptTemplate}
-              receipt={{
-                shop: {
-                  name: s.shopName || "Store",
-                  address: s.storeAddress || "",
-                  phone: s.storePhone || "",
-                  gstin: s.gstin || "",
-                  logo: s.logo,
-                  upiId: s.upiId || "",
-                },
-                invoiceNumber: `${invPrefix}00125`,
-                date: "01/08/2026",
-                time: "02:45 PM",
-                cashier: "Admin",
-                customer: {
-                  name: s.requireCustomerBeforeCheckout ? "Rahul Verma (Required)" : "Walk-in Customer",
-                  phone: "9876543210",
-                },
-                items: [
-                  { name: "Basmati Rice 5kg", qty: 2, price: 450, lineTotal: 900, gst: 5 },
-                  { name: "Sunflower Cooking Oil 1L", qty: 3, price: 165, lineTotal: 495, gst: 12 },
-                  { name: "Organic Whole Wheat Atta 10kg", qty: 1, price: 420, lineTotal: 420, gst: 0 },
-                ],
-                subtotal: 1815,
-                gst: 104.4,
-                discount: 50,
-                grandTotal: 1869.4,
-                paymentMethod: "UPI",
-                thankYouMessage: s.termsAndConditions || s.invoiceFooter || "Goods once sold cannot be returned without original receipt.",
-              } as any}
+              receipt={
+                {
+                  shop: {
+                    name: s.shopName || "Store",
+                    address: s.storeAddress || "",
+                    phone: s.storePhone || "",
+                    gstin: s.gstin || "",
+                    logo: s.logo,
+                    upiId: s.upiId || "",
+                  },
+                  invoiceNumber: `${invPrefix}00125`,
+                  date: "01/08/2026",
+                  time: "02:45 PM",
+                  cashier: "Admin",
+                  customer: {
+                    name: s.requireCustomerBeforeCheckout
+                      ? "Rahul Verma (Required)"
+                      : "Walk-in Customer",
+                    phone: "9876543210",
+                  },
+                  items: [
+                    { name: "Basmati Rice 5kg", qty: 2, price: 450, lineTotal: 900, gst: 5 },
+                    {
+                      name: "Sunflower Cooking Oil 1L",
+                      qty: 3,
+                      price: 165,
+                      lineTotal: 495,
+                      gst: 12,
+                    },
+                    {
+                      name: "Organic Whole Wheat Atta 10kg",
+                      qty: 1,
+                      price: 420,
+                      lineTotal: 420,
+                      gst: 0,
+                    },
+                  ],
+                  subtotal: 1815,
+                  gst: 104.4,
+                  discount: 50,
+                  grandTotal: 1869.4,
+                  paymentMethod: "UPI",
+                  thankYouMessage:
+                    s.termsAndConditions ||
+                    s.invoiceFooter ||
+                    "Goods once sold cannot be returned without original receipt.",
+                } as any
+              }
             />
           </div>
         </div>

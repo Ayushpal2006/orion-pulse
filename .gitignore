@@ -44,3 +44,13 @@ dist-ssr
 # must inline. Without it a fresh clone builds against the localhost fallback. No secrets.
 !frontend/.env.production
 client_secret*.json
+
+# Mobile Expo
+mobile-expo/.expo/
+mobile-expo/android/
+mobile-expo/ios/
+mobile-expo/dist/
+mobile-expo/.git-broken/
+mobile-expo/apkabill-*.txt
+*.dump
+*.sql

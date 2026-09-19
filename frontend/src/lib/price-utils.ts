@@ -33,7 +33,11 @@ export function resolveProductSellingPrice(prod: any): number {
 
   // 2. camelCase `unitPrice` or snake_case `unit_price` (in Rupees)
   const unitPriceCandidate = prod.unitPrice ?? prod.unit_price;
-  if (unitPriceCandidate !== undefined && unitPriceCandidate !== null && unitPriceCandidate !== "") {
+  if (
+    unitPriceCandidate !== undefined &&
+    unitPriceCandidate !== null &&
+    unitPriceCandidate !== ""
+  ) {
     const val = Number(unitPriceCandidate);
     if (!isNaN(val) && val >= 0) {
       return val;
@@ -49,7 +53,11 @@ export function resolveProductSellingPrice(prod: any): number {
   }
 
   // 4. snake_case `selling_price`
-  if (prod.selling_price !== undefined && prod.selling_price !== null && prod.selling_price !== "") {
+  if (
+    prod.selling_price !== undefined &&
+    prod.selling_price !== null &&
+    prod.selling_price !== ""
+  ) {
     const val = Number(prod.selling_price);
     if (!isNaN(val) && val >= 0) {
       // If it has `purchase_price` and NO frontend `price` property,
@@ -79,7 +87,11 @@ export function resolveProductPurchaseCost(prod: any): number {
     }
   }
 
-  if (prod.purchase_price !== undefined && prod.purchase_price !== null && prod.purchase_price !== "") {
+  if (
+    prod.purchase_price !== undefined &&
+    prod.purchase_price !== null &&
+    prod.purchase_price !== ""
+  ) {
     const val = Number(prod.purchase_price);
     if (!isNaN(val) && val >= 0) {
       if (prod.purchase === undefined && prod.price === undefined) {

@@ -4,10 +4,63 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
-  ShieldAlert, Building2, Store, Users, Search, RefreshCw, Lock, Eye, CheckCircle2, AlertTriangle, Ban, Key, Sparkles, Filter, Plus, Edit, ChevronLeft, ChevronRight, Activity, CreditCard, FileText, Server, Settings, User, LogOut, CheckCircle, ShieldCheck, Database, HardDrive, Globe, Trash2, Copy, Check, Bell, Moon, Sun, Layers, DollarSign, Terminal, Shield, Zap
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  ShieldAlert,
+  Building2,
+  Store,
+  Users,
+  Search,
+  RefreshCw,
+  Lock,
+  Eye,
+  CheckCircle2,
+  AlertTriangle,
+  Ban,
+  Key,
+  Sparkles,
+  Filter,
+  Plus,
+  Edit,
+  ChevronLeft,
+  ChevronRight,
+  Activity,
+  CreditCard,
+  FileText,
+  Server,
+  Settings,
+  User,
+  LogOut,
+  CheckCircle,
+  ShieldCheck,
+  Database,
+  HardDrive,
+  Globe,
+  Trash2,
+  Copy,
+  Check,
+  Bell,
+  Moon,
+  Sun,
+  Layers,
+  DollarSign,
+  Terminal,
+  Shield,
+  Zap,
 } from "lucide-react";
 import { useApp } from "@/lib/store";
 import { inr } from "@/lib/format";
@@ -49,7 +102,17 @@ export const Route = createFileRoute("/super-admin")({
 export function SuperAdminPage() {
   const currentRole = useApp((s) => s.role);
   const [activeTab, setActiveTab] = useState<
-    "dashboard" | "organizations" | "stores" | "users" | "subscriptions" | "plans" | "payments" | "audit-logs" | "system-health" | "settings" | "profile"
+    | "dashboard"
+    | "organizations"
+    | "stores"
+    | "users"
+    | "subscriptions"
+    | "plans"
+    | "payments"
+    | "audit-logs"
+    | "system-health"
+    | "settings"
+    | "profile"
   >("dashboard");
 
   const [metrics, setMetrics] = useState<any>(null);
@@ -123,20 +186,45 @@ export function SuperAdminPage() {
   // Store Management Modals
   const [createStoreModalOpen, setCreateStoreModalOpen] = useState(false);
   const [createStoreSubmitting, setCreateStoreSubmitting] = useState(false);
-  const [createStoreForm, setCreateStoreForm] = useState({ organizationId: "", name: "", code: "", address: "", phone: "" });
+  const [createStoreForm, setCreateStoreForm] = useState({
+    organizationId: "",
+    name: "",
+    code: "",
+    address: "",
+    phone: "",
+  });
   const [editStoreModalOpen, setEditStoreModalOpen] = useState(false);
   const [editStoreSubmitting, setEditStoreSubmitting] = useState(false);
   const [editStoreTarget, setEditStoreTarget] = useState<any>(null);
-  const [editStoreForm, setEditStoreForm] = useState({ name: "", code: "", address: "", phone: "" });
+  const [editStoreForm, setEditStoreForm] = useState({
+    name: "",
+    code: "",
+    address: "",
+    phone: "",
+  });
 
   // User Management Modals
   const [createUserModalOpen, setCreateUserModalOpen] = useState(false);
   const [createUserSubmitting, setCreateUserSubmitting] = useState(false);
-  const [createUserForm, setCreateUserForm] = useState({ organizationId: "", storeId: "", name: "", email: "", phone: "", password: "", role: "cashier" });
+  const [createUserForm, setCreateUserForm] = useState({
+    organizationId: "",
+    storeId: "",
+    name: "",
+    email: "",
+    phone: "",
+    password: "",
+    role: "cashier",
+  });
   const [editUserModalOpen, setEditUserModalOpen] = useState(false);
   const [editUserSubmitting, setEditUserSubmitting] = useState(false);
   const [editUserTarget, setEditUserTarget] = useState<any>(null);
-  const [editUserForm, setEditUserForm] = useState({ name: "", email: "", phone: "", role: "cashier", storeId: "" });
+  const [editUserForm, setEditUserForm] = useState({
+    name: "",
+    email: "",
+    phone: "",
+    role: "cashier",
+    storeId: "",
+  });
 
   const fetchData = async () => {
     try {
@@ -165,6 +253,9 @@ export function SuperAdminPage() {
 
   useEffect(() => {
     fetchData();
+    // Keyed deliberately on the filters: fetchData is not memoised, so listing it would
+    // re-fetch in a loop.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchTerm, statusFilter]);
 
   const handleOpenDetails = async (orgId: number) => {
@@ -254,7 +345,8 @@ export function SuperAdminPage() {
     if (!createForm.businessName.trim()) return toast.error("Business Name is required");
     if (!createForm.ownerName.trim()) return toast.error("Owner Name is required");
     if (!createForm.email.trim()) return toast.error("Owner Email is required");
-    if (!createForm.password || createForm.password.length < 6) return toast.error("Password min 6 chars");
+    if (!createForm.password || createForm.password.length < 6)
+      return toast.error("Password min 6 chars");
 
     try {
       setCreateSubmitting(true);
@@ -351,7 +443,8 @@ export function SuperAdminPage() {
     if (!createUserForm.organizationId) return toast.error("Select an Organization");
     if (!createUserForm.name.trim()) return toast.error("User Name is required");
     if (!createUserForm.email.trim()) return toast.error("User Email is required");
-    if (!createUserForm.password || createUserForm.password.length < 6) return toast.error("Password min 6 chars");
+    if (!createUserForm.password || createUserForm.password.length < 6)
+      return toast.error("Password min 6 chars");
 
     try {
       setCreateUserSubmitting(true);
@@ -366,7 +459,15 @@ export function SuperAdminPage() {
       });
       toast.success(`User "${createUserForm.email}" created successfully!`);
       setCreateUserModalOpen(false);
-      setCreateUserForm({ organizationId: "", storeId: "", name: "", email: "", phone: "", password: "", role: "cashier" });
+      setCreateUserForm({
+        organizationId: "",
+        storeId: "",
+        name: "",
+        email: "",
+        phone: "",
+        password: "",
+        role: "cashier",
+      });
       fetchData();
     } catch (err: any) {
       toast.error(err.message || "Failed to create user");
@@ -412,20 +513,35 @@ export function SuperAdminPage() {
 
   const getStatusBadge = (st: string) => {
     const s = (st || "active").toLowerCase();
-    if (s === "active") return <Badge className="bg-emerald-500/10 text-emerald-600 border-emerald-200">Active</Badge>;
-    if (s === "trial") return <Badge className="bg-amber-500/10 text-amber-600 border-amber-200">Trial</Badge>;
-    return <Badge className="bg-destructive/10 text-destructive border-destructive/20">Suspended</Badge>;
+    if (s === "active")
+      return (
+        <Badge className="bg-emerald-500/10 text-emerald-600 border-emerald-200">Active</Badge>
+      );
+    if (s === "trial")
+      return <Badge className="bg-amber-500/10 text-amber-600 border-amber-200">Trial</Badge>;
+    return (
+      <Badge className="bg-destructive/10 text-destructive border-destructive/20">Suspended</Badge>
+    );
   };
 
   const getPlanBadge = (plan: string) => {
     const p = (plan || "Basic").toLowerCase();
-    if (p === "enterprise") return <Badge className="bg-purple-500/10 text-purple-600 border-purple-200">Enterprise</Badge>;
-    if (p === "pro" || p === "professional") return <Badge className="bg-blue-500/10 text-blue-600 border-blue-200">Pro</Badge>;
+    if (p === "enterprise")
+      return (
+        <Badge className="bg-purple-500/10 text-purple-600 border-purple-200">Enterprise</Badge>
+      );
+    if (p === "pro" || p === "professional")
+      return <Badge className="bg-blue-500/10 text-blue-600 border-blue-200">Pro</Badge>;
     return <Badge variant="secondary">Basic</Badge>;
   };
 
   return (
-    <div className={cn("min-h-screen flex flex-col md:flex-row font-sans bg-background text-foreground", isDarkMode ? "dark" : "")}>
+    <div
+      className={cn(
+        "min-h-screen flex flex-col md:flex-row font-sans bg-background text-foreground",
+        isDarkMode ? "dark" : "",
+      )}
+    >
       {/* LEFT SIDEBAR */}
       <aside className="w-full md:w-64 border-r border-border bg-card/80 backdrop-blur shrink-0 flex flex-col justify-between p-4 space-y-6">
         <div className="space-y-6">
@@ -448,7 +564,9 @@ export function SuperAdminPage() {
               onClick={() => setActiveTab("dashboard")}
               className={cn(
                 "w-full flex items-center gap-2.5 px-3 py-2 rounded-xl font-medium transition-colors text-left",
-                activeTab === "dashboard" ? "bg-primary text-primary-foreground font-semibold" : "text-muted-foreground hover:bg-accent hover:text-foreground"
+                activeTab === "dashboard"
+                  ? "bg-primary text-primary-foreground font-semibold"
+                  : "text-muted-foreground hover:bg-accent hover:text-foreground",
               )}
             >
               <Activity className="size-4" /> Dashboard
@@ -458,20 +576,26 @@ export function SuperAdminPage() {
               onClick={() => setActiveTab("organizations")}
               className={cn(
                 "w-full flex items-center gap-2.5 px-3 py-2 rounded-xl font-medium transition-colors text-left justify-between",
-                activeTab === "organizations" ? "bg-primary text-primary-foreground font-semibold" : "text-muted-foreground hover:bg-accent hover:text-foreground"
+                activeTab === "organizations"
+                  ? "bg-primary text-primary-foreground font-semibold"
+                  : "text-muted-foreground hover:bg-accent hover:text-foreground",
               )}
             >
               <div className="flex items-center gap-2.5">
                 <Building2 className="size-4" /> Organizations
               </div>
-              <Badge variant="outline" className="text-[10px] px-1.5 py-0">{organizations.length}</Badge>
+              <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+                {organizations.length}
+              </Badge>
             </button>
 
             <button
               onClick={() => setActiveTab("stores")}
               className={cn(
                 "w-full flex items-center gap-2.5 px-3 py-2 rounded-xl font-medium transition-colors text-left",
-                activeTab === "stores" ? "bg-primary text-primary-foreground font-semibold" : "text-muted-foreground hover:bg-accent hover:text-foreground"
+                activeTab === "stores"
+                  ? "bg-primary text-primary-foreground font-semibold"
+                  : "text-muted-foreground hover:bg-accent hover:text-foreground",
               )}
             >
               <Store className="size-4" /> Stores ({storesList.length})
@@ -481,7 +605,9 @@ export function SuperAdminPage() {
               onClick={() => setActiveTab("users")}
               className={cn(
                 "w-full flex items-center gap-2.5 px-3 py-2 rounded-xl font-medium transition-colors text-left",
-                activeTab === "users" ? "bg-primary text-primary-foreground font-semibold" : "text-muted-foreground hover:bg-accent hover:text-foreground"
+                activeTab === "users"
+                  ? "bg-primary text-primary-foreground font-semibold"
+                  : "text-muted-foreground hover:bg-accent hover:text-foreground",
               )}
             >
               <Users className="size-4" /> Users ({usersList.length})
@@ -491,7 +617,9 @@ export function SuperAdminPage() {
               onClick={() => setActiveTab("subscriptions")}
               className={cn(
                 "w-full flex items-center gap-2.5 px-3 py-2 rounded-xl font-medium transition-colors text-left",
-                activeTab === "subscriptions" ? "bg-primary text-primary-foreground font-semibold" : "text-muted-foreground hover:bg-accent hover:text-foreground"
+                activeTab === "subscriptions"
+                  ? "bg-primary text-primary-foreground font-semibold"
+                  : "text-muted-foreground hover:bg-accent hover:text-foreground",
               )}
             >
               <CreditCard className="size-4" /> Subscriptions & Plans
@@ -501,7 +629,9 @@ export function SuperAdminPage() {
               onClick={() => setActiveTab("payments")}
               className={cn(
                 "w-full flex items-center gap-2.5 px-3 py-2 rounded-xl font-medium transition-colors text-left",
-                activeTab === "payments" ? "bg-primary text-primary-foreground font-semibold" : "text-muted-foreground hover:bg-accent hover:text-foreground"
+                activeTab === "payments"
+                  ? "bg-primary text-primary-foreground font-semibold"
+                  : "text-muted-foreground hover:bg-accent hover:text-foreground",
               )}
             >
               <DollarSign className="size-4" /> Payments Log
@@ -511,7 +641,9 @@ export function SuperAdminPage() {
               onClick={() => setActiveTab("audit-logs")}
               className={cn(
                 "w-full flex items-center gap-2.5 px-3 py-2 rounded-xl font-medium transition-colors text-left",
-                activeTab === "audit-logs" ? "bg-primary text-primary-foreground font-semibold" : "text-muted-foreground hover:bg-accent hover:text-foreground"
+                activeTab === "audit-logs"
+                  ? "bg-primary text-primary-foreground font-semibold"
+                  : "text-muted-foreground hover:bg-accent hover:text-foreground",
               )}
             >
               <FileText className="size-4" /> Audit Logs
@@ -521,7 +653,9 @@ export function SuperAdminPage() {
               onClick={() => setActiveTab("system-health")}
               className={cn(
                 "w-full flex items-center gap-2.5 px-3 py-2 rounded-xl font-medium transition-colors text-left",
-                activeTab === "system-health" ? "bg-primary text-primary-foreground font-semibold" : "text-muted-foreground hover:bg-accent hover:text-foreground"
+                activeTab === "system-health"
+                  ? "bg-primary text-primary-foreground font-semibold"
+                  : "text-muted-foreground hover:bg-accent hover:text-foreground",
               )}
             >
               <Server className="size-4" /> System Telemetry
@@ -531,7 +665,9 @@ export function SuperAdminPage() {
               onClick={() => setActiveTab("settings")}
               className={cn(
                 "w-full flex items-center gap-2.5 px-3 py-2 rounded-xl font-medium transition-colors text-left",
-                activeTab === "settings" ? "bg-primary text-primary-foreground font-semibold" : "text-muted-foreground hover:bg-accent hover:text-foreground"
+                activeTab === "settings"
+                  ? "bg-primary text-primary-foreground font-semibold"
+                  : "text-muted-foreground hover:bg-accent hover:text-foreground",
               )}
             >
               <Settings className="size-4" /> Platform Settings
@@ -588,7 +724,11 @@ export function SuperAdminPage() {
               {isDarkMode ? <Sun className="size-4" /> : <Moon className="size-4" />}
             </Button>
 
-            <Button variant="ghost" size="icon" className="size-8 rounded-xl text-muted-foreground hover:text-foreground relative">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="size-8 rounded-xl text-muted-foreground hover:text-foreground relative"
+            >
               <Bell className="size-4" />
               <span className="absolute top-1.5 right-1.5 size-2 rounded-full bg-emerald-500 animate-pulse" />
             </Button>
@@ -610,10 +750,19 @@ export function SuperAdminPage() {
             <div className="space-y-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <h1 className="text-2xl font-bold tracking-tight text-foreground">SaaS Executive Dashboard</h1>
-                  <p className="text-xs text-muted-foreground">Real-time overview across all tenant organizations and system infrastructure</p>
+                  <h1 className="text-2xl font-bold tracking-tight text-foreground">
+                    SaaS Executive Dashboard
+                  </h1>
+                  <p className="text-xs text-muted-foreground">
+                    Real-time overview across all tenant organizations and system infrastructure
+                  </p>
                 </div>
-                <Button size="sm" variant="outline" onClick={fetchData} className="rounded-xl h-9 text-xs gap-1.5">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={fetchData}
+                  className="rounded-xl h-9 text-xs gap-1.5"
+                >
                   <RefreshCw className="size-3.5" /> Refresh Telemetry
                 </Button>
               </div>
@@ -625,8 +774,12 @@ export function SuperAdminPage() {
                     <span>Total Organizations</span>
                     <Building2 className="size-4 text-primary" />
                   </div>
-                  <div className="text-3xl font-extrabold text-foreground tabular">{metrics?.totalOrganizations ?? 0}</div>
-                  <div className="text-xs text-emerald-600 dark:text-emerald-400 font-semibold">{metrics?.activeOrganizations ?? 0} Active Customers</div>
+                  <div className="text-3xl font-extrabold text-foreground tabular">
+                    {metrics?.totalOrganizations ?? 0}
+                  </div>
+                  <div className="text-xs text-emerald-600 dark:text-emerald-400 font-semibold">
+                    {metrics?.activeOrganizations ?? 0} Active Customers
+                  </div>
                 </div>
 
                 <div className="card-soft p-5 border-t-2 border-t-blue-500 space-y-2">
@@ -634,8 +787,12 @@ export function SuperAdminPage() {
                     <span>Total Retail Stores</span>
                     <Store className="size-4 text-blue-500" />
                   </div>
-                  <div className="text-3xl font-extrabold text-foreground tabular">{metrics?.totalStores ?? 0}</div>
-                  <div className="text-xs text-muted-foreground font-medium">Active POS Outlets</div>
+                  <div className="text-3xl font-extrabold text-foreground tabular">
+                    {metrics?.totalStores ?? 0}
+                  </div>
+                  <div className="text-xs text-muted-foreground font-medium">
+                    Active POS Outlets
+                  </div>
                 </div>
 
                 <div className="card-soft p-5 border-t-2 border-t-amber-500 space-y-2">
@@ -643,7 +800,9 @@ export function SuperAdminPage() {
                     <span>Platform Users</span>
                     <Users className="size-4 text-amber-500" />
                   </div>
-                  <div className="text-3xl font-extrabold text-foreground tabular">{metrics?.totalUsers ?? 0}</div>
+                  <div className="text-3xl font-extrabold text-foreground tabular">
+                    {metrics?.totalUsers ?? 0}
+                  </div>
                   <div className="text-xs text-muted-foreground font-medium">Tenant Accounts</div>
                 </div>
 
@@ -652,8 +811,12 @@ export function SuperAdminPage() {
                     <span>Platform Gross Sales</span>
                     <DollarSign className="size-4 text-emerald-500" />
                   </div>
-                  <div className="text-3xl font-extrabold text-foreground tabular">{inr(metrics?.totalSales ?? 0)}</div>
-                  <div className="text-xs text-emerald-600 dark:text-emerald-400 font-semibold">Processed Billing Sum</div>
+                  <div className="text-3xl font-extrabold text-foreground tabular">
+                    {inr(metrics?.totalSales ?? 0)}
+                  </div>
+                  <div className="text-xs text-emerald-600 dark:text-emerald-400 font-semibold">
+                    Processed Billing Sum
+                  </div>
                 </div>
               </div>
 
@@ -665,15 +828,21 @@ export function SuperAdminPage() {
                   </h3>
                   <div className="grid grid-cols-3 gap-4 text-center">
                     <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-200">
-                      <div className="text-2xl font-bold text-emerald-600">{metrics?.activeOrganizations ?? 0}</div>
+                      <div className="text-2xl font-bold text-emerald-600">
+                        {metrics?.activeOrganizations ?? 0}
+                      </div>
                       <div className="text-xs text-emerald-700">Active Paid Plans</div>
                     </div>
                     <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-200">
-                      <div className="text-2xl font-bold text-amber-600">{metrics?.trialOrganizations ?? 0}</div>
+                      <div className="text-2xl font-bold text-amber-600">
+                        {metrics?.trialOrganizations ?? 0}
+                      </div>
                       <div className="text-xs text-amber-700">Free Trial Accounts</div>
                     </div>
                     <div className="p-4 rounded-xl bg-destructive/10 border border-destructive/20">
-                      <div className="text-2xl font-bold text-destructive">{metrics?.suspendedOrganizations ?? 0}</div>
+                      <div className="text-2xl font-bold text-destructive">
+                        {metrics?.suspendedOrganizations ?? 0}
+                      </div>
                       <div className="text-xs text-destructive">Suspended Orgs</div>
                     </div>
                   </div>
@@ -685,15 +854,21 @@ export function SuperAdminPage() {
                   </h3>
                   <div className="space-y-3 text-xs">
                     <div className="flex items-center justify-between p-2.5 rounded-xl bg-emerald-500/10 text-emerald-700 font-medium">
-                      <span className="flex items-center gap-2"><Database className="size-3.5" /> Railway PostgreSQL</span>
+                      <span className="flex items-center gap-2">
+                        <Database className="size-3.5" /> Railway PostgreSQL
+                      </span>
                       <span>99.99% ONLINE</span>
                     </div>
                     <div className="flex items-center justify-between p-2.5 rounded-xl bg-blue-500/10 text-blue-700 font-medium">
-                      <span className="flex items-center gap-2"><Globe className="size-3.5" /> Express API Gateway</span>
+                      <span className="flex items-center gap-2">
+                        <Globe className="size-3.5" /> Express API Gateway
+                      </span>
                       <span>200 OK</span>
                     </div>
                     <div className="flex items-center justify-between p-2.5 rounded-xl bg-purple-500/10 text-purple-700 font-medium">
-                      <span className="flex items-center gap-2"><HardDrive className="size-3.5" /> Cloudinary Media CDN</span>
+                      <span className="flex items-center gap-2">
+                        <HardDrive className="size-3.5" /> Cloudinary Media CDN
+                      </span>
                       <span>CONNECTED</span>
                     </div>
                   </div>
@@ -707,12 +882,20 @@ export function SuperAdminPage() {
             <div className="space-y-4 pt-4 border-t border-border">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
-                  <h2 className="text-lg font-bold text-foreground">SaaS Organizations ({organizations.length})</h2>
-                  <p className="text-xs text-muted-foreground">Manage multi-tenant business accounts, owner passwords, and plans</p>
+                  <h2 className="text-lg font-bold text-foreground">
+                    SaaS Organizations ({organizations.length})
+                  </h2>
+                  <p className="text-xs text-muted-foreground">
+                    Manage multi-tenant business accounts, owner passwords, and plans
+                  </p>
                 </div>
 
                 <div className="flex items-center gap-2">
-                  <Button size="sm" onClick={() => setCreateModalOpen(true)} className="rounded-xl h-9 text-xs gap-1.5 shadow-sm font-semibold">
+                  <Button
+                    size="sm"
+                    onClick={() => setCreateModalOpen(true)}
+                    className="rounded-xl h-9 text-xs gap-1.5 shadow-sm font-semibold"
+                  >
                     <Plus className="size-4" /> Create Organization
                   </Button>
                 </div>
@@ -743,7 +926,12 @@ export function SuperAdminPage() {
                     </SelectContent>
                   </Select>
 
-                  <Button variant="ghost" size="sm" onClick={fetchData} className="rounded-xl h-9 text-xs">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={fetchData}
+                    className="rounded-xl h-9 text-xs"
+                  >
                     <RefreshCw className="size-3.5" />
                   </Button>
                 </div>
@@ -768,7 +956,8 @@ export function SuperAdminPage() {
                       {loading ? (
                         <tr>
                           <td colSpan={7} className="p-8 text-center text-muted-foreground">
-                            <RefreshCw className="size-5 animate-spin mx-auto mb-2 text-primary" /> Loading Organizations…
+                            <RefreshCw className="size-5 animate-spin mx-auto mb-2 text-primary" />{" "}
+                            Loading Organizations…
                           </td>
                         </tr>
                       ) : paginatedOrgs.length === 0 ? (
@@ -787,14 +976,18 @@ export function SuperAdminPage() {
                                 </div>
                                 <div>
                                   <div className="font-semibold text-foreground">{org.name}</div>
-                                  <div className="text-[10px] text-muted-foreground font-mono">#{org.id} · {org.slug}</div>
+                                  <div className="text-[10px] text-muted-foreground font-mono">
+                                    #{org.id} · {org.slug}
+                                  </div>
                                 </div>
                               </div>
                             </td>
 
                             <td className="p-3.5">
                               <div className="font-medium text-foreground">{org.ownerName}</div>
-                              <div className="text-[10px] text-muted-foreground">{org.ownerEmail}</div>
+                              <div className="text-[10px] text-muted-foreground">
+                                {org.ownerEmail}
+                              </div>
                             </td>
 
                             <td className="p-3.5">{getPlanBadge(org.billingPlan)}</td>
@@ -918,10 +1111,18 @@ export function SuperAdminPage() {
             <div className="space-y-4">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
-                  <h2 className="text-lg font-bold text-foreground">Stores & Outlets ({storesList.length})</h2>
-                  <p className="text-xs text-muted-foreground">Manage multi-store POS outlets across all registered tenant organizations</p>
+                  <h2 className="text-lg font-bold text-foreground">
+                    Stores & Outlets ({storesList.length})
+                  </h2>
+                  <p className="text-xs text-muted-foreground">
+                    Manage multi-store POS outlets across all registered tenant organizations
+                  </p>
                 </div>
-                <Button size="sm" onClick={() => setCreateStoreModalOpen(true)} className="rounded-xl h-9 text-xs gap-1.5 shadow-sm font-semibold">
+                <Button
+                  size="sm"
+                  onClick={() => setCreateStoreModalOpen(true)}
+                  className="rounded-xl h-9 text-xs gap-1.5 shadow-sm font-semibold"
+                >
                   <Plus className="size-4" /> Create Store
                 </Button>
               </div>
@@ -941,13 +1142,21 @@ export function SuperAdminPage() {
                   </thead>
                   <tbody className="divide-y divide-border">
                     {storesList.length === 0 ? (
-                      <tr><td colSpan={7} className="p-6 text-center text-muted-foreground">No stores found</td></tr>
+                      <tr>
+                        <td colSpan={7} className="p-6 text-center text-muted-foreground">
+                          No stores found
+                        </td>
+                      </tr>
                     ) : (
                       storesList.map((st) => (
                         <tr key={st.id} className="hover:bg-muted/30">
                           <td className="p-3.5 font-semibold text-foreground">{st.name}</td>
-                          <td className="p-3.5 font-mono text-muted-foreground">{st.code || "STR-MAIN"}</td>
-                          <td className="p-3.5 text-foreground font-medium">{st.organizationName}</td>
+                          <td className="p-3.5 font-mono text-muted-foreground">
+                            {st.code || "STR-MAIN"}
+                          </td>
+                          <td className="p-3.5 text-foreground font-medium">
+                            {st.organizationName}
+                          </td>
                           <td className="p-3.5 text-muted-foreground">{st.managerName || "N/A"}</td>
                           <td className="p-3.5 font-mono">{st.totalProducts ?? 0}</td>
                           <td className="p-3.5">{getStatusBadge(st.status)}</td>
@@ -958,7 +1167,12 @@ export function SuperAdminPage() {
                                 variant="outline"
                                 onClick={() => {
                                   setEditStoreTarget(st);
-                                  setEditStoreForm({ name: st.name, code: st.code || "", address: st.address || "", phone: st.phone || "" });
+                                  setEditStoreForm({
+                                    name: st.name,
+                                    code: st.code || "",
+                                    address: st.address || "",
+                                    phone: st.phone || "",
+                                  });
                                   setEditStoreModalOpen(true);
                                 }}
                                 className="h-7 text-xs rounded-lg"
@@ -968,10 +1182,24 @@ export function SuperAdminPage() {
                               <Button
                                 size="sm"
                                 variant="ghost"
-                                onClick={() => handleStoreStatusChange(st.id, (st.status || "active").toLowerCase() === "suspended" ? "active" : "suspended")}
-                                className={cn("h-7 text-xs rounded-lg font-medium", (st.status || "active").toLowerCase() === "suspended" ? "text-emerald-600" : "text-amber-600")}
+                                onClick={() =>
+                                  handleStoreStatusChange(
+                                    st.id,
+                                    (st.status || "active").toLowerCase() === "suspended"
+                                      ? "active"
+                                      : "suspended",
+                                  )
+                                }
+                                className={cn(
+                                  "h-7 text-xs rounded-lg font-medium",
+                                  (st.status || "active").toLowerCase() === "suspended"
+                                    ? "text-emerald-600"
+                                    : "text-amber-600",
+                                )}
                               >
-                                {(st.status || "active").toLowerCase() === "suspended" ? "Reactivate" : "Suspend"}
+                                {(st.status || "active").toLowerCase() === "suspended"
+                                  ? "Reactivate"
+                                  : "Suspend"}
                               </Button>
                             </div>
                           </td>
@@ -989,10 +1217,18 @@ export function SuperAdminPage() {
             <div className="space-y-4">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
-                  <h2 className="text-lg font-bold text-foreground">Tenant Users ({usersList.length})</h2>
-                  <p className="text-xs text-muted-foreground">Platform user accounts across all tenant organizations and stores</p>
+                  <h2 className="text-lg font-bold text-foreground">
+                    Tenant Users ({usersList.length})
+                  </h2>
+                  <p className="text-xs text-muted-foreground">
+                    Platform user accounts across all tenant organizations and stores
+                  </p>
                 </div>
-                <Button size="sm" onClick={() => setCreateUserModalOpen(true)} className="rounded-xl h-9 text-xs gap-1.5 shadow-sm font-semibold">
+                <Button
+                  size="sm"
+                  onClick={() => setCreateUserModalOpen(true)}
+                  className="rounded-xl h-9 text-xs gap-1.5 shadow-sm font-semibold"
+                >
                   <Plus className="size-4" /> Create User
                 </Button>
               </div>
@@ -1011,7 +1247,11 @@ export function SuperAdminPage() {
                   </thead>
                   <tbody className="divide-y divide-border">
                     {usersList.length === 0 ? (
-                      <tr><td colSpan={6} className="p-6 text-center text-muted-foreground">No users found</td></tr>
+                      <tr>
+                        <td colSpan={6} className="p-6 text-center text-muted-foreground">
+                          No users found
+                        </td>
+                      </tr>
                     ) : (
                       usersList.map((u) => (
                         <tr key={u.id} className="hover:bg-muted/30">
@@ -1019,8 +1259,14 @@ export function SuperAdminPage() {
                             <div className="font-semibold text-foreground">{u.name}</div>
                             <div className="text-[10px] text-muted-foreground">{u.email}</div>
                           </td>
-                          <td className="p-3.5"><Badge variant="secondary" className="capitalize">{u.role}</Badge></td>
-                          <td className="p-3.5 text-foreground font-medium">{u.organizationName}</td>
+                          <td className="p-3.5">
+                            <Badge variant="secondary" className="capitalize">
+                              {u.role}
+                            </Badge>
+                          </td>
+                          <td className="p-3.5 text-foreground font-medium">
+                            {u.organizationName}
+                          </td>
                           <td className="p-3.5 text-muted-foreground">{u.storeName}</td>
                           <td className="p-3.5">{getStatusBadge(u.status)}</td>
                           <td className="p-3.5 text-right">
@@ -1030,7 +1276,13 @@ export function SuperAdminPage() {
                                 variant="outline"
                                 onClick={() => {
                                   setEditUserTarget(u);
-                                  setEditUserForm({ name: u.name, email: u.email, phone: u.phone || "", role: u.role || "cashier", storeId: String(u.storeId || 1) });
+                                  setEditUserForm({
+                                    name: u.name,
+                                    email: u.email,
+                                    phone: u.phone || "",
+                                    role: u.role || "cashier",
+                                    storeId: String(u.storeId || 1),
+                                  });
                                   setEditUserModalOpen(true);
                                 }}
                                 className="h-7 text-xs rounded-lg"
@@ -1040,10 +1292,24 @@ export function SuperAdminPage() {
                               <Button
                                 size="sm"
                                 variant="ghost"
-                                onClick={() => handleUserStatusChange(u.id, (u.status || "active").toLowerCase() === "suspended" ? "active" : "suspended")}
-                                className={cn("h-7 text-xs rounded-lg font-medium", (u.status || "active").toLowerCase() === "suspended" ? "text-emerald-600" : "text-amber-600")}
+                                onClick={() =>
+                                  handleUserStatusChange(
+                                    u.id,
+                                    (u.status || "active").toLowerCase() === "suspended"
+                                      ? "active"
+                                      : "suspended",
+                                  )
+                                }
+                                className={cn(
+                                  "h-7 text-xs rounded-lg font-medium",
+                                  (u.status || "active").toLowerCase() === "suspended"
+                                    ? "text-emerald-600"
+                                    : "text-amber-600",
+                                )}
                               >
-                                {(u.status || "active").toLowerCase() === "suspended" ? "Reactivate" : "Suspend"}
+                                {(u.status || "active").toLowerCase() === "suspended"
+                                  ? "Reactivate"
+                                  : "Suspend"}
                               </Button>
                             </div>
                           </td>
@@ -1060,7 +1326,9 @@ export function SuperAdminPage() {
           {activeTab === "audit-logs" && (
             <div className="space-y-4">
               <h2 className="text-lg font-bold text-foreground">Platform Audit Logs</h2>
-              <p className="text-xs text-muted-foreground">System action log with IP address tracking</p>
+              <p className="text-xs text-muted-foreground">
+                System action log with IP address tracking
+              </p>
               <div className="rounded-2xl border border-border bg-card overflow-hidden">
                 <table className="w-full text-left text-xs">
                   <thead className="bg-muted/50 border-b border-border font-semibold uppercase text-[10px] text-muted-foreground">
@@ -1079,7 +1347,9 @@ export function SuperAdminPage() {
                         <td className="p-3.5 text-foreground">{log.performedBy}</td>
                         <td className="p-3.5 text-muted-foreground">{log.details}</td>
                         <td className="p-3.5 font-mono text-muted-foreground">{log.ip}</td>
-                        <td className="p-3.5 text-muted-foreground">{new Date(log.timestamp).toLocaleString()}</td>
+                        <td className="p-3.5 text-muted-foreground">
+                          {new Date(log.timestamp).toLocaleString()}
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -1096,18 +1366,26 @@ export function SuperAdminPage() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="p-5 rounded-2xl bg-card border border-border space-y-2">
                   <div className="font-semibold text-xs flex items-center justify-between text-emerald-600">
-                    <span className="flex items-center gap-2"><Database className="size-4" /> PostgreSQL Database (Railway)</span>
+                    <span className="flex items-center gap-2">
+                      <Database className="size-4" /> PostgreSQL Database (Railway)
+                    </span>
                     <CheckCircle className="size-4" />
                   </div>
-                  <p className="text-xs text-muted-foreground">Provider: Railway Managed PostgreSQL (Latency: 4ms)</p>
+                  <p className="text-xs text-muted-foreground">
+                    Provider: Railway Managed PostgreSQL (Latency: 4ms)
+                  </p>
                 </div>
 
                 <div className="p-5 rounded-2xl bg-card border border-border space-y-2">
                   <div className="font-semibold text-xs flex items-center justify-between text-blue-600">
-                    <span className="flex items-center gap-2"><HardDrive className="size-4" /> Cloudinary Media CDN</span>
+                    <span className="flex items-center gap-2">
+                      <HardDrive className="size-4" /> Cloudinary Media CDN
+                    </span>
                     <CheckCircle className="size-4" />
                   </div>
-                  <p className="text-xs text-muted-foreground">Media CDN Storage & Upload API: CONNECTED</p>
+                  <p className="text-xs text-muted-foreground">
+                    Media CDN Storage & Upload API: CONNECTED
+                  </p>
                 </div>
               </div>
             </div>
@@ -1116,7 +1394,9 @@ export function SuperAdminPage() {
           {/* SETTINGS TAB */}
           {activeTab === "settings" && (
             <div className="space-y-4 max-w-xl">
-              <h2 className="text-lg font-bold text-foreground">Platform Administration Settings</h2>
+              <h2 className="text-lg font-bold text-foreground">
+                Platform Administration Settings
+              </h2>
               <p className="text-xs text-muted-foreground">Global SaaS configuration parameters</p>
               <div className="p-6 rounded-2xl bg-card border border-border space-y-4 text-xs">
                 <div className="space-y-1.5">
@@ -1129,7 +1409,9 @@ export function SuperAdminPage() {
                 </div>
                 <div className="space-y-1.5">
                   <Label className="text-xs font-semibold">Maintenance Mode</Label>
-                  <Badge variant="outline" className="text-emerald-600">DISABLED (System Operational)</Badge>
+                  <Badge variant="outline" className="text-emerald-600">
+                    DISABLED (System Operational)
+                  </Badge>
                 </div>
               </div>
             </div>
@@ -1145,36 +1427,66 @@ export function SuperAdminPage() {
               <Key className="size-4 text-purple-600" /> Password Management
             </DialogTitle>
             <DialogDescription className="text-xs">
-              Manage organization owner credentials for: <span className="font-bold text-foreground">{passOrg?.name}</span>
+              Manage organization owner credentials for:{" "}
+              <span className="font-bold text-foreground">{passOrg?.name}</span>
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4 text-xs">
             <div className="p-3 rounded-xl bg-accent/40 border border-border space-y-1">
-              <div className="text-[10px] text-muted-foreground uppercase font-semibold">Owner Admin Email</div>
+              <div className="text-[10px] text-muted-foreground uppercase font-semibold">
+                Owner Admin Email
+              </div>
               <div className="font-bold text-foreground">{passOrg?.ownerEmail}</div>
             </div>
 
             <div className="space-y-1.5">
               <Label className="text-xs font-semibold">Generated Strong Password</Label>
               <div className="flex items-center gap-2">
-                <Input value={generatedPassword} onChange={(e) => setGeneratedPassword(e.target.value)} className="font-mono rounded-xl h-9 text-xs" />
-                <Button size="sm" variant="outline" onClick={handleCopyPassword} className="rounded-xl h-9 text-xs gap-1">
-                  {copiedPass ? <Check className="size-3.5 text-emerald-600" /> : <Copy className="size-3.5" />}
+                <Input
+                  value={generatedPassword}
+                  onChange={(e) => setGeneratedPassword(e.target.value)}
+                  className="font-mono rounded-xl h-9 text-xs"
+                />
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handleCopyPassword}
+                  className="rounded-xl h-9 text-xs gap-1"
+                >
+                  {copiedPass ? (
+                    <Check className="size-3.5 text-emerald-600" />
+                  ) : (
+                    <Copy className="size-3.5" />
+                  )}
                 </Button>
               </div>
             </div>
 
-            <Button size="sm" variant="secondary" onClick={handleGenerateStrongPassword} className="w-full rounded-xl text-xs gap-1">
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={handleGenerateStrongPassword}
+              className="w-full rounded-xl text-xs gap-1"
+            >
               <Sparkles className="size-3.5 text-amber-500" /> Regenerate Strong Password
             </Button>
           </div>
 
           <DialogFooter>
-            <Button variant="outline" size="sm" onClick={() => setPasswordModalOpen(false)} className="rounded-xl text-xs">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setPasswordModalOpen(false)}
+              className="rounded-xl text-xs"
+            >
               Cancel
             </Button>
-            <Button size="sm" onClick={() => setConfirmPassModal(true)} className="rounded-xl text-xs font-bold bg-purple-600 hover:bg-purple-700">
+            <Button
+              size="sm"
+              onClick={() => setConfirmPassModal(true)}
+              className="rounded-xl text-xs font-bold bg-purple-600 hover:bg-purple-700"
+            >
               Apply Password Change
             </Button>
           </DialogFooter>
@@ -1189,14 +1501,25 @@ export function SuperAdminPage() {
               <AlertTriangle className="size-4" /> Confirm Password Update
             </DialogTitle>
             <DialogDescription className="text-xs">
-              Are you sure you want to update the password for <span className="font-bold text-foreground">{passOrg?.name}</span>?
+              Are you sure you want to update the password for{" "}
+              <span className="font-bold text-foreground">{passOrg?.name}</span>?
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" size="sm" onClick={() => setConfirmPassModal(false)} className="rounded-xl text-xs">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setConfirmPassModal(false)}
+              className="rounded-xl text-xs"
+            >
               Cancel
             </Button>
-            <Button size="sm" disabled={resettingPass} onClick={handleConfirmResetPassword} className="rounded-xl text-xs font-bold bg-purple-600 hover:bg-purple-700">
+            <Button
+              size="sm"
+              disabled={resettingPass}
+              onClick={handleConfirmResetPassword}
+              className="rounded-xl text-xs font-bold bg-purple-600 hover:bg-purple-700"
+            >
               {resettingPass ? "Updating…" : "Confirm & Update"}
             </Button>
           </DialogFooter>
@@ -1211,7 +1534,8 @@ export function SuperAdminPage() {
               <CreditCard className="size-4 text-blue-600" /> Change Subscription Plan
             </DialogTitle>
             <DialogDescription className="text-xs">
-              Update billing tier for: <span className="font-bold text-foreground">{planOrg?.name}</span>
+              Update billing tier for:{" "}
+              <span className="font-bold text-foreground">{planOrg?.name}</span>
             </DialogDescription>
           </DialogHeader>
 
@@ -1231,10 +1555,20 @@ export function SuperAdminPage() {
           </div>
 
           <DialogFooter>
-            <Button variant="outline" size="sm" onClick={() => setPlanModalOpen(false)} className="rounded-xl text-xs">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setPlanModalOpen(false)}
+              className="rounded-xl text-xs"
+            >
               Cancel
             </Button>
-            <Button size="sm" disabled={updatingPlan} onClick={handleSavePlanChange} className="rounded-xl text-xs font-bold bg-blue-600 hover:bg-blue-700">
+            <Button
+              size="sm"
+              disabled={updatingPlan}
+              onClick={handleSavePlanChange}
+              className="rounded-xl text-xs font-bold bg-blue-600 hover:bg-blue-700"
+            >
               {updatingPlan ? "Updating…" : "Save Plan"}
             </Button>
           </DialogFooter>
@@ -1249,14 +1583,25 @@ export function SuperAdminPage() {
               <Trash2 className="size-4" /> Confirm Soft Delete
             </DialogTitle>
             <DialogDescription className="text-xs">
-              This will set organization status to <span className="font-mono text-destructive font-bold">DISABLED</span>.
+              This will set organization status to{" "}
+              <span className="font-mono text-destructive font-bold">DISABLED</span>.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" size="sm" onClick={() => setDeleteModalOpen(false)} className="rounded-xl text-xs">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setDeleteModalOpen(false)}
+              className="rounded-xl text-xs"
+            >
               Cancel
             </Button>
-            <Button size="sm" variant="destructive" onClick={handleSoftDeleteOrg} className="rounded-xl text-xs font-bold">
+            <Button
+              size="sm"
+              variant="destructive"
+              onClick={handleSoftDeleteOrg}
+              className="rounded-xl text-xs font-bold"
+            >
               Soft Delete
             </Button>
           </DialogFooter>
@@ -1277,26 +1622,43 @@ export function SuperAdminPage() {
 
           {loadingDetails ? (
             <div className="p-8 text-center text-xs text-muted-foreground">
-              <RefreshCw className="size-5 animate-spin mx-auto mb-2 text-primary" /> Loading Details…
+              <RefreshCw className="size-5 animate-spin mx-auto mb-2 text-primary" /> Loading
+              Details…
             </div>
           ) : selectedOrgDetails ? (
             <div className="space-y-4 text-xs">
               <div className="grid grid-cols-2 gap-3 p-4 rounded-xl bg-accent/40 border border-border">
                 <div>
-                  <div className="text-[10px] text-muted-foreground uppercase font-semibold">Business Name</div>
-                  <div className="font-bold text-foreground text-sm">{selectedOrgDetails.organization.name}</div>
+                  <div className="text-[10px] text-muted-foreground uppercase font-semibold">
+                    Business Name
+                  </div>
+                  <div className="font-bold text-foreground text-sm">
+                    {selectedOrgDetails.organization.name}
+                  </div>
                 </div>
                 <div>
-                  <div className="text-[10px] text-muted-foreground uppercase font-semibold">Slug & ID</div>
-                  <div className="font-mono text-muted-foreground">#{selectedOrgDetails.organization.id} · {selectedOrgDetails.organization.slug}</div>
+                  <div className="text-[10px] text-muted-foreground uppercase font-semibold">
+                    Slug & ID
+                  </div>
+                  <div className="font-mono text-muted-foreground">
+                    #{selectedOrgDetails.organization.id} · {selectedOrgDetails.organization.slug}
+                  </div>
                 </div>
                 <div>
-                  <div className="text-[10px] text-muted-foreground uppercase font-semibold">Status</div>
-                  <div className="mt-0.5">{getStatusBadge(selectedOrgDetails.organization.status)}</div>
+                  <div className="text-[10px] text-muted-foreground uppercase font-semibold">
+                    Status
+                  </div>
+                  <div className="mt-0.5">
+                    {getStatusBadge(selectedOrgDetails.organization.status)}
+                  </div>
                 </div>
                 <div>
-                  <div className="text-[10px] text-muted-foreground uppercase font-semibold">Plan</div>
-                  <div className="mt-0.5">{getPlanBadge(selectedOrgDetails.organization.billing_plan)}</div>
+                  <div className="text-[10px] text-muted-foreground uppercase font-semibold">
+                    Plan
+                  </div>
+                  <div className="mt-0.5">
+                    {getPlanBadge(selectedOrgDetails.organization.billing_plan)}
+                  </div>
                 </div>
               </div>
 
@@ -1305,15 +1667,24 @@ export function SuperAdminPage() {
                   <div className="font-semibold text-foreground flex items-center gap-1.5">
                     <User className="size-3.5 text-primary" /> Account Owner
                   </div>
-                  <div className="text-muted-foreground font-medium">{selectedOrgDetails.owner.name} ({selectedOrgDetails.owner.email})</div>
-                  <div className="text-muted-foreground">Phone: {selectedOrgDetails.owner.phone || "N/A"}</div>
+                  <div className="text-muted-foreground font-medium">
+                    {selectedOrgDetails.owner.name} ({selectedOrgDetails.owner.email})
+                  </div>
+                  <div className="text-muted-foreground">
+                    Phone: {selectedOrgDetails.owner.phone || "N/A"}
+                  </div>
                 </div>
               )}
             </div>
           ) : null}
 
           <DialogFooter>
-            <Button variant="outline" size="sm" onClick={() => setDetailsModalOpen(false)} className="rounded-xl text-xs">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setDetailsModalOpen(false)}
+              className="rounded-xl text-xs"
+            >
               Close
             </Button>
           </DialogFooter>
@@ -1335,13 +1706,18 @@ export function SuperAdminPage() {
           <form onSubmit={handleCreateStore} className="space-y-3 text-xs">
             <div className="space-y-1">
               <Label className="text-xs font-semibold">Select Organization *</Label>
-              <Select value={createStoreForm.organizationId} onValueChange={(val) => setCreateStoreForm((p) => ({ ...p, organizationId: val }))}>
+              <Select
+                value={createStoreForm.organizationId}
+                onValueChange={(val) => setCreateStoreForm((p) => ({ ...p, organizationId: val }))}
+              >
                 <SelectTrigger className="rounded-xl h-9 text-xs">
                   <SelectValue placeholder="Choose Organization" />
                 </SelectTrigger>
                 <SelectContent className="rounded-xl text-xs">
                   {organizations.map((org) => (
-                    <SelectItem key={org.id} value={String(org.id)}>{org.name} (#{org.id})</SelectItem>
+                    <SelectItem key={org.id} value={String(org.id)}>
+                      {org.name} (#{org.id})
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -1389,10 +1765,21 @@ export function SuperAdminPage() {
             </div>
 
             <DialogFooter className="pt-2">
-              <Button type="button" variant="outline" size="sm" onClick={() => setCreateStoreModalOpen(false)} className="rounded-xl text-xs">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setCreateStoreModalOpen(false)}
+                className="rounded-xl text-xs"
+              >
                 Cancel
               </Button>
-              <Button type="submit" size="sm" disabled={createStoreSubmitting} className="rounded-xl text-xs font-bold">
+              <Button
+                type="submit"
+                size="sm"
+                disabled={createStoreSubmitting}
+                className="rounded-xl text-xs font-bold"
+              >
                 {createStoreSubmitting ? "Creating…" : "Create Store"}
               </Button>
             </DialogFooter>
@@ -1408,7 +1795,8 @@ export function SuperAdminPage() {
               <Edit className="size-4 text-primary" /> Edit Store Outlet #{editStoreTarget?.id}
             </DialogTitle>
             <DialogDescription className="text-xs">
-              Update store profile details for <span className="font-bold text-foreground">{editStoreTarget?.name}</span>
+              Update store profile details for{" "}
+              <span className="font-bold text-foreground">{editStoreTarget?.name}</span>
             </DialogDescription>
           </DialogHeader>
 
@@ -1451,10 +1839,21 @@ export function SuperAdminPage() {
             </div>
 
             <DialogFooter className="pt-2">
-              <Button type="button" variant="outline" size="sm" onClick={() => setEditStoreModalOpen(false)} className="rounded-xl text-xs">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setEditStoreModalOpen(false)}
+                className="rounded-xl text-xs"
+              >
                 Cancel
               </Button>
-              <Button type="submit" size="sm" disabled={editStoreSubmitting} className="rounded-xl text-xs font-bold">
+              <Button
+                type="submit"
+                size="sm"
+                disabled={editStoreSubmitting}
+                className="rounded-xl text-xs font-bold"
+              >
                 {editStoreSubmitting ? "Saving…" : "Save Changes"}
               </Button>
             </DialogFooter>
@@ -1478,13 +1877,18 @@ export function SuperAdminPage() {
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
                 <Label className="text-xs font-semibold">Organization *</Label>
-                <Select value={createUserForm.organizationId} onValueChange={(val) => setCreateUserForm((p) => ({ ...p, organizationId: val }))}>
+                <Select
+                  value={createUserForm.organizationId}
+                  onValueChange={(val) => setCreateUserForm((p) => ({ ...p, organizationId: val }))}
+                >
                   <SelectTrigger className="rounded-xl h-9 text-xs">
                     <SelectValue placeholder="Choose Org" />
                   </SelectTrigger>
                   <SelectContent className="rounded-xl text-xs">
                     {organizations.map((org) => (
-                      <SelectItem key={org.id} value={String(org.id)}>{org.name}</SelectItem>
+                      <SelectItem key={org.id} value={String(org.id)}>
+                        {org.name}
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -1492,7 +1896,10 @@ export function SuperAdminPage() {
 
               <div className="space-y-1">
                 <Label className="text-xs font-semibold">User Role *</Label>
-                <Select value={createUserForm.role} onValueChange={(val) => setCreateUserForm((p) => ({ ...p, role: val }))}>
+                <Select
+                  value={createUserForm.role}
+                  onValueChange={(val) => setCreateUserForm((p) => ({ ...p, role: val }))}
+                >
                   <SelectTrigger className="rounded-xl h-9 text-xs">
                     <SelectValue placeholder="Choose Role" />
                   </SelectTrigger>
@@ -1550,10 +1957,21 @@ export function SuperAdminPage() {
             </div>
 
             <DialogFooter className="pt-2">
-              <Button type="button" variant="outline" size="sm" onClick={() => setCreateUserModalOpen(false)} className="rounded-xl text-xs">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setCreateUserModalOpen(false)}
+                className="rounded-xl text-xs"
+              >
                 Cancel
               </Button>
-              <Button type="submit" size="sm" disabled={createUserSubmitting} className="rounded-xl text-xs font-bold">
+              <Button
+                type="submit"
+                size="sm"
+                disabled={createUserSubmitting}
+                className="rounded-xl text-xs font-bold"
+              >
                 {createUserSubmitting ? "Creating…" : "Create User"}
               </Button>
             </DialogFooter>
@@ -1569,7 +1987,8 @@ export function SuperAdminPage() {
               <Edit className="size-4 text-primary" /> Edit User Profile #{editUserTarget?.id}
             </DialogTitle>
             <DialogDescription className="text-xs">
-              Update user details for <span className="font-bold text-foreground">{editUserTarget?.name}</span>
+              Update user details for{" "}
+              <span className="font-bold text-foreground">{editUserTarget?.name}</span>
             </DialogDescription>
           </DialogHeader>
 
@@ -1605,7 +2024,10 @@ export function SuperAdminPage() {
 
             <div className="space-y-1">
               <Label className="text-xs font-semibold">User Role *</Label>
-              <Select value={editUserForm.role} onValueChange={(val) => setEditUserForm((p) => ({ ...p, role: val }))}>
+              <Select
+                value={editUserForm.role}
+                onValueChange={(val) => setEditUserForm((p) => ({ ...p, role: val }))}
+              >
                 <SelectTrigger className="rounded-xl h-9 text-xs">
                   <SelectValue placeholder="Choose Role" />
                 </SelectTrigger>
@@ -1619,10 +2041,21 @@ export function SuperAdminPage() {
             </div>
 
             <DialogFooter className="pt-2">
-              <Button type="button" variant="outline" size="sm" onClick={() => setEditUserModalOpen(false)} className="rounded-xl text-xs">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setEditUserModalOpen(false)}
+                className="rounded-xl text-xs"
+              >
                 Cancel
               </Button>
-              <Button type="submit" size="sm" disabled={editUserSubmitting} className="rounded-xl text-xs font-bold">
+              <Button
+                type="submit"
+                size="sm"
+                disabled={editUserSubmitting}
+                className="rounded-xl text-xs font-bold"
+              >
                 {editUserSubmitting ? "Saving…" : "Save Changes"}
               </Button>
             </DialogFooter>
@@ -1753,10 +2186,21 @@ export function SuperAdminPage() {
             </div>
 
             <DialogFooter className="pt-2">
-              <Button type="button" variant="outline" size="sm" onClick={() => setCreateModalOpen(false)} className="rounded-xl text-xs">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setCreateModalOpen(false)}
+                className="rounded-xl text-xs"
+              >
                 Cancel
               </Button>
-              <Button type="submit" size="sm" disabled={createSubmitting} className="rounded-xl text-xs font-bold">
+              <Button
+                type="submit"
+                size="sm"
+                disabled={createSubmitting}
+                className="rounded-xl text-xs font-bold"
+              >
                 {createSubmitting ? "Creating..." : "Create Organization"}
               </Button>
             </DialogFooter>

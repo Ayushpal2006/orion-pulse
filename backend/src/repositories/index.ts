@@ -12,6 +12,7 @@ import { IStockAdjustmentRepository } from "./interfaces/IStockAdjustmentReposit
 import { ISupplierPaymentRepository } from "./interfaces/ISupplierPaymentRepository";
 import { ISupplierLedgerRepository } from "./interfaces/ISupplierLedgerRepository";
 import { IProfitRepository } from "./interfaces/IProfitRepository";
+import { IKotRepository } from "./interfaces/kot.repository.interface";
 
 import { PostgresProductRepository } from "./postgres/product.repository";
 import { PostgresCustomerRepository } from "./postgres/customer.repository";
@@ -27,6 +28,7 @@ import { PostgresStockAdjustmentRepository } from "./postgres/stock-adjustment.r
 import { PostgresSupplierPaymentRepository } from "./postgres/supplier-payment.repository";
 import { PostgresSupplierLedgerRepository } from "./postgres/supplier-ledger.repository";
 import { PostgresProfitRepository } from "./postgres/profit.repository";
+import { KotPostgresRepository } from "./postgres/kot.postgres.repository";
 
 export let productRepository: IProductRepository;
 export let customerRepository: ICustomerRepository;
@@ -42,6 +44,7 @@ export let stockAdjustmentRepository: IStockAdjustmentRepository;
 export let supplierPaymentRepository: ISupplierPaymentRepository;
 export let supplierLedgerRepository: ISupplierLedgerRepository;
 export let profitRepository: IProfitRepository;
+export let kotRepository: IKotRepository;
 
 export function initializeRepositories(): void {
   productRepository = new PostgresProductRepository();
@@ -58,6 +61,7 @@ export function initializeRepositories(): void {
   supplierPaymentRepository = new PostgresSupplierPaymentRepository();
   supplierLedgerRepository = new PostgresSupplierLedgerRepository();
   profitRepository = new PostgresProfitRepository();
+  kotRepository = new KotPostgresRepository();
 }
 
 // Automatically initialize repositories on module import

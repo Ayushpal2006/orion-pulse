@@ -233,7 +233,10 @@ export async function getPendingSalesOffline(): Promise<OfflinePendingSale[]> {
     return new Promise((resolve) => {
       const req = store.getAll();
       req.onsuccess = () => resolve((req.result || []).filter((s) => s.syncStatus !== "synced"));
-      req.onerror = () => resolve(Array.from(memoryStore.pendingSales.values()).filter((s) => s.syncStatus !== "synced"));
+      req.onerror = () =>
+        resolve(
+          Array.from(memoryStore.pendingSales.values()).filter((s) => s.syncStatus !== "synced"),
+        );
     });
   } catch (err) {
     return Array.from(memoryStore.pendingSales.values()).filter((s) => s.syncStatus !== "synced");
@@ -245,7 +248,11 @@ export async function getPendingSalesCountOffline(): Promise<number> {
   return sales.length;
 }
 
-export async function updatePendingSaleStatus(offlineId: string, status: "pending" | "syncing" | "synced" | "error", syncError?: string): Promise<void> {
+export async function updatePendingSaleStatus(
+  offlineId: string,
+  status: "pending" | "syncing" | "synced" | "error",
+  syncError?: string,
+): Promise<void> {
   const db = await openDB();
   const tx = db.transaction("pendingSales", "readwrite");
   const store = tx.objectStore("pendingSales");

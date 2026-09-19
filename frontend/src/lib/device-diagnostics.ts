@@ -31,7 +31,9 @@ export class DeviceDiagnosticsService {
     return DeviceDiagnosticsService.instance;
   }
 
-  async runFullDiagnostics(manufacturer: SupportedSdkManufacturer = "Generic ESC/POS"): Promise<DeviceDiagnosticsHealthReport> {
+  async runFullDiagnostics(
+    manufacturer: SupportedSdkManufacturer = "Generic ESC/POS",
+  ): Promise<DeviceDiagnosticsHealthReport> {
     const startTime = performance.now();
     const isWeb = typeof window !== "undefined";
     const endTime = performance.now();

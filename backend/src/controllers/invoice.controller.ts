@@ -78,11 +78,17 @@ export class InvoiceController {
       }
 
       const receipt = await this.salesService.getReceipt(invoiceNumber);
-      const { pdfPath } = await this.getOrGenerateInvoicePdf(receipt);
+      if (!receipt) {
+        res.status(404).send("Receipt data not found");
+        return;
+      }
+
+      const pdfResult = await this.pdfService.generateInvoicePdf(receipt);
+      const pdfBuffer = Buffer.isBuffer(pdfResult) ? pdfResult : fs.readFileSync(pdfResult as string);
 
       res.setHeader("Content-Type", "application/pdf");
-      res.setHeader("Content-Disposition", "inline");
-      res.sendFile(pdfPath);
+      res.setHeader("Content-Disposition", `inline; filename="${receipt.invoiceNumber || "invoice"}.pdf"`);
+      res.send(pdfBuffer);
     } catch (error) {
       next(error);
     }
@@ -103,15 +109,17 @@ export class InvoiceController {
       }
 
       const receipt = await this.salesService.getReceipt(invoiceNumber);
-      const { pdfPath, pdfFilename } = await this.getOrGenerateInvoicePdf(receipt);
+      if (!receipt) {
+        res.status(404).send("Receipt data not found");
+        return;
+      }
 
-      res.download(pdfPath, pdfFilename, (err) => {
-        if (err) {
-          if (!res.headersSent) {
-            next(err);
-          }
-        }
-      });
+      const pdfResult = await this.pdfService.generateInvoicePdf(receipt);
+      const pdfBuffer = Buffer.isBuffer(pdfResult) ? pdfResult : fs.readFileSync(pdfResult as string);
+
+      res.setHeader("Content-Type", "application/pdf");
+      res.setHeader("Content-Disposition", `attachment; filename="${receipt.invoiceNumber || "invoice"}.pdf"`);
+      res.send(pdfBuffer);
     } catch (error) {
       next(error);
     }

@@ -3,9 +3,33 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Building2, Plus, Edit2, Ban, CheckCircle, Store, ShieldCheck, MapPin, Phone, FileText } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Building2,
+  Plus,
+  Edit2,
+  Ban,
+  CheckCircle,
+  Store,
+  ShieldCheck,
+  MapPin,
+  Phone,
+  FileText,
+} from "lucide-react";
 import { useApp } from "@/lib/store";
 import { getStores, createStore, updateStore, disableStore, switchStore } from "@/lib/api";
 import { toast } from "sonner";
@@ -58,6 +82,9 @@ export function StoresManagementSection() {
 
   useEffect(() => {
     fetchStores();
+    // Mount-only load: fetchStores is re-created each render and is not memoised, so
+    // listing it would re-fetch in a loop.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleOpenCreate = () => {
@@ -171,7 +198,10 @@ export function StoresManagementSection() {
             Manage multi-store locations, outlets, and active store context.
           </div>
         </div>
-        <Button onClick={handleOpenCreate} className="rounded-xl h-9 px-4 text-xs font-semibold gap-1.5">
+        <Button
+          onClick={handleOpenCreate}
+          className="rounded-xl h-9 px-4 text-xs font-semibold gap-1.5"
+        >
           <Plus className="size-4" /> Add New Store
         </Button>
       </div>
@@ -196,23 +226,29 @@ export function StoresManagementSection() {
                   isActiveContext
                     ? "border-primary/50 bg-primary/5 shadow-sm"
                     : isDisabled
-                    ? "border-border/40 bg-muted/30 opacity-70"
-                    : "border-border bg-card hover:border-primary/30"
+                      ? "border-border/40 bg-muted/30 opacity-70"
+                      : "border-border bg-card hover:border-primary/30",
                 )}
               >
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex items-center gap-2.5">
-                    <div className={cn(
-                      "grid size-9 place-items-center rounded-lg text-primary font-bold text-sm",
-                      isActiveContext ? "bg-primary text-primary-foreground" : "bg-muted text-foreground"
-                    )}>
+                    <div
+                      className={cn(
+                        "grid size-9 place-items-center rounded-lg text-primary font-bold text-sm",
+                        isActiveContext
+                          ? "bg-primary text-primary-foreground"
+                          : "bg-muted text-foreground",
+                      )}
+                    >
                       <Store className="size-4" />
                     </div>
                     <div>
                       <div className="flex items-center gap-2">
                         <span className="font-bold text-sm text-foreground">{st.name}</span>
                         {st.is_default === 1 && (
-                          <Badge variant="secondary" className="text-[10px] py-0 px-1.5">Default</Badge>
+                          <Badge variant="secondary" className="text-[10px] py-0 px-1.5">
+                            Default
+                          </Badge>
                         )}
                       </div>
                       <span className="text-xs text-muted-foreground font-mono">
@@ -223,11 +259,17 @@ export function StoresManagementSection() {
 
                   <div className="flex items-center gap-1.5">
                     {isDisabled ? (
-                      <Badge variant="outline" className="text-[10px] border-destructive/40 text-destructive">
+                      <Badge
+                        variant="outline"
+                        className="text-[10px] border-destructive/40 text-destructive"
+                      >
                         Disabled
                       </Badge>
                     ) : (
-                      <Badge variant="outline" className="text-[10px] border-emerald-500/40 text-emerald-600 dark:text-emerald-400">
+                      <Badge
+                        variant="outline"
+                        className="text-[10px] border-emerald-500/40 text-emerald-600 dark:text-emerald-400"
+                      >
                         Active
                       </Badge>
                     )}
@@ -289,7 +331,10 @@ export function StoresManagementSection() {
                       variant="ghost"
                       size="sm"
                       onClick={() => handleToggleDisable(st)}
-                      className={cn("h-7 size-7 p-0 rounded-lg", isDisabled ? "text-emerald-600" : "text-destructive")}
+                      className={cn(
+                        "h-7 size-7 p-0 rounded-lg",
+                        isDisabled ? "text-emerald-600" : "text-destructive",
+                      )}
                       title={isDisabled ? "Enable Store" : "Disable Store"}
                     >
                       <Ban className="size-3.5" />
@@ -315,7 +360,8 @@ export function StoresManagementSection() {
                 : "Create a new store outlet or branch for your organization."}
               <br />
               <span className="text-[11px] text-amber-600 dark:text-amber-400 font-medium">
-                Note: Printed business branding (Logo, GSTIN, Address, Phone) is managed centrally in Settings ➔ Branding.
+                Note: Printed business branding (Logo, GSTIN, Address, Phone) is managed centrally
+                in Settings ➔ Branding.
               </span>
             </DialogDescription>
           </DialogHeader>
@@ -405,10 +451,19 @@ export function StoresManagementSection() {
             </div>
 
             <DialogFooter className="pt-3">
-              <Button type="button" variant="outline" onClick={() => setModalOpen(false)} className="rounded-xl h-9 text-xs">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setModalOpen(false)}
+                className="rounded-xl h-9 text-xs"
+              >
                 Cancel
               </Button>
-              <Button type="submit" disabled={saving} className="rounded-xl h-9 text-xs font-semibold">
+              <Button
+                type="submit"
+                disabled={saving}
+                className="rounded-xl h-9 text-xs font-semibold"
+              >
                 {saving ? "Saving…" : editingStore ? "Update Store" : "Create Store"}
               </Button>
             </DialogFooter>

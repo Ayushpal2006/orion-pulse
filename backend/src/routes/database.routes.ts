@@ -7,12 +7,7 @@ import { SettingsController } from "../controllers/settings.controller";
 const router = Router();
 const controller = new SettingsController();
 
-// Configure multer for database uploads (matching field name "database")
-const tempDir = path.join(__dirname, "../../uploads/temp");
-if (!fs.existsSync(tempDir)) {
-  fs.mkdirSync(tempDir, { recursive: true });
-}
-const upload = multer({ dest: tempDir });
+const upload = multer({ storage: multer.memoryStorage() });
 
 // GET    /settings/database/backup -> Streams SQL backup file download
 router.get("/backup", controller.backup);

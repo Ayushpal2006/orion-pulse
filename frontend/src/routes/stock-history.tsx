@@ -5,7 +5,10 @@ export const Route = createFileRoute("/stock-history")({
   head: () => ({
     meta: [
       { title: "Stock History · Apka Bill" },
-      { name: "description", content: "Complete audit log and historical record of all inventory stock movements." },
+      {
+        name: "description",
+        content: "Complete audit log and historical record of all inventory stock movements.",
+      },
     ],
   }),
   component: StockHistoryPage,

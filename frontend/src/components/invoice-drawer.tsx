@@ -43,7 +43,7 @@ export function InvoiceDrawer({
         side={side}
         className={cn(
           "w-full overflow-y-auto bg-background p-6 border-border flex flex-col justify-between",
-          isMobile ? "h-[85vh] rounded-t-3xl" : "sm:max-w-md h-full"
+          isMobile ? "h-[85vh] rounded-t-3xl" : "sm:max-w-md h-full",
         )}
       >
         <div className="space-y-6">
@@ -159,7 +159,9 @@ export function InvoiceDrawer({
                 </div>
                 <div className="flex justify-between text-muted-foreground">
                   <span>Discount</span>
-                  <span className="tabular font-semibold text-danger">− {inr(receipt.discount)}</span>
+                  <span className="tabular font-semibold text-danger">
+                    − {inr(receipt.discount)}
+                  </span>
                 </div>
                 <div className="flex justify-between text-muted-foreground">
                   <span>Tax (GST)</span>
@@ -177,10 +179,7 @@ export function InvoiceDrawer({
         {/* Invoice Actions Footer */}
         {receipt && !isLoading && (
           <div className="border-t border-border pt-4 mt-6">
-            <InvoiceActionsMenu
-              receipt={receipt}
-              onCloseDrawer={() => onOpenChange(false)}
-            />
+            <InvoiceActionsMenu receipt={receipt} onCloseDrawer={() => onOpenChange(false)} />
           </div>
         )}
       </SheetContent>

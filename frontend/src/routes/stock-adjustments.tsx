@@ -1,8 +1,23 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import {
-  Search, Calendar, Plus, Loader2, ArrowUpDown, ChevronLeft, ChevronRight, X,
-  Check, Sliders, AlertCircle, Info, CalendarDays, ClipboardCheck, AlertOctagon, HelpCircle, RefreshCw
+  Search,
+  Calendar,
+  Plus,
+  Loader2,
+  ArrowUpDown,
+  ChevronLeft,
+  ChevronRight,
+  X,
+  Check,
+  Sliders,
+  AlertCircle,
+  Info,
+  CalendarDays,
+  ClipboardCheck,
+  AlertOctagon,
+  HelpCircle,
+  RefreshCw,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -28,7 +43,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogFooter
+  DialogFooter,
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { EmptyState } from "@/components/empty-state";
@@ -41,7 +56,10 @@ export const Route = createFileRoute("/stock-adjustments")({
   head: () => ({
     meta: [
       { title: "Stock Adjustments · Apka Bill" },
-      { name: "description", content: "Perform manual stock checks, corrections, and physical audits with full logging." },
+      {
+        name: "description",
+        content: "Perform manual stock checks, corrections, and physical audits with full logging.",
+      },
     ],
   }),
   component: StockAdjustmentsPage,
@@ -53,9 +71,17 @@ const ADJUSTMENT_TYPES = [
   { key: "DAMAGED", label: "Damaged", color: "bg-rose-500/10 text-rose-500" },
   { key: "LOST", label: "Lost", color: "bg-amber-500/10 text-amber-500" },
   { key: "FOUND", label: "Found", color: "bg-teal-500/10 text-teal-500" },
-  { key: "MANUAL_CORRECTION", label: "Manual Correction", color: "bg-purple-500/10 text-purple-500" },
+  {
+    key: "MANUAL_CORRECTION",
+    label: "Manual Correction",
+    color: "bg-purple-500/10 text-purple-500",
+  },
   { key: "SAMPLE", label: "Sample", color: "bg-indigo-500/10 text-indigo-500" },
-  { key: "RETURN_FROM_CUSTOMER", label: "Return from Customer", color: "bg-cyan-500/10 text-cyan-500" },
+  {
+    key: "RETURN_FROM_CUSTOMER",
+    label: "Return from Customer",
+    color: "bg-cyan-500/10 text-cyan-500",
+  },
 ] as const;
 
 export function StockAdjustmentsPage() {
@@ -71,7 +97,7 @@ export function StockAdjustmentsPage() {
   // New adjustment states
   const [addOpen, setAddOpen] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
-  
+
   const [productId, setProductId] = useState<number | null>(null);
   const [productSearch, setProductSearch] = useState("");
   const [productOpen, setProductOpen] = useState(false);
@@ -94,14 +120,20 @@ export function StockAdjustmentsPage() {
   }, [q]);
 
   // Load adjustments
-  const { data: adjustments = [], isLoading, isError, refetch } = useQuery({
+  const {
+    data: adjustments = [],
+    isLoading,
+    isError,
+    refetch,
+  } = useQuery({
     queryKey: ["stock-adjustments", debouncedQ, startDate, endDate, filterType],
-    queryFn: () => getStockAdjustments({
-      q: debouncedQ,
-      startDate: startDate || undefined,
-      endDate: endDate || undefined,
-      adjustment_type: filterType === "all" ? undefined : filterType,
-    }),
+    queryFn: () =>
+      getStockAdjustments({
+        q: debouncedQ,
+        startDate: startDate || undefined,
+        endDate: endDate || undefined,
+        adjustment_type: filterType === "all" ? undefined : filterType,
+      }),
   });
 
   const { data: productsList = [] } = useQuery({
@@ -139,7 +171,7 @@ export function StockAdjustmentsPage() {
       (prod: any) =>
         prod.name.toLowerCase().includes(p) ||
         prod.sku.toLowerCase().includes(p) ||
-        (prod.barcode && prod.barcode.includes(p))
+        (prod.barcode && prod.barcode.includes(p)),
     );
   }, [productSearch, productsList]);
 
@@ -240,7 +272,10 @@ export function StockAdjustmentsPage() {
       return aDate >= startOfToday;
     });
 
-    const netQuantityChange = todayAdjustments.reduce((acc: number, a: any) => acc + (a.quantity_change || 0), 0);
+    const netQuantityChange = todayAdjustments.reduce(
+      (acc: number, a: any) => acc + (a.quantity_change || 0),
+      0,
+    );
 
     return {
       totalCount,
@@ -289,26 +324,42 @@ export function StockAdjustmentsPage() {
       {/* Overview Cards */}
       <div className="grid grid-cols-3 gap-4">
         <div className="card-soft p-4 flex items-center gap-3">
-          <div className="size-10 rounded-xl bg-primary/10 text-primary grid place-items-center"><ClipboardCheck className="size-5" /></div>
+          <div className="size-10 rounded-xl bg-primary/10 text-primary grid place-items-center">
+            <ClipboardCheck className="size-5" />
+          </div>
           <div>
-            <div className="text-2xl font-bold tracking-tight text-foreground">{stats.todayCount}</div>
+            <div className="text-2xl font-bold tracking-tight text-foreground">
+              {stats.todayCount}
+            </div>
             <div className="text-[10px] text-muted-foreground font-medium">Today's Adjustments</div>
           </div>
         </div>
         <div className="card-soft p-4 flex items-center gap-3">
-          <div className="size-10 rounded-xl bg-teal-500/10 text-teal-500 grid place-items-center"><ArrowUpDown className="size-5" /></div>
+          <div className="size-10 rounded-xl bg-teal-500/10 text-teal-500 grid place-items-center">
+            <ArrowUpDown className="size-5" />
+          </div>
           <div>
             <div className="text-2xl font-bold tracking-tight text-foreground">
-              {stats.netQuantityChange > 0 ? `+${stats.netQuantityChange}` : stats.netQuantityChange}
+              {stats.netQuantityChange > 0
+                ? `+${stats.netQuantityChange}`
+                : stats.netQuantityChange}
             </div>
-            <div className="text-[10px] text-muted-foreground font-medium">Today's Net Qty Change</div>
+            <div className="text-[10px] text-muted-foreground font-medium">
+              Today's Net Qty Change
+            </div>
           </div>
         </div>
         <div className="card-soft p-4 flex items-center gap-3">
-          <div className="size-10 rounded-xl bg-purple-500/10 text-purple-500 grid place-items-center"><CalendarDays className="size-5" /></div>
+          <div className="size-10 rounded-xl bg-purple-500/10 text-purple-500 grid place-items-center">
+            <CalendarDays className="size-5" />
+          </div>
           <div>
-            <div className="text-2xl font-bold tracking-tight text-foreground">{stats.totalCount}</div>
-            <div className="text-[10px] text-muted-foreground font-medium">Total Adjustment Logs</div>
+            <div className="text-2xl font-bold tracking-tight text-foreground">
+              {stats.totalCount}
+            </div>
+            <div className="text-[10px] text-muted-foreground font-medium">
+              Total Adjustment Logs
+            </div>
           </div>
         </div>
       </div>
@@ -325,7 +376,13 @@ export function StockAdjustmentsPage() {
           />
         </div>
         <div className="flex flex-wrap gap-2">
-          <Select value={filterType} onValueChange={(v) => { setFilterType(v); setPage(1); }}>
+          <Select
+            value={filterType}
+            onValueChange={(v) => {
+              setFilterType(v);
+              setPage(1);
+            }}
+          >
             <SelectTrigger className="h-11 rounded-xl w-48">
               <Sliders className="mr-2 size-4 text-muted-foreground" />
               <SelectValue placeholder="Adjustment Type" />
@@ -333,17 +390,24 @@ export function StockAdjustmentsPage() {
             <SelectContent>
               <SelectItem value="all">All Types</SelectItem>
               {ADJUSTMENT_TYPES.map((t) => (
-                <SelectItem key={t.key} value={t.key}>{t.label}</SelectItem>
+                <SelectItem key={t.key} value={t.key}>
+                  {t.label}
+                </SelectItem>
               ))}
             </SelectContent>
           </Select>
 
           <div className="flex items-center gap-2">
-            <span className="text-xs text-muted-foreground font-medium whitespace-nowrap">From</span>
+            <span className="text-xs text-muted-foreground font-medium whitespace-nowrap">
+              From
+            </span>
             <Input
               type="date"
               value={startDate}
-              onChange={(e) => { setStartDate(e.target.value); setPage(1); }}
+              onChange={(e) => {
+                setStartDate(e.target.value);
+                setPage(1);
+              }}
               className="h-11 rounded-xl w-36"
             />
           </div>
@@ -352,14 +416,21 @@ export function StockAdjustmentsPage() {
             <Input
               type="date"
               value={endDate}
-              onChange={(e) => { setEndDate(e.target.value); setPage(1); }}
+              onChange={(e) => {
+                setEndDate(e.target.value);
+                setPage(1);
+              }}
               className="h-11 rounded-xl w-36"
             />
           </div>
           {(startDate || endDate) && (
             <Button
               variant="outline"
-              onClick={() => { setStartDate(""); setEndDate(""); setPage(1); }}
+              onClick={() => {
+                setStartDate("");
+                setEndDate("");
+                setPage(1);
+              }}
               className="h-11 rounded-xl"
             >
               Clear
@@ -375,7 +446,9 @@ export function StockAdjustmentsPage() {
         </div>
       ) : isError ? (
         <div className="flex h-32 flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-border bg-muted/20 p-6 text-center">
-          <div className="text-sm font-semibold text-foreground">Adjustment history could not be loaded</div>
+          <div className="text-sm font-semibold text-foreground">
+            Adjustment history could not be loaded
+          </div>
           <Button variant="outline" size="sm" onClick={() => refetch()}>
             <RefreshCw className="mr-2 size-4" /> Retry
           </Button>
@@ -385,7 +458,11 @@ export function StockAdjustmentsPage() {
           icon={<ClipboardCheck className="size-5" />}
           title="No adjustments found"
           description="Adjustments logged for manual corrections, physical counts, lost or found stock will appear here."
-          action={<Button onClick={handleOpenAdd}><Plus className="mr-2 size-4" /> Adjust Stock</Button>}
+          action={
+            <Button onClick={handleOpenAdd}>
+              <Plus className="mr-2 size-4" /> Adjust Stock
+            </Button>
+          }
         />
       ) : (
         <div className="space-y-4">
@@ -407,22 +484,32 @@ export function StockAdjustmentsPage() {
                 <tbody className="divide-y divide-border">
                   {paginatedAdjustments.map((a: any) => (
                     <tr key={a.id} className="hover:bg-muted/50 transition-colors">
-                      <td className="p-4 text-xs font-medium text-muted-foreground">{formatLocalDate(a.created_at)}</td>
-                      <td className="p-4">
-                        <div className="font-bold text-foreground">{a.product_name}</div>
-                        <div className="text-[10px] text-muted-foreground font-mono">SKU: {a.product_sku}</div>
+                      <td className="p-4 text-xs font-medium text-muted-foreground">
+                        {formatLocalDate(a.created_at)}
                       </td>
                       <td className="p-4">
-                        <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[10px] font-bold ${getBadgeColor(a.adjustment_type)}`}>
+                        <div className="font-bold text-foreground">{a.product_name}</div>
+                        <div className="text-[10px] text-muted-foreground font-mono">
+                          SKU: {a.product_sku}
+                        </div>
+                      </td>
+                      <td className="p-4">
+                        <span
+                          className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[10px] font-bold ${getBadgeColor(a.adjustment_type)}`}
+                        >
                           {getFormattedType(a.adjustment_type)}
                         </span>
                       </td>
                       <td className="p-4 text-center font-medium tabular">{a.quantity_before}</td>
-                      <td className={`p-4 text-center font-extrabold tabular ${a.quantity_change > 0 ? "text-emerald-500" : "text-rose-500"}`}>
+                      <td
+                        className={`p-4 text-center font-extrabold tabular ${a.quantity_change > 0 ? "text-emerald-500" : "text-rose-500"}`}
+                      >
                         {a.quantity_change > 0 ? `+${a.quantity_change}` : a.quantity_change}
                       </td>
                       <td className="p-4 text-center font-bold tabular">{a.quantity_after}</td>
-                      <td className="p-4 text-xs truncate max-w-[200px]" title={a.reason}>{a.reason}</td>
+                      <td className="p-4 text-xs truncate max-w-[200px]" title={a.reason}>
+                        {a.reason}
+                      </td>
                       <td className="p-4 text-right">
                         <Button
                           variant="outline"
@@ -480,19 +567,31 @@ export function StockAdjustmentsPage() {
           <div className="space-y-4 py-2">
             {/* Product Selector */}
             <div className="space-y-1.5 relative">
-              <label className="text-xs font-semibold text-muted-foreground uppercase">Select Product</label>
+              <label className="text-xs font-semibold text-muted-foreground uppercase">
+                Select Product
+              </label>
               <div className="relative">
                 <Input
                   id="adj-product-search"
                   value={productSearch}
-                  onChange={(e) => { setProductSearch(e.target.value); setProductOpen(true); }}
+                  onChange={(e) => {
+                    setProductSearch(e.target.value);
+                    setProductOpen(true);
+                  }}
                   onFocus={() => setProductOpen(true)}
-                  placeholder={selectedProduct ? selectedProduct.name : "Search product by SKU, name, or barcode..."}
+                  placeholder={
+                    selectedProduct
+                      ? selectedProduct.name
+                      : "Search product by SKU, name, or barcode..."
+                  }
                   className="h-11 rounded-xl"
                 />
                 {selectedProduct && (
                   <button
-                    onClick={() => { setProductId(null); setProductSearch(""); }}
+                    onClick={() => {
+                      setProductId(null);
+                      setProductSearch("");
+                    }}
                     className="absolute right-3 top-3.5 text-muted-foreground hover:text-foreground"
                   >
                     <X className="size-4" />
@@ -502,7 +601,9 @@ export function StockAdjustmentsPage() {
                   <div className="absolute top-12 left-0 w-full bg-popover text-popover-foreground border border-border rounded-xl shadow-lg z-50 p-2">
                     <div className="max-h-48 overflow-y-auto divide-y divide-border/40">
                       {filteredProducts.length === 0 ? (
-                        <div className="p-3 text-xs text-muted-foreground text-center">No products found</div>
+                        <div className="p-3 text-xs text-muted-foreground text-center">
+                          No products found
+                        </div>
                       ) : (
                         filteredProducts.map((p: any) => (
                           <button
@@ -516,9 +617,13 @@ export function StockAdjustmentsPage() {
                           >
                             <div>
                               <div className="font-semibold">{p.name}</div>
-                              <div className="text-[10px] text-muted-foreground font-mono">SKU: {p.sku} | Barcode: {p.barcode || "-"}</div>
+                              <div className="text-[10px] text-muted-foreground font-mono">
+                                SKU: {p.sku} | Barcode: {p.barcode || "-"}
+                              </div>
                             </div>
-                            <span className="text-[10px] font-semibold bg-muted px-2 py-0.5 rounded-full text-foreground">Stock: {p.stock}</span>
+                            <span className="text-[10px] font-semibold bg-muted px-2 py-0.5 rounded-full text-foreground">
+                              Stock: {p.stock}
+                            </span>
                           </button>
                         ))
                       )}
@@ -533,21 +638,26 @@ export function StockAdjustmentsPage() {
               <div className="flex items-center gap-2 p-3 bg-muted/40 rounded-xl border">
                 <Info className="size-4 text-muted-foreground" />
                 <div className="text-xs text-muted-foreground">
-                  Current logged inventory count: <span className="font-bold text-foreground">{selectedProduct.stock} units</span>
+                  Current logged inventory count:{" "}
+                  <span className="font-bold text-foreground">{selectedProduct.stock} units</span>
                 </div>
               </div>
             )}
 
             {/* Adjustment Type */}
             <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-muted-foreground uppercase">Adjustment Type</label>
+              <label className="text-xs font-semibold text-muted-foreground uppercase">
+                Adjustment Type
+              </label>
               <Select value={adjType} onValueChange={setAdjType}>
                 <SelectTrigger className="h-11 rounded-xl">
                   <SelectValue placeholder="Select type" />
                 </SelectTrigger>
                 <SelectContent>
                   {ADJUSTMENT_TYPES.map((t) => (
-                    <SelectItem key={t.key} value={t.key}>{t.label}</SelectItem>
+                    <SelectItem key={t.key} value={t.key}>
+                      {t.label}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -556,7 +666,9 @@ export function StockAdjustmentsPage() {
             {/* Quantity inputs */}
             {adjType === "PHYSICAL_COUNT" ? (
               <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-muted-foreground uppercase">Actual Counted Stock (New Qty)</label>
+                <label className="text-xs font-semibold text-muted-foreground uppercase">
+                  Actual Counted Stock (New Qty)
+                </label>
                 <Input
                   type="number"
                   min={0}
@@ -567,7 +679,9 @@ export function StockAdjustmentsPage() {
               </div>
             ) : (
               <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-muted-foreground uppercase">Quantity Correction Change (+/-)</label>
+                <label className="text-xs font-semibold text-muted-foreground uppercase">
+                  Quantity Correction Change (+/-)
+                </label>
                 <Input
                   type="number"
                   value={qtyChange}
@@ -580,7 +694,9 @@ export function StockAdjustmentsPage() {
 
             {/* Reason */}
             <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-muted-foreground uppercase">Reason (Required)</label>
+              <label className="text-xs font-semibold text-muted-foreground uppercase">
+                Reason (Required)
+              </label>
               <Input
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
@@ -605,16 +721,28 @@ export function StockAdjustmentsPage() {
             {livePreview && (
               <div className="p-3 bg-muted/20 border border-border border-dashed rounded-xl flex items-center justify-between text-xs">
                 <div className="space-y-0.5">
-                  <div className="text-muted-foreground font-medium uppercase text-[10px]">Preview Stock Transition</div>
+                  <div className="text-muted-foreground font-medium uppercase text-[10px]">
+                    Preview Stock Transition
+                  </div>
                   <div className="flex items-center gap-2 mt-0.5 font-bold text-sm">
                     <span className="text-foreground">{livePreview.current}</span>
                     <span className="text-muted-foreground font-normal">→</span>
-                    <span className={livePreview.isNegative ? "text-rose-500" : "text-primary font-extrabold"}>{livePreview.newStock} units</span>
+                    <span
+                      className={
+                        livePreview.isNegative ? "text-rose-500" : "text-primary font-extrabold"
+                      }
+                    >
+                      {livePreview.newStock} units
+                    </span>
                   </div>
                 </div>
                 <div className="text-right">
-                  <div className="text-muted-foreground uppercase text-[10px] font-medium">Difference</div>
-                  <div className={`font-bold text-sm mt-0.5 ${livePreview.change > 0 ? "text-emerald-500" : livePreview.change < 0 ? "text-rose-500" : "text-muted-foreground"}`}>
+                  <div className="text-muted-foreground uppercase text-[10px] font-medium">
+                    Difference
+                  </div>
+                  <div
+                    className={`font-bold text-sm mt-0.5 ${livePreview.change > 0 ? "text-emerald-500" : livePreview.change < 0 ? "text-rose-500" : "text-muted-foreground"}`}
+                  >
                     {livePreview.change > 0 ? `+${livePreview.change}` : livePreview.change}
                   </div>
                 </div>
@@ -622,7 +750,9 @@ export function StockAdjustmentsPage() {
             )}
           </div>
           <DialogFooter className="mt-2">
-            <Button variant="outline" className="rounded-xl h-11" onClick={() => setAddOpen(false)}>Cancel</Button>
+            <Button variant="outline" className="rounded-xl h-11" onClick={() => setAddOpen(false)}>
+              Cancel
+            </Button>
             <Button className="rounded-xl h-11" onClick={handlePreSave}>
               Save Adjustment
             </Button>
@@ -636,9 +766,13 @@ export function StockAdjustmentsPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Confirm Stock Correction?</AlertDialogTitle>
             <AlertDialogDescription>
-              You are about to adjust stock for product **{selectedProduct?.name}**.
-              The stock will transition from **{livePreview?.current}** units to **{livePreview?.newStock}** units (difference of **{livePreview?.change && livePreview.change > 0 ? `+${livePreview.change}` : livePreview?.change}** units).
-              An irreversible audit trail will be saved. Do you wish to proceed?
+              You are about to adjust stock for product **{selectedProduct?.name}**. The stock will
+              transition from **{livePreview?.current}** units to **{livePreview?.newStock}** units
+              (difference of **
+              {livePreview?.change && livePreview.change > 0
+                ? `+${livePreview.change}`
+                : livePreview?.change}
+              ** units). An irreversible audit trail will be saved. Do you wish to proceed?
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -658,51 +792,85 @@ export function StockAdjustmentsPage() {
             <div className="space-y-4 py-2">
               <div className="grid grid-cols-2 gap-4 text-xs bg-muted/20 p-3 rounded-xl border">
                 <div>
-                  <div className="text-muted-foreground font-medium uppercase text-[10px]">Product</div>
-                  <div className="font-semibold text-foreground text-sm mt-0.5">{detailsTarget.product_name}</div>
-                  <div className="text-[10px] text-muted-foreground font-mono">SKU: {detailsTarget.product_sku}</div>
+                  <div className="text-muted-foreground font-medium uppercase text-[10px]">
+                    Product
+                  </div>
+                  <div className="font-semibold text-foreground text-sm mt-0.5">
+                    {detailsTarget.product_name}
+                  </div>
+                  <div className="text-[10px] text-muted-foreground font-mono">
+                    SKU: {detailsTarget.product_sku}
+                  </div>
                 </div>
                 <div>
-                  <div className="text-muted-foreground font-medium uppercase text-[10px]">Adjustment Type</div>
+                  <div className="text-muted-foreground font-medium uppercase text-[10px]">
+                    Adjustment Type
+                  </div>
                   <div className="mt-0.5">
-                    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[9px] font-bold ${getBadgeColor(detailsTarget.adjustment_type)}`}>
+                    <span
+                      className={`inline-flex items-center rounded-full px-2 py-0.5 text-[9px] font-bold ${getBadgeColor(detailsTarget.adjustment_type)}`}
+                    >
                       {getFormattedType(detailsTarget.adjustment_type)}
                     </span>
                   </div>
                 </div>
                 <div>
-                  <div className="text-muted-foreground font-medium uppercase text-[10px]">Logged Date</div>
-                  <div className="font-medium text-foreground mt-0.5">{formatLocalDate(detailsTarget.created_at)}</div>
+                  <div className="text-muted-foreground font-medium uppercase text-[10px]">
+                    Logged Date
+                  </div>
+                  <div className="font-medium text-foreground mt-0.5">
+                    {formatLocalDate(detailsTarget.created_at)}
+                  </div>
                 </div>
                 <div>
-                  <div className="text-muted-foreground font-medium uppercase text-[10px]">Logged By</div>
-                  <div className="font-medium text-foreground mt-0.5">{detailsTarget.created_by}</div>
+                  <div className="text-muted-foreground font-medium uppercase text-[10px]">
+                    Logged By
+                  </div>
+                  <div className="font-medium text-foreground mt-0.5">
+                    {detailsTarget.created_by}
+                  </div>
                 </div>
               </div>
 
               {/* Quantities Panel */}
               <div className="p-4 bg-muted/40 rounded-xl border border-dashed flex justify-around text-center text-xs">
                 <div>
-                  <div className="text-muted-foreground uppercase text-[10px] font-semibold">Qty Before</div>
-                  <div className="text-lg font-bold text-foreground tabular-nums mt-1">{detailsTarget.quantity_before}</div>
-                </div>
-                <div className="border-r border-border h-10 my-auto"></div>
-                <div>
-                  <div className="text-muted-foreground uppercase text-[10px] font-semibold">Qty Change</div>
-                  <div className={`text-lg font-black tabular-nums mt-1 ${detailsTarget.quantity_change > 0 ? "text-emerald-500" : "text-rose-500"}`}>
-                    {detailsTarget.quantity_change > 0 ? `+${detailsTarget.quantity_change}` : detailsTarget.quantity_change}
+                  <div className="text-muted-foreground uppercase text-[10px] font-semibold">
+                    Qty Before
+                  </div>
+                  <div className="text-lg font-bold text-foreground tabular-nums mt-1">
+                    {detailsTarget.quantity_before}
                   </div>
                 </div>
                 <div className="border-r border-border h-10 my-auto"></div>
                 <div>
-                  <div className="text-muted-foreground uppercase text-[10px] font-semibold">Qty After</div>
-                  <div className="text-lg font-bold text-primary tabular-nums mt-1">{detailsTarget.quantity_after}</div>
+                  <div className="text-muted-foreground uppercase text-[10px] font-semibold">
+                    Qty Change
+                  </div>
+                  <div
+                    className={`text-lg font-black tabular-nums mt-1 ${detailsTarget.quantity_change > 0 ? "text-emerald-500" : "text-rose-500"}`}
+                  >
+                    {detailsTarget.quantity_change > 0
+                      ? `+${detailsTarget.quantity_change}`
+                      : detailsTarget.quantity_change}
+                  </div>
+                </div>
+                <div className="border-r border-border h-10 my-auto"></div>
+                <div>
+                  <div className="text-muted-foreground uppercase text-[10px] font-semibold">
+                    Qty After
+                  </div>
+                  <div className="text-lg font-bold text-primary tabular-nums mt-1">
+                    {detailsTarget.quantity_after}
+                  </div>
                 </div>
               </div>
 
               {/* Reason */}
               <div className="space-y-1">
-                <span className="text-muted-foreground font-medium uppercase text-[10px]">Audit Reason</span>
+                <span className="text-muted-foreground font-medium uppercase text-[10px]">
+                  Audit Reason
+                </span>
                 <div className="p-3 bg-muted/10 border border-border/40 rounded-xl text-xs text-foreground font-medium">
                   {detailsTarget.reason}
                 </div>
@@ -711,7 +879,9 @@ export function StockAdjustmentsPage() {
               {/* Notes */}
               {detailsTarget.notes && (
                 <div className="space-y-1">
-                  <span className="text-muted-foreground font-medium uppercase text-[10px]">Internal Notes</span>
+                  <span className="text-muted-foreground font-medium uppercase text-[10px]">
+                    Internal Notes
+                  </span>
                   <div className="p-3 bg-muted/10 border border-border/40 rounded-xl text-xs text-muted-foreground leading-relaxed whitespace-pre-wrap">
                     {detailsTarget.notes}
                   </div>

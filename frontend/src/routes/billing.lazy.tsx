@@ -1,6 +1,22 @@
 import { createLazyFileRoute } from "@tanstack/react-router";
 import { useMemo, useState, useEffect, useRef, useCallback } from "react";
-import { ScanBarcode, Search, X, Plus, Minus, Trash2, User, ArrowRight, CheckCircle2, Loader2, PauseCircle, Zap, Banknote, Package, Pencil } from "lucide-react";
+import {
+  ScanBarcode,
+  Search,
+  X,
+  Plus,
+  Minus,
+  Trash2,
+  User,
+  ArrowRight,
+  CheckCircle2,
+  Loader2,
+  PauseCircle,
+  Zap,
+  Banknote,
+  Package,
+  Pencil,
+} from "lucide-react";
 import { toast } from "sonner";
 import { QRCodeSVG } from "qrcode.react";
 import { Input } from "@/components/ui/input";
@@ -12,7 +28,21 @@ import { inr } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { ParkedSalesPopover } from "@/components/parked-sales";
 import { EditProductPriceDialog } from "@/components/edit-product-price-dialog";
-import { getProducts, getCustomers, searchProducts, searchCustomers, checkout as checkoutApi, getSaleReceipt, printSaleReceipt, getWhatsAppShareLink, downloadSalePdf, getSalePublicLink, API_BASE_URL, apiFetch, logSaleAudit } from "@/lib/api";
+import {
+  getProducts,
+  getCustomers,
+  searchProducts,
+  searchCustomers,
+  checkout as checkoutApi,
+  getSaleReceipt,
+  printSaleReceipt,
+  getWhatsAppShareLink,
+  downloadSalePdf,
+  getSalePublicLink,
+  API_BASE_URL,
+  apiFetch,
+  logSaleAudit,
+} from "@/lib/api";
 import { queueOfflineSale } from "@/lib/offline-db";
 import { refreshPendingCount } from "@/lib/sync-engine";
 import { printQueue } from "@/lib/print-queue";
@@ -157,6 +187,9 @@ function Billing() {
     }
     // Auto-focus search bar on mount for instant barcode scanning
     setTimeout(() => searchInputRef.current?.focus(), 200);
+    // Mount-only bootstrap: loadProducts is not memoised and `products.length` is only
+    // an initial emptiness check, so listing either would re-load in a loop.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Flash green border on search bar when barcode scanner triggers (fast keystroke burst)
@@ -189,9 +222,17 @@ function Billing() {
 
       // Escape — Close dialogs / clear search
       if (e.key === "Escape") {
-        if (showSlip) { return; } // Let dialog handle
-        if (showCustomerRequiredAlert) { setShowCustomerRequiredAlert(false); return; }
-        if (q && !isInput) { setQ(""); return; }
+        if (showSlip) {
+          return;
+        } // Let dialog handle
+        if (showCustomerRequiredAlert) {
+          setShowCustomerRequiredAlert(false);
+          return;
+        }
+        if (q && !isInput) {
+          setQ("");
+          return;
+        }
         return;
       }
 
@@ -204,7 +245,7 @@ function Billing() {
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [showSlip, step, showCustomerRequiredAlert, payment, q]);
 
   useEffect(() => {
@@ -236,8 +277,20 @@ function Billing() {
                 mobile: c.phone,
                 ltv: (c.lifetime_value ?? 0) / 100,
                 visits: c.total_orders ?? 0,
-                lastVisit: c.last_visit ? new Date(c.last_visit).toLocaleDateString("en-IN", { day: "numeric", month: "short", timeZone: "Asia/Kolkata" }) : "Never",
-                since: c.created_at ? new Date(c.created_at).toLocaleDateString("en-IN", { month: "short", year: "numeric", timeZone: "Asia/Kolkata" }) : "Recently",
+                lastVisit: c.last_visit
+                  ? new Date(c.last_visit).toLocaleDateString("en-IN", {
+                      day: "numeric",
+                      month: "short",
+                      timeZone: "Asia/Kolkata",
+                    })
+                  : "Never",
+                since: c.created_at
+                  ? new Date(c.created_at).toLocaleDateString("en-IN", {
+                      month: "short",
+                      year: "numeric",
+                      timeZone: "Asia/Kolkata",
+                    })
+                  : "Recently",
                 email: c.email || undefined,
                 address: c.address || undefined,
                 notes: c.notes || undefined,
@@ -300,7 +353,10 @@ function Billing() {
 
   const runCheckout = async () => {
     console.log("[Checkout Flow] Checkout Started");
-    if (cart.length === 0) { toast.error("Cart is empty"); return; }
+    if (cart.length === 0) {
+      toast.error("Cart is empty");
+      return;
+    }
 
     const sanitizedMobile = (mobile || "").replace(/\D/g, "");
     const isCustomerMissing = sanitizedMobile.length < 10;
@@ -312,10 +368,15 @@ function Billing() {
     try {
       setStep(1);
       const currentCustomerPhone = isCustomerMissing ? "0000000000" : sanitizedMobile;
-      const currentCustomerName = isCustomerMissing ? "Walk-in Customer" : (name.trim() || selectedCustomer?.name || `Customer - ${sanitizedMobile}`);
+      const currentCustomerName = isCustomerMissing
+        ? "Walk-in Customer"
+        : name.trim() || selectedCustomer?.name || `Customer - ${sanitizedMobile}`;
 
       const dto = {
-        customerId: selectedCustomer && selectedCustomer.mobile === sanitizedMobile ? Number(selectedCustomer.id) : undefined,
+        customerId:
+          selectedCustomer && selectedCustomer.mobile === sanitizedMobile
+            ? Number(selectedCustomer.id)
+            : undefined,
         customerPhone: currentCustomerPhone,
         paymentMethod: payment,
         cashierName: "Admin",
@@ -340,13 +401,19 @@ function Billing() {
       try {
         res = await checkoutApi(dto);
       } catch (networkErr: any) {
-        console.warn("[Checkout Flow] Online API failed, switching to Offline Sales Queue:", networkErr);
+        console.warn(
+          "[Checkout Flow] Online API failed, switching to Offline Sales Queue:",
+          networkErr,
+        );
         const offlineId = `OFF-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
         const offlineInvoice = `INV-OFF-${Date.now()}`;
         const offlineSalePayload: any = {
           offlineId,
           invoice_number: offlineInvoice,
-          customer_id: selectedCustomer && selectedCustomer.mobile === sanitizedMobile ? Number(selectedCustomer.id) : undefined,
+          customer_id:
+            selectedCustomer && selectedCustomer.mobile === sanitizedMobile
+              ? Number(selectedCustomer.id)
+              : undefined,
           customer_name: currentCustomerName,
           items: cart.map((i: any) => ({
             product_id: Number(i.productId || i.id),
@@ -378,10 +445,18 @@ function Billing() {
           tax: totals.gst,
           discount: totals.discount,
           paymentMethod: payment,
-          items: cart.map((i: any) => ({ id: i.productId || i.id, name: i.name, qty: i.qty, price: i.price, total: (i.price || 0) * (i.qty || 1) })),
+          items: cart.map((i: any) => ({
+            id: i.productId || i.id,
+            name: i.name,
+            qty: i.qty,
+            price: i.price,
+            total: (i.price || 0) * (i.qty || 1),
+          })),
           offline: true,
         };
-        toast.info("🔴 Saved to Offline Queue", { description: `Offline Receipt: ${offlineInvoice}` });
+        toast.info("🔴 Saved to Offline Queue", {
+          description: `Offline Receipt: ${offlineInvoice}`,
+        });
       }
 
       setStep(CHECKOUT_STEPS.length);
@@ -445,7 +520,10 @@ function Billing() {
   };
 
   const doPark = () => {
-    if (cart.length === 0) { toast.error("Nothing to park"); return; }
+    if (cart.length === 0) {
+      toast.error("Nothing to park");
+      return;
+    }
     parkSale();
     toast.success("Sale parked", { description: "Resume anytime from Parked list." });
   };
@@ -477,13 +555,16 @@ function Billing() {
                 placeholder="Search name, SKU or barcode… (F2 or /)"
                 className={cn(
                   "h-11 rounded-xl pl-9 transition-all duration-300",
-                  scanFlash && "animate-scan-flash"
+                  scanFlash && "animate-scan-flash",
                 )}
                 aria-label="Product search — scan barcode or type name"
               />
               {q && (
                 <button
-                  onClick={() => { setQ(""); searchInputRef.current?.focus(); }}
+                  onClick={() => {
+                    setQ("");
+                    searchInputRef.current?.focus();
+                  }}
                   className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1 text-muted-foreground hover:bg-muted"
                   aria-label="Clear search"
                 >
@@ -498,9 +579,15 @@ function Billing() {
           </div>
           {/* Keyboard shortcut hints */}
           <div className="mt-2 flex flex-wrap gap-2 text-[10px] text-muted-foreground">
-            <span className="flex items-center gap-1"><span className="kbd">F2</span> Search</span>
-            <span className="flex items-center gap-1"><span className="kbd">F8</span> Cash checkout</span>
-            <span className="flex items-center gap-1"><span className="kbd">/</span> Focus</span>
+            <span className="flex items-center gap-1">
+              <span className="kbd">F2</span> Search
+            </span>
+            <span className="flex items-center gap-1">
+              <span className="kbd">F8</span> Cash checkout
+            </span>
+            <span className="flex items-center gap-1">
+              <span className="kbd">/</span> Focus
+            </span>
           </div>
         </div>
 
@@ -513,11 +600,16 @@ function Billing() {
             </div>
             <div className="text-sm font-semibold">No products found</div>
             <div className="text-xs text-muted-foreground max-w-xs">
-              {q ? `No results for “${q}” — try a different name or SKU.` : "Your store catalog is empty. Add products to start billing."}
+              {q
+                ? `No results for “${q}” — try a different name or SKU.`
+                : "Your store catalog is empty. Add products to start billing."}
             </div>
             {q && (
               <button
-                onClick={() => { setQ(""); searchInputRef.current?.focus(); }}
+                onClick={() => {
+                  setQ("");
+                  searchInputRef.current?.focus();
+                }}
                 className="text-xs font-medium text-primary hover:underline"
               >
                 Clear search
@@ -541,8 +633,9 @@ function Billing() {
                   className={cn(
                     "card-soft flex flex-col p-4 text-left transition-all active:scale-[0.97] relative touch-manipulation",
                     "hover:border-foreground/20 hover:shadow-md hover:-translate-y-0.5",
-                    inCart && "bg-emerald-50/70 border-emerald-500/30 dark:bg-emerald-950/20 dark:border-emerald-500/30",
-                    isOutOfStock && "opacity-50 cursor-not-allowed"
+                    inCart &&
+                      "bg-emerald-50/70 border-emerald-500/30 dark:bg-emerald-950/20 dark:border-emerald-500/30",
+                    isOutOfStock && "opacity-50 cursor-not-allowed",
                   )}
                 >
                   {inCart && (
@@ -561,7 +654,11 @@ function Billing() {
                     </span>
                   )}
                   <div className="grid size-12 place-items-center overflow-hidden rounded-xl bg-muted text-2xl">
-                    {p.image ? <img src={p.image} alt="" className="size-full object-cover" /> : p.emoji}
+                    {p.image ? (
+                      <img src={p.image} alt="" className="size-full object-cover" />
+                    ) : (
+                      p.emoji
+                    )}
                   </div>
                   <div className="mt-3 line-clamp-1 text-sm font-semibold">{p.name}</div>
                   <div className="text-[11px] text-muted-foreground">{p.sku}</div>
@@ -581,10 +678,16 @@ function Billing() {
                         <Pencil className="size-3" />
                       </button>
                     </div>
-                    <span className={cn(
-                      "text-[11px] tabular font-medium",
-                      isOutOfStock ? "text-rose-500" : isLowStock ? "text-amber-600 dark:text-amber-400" : "text-muted-foreground"
-                    )}>
+                    <span
+                      className={cn(
+                        "text-[11px] tabular font-medium",
+                        isOutOfStock
+                          ? "text-rose-500"
+                          : isLowStock
+                            ? "text-amber-600 dark:text-amber-400"
+                            : "text-muted-foreground",
+                      )}
+                    >
                       {isOutOfStock ? "Out of stock" : `${p.stock} left`}
                     </span>
                   </div>
@@ -608,10 +711,20 @@ function Billing() {
             <div className="flex gap-1">
               {cart.length > 0 && (
                 <>
-                  <Button variant="ghost" size="sm" onClick={doPark} className="text-muted-foreground">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={doPark}
+                    className="text-muted-foreground"
+                  >
                     <PauseCircle className="mr-1 size-4" /> Hold
                   </Button>
-                  <Button variant="ghost" size="sm" onClick={clearCart} className="text-muted-foreground">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={clearCart}
+                    className="text-muted-foreground"
+                  >
                     Clear
                   </Button>
                 </>
@@ -637,8 +750,13 @@ function Billing() {
                     { step: "2", text: "Select payment method" },
                     { step: "3", text: "Press F8 to checkout" },
                   ].map((s) => (
-                    <div key={s.step} className="flex items-center gap-2 text-xs text-muted-foreground">
-                      <span className="grid size-5 place-items-center rounded-full bg-muted text-[10px] font-bold text-foreground shrink-0">{s.step}</span>
+                    <div
+                      key={s.step}
+                      className="flex items-center gap-2 text-xs text-muted-foreground"
+                    >
+                      <span className="grid size-5 place-items-center rounded-full bg-muted text-[10px] font-bold text-foreground shrink-0">
+                        {s.step}
+                      </span>
                       {s.text}
                     </div>
                   ))}
@@ -649,31 +767,55 @@ function Billing() {
                 {cart.map((l) => (
                   <li key={l.productId} className="p-4 animate-fade-in">
                     <div className="flex items-start gap-3">
-                      <div className="grid size-10 shrink-0 place-items-center rounded-xl bg-muted text-xl">{l.emoji}</div>
+                      <div className="grid size-10 shrink-0 place-items-center rounded-xl bg-muted text-xl">
+                        {l.emoji}
+                      </div>
                       <div className="min-w-0 flex-1">
                         <div className="flex items-start justify-between gap-2">
                           <div className="min-w-0">
                             <div className="truncate text-sm font-medium">{l.name}</div>
-                            <div className="text-[11px] text-muted-foreground">{inr(l.price)} · GST {l.gst}%</div>
+                            <div className="text-[11px] text-muted-foreground">
+                              {inr(l.price)} · GST {l.gst}%
+                            </div>
                           </div>
-                          <button onClick={() => remove(l.productId)} className="rounded-xl p-2 text-muted-foreground hover:bg-muted hover:text-danger active:scale-95 transition-transform" title="Remove item">
+                          <button
+                            onClick={() => remove(l.productId)}
+                            className="rounded-xl p-2 text-muted-foreground hover:bg-muted hover:text-danger active:scale-95 transition-transform"
+                            title="Remove item"
+                          >
                             <Trash2 className="size-4" />
                           </button>
                         </div>
                         <div className="mt-2.5 flex items-center justify-between gap-2">
                           <div className="inline-flex items-center rounded-xl border border-border bg-elevated shadow-xs">
-                            <button onClick={() => dec(l.productId)} className="grid size-10 place-items-center rounded-l-xl hover:bg-muted active:bg-muted/80 text-foreground transition-colors"><Minus className="size-4" /></button>
-                            <span className="tabular w-9 text-center text-sm font-bold">{l.qty}</span>
-                            <button onClick={() => inc(l.productId)} className="grid size-10 place-items-center rounded-r-xl hover:bg-muted active:bg-muted/80 text-foreground transition-colors"><Plus className="size-4" /></button>
+                            <button
+                              onClick={() => dec(l.productId)}
+                              className="grid size-10 place-items-center rounded-l-xl hover:bg-muted active:bg-muted/80 text-foreground transition-colors"
+                            >
+                              <Minus className="size-4" />
+                            </button>
+                            <span className="tabular w-9 text-center text-sm font-bold">
+                              {l.qty}
+                            </span>
+                            <button
+                              onClick={() => inc(l.productId)}
+                              className="grid size-10 place-items-center rounded-r-xl hover:bg-muted active:bg-muted/80 text-foreground transition-colors"
+                            >
+                              <Plus className="size-4" />
+                            </button>
                           </div>
                           <div className="flex items-center gap-1">
-                            <span className="text-[11px] font-medium text-muted-foreground">Disc</span>
+                            <span className="text-[11px] font-medium text-muted-foreground">
+                              Disc
+                            </span>
                             <input
                               type="number"
                               min={0}
                               max={100}
                               value={l.discount}
-                              onChange={(e) => setLineDiscount(l.productId, Number(e.target.value) || 0)}
+                              onChange={(e) =>
+                                setLineDiscount(l.productId, Number(e.target.value) || 0)
+                              }
                               className="tabular h-9 w-14 rounded-lg border border-border bg-elevated px-1.5 text-center text-xs font-semibold"
                             />
                             <span className="text-[11px] font-medium text-muted-foreground">%</span>
@@ -695,10 +837,20 @@ function Billing() {
               <div className="mb-2 flex items-center justify-between">
                 <label className="text-xs font-medium text-muted-foreground">Customer</label>
                 {hasSelectedCustomer && knownCustomer && (
-                  <Badge variant="secondary" className="rounded-full bg-success/15 text-success-foreground">Returning Customer</Badge>
+                  <Badge
+                    variant="secondary"
+                    className="rounded-full bg-success/15 text-success-foreground"
+                  >
+                    Returning Customer
+                  </Badge>
                 )}
                 {hasSelectedCustomer && !knownCustomer && mobile.length >= 10 && (
-                  <Badge variant="secondary" className="rounded-full bg-warn/25 text-warn-foreground">New Customer</Badge>
+                  <Badge
+                    variant="secondary"
+                    className="rounded-full bg-warn/25 text-warn-foreground"
+                  >
+                    New Customer
+                  </Badge>
                 )}
               </div>
 
@@ -710,14 +862,18 @@ function Billing() {
                     </div>
                     <div>
                       <div className="text-sm font-semibold text-foreground">
-                        {hasSelectedCustomer ? (knownCustomer?.name || name) : "Walk-in Customer"}
+                        {hasSelectedCustomer ? knownCustomer?.name || name : "Walk-in Customer"}
                       </div>
                       <div className="text-xs text-muted-foreground flex items-center gap-1.5">
-                        {hasSelectedCustomer ? (knownCustomer?.phone || mobile) : "Default Customer"}
+                        {hasSelectedCustomer ? knownCustomer?.phone || mobile : "Default Customer"}
                       </div>
                       {hasSelectedCustomer && knownCustomer && (
                         <div className="text-[10px] text-muted-foreground mt-0.5">
-                          LTV {inr((knownCustomer.lifetime_value || knownCustomer.ltv * 100 || 0) / 100)} · {knownCustomer.total_orders ?? knownCustomer.visits ?? 0} visits
+                          LTV{" "}
+                          {inr(
+                            (knownCustomer.lifetime_value || knownCustomer.ltv * 100 || 0) / 100,
+                          )}{" "}
+                          · {knownCustomer.total_orders ?? knownCustomer.visits ?? 0} visits
                         </div>
                       )}
                     </div>
@@ -746,7 +902,9 @@ function Billing() {
                         onFocus={() => setShowSuggestions(true)}
                         className="h-10 rounded-lg text-xs sm:text-sm"
                       />
-                      {searchingCustomer && <Loader2 className="absolute right-3 top-1/2 size-4 -translate-y-1/2 animate-spin text-muted-foreground" />}
+                      {searchingCustomer && (
+                        <Loader2 className="absolute right-3 top-1/2 size-4 -translate-y-1/2 animate-spin text-muted-foreground" />
+                      )}
                     </div>
 
                     {showSuggestions && customerQuery && (
@@ -795,7 +953,9 @@ function Billing() {
                   </div>
 
                   <div className="space-y-2 border-t border-border/30 pt-2">
-                    <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Or Enter New Customer Details</div>
+                    <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">
+                      Or Enter New Customer Details
+                    </div>
                     <div className="grid grid-cols-2 gap-2">
                       <Input
                         placeholder="Mobile"
@@ -866,21 +1026,33 @@ function Billing() {
             </div>
 
             <div>
-              <div className="mb-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wide">Payment method</div>
+              <div className="mb-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                Payment method
+              </div>
               <div className="grid grid-cols-4 gap-1.5">
                 {payments.map((p) => (
                   <button
                     key={p.label}
-                    onClick={() => { setPayment(p.label); if (p.label !== "Cash") setTenderAmount(""); }}
+                    onClick={() => {
+                      setPayment(p.label);
+                      if (p.label !== "Cash") setTenderAmount("");
+                    }}
                     className={cn(
                       "rounded-xl border p-2.5 text-center transition-all duration-150 touch-manipulation",
                       payment === p.label
                         ? "border-primary bg-primary text-primary-foreground shadow-sm ring-2 ring-primary/20"
-                        : "border-border hover:border-foreground/30 hover:bg-muted/50"
+                        : "border-border hover:border-foreground/30 hover:bg-muted/50",
                     )}
                   >
                     <div className="text-xs font-bold">{p.label}</div>
-                    <div className={cn("text-[10px] mt-0.5", payment === p.label ? "opacity-80" : "text-muted-foreground")}>{p.hint}</div>
+                    <div
+                      className={cn(
+                        "text-[10px] mt-0.5",
+                        payment === p.label ? "opacity-80" : "text-muted-foreground",
+                      )}
+                    >
+                      {p.hint}
+                    </div>
                   </button>
                 ))}
               </div>
@@ -890,7 +1062,9 @@ function Billing() {
                 <div className="mt-3 space-y-2">
                   <div className="flex items-center gap-1.5">
                     <Banknote className="size-3.5 text-muted-foreground" />
-                    <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Quick Tender</span>
+                    <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">
+                      Quick Tender
+                    </span>
                   </div>
                   <div className="flex flex-wrap gap-1.5">
                     {CASH_NOTES.map((note) => (
@@ -906,7 +1080,9 @@ function Billing() {
                   </div>
                   <div className="flex items-center gap-2">
                     <div className="relative flex-1">
-                      <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">₹</span>
+                      <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
+                        ₹
+                      </span>
                       <input
                         type="number"
                         inputMode="numeric"
@@ -918,8 +1094,12 @@ function Billing() {
                     </div>
                     {changeAmount !== null && (
                       <div className="animate-count-up rounded-lg bg-emerald-500/10 border border-emerald-500/20 px-3 py-1.5 text-center">
-                        <div className="text-[9px] font-semibold text-emerald-600 dark:text-emerald-400 uppercase tracking-wide">Change</div>
-                        <div className="tabular text-sm font-extrabold text-emerald-600 dark:text-emerald-400">{inr(changeAmount)}</div>
+                        <div className="text-[9px] font-semibold text-emerald-600 dark:text-emerald-400 uppercase tracking-wide">
+                          Change
+                        </div>
+                        <div className="tabular text-sm font-extrabold text-emerald-600 dark:text-emerald-400">
+                          {inr(changeAmount)}
+                        </div>
                       </div>
                     )}
                   </div>
@@ -939,7 +1119,7 @@ function Billing() {
                       "px-2 py-0.5 rounded-md transition-all",
                       discountMode === "percent"
                         ? "bg-primary text-primary-foreground shadow-sm"
-                        : "text-muted-foreground hover:text-foreground"
+                        : "text-muted-foreground hover:text-foreground",
                     )}
                   >
                     %
@@ -951,7 +1131,7 @@ function Billing() {
                       "px-2 py-0.5 rounded-md transition-all",
                       discountMode === "fixed"
                         ? "bg-primary text-primary-foreground shadow-sm"
-                        : "text-muted-foreground hover:text-foreground"
+                        : "text-muted-foreground hover:text-foreground",
                     )}
                   >
                     ₹
@@ -990,12 +1170,21 @@ function Billing() {
                 <Zap className="size-5" />
                 Checkout
                 <span className="ml-auto flex items-center gap-1 text-xs opacity-70">
-                  <span className="kbd" style={{ background: 'rgba(255,255,255,0.15)', color: 'inherit', borderColor: 'rgba(255,255,255,0.25)' }}>F8</span>
+                  <span
+                    className="kbd"
+                    style={{
+                      background: "rgba(255,255,255,0.15)",
+                      color: "inherit",
+                      borderColor: "rgba(255,255,255,0.25)",
+                    }}
+                  >
+                    F8
+                  </span>
                 </span>
               </Button>
               {cart.length > 0 && (
                 <div className="text-center text-[10px] text-muted-foreground">
-                  {cart.length} item{cart.length !== 1 ? 's' : ''} in cart
+                  {cart.length} item{cart.length !== 1 ? "s" : ""} in cart
                 </div>
               )}
             </div>
@@ -1004,11 +1193,7 @@ function Billing() {
       </div>
 
       <CheckoutDialog open={step >= 0 && !showSlip} step={step} />
-      <SlipDialog
-        open={showSlip}
-        onClose={finalizeSale}
-        result={checkoutResult}
-      />
+      <SlipDialog open={showSlip} onClose={finalizeSale} result={checkoutResult} />
       <Dialog open={showCustomerRequiredAlert} onOpenChange={setShowCustomerRequiredAlert}>
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
@@ -1023,16 +1208,20 @@ function Billing() {
             <Button variant="outline" onClick={() => setShowCustomerRequiredAlert(false)}>
               Cancel
             </Button>
-            <Button onClick={() => {
-              setShowCustomerRequiredAlert(false);
-              setIsChangingCustomer(true);
-              setTimeout(() => {
-                const searchInput = document.querySelector("input[placeholder='Search Name or Mobile...']");
-                if (searchInput) {
-                  (searchInput as HTMLInputElement).focus();
-                }
-              }, 100);
-            }}>
+            <Button
+              onClick={() => {
+                setShowCustomerRequiredAlert(false);
+                setIsChangingCustomer(true);
+                setTimeout(() => {
+                  const searchInput = document.querySelector(
+                    "input[placeholder='Search Name or Mobile...']",
+                  );
+                  if (searchInput) {
+                    (searchInput as HTMLInputElement).focus();
+                  }
+                }, 100);
+              }}
+            >
               Select Customer
             </Button>
           </div>
@@ -1048,10 +1237,22 @@ function Billing() {
   );
 }
 
-function Row({ label, value, muted, bold }: { label: string; value: string; muted?: boolean; bold?: boolean }) {
+function Row({
+  label,
+  value,
+  muted,
+  bold,
+}: {
+  label: string;
+  value: string;
+  muted?: boolean;
+  bold?: boolean;
+}) {
   return (
     <div className="flex items-center justify-between">
-      <span className={cn(muted && "text-muted-foreground", bold && "text-base font-semibold")}>{label}</span>
+      <span className={cn(muted && "text-muted-foreground", bold && "text-base font-semibold")}>
+        {label}
+      </span>
       <span className={cn(bold && "text-base font-semibold")}>{value}</span>
     </div>
   );
@@ -1078,9 +1279,13 @@ function CheckoutDialog({ open, step }: { open: boolean; step: number }) {
                   !done && !active && "border-border opacity-60",
                 )}
               >
-                {done ? <CheckCircle2 className="size-4 text-success" /> :
-                  active ? <Loader2 className="size-4 animate-spin text-foreground" /> :
-                  <div className="size-4 rounded-full border border-border" />}
+                {done ? (
+                  <CheckCircle2 className="size-4 text-success" />
+                ) : active ? (
+                  <Loader2 className="size-4 animate-spin text-foreground" />
+                ) : (
+                  <div className="size-4 rounded-full border border-border" />
+                )}
                 <span className={cn(done && "text-muted-foreground line-through")}>{label}</span>
               </li>
             );
@@ -1092,9 +1297,13 @@ function CheckoutDialog({ open, step }: { open: boolean; step: number }) {
 }
 
 export function SlipDialog({
-  open, onClose, result,
+  open,
+  onClose,
+  result,
 }: {
-  open: boolean; onClose: () => void; result: any;
+  open: boolean;
+  onClose: () => void;
+  result: any;
 }) {
   const invoiceId = result?.invoice;
   const [printing, setPrinting] = useState(false);
@@ -1122,7 +1331,11 @@ export function SlipDialog({
       const ok = await printerService.print(receipt);
       if (ok) {
         toast.success("Receipt printed successfully");
-        await logSaleAudit(receipt.invoiceNumber, "INVOICE_PRINT", `${role} printed Invoice ${receipt.invoiceNumber}`);
+        await logSaleAudit(
+          receipt.invoiceNumber,
+          "INVOICE_PRINT",
+          `${role} printed Invoice ${receipt.invoiceNumber}`,
+        );
       }
     } catch (err: any) {
       toast.error(err.message || "Failed to print receipt");
@@ -1136,7 +1349,11 @@ export function SlipDialog({
     if (result?.whatsappUrl && /wa\.me\/\d{10,15}/.test(result.whatsappUrl)) {
       window.open(result.whatsappUrl, "_blank");
       if (receipt) {
-        await logSaleAudit(receipt.invoiceNumber, "INVOICE_SHARE", `${role} shared invoice ${receipt.invoiceNumber} on WhatsApp`);
+        await logSaleAudit(
+          receipt.invoiceNumber,
+          "INVOICE_SHARE",
+          `${role} shared invoice ${receipt.invoiceNumber} on WhatsApp`,
+        );
       }
       return;
     }
@@ -1153,7 +1370,11 @@ export function SlipDialog({
     try {
       const url = await getWhatsAppShareLink(receipt.invoiceNumber);
       window.open(url, "_blank");
-      await logSaleAudit(receipt.invoiceNumber, "INVOICE_SHARE", `${role} shared invoice ${receipt.invoiceNumber} on WhatsApp`);
+      await logSaleAudit(
+        receipt.invoiceNumber,
+        "INVOICE_SHARE",
+        `${role} shared invoice ${receipt.invoiceNumber} on WhatsApp`,
+      );
     } catch (err: any) {
       toast.error(err.message || "Failed to generate WhatsApp share link");
     } finally {
@@ -1176,7 +1397,11 @@ export function SlipDialog({
       a.remove();
       URL.revokeObjectURL(url);
       toast.success("PDF downloaded");
-      await logSaleAudit(receipt.invoiceNumber, "INVOICE_PDF", `${role} downloaded PDF for ${receipt.invoiceNumber}`);
+      await logSaleAudit(
+        receipt.invoiceNumber,
+        "INVOICE_PDF",
+        `${role} downloaded PDF for ${receipt.invoiceNumber}`,
+      );
       console.log("[Checkout Flow] Completed");
     } catch (err: any) {
       toast.error(err.message || "Failed to download PDF");
@@ -1191,11 +1416,14 @@ export function SlipDialog({
       return;
     }
     const link = getSalePublicLink(receipt.publicToken);
-    navigator.clipboard.writeText(link).then(() => {
-      toast.success("Invoice link copied to clipboard");
-    }).catch(() => {
-      toast.error("Failed to copy link");
-    });
+    navigator.clipboard
+      .writeText(link)
+      .then(() => {
+        toast.success("Invoice link copied to clipboard");
+      })
+      .catch(() => {
+        toast.error("Failed to copy link");
+      });
   };
 
   const handleDuplicateInvoice = async () => {
@@ -1221,12 +1449,17 @@ export function SlipDialog({
 
       useApp.setState({
         cart: duplicatedCartLines,
-        customerMobile: receipt.customer.phone === "0000000000" ? "" : (receipt.customer.phone || ""),
-        customerName: receipt.customer.name === "Walk-in Customer" ? "" : (receipt.customer.name || ""),
+        customerMobile: receipt.customer.phone === "0000000000" ? "" : receipt.customer.phone || "",
+        customerName:
+          receipt.customer.name === "Walk-in Customer" ? "" : receipt.customer.name || "",
         payment: receipt.paymentMethod,
       });
 
-      await logSaleAudit(receipt.invoiceNumber, "INVOICE_DUPLICATE", `${role} duplicated Invoice ${receipt.invoiceNumber}`);
+      await logSaleAudit(
+        receipt.invoiceNumber,
+        "INVOICE_DUPLICATE",
+        `${role} duplicated Invoice ${receipt.invoiceNumber}`,
+      );
       toast.success("Invoice items and customer copied to checkout cart");
       onClose();
     } catch (err: any) {
@@ -1260,7 +1493,7 @@ export function SlipDialog({
       setVoidDialogOpen(false);
       setConfirmInvoiceNumber("");
       setVoidReason("");
-      
+
       queryClient.invalidateQueries({ queryKey: ["receipt", invoiceId] });
       queryClient.invalidateQueries({ queryKey: ["reports"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard"] });
@@ -1299,10 +1532,9 @@ export function SlipDialog({
 
           {/* 58mm Thermal Receipt Preview Layout */}
           <div className="mx-auto w-[280px] border border-neutral-300 bg-white p-4 font-mono text-[11px] leading-relaxed text-black shadow-inner relative overflow-hidden">
-            
             {/* Watermark for VOID invoices */}
             {receipt.status === "VOID" && (
-              <div 
+              <div
                 className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 -rotate-[30deg] font-black pointer-events-none select-none z-50 text-center uppercase tracking-widest text-red-500/15 border-4 border-red-500/15 rounded-xl px-4 py-1"
                 style={{ fontSize: "36px" }}
               >
@@ -1321,7 +1553,9 @@ export function SlipDialog({
 
             <div>
               <div>INV: {receipt.invoiceNumber}</div>
-              <div>DATE: {receipt.date} {receipt.time}</div>
+              <div>
+                DATE: {receipt.date} {receipt.time}
+              </div>
               <div>CASHIER: {receipt.cashier}</div>
               <div>CUSTOMER: {receipt.customer.name}</div>
               {receipt.customer.phone && <div>PHONE: +91 {receipt.customer.phone}</div>}
@@ -1330,7 +1564,9 @@ export function SlipDialog({
                   <div>STATUS: VOID</div>
                   <div>REASON: {receipt.voidReason}</div>
                   <div>VOIDED BY: {receipt.voidedBy}</div>
-                  {receipt.voidedAt && <div>VOIDED AT: {new Date(receipt.voidedAt).toLocaleString("en-IN")}</div>}
+                  {receipt.voidedAt && (
+                    <div>VOIDED AT: {new Date(receipt.voidedAt).toLocaleString("en-IN")}</div>
+                  )}
                 </div>
               )}
             </div>
@@ -1394,16 +1630,34 @@ export function SlipDialog({
           <div className="mt-3 space-y-2">
             <div className="text-xs font-semibold text-muted-foreground px-1">Invoice Actions</div>
             <div className="grid grid-cols-2 gap-2">
-              <Button variant="outline" onClick={() => {
-                logSaleAudit(receipt.invoiceNumber, "INVOICE_VIEW", `${role} viewed receipt HTML`);
-                window.open(`/print/invoice/${receipt.invoiceNumber}`, "_blank");
-              }} className="rounded-xl text-xs h-9">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  logSaleAudit(
+                    receipt.invoiceNumber,
+                    "INVOICE_VIEW",
+                    `${role} viewed receipt HTML`,
+                  );
+                  window.open(`/print/invoice/${receipt.invoiceNumber}`, "_blank");
+                }}
+                className="rounded-xl text-xs h-9"
+              >
                 👁️ View Receipt
               </Button>
-              <Button variant="outline" onClick={handlePrint} disabled={printing || isLoading} className="rounded-xl text-xs h-9">
+              <Button
+                variant="outline"
+                onClick={handlePrint}
+                disabled={printing || isLoading}
+                className="rounded-xl text-xs h-9"
+              >
                 {printing ? "Printing…" : "🖨️ Print"}
               </Button>
-              <Button variant="outline" onClick={handleDownloadPdf} disabled={downloadingPdf || isLoading} className="rounded-xl text-xs h-9">
+              <Button
+                variant="outline"
+                onClick={handleDownloadPdf}
+                disabled={downloadingPdf || isLoading}
+                className="rounded-xl text-xs h-9"
+              >
                 {downloadingPdf ? "Generating…" : "📄 Download PDF"}
               </Button>
               <Button
@@ -1460,7 +1714,7 @@ export function SlipDialog({
               </div>
             )}
           </div>
-          
+
           <Button onClick={onClose} className="h-10 w-full rounded-xl mt-2">
             {receipt.status === "VOID" ? "Close Dialog" : "✅ New Sale"}
           </Button>
@@ -1473,7 +1727,8 @@ export function SlipDialog({
           <DialogHeader>
             <DialogTitle className="text-red-600 font-bold">Void Invoice</DialogTitle>
             <div className="text-xs text-muted-foreground mt-1 leading-relaxed">
-              This invoice will be cancelled. Inventory will be restored. Revenue and reports will be updated. This action cannot be undone.
+              This invoice will be cancelled. Inventory will be restored. Revenue and reports will
+              be updated. This action cannot be undone.
             </div>
           </DialogHeader>
 
@@ -1497,10 +1752,13 @@ export function SlipDialog({
                 <option value="Other">Other</option>
               </select>
             </div>
-            
+
             <div className="space-y-2">
               <label htmlFor="confirm-inv" className="text-xs font-semibold text-foreground">
-                Type Invoice Number to confirm: <span className="font-mono bg-muted px-1.5 py-0.5 rounded text-[10px] select-all">{receipt.invoiceNumber}</span>
+                Type Invoice Number to confirm:{" "}
+                <span className="font-mono bg-muted px-1.5 py-0.5 rounded text-[10px] select-all">
+                  {receipt.invoiceNumber}
+                </span>
               </label>
               <Input
                 id="confirm-inv"
@@ -1527,7 +1785,11 @@ export function SlipDialog({
             </Button>
             <Button
               onClick={handleVoidInvoice}
-              disabled={voiding || !voidReason || confirmInvoiceNumber.trim().toUpperCase() !== receipt.invoiceNumber.toUpperCase()}
+              disabled={
+                voiding ||
+                !voidReason ||
+                confirmInvoiceNumber.trim().toUpperCase() !== receipt.invoiceNumber.toUpperCase()
+              }
               className="bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl"
             >
               {voiding ? "Voiding..." : "Yes, Void Invoice"}

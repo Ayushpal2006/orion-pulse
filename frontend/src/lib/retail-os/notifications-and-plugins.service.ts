@@ -1,6 +1,12 @@
 // Module 11, 12, 13: Notification Engine, REST API Key Manager & Plugin System for Apka Bill V2
 
-export type NotificationType = "low_stock" | "expired_product" | "pending_purchase" | "transfer_request" | "payment_due" | "system";
+export type NotificationType =
+  | "low_stock"
+  | "expired_product"
+  | "pending_purchase"
+  | "transfer_request"
+  | "payment_due"
+  | "system";
 
 export interface SystemNotification {
   id: string;
@@ -34,10 +40,34 @@ export class NotificationsAndPluginsService {
 
   private registerDefaultPlugins(): void {
     const defaults: PluginExtension[] = [
-      { id: "plg_razorpay", name: "Razorpay / UPI Payment Gateway", category: "payment", enabled: true, config: {} },
-      { id: "plg_shiprocket", name: "Shiprocket Logistics & Shipping", category: "shipping", enabled: false, config: {} },
-      { id: "plg_whatsapp", name: "Meta WhatsApp Business API", category: "whatsapp", enabled: true, config: {} },
-      { id: "plg_tally", name: "Tally Prime Auto Sync Plugin", category: "erp", enabled: true, config: {} },
+      {
+        id: "plg_razorpay",
+        name: "Razorpay / UPI Payment Gateway",
+        category: "payment",
+        enabled: true,
+        config: {},
+      },
+      {
+        id: "plg_shiprocket",
+        name: "Shiprocket Logistics & Shipping",
+        category: "shipping",
+        enabled: false,
+        config: {},
+      },
+      {
+        id: "plg_whatsapp",
+        name: "Meta WhatsApp Business API",
+        category: "whatsapp",
+        enabled: true,
+        config: {},
+      },
+      {
+        id: "plg_tally",
+        name: "Tally Prime Auto Sync Plugin",
+        category: "erp",
+        enabled: true,
+        config: {},
+      },
     ];
     for (const p of defaults) {
       this.plugins.set(p.id, p);

@@ -6,7 +6,20 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import {
-  Building2, Store, FileText, Upload, CheckCircle2, ArrowRight, ArrowLeft, Sparkles, Receipt, ShoppingBag, ShoppingCart, LayoutDashboard, Plus, HelpCircle
+  Building2,
+  Store,
+  FileText,
+  Upload,
+  CheckCircle2,
+  ArrowRight,
+  ArrowLeft,
+  Sparkles,
+  Receipt,
+  ShoppingBag,
+  ShoppingCart,
+  LayoutDashboard,
+  Plus,
+  HelpCircle,
 } from "lucide-react";
 import { completeOnboardingApi, getOrganizationCurrent, createProduct } from "@/lib/api";
 import { toast } from "sonner";
@@ -177,8 +190,12 @@ function SetupWizardPage() {
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 text-primary text-xs font-semibold">
             <Sparkles className="size-3.5" /> 5-Minute Express Setup
           </div>
-          <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">Configure Your Retail Shop</h1>
-          <p className="text-xs text-muted-foreground">Follow these simple steps to start billing customers in Apka Bill.</p>
+          <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
+            Configure Your Retail Shop
+          </h1>
+          <p className="text-xs text-muted-foreground">
+            Follow these simple steps to start billing customers in Apka Bill.
+          </p>
         </div>
 
         {/* STEP PROGRESS INDICATOR */}
@@ -198,12 +215,21 @@ function SetupWizardPage() {
                 <div
                   className={cn(
                     "grid size-8 place-items-center rounded-full font-bold text-xs transition-all",
-                    isDone ? "bg-emerald-500 text-white" : isCurrent ? "bg-primary text-primary-foreground shadow-sm" : "bg-muted text-muted-foreground"
+                    isDone
+                      ? "bg-emerald-500 text-white"
+                      : isCurrent
+                        ? "bg-primary text-primary-foreground shadow-sm"
+                        : "bg-muted text-muted-foreground",
                   )}
                 >
                   {isDone ? <CheckCircle2 className="size-4" /> : item.step}
                 </div>
-                <span className={cn("text-[11px] font-medium hidden sm:block", isCurrent ? "text-primary font-bold" : "text-muted-foreground")}>
+                <span
+                  className={cn(
+                    "text-[11px] font-medium hidden sm:block",
+                    isCurrent ? "text-primary font-bold" : "text-muted-foreground",
+                  )}
+                >
                   {item.label}
                 </span>
               </div>
@@ -220,7 +246,9 @@ function SetupWizardPage() {
                 <h2 className="text-base font-bold text-foreground flex items-center gap-2">
                   <Building2 className="size-5 text-primary" /> Step 1: Business Profile Information
                 </h2>
-                <p className="text-xs text-muted-foreground mt-0.5">Enter your business identity and primary owner contact details.</p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Enter your business identity and primary owner contact details.
+                </p>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -290,7 +318,10 @@ function SetupWizardPage() {
               </div>
 
               <div className="flex justify-end pt-4">
-                <Button onClick={handleNextStep1} className="rounded-xl h-10 px-5 text-xs font-bold gap-2">
+                <Button
+                  onClick={handleNextStep1}
+                  className="rounded-xl h-10 px-5 text-xs font-bold gap-2"
+                >
                   Continue to Store Setup <ArrowRight className="size-4" />
                 </Button>
               </div>
@@ -304,7 +335,9 @@ function SetupWizardPage() {
                 <h2 className="text-base font-bold text-foreground flex items-center gap-2">
                   <Store className="size-5 text-primary" /> Step 2: Primary Store Outlet Setup
                 </h2>
-                <p className="text-xs text-muted-foreground mt-0.5">Configure your primary physical store location.</p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Configure your primary physical store location.
+                </p>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -341,10 +374,17 @@ function SetupWizardPage() {
               </div>
 
               <div className="flex justify-between pt-4">
-                <Button variant="outline" onClick={() => setCurrentStep(1)} className="rounded-xl h-10 text-xs gap-1.5">
+                <Button
+                  variant="outline"
+                  onClick={() => setCurrentStep(1)}
+                  className="rounded-xl h-10 text-xs gap-1.5"
+                >
                   <ArrowLeft className="size-4" /> Back
                 </Button>
-                <Button onClick={handleNextStep2} className="rounded-xl h-10 px-5 text-xs font-bold gap-2">
+                <Button
+                  onClick={handleNextStep2}
+                  className="rounded-xl h-10 px-5 text-xs font-bold gap-2"
+                >
                   Continue to Receipt Settings <ArrowRight className="size-4" />
                 </Button>
               </div>
@@ -358,7 +398,9 @@ function SetupWizardPage() {
                 <h2 className="text-base font-bold text-foreground flex items-center gap-2">
                   <Receipt className="size-5 text-primary" /> Step 3: Receipt & Thermal Print Setup
                 </h2>
-                <p className="text-xs text-muted-foreground mt-0.5">Customize headers, footers, and live thermal receipt output.</p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Customize headers, footers, and live thermal receipt output.
+                </p>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -426,10 +468,14 @@ function SetupWizardPage() {
                   </Label>
                   <div className="p-4 rounded-xl border border-dashed border-border bg-white text-black font-mono text-[11px] space-y-2 shadow-inner">
                     <div className="text-center border-b border-dashed border-black/30 pb-2 space-y-0.5">
-                      {printBusinessName && <div className="font-bold text-sm">{businessName || "BUSINESS NAME"}</div>}
+                      {printBusinessName && (
+                        <div className="font-bold text-sm">{businessName || "BUSINESS NAME"}</div>
+                      )}
                       <div className="text-[10px]">{storeName || "MAIN STORE"}</div>
                       {printPhone && phone && <div className="text-[10px]">Ph: {phone}</div>}
-                      {printGst && gstNumber && <div className="text-[10px]">GSTIN: {gstNumber}</div>}
+                      {printGst && gstNumber && (
+                        <div className="text-[10px]">GSTIN: {gstNumber}</div>
+                      )}
                     </div>
 
                     <div className="flex justify-between text-[10px]">
@@ -463,10 +509,17 @@ function SetupWizardPage() {
               </div>
 
               <div className="flex justify-between pt-4">
-                <Button variant="outline" onClick={() => setCurrentStep(2)} className="rounded-xl h-10 text-xs gap-1.5">
+                <Button
+                  variant="outline"
+                  onClick={() => setCurrentStep(2)}
+                  className="rounded-xl h-10 text-xs gap-1.5"
+                >
                   <ArrowLeft className="size-4" /> Back
                 </Button>
-                <Button onClick={handleNextStep3} className="rounded-xl h-10 px-5 text-xs font-bold gap-2">
+                <Button
+                  onClick={handleNextStep3}
+                  className="rounded-xl h-10 px-5 text-xs font-bold gap-2"
+                >
                   Continue to Product Import <ArrowRight className="size-4" />
                 </Button>
               </div>
@@ -480,7 +533,9 @@ function SetupWizardPage() {
                 <h2 className="text-base font-bold text-foreground flex items-center gap-2">
                   <Upload className="size-5 text-primary" /> Step 4: Catalog & Product Setup
                 </h2>
-                <p className="text-xs text-muted-foreground mt-0.5">Start with fresh inventory or quickly add sample products.</p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Start with fresh inventory or quickly add sample products.
+                </p>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -488,17 +543,23 @@ function SetupWizardPage() {
                   onClick={() => setImportOption("empty")}
                   className={cn(
                     "p-4 rounded-xl border cursor-pointer transition-all space-y-2",
-                    importOption === "empty" ? "border-primary bg-primary/5 font-semibold" : "border-border hover:bg-muted/40"
+                    importOption === "empty"
+                      ? "border-primary bg-primary/5 font-semibold"
+                      : "border-border hover:bg-muted/40",
                   )}
                 >
                   <div className="flex items-center justify-between">
                     <span className="font-bold text-sm">Start with Blank Catalog</span>
-                    <Badge variant={importOption === "empty" ? "default" : "outline"} className="text-[10px]">
+                    <Badge
+                      variant={importOption === "empty" ? "default" : "outline"}
+                      className="text-[10px]"
+                    >
                       Option 1
                     </Badge>
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    Create products manually during billing or import later from Products management.
+                    Create products manually during billing or import later from Products
+                    management.
                   </p>
                 </div>
 
@@ -506,12 +567,17 @@ function SetupWizardPage() {
                   onClick={() => setImportOption("excel")}
                   className={cn(
                     "p-4 rounded-xl border cursor-pointer transition-all space-y-2",
-                    importOption === "excel" ? "border-primary bg-primary/5 font-semibold" : "border-border hover:bg-muted/40"
+                    importOption === "excel"
+                      ? "border-primary bg-primary/5 font-semibold"
+                      : "border-border hover:bg-muted/40",
                   )}
                 >
                   <div className="flex items-center justify-between">
                     <span className="font-bold text-sm">Add First Sample Item</span>
-                    <Badge variant={importOption === "excel" ? "default" : "outline"} className="text-[10px]">
+                    <Badge
+                      variant={importOption === "excel" ? "default" : "outline"}
+                      className="text-[10px]"
+                    >
                       Option 2
                     </Badge>
                   </div>
@@ -550,11 +616,20 @@ function SetupWizardPage() {
               )}
 
               <div className="flex justify-between pt-4">
-                <Button variant="outline" onClick={() => setCurrentStep(3)} className="rounded-xl h-10 text-xs gap-1.5">
+                <Button
+                  variant="outline"
+                  onClick={() => setCurrentStep(3)}
+                  className="rounded-xl h-10 text-xs gap-1.5"
+                >
                   <ArrowLeft className="size-4" /> Back
                 </Button>
-                <Button onClick={handleNextStep4} disabled={saving} className="rounded-xl h-10 px-5 text-xs font-bold gap-2">
-                  {saving ? "Configuring Shop…" : "Complete Shop Setup"} <ArrowRight className="size-4" />
+                <Button
+                  onClick={handleNextStep4}
+                  disabled={saving}
+                  className="rounded-xl h-10 px-5 text-xs font-bold gap-2"
+                >
+                  {saving ? "Configuring Shop…" : "Complete Shop Setup"}{" "}
+                  <ArrowRight className="size-4" />
                 </Button>
               </div>
             </div>
@@ -568,9 +643,12 @@ function SetupWizardPage() {
               </div>
 
               <div className="space-y-2">
-                <h2 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">Congratulations! 🎉</h2>
+                <h2 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
+                  Congratulations! 🎉
+                </h2>
                 <p className="text-sm text-muted-foreground max-w-md mx-auto">
-                  Your shop <strong className="text-foreground">{businessName}</strong> is fully configured and ready for POS operations.
+                  Your shop <strong className="text-foreground">{businessName}</strong> is fully
+                  configured and ready for POS operations.
                 </p>
               </div>
 

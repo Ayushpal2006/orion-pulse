@@ -5,7 +5,10 @@ export const Route = createFileRoute("/products")({
   head: () => ({
     meta: [
       { title: "Products & Inventory · Apka Bill" },
-      { name: "description", content: "Manage store products, stock counts, SKUs, GST rates, and price levels." },
+      {
+        name: "description",
+        content: "Manage store products, stock counts, SKUs, GST rates, and price levels.",
+      },
     ],
   }),
   component: Inventory,

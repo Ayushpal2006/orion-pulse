@@ -10,7 +10,7 @@ export interface BillingLineItem {
   gstRate?: number; // GST rate percentage (e.g., 18 for 18%)
 }
 
-export type DiscountMode = 'percent' | 'fixed';
+export type DiscountMode = "percent" | "fixed";
 
 export interface BillingTotalsResult {
   subtotal: number; // Gross subtotal before any discounts
@@ -39,8 +39,8 @@ export interface BillingTotalsResult {
 export function calculateBillingTotals(
   items: BillingLineItem[],
   cartDiscountValue: number = 0,
-  cartDiscountMode: DiscountMode = 'percent',
-  enableRoundOff: boolean = false
+  cartDiscountMode: DiscountMode = "percent",
+  enableRoundOff: boolean = false,
 ): BillingTotalsResult {
   let grossSubtotal = 0;
   let itemDiscountsTotal = 0;
@@ -55,7 +55,8 @@ export function calculateBillingTotals(
     const lineDiscAmount = (lineGross * lineDiscPct) / 100;
 
     const lineTaxable = Math.max(0, lineGross - lineDiscAmount);
-    const gstRate = item.gstRate !== undefined && item.gstRate !== null ? Math.max(0, Number(item.gstRate)) : 18;
+    const gstRate =
+      item.gstRate !== undefined && item.gstRate !== null ? Math.max(0, Number(item.gstRate)) : 18;
     const lineGst = (lineTaxable * gstRate) / 100;
 
     grossSubtotal += lineGross;
@@ -66,7 +67,7 @@ export function calculateBillingTotals(
   const rawCartDiscVal = Math.max(0, Number(cartDiscountValue) || 0);
   let cartDiscountAmount = 0;
 
-  if (cartDiscountMode === 'percent') {
+  if (cartDiscountMode === "percent") {
     const discPct = Math.min(100, rawCartDiscVal);
     cartDiscountAmount = (grossSubtotal * discPct) / 100;
   } else {

@@ -74,7 +74,10 @@ export function savePrinterCalibrationConfig(config: PrinterCalibrationConfig): 
   }
 }
 
-export async function runCalibrationTest(printerType: string, config: PrinterCalibrationConfig): Promise<{ success: boolean; report: PrinterDiagnosticsReport }> {
+export async function runCalibrationTest(
+  printerType: string,
+  config: PrinterCalibrationConfig,
+): Promise<{ success: boolean; report: PrinterDiagnosticsReport }> {
   const startTime = performance.now();
   const testProfile: any = {
     id: "calibration-test",

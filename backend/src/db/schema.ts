@@ -50,6 +50,7 @@ export const products = pgTable(
     stock: integer("stock").default(0).notNull(),
     minimum_stock: integer("minimum_stock").default(0).notNull(),
     gst: integer("gst").default(18).notNull(),
+    is_kitchen_item: integer("is_kitchen_item").default(0).notNull(),
     is_active: integer("is_active").default(1).notNull(),
     image_url: text("image_url"),
     margin_percent: integer("margin_percent").default(0).notNull(),
@@ -69,6 +70,7 @@ export const products = pgTable(
     nameIdx: index("idx_products_name").on(table.name),
     categoryIdx: index("idx_products_category").on(table.category),
     storeActiveIdx: index("idx_products_store_active").on(table.store_id, table.is_active),
+    kitchenIdx: index("idx_products_kitchen").on(table.store_id, table.is_kitchen_item),
   })
 );
 
@@ -162,6 +164,72 @@ export const sale_items = pgTable(
     saleIdx: index("idx_sale_items_sale_id").on(table.sale_id),
     productIdx: index("idx_sale_items_product_id").on(table.product_id),
     saleProdIdx: index("idx_sale_items_sale_product").on(table.sale_id, table.product_id),
+  })
+);
+
+export const kots = pgTable(
+  "kots",
+  {
+    id: serial("id").primaryKey(),
+    organization_id: integer("organization_id").references(() => organizations.id),
+    store_id: integer("store_id").references(() => stores.id).notNull(),
+    sale_id: integer("sale_id")
+      .notNull()
+      .references(() => sales.id, { onDelete: "cascade" }),
+    kot_number: integer("kot_number").notNull(),
+    status: text("status").default("PENDING").notNull(), // PENDING, PREPARING, READY, SERVED, CANCELLED
+    table_no: text("table_no"),
+    order_type: text("order_type").default("DINE_IN").notNull(), // DINE_IN, TAKEAWAY, DELIVERY
+    notes: text("notes"),
+    printed_at: timestamp("printed_at"),
+    reprint_count: integer("reprint_count").default(0).notNull(),
+    created_at: timestamp("created_at").defaultNow().notNull(),
+    updated_at: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    orgIdx: index("idx_kots_organization_id").on(table.organization_id),
+    storeKotNumIdx: uniqueIndex("idx_kots_store_kot_number").on(table.store_id, table.kot_number),
+    saleIdx: index("idx_kots_sale_id").on(table.sale_id),
+    storeStatusIdx: index("idx_kots_store_status").on(table.store_id, table.status),
+    storeCreatedIdx: index("idx_kots_store_created").on(table.store_id, table.created_at),
+  })
+);
+
+export const kot_items = pgTable(
+  "kot_items",
+  {
+    id: serial("id").primaryKey(),
+    organization_id: integer("organization_id").references(() => organizations.id),
+    store_id: integer("store_id").references(() => stores.id),
+    kot_id: integer("kot_id")
+      .notNull()
+      .references(() => kots.id, { onDelete: "cascade" }),
+    product_id: integer("product_id")
+      .notNull()
+      .references(() => products.id),
+    quantity: integer("quantity").notNull(),
+    product_name_snapshot: text("product_name_snapshot").notNull(),
+    notes: text("notes"),
+    created_at: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    orgIdx: index("idx_kot_items_organization_id").on(table.organization_id),
+    storeIdx: index("idx_kot_items_store_id").on(table.store_id),
+    kotIdx: index("idx_kot_items_kot_id").on(table.kot_id),
+    productIdx: index("idx_kot_items_product_id").on(table.product_id),
+  })
+);
+
+export const store_kot_sequences = pgTable(
+  "store_kot_sequences",
+  {
+    id: serial("id").primaryKey(),
+    store_id: integer("store_id").references(() => stores.id).notNull(),
+    last_kot_number: integer("last_kot_number").default(0).notNull(),
+    updated_at: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    storeSeqIdx: uniqueIndex("idx_store_kot_sequences_store_id").on(table.store_id),
   })
 );
 

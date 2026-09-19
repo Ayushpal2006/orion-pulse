@@ -6,6 +6,8 @@ export const databaseConfig = {
     filename: env.DATABASE_URL,
   },
   postgres: {
-    connectionString: env.DATABASE_URL,
+    get connectionString(): string {
+      return process.env.DATABASE_URL || env.DATABASE_URL;
+    },
   }
 };

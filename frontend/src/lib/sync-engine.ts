@@ -38,7 +38,10 @@ function updateSyncState(partial: Partial<SyncStatusState>): void {
 
 export async function refreshPendingCount(): Promise<number> {
   const pending = await getPendingSalesOffline();
-  updateSyncState({ pendingCount: pending.length, isOnline: typeof navigator !== "undefined" ? navigator.onLine : true });
+  updateSyncState({
+    pendingCount: pending.length,
+    isOnline: typeof navigator !== "undefined" ? navigator.onLine : true,
+  });
   return pending.length;
 }
 
@@ -65,7 +68,9 @@ export async function syncPendingSales(): Promise<{ successCount: number; failed
       return { successCount: 0, failedCount: 0 };
     }
 
-    console.log(`[Sync Engine] Found ${pendingSales.length} pending offline sales. Initiating sync...`);
+    console.log(
+      `[Sync Engine] Found ${pendingSales.length} pending offline sales. Initiating sync...`,
+    );
 
     for (const sale of pendingSales) {
       await updatePendingSaleStatus(sale.offlineId, "syncing");

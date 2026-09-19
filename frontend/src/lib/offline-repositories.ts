@@ -26,7 +26,9 @@ export class ProductRepository {
     const startTime = performance.now();
     const products = await getProductsOffline();
     if (!query.trim()) {
-      console.log(`[ProductRepository] Search empty query returned ${products.length} products in ${(performance.now() - startTime).toFixed(2)} ms`);
+      console.log(
+        `[ProductRepository] Search empty query returned ${products.length} products in ${(performance.now() - startTime).toFixed(2)} ms`,
+      );
       return products;
     }
 
@@ -35,10 +37,12 @@ export class ProductRepository {
       (p) =>
         p.name.toLowerCase().includes(q) ||
         p.sku.toLowerCase().includes(q) ||
-        (p.barcode && p.barcode.toLowerCase().includes(q))
+        (p.barcode && p.barcode.toLowerCase().includes(q)),
     );
 
-    console.log(`[ProductRepository] Local search for "${query}" matched ${filtered.length} products in ${(performance.now() - startTime).toFixed(2)} ms`);
+    console.log(
+      `[ProductRepository] Local search for "${query}" matched ${filtered.length} products in ${(performance.now() - startTime).toFixed(2)} ms`,
+    );
     return filtered;
   }
 
@@ -46,7 +50,9 @@ export class ProductRepository {
     const startTime = performance.now();
     const products = await getProductsOffline();
     const match = products.find((p) => p.barcode === barcode || p.sku === barcode) || null;
-    console.log(`[ProductRepository] Barcode search for "${barcode}" completed in ${(performance.now() - startTime).toFixed(2)} ms`);
+    console.log(
+      `[ProductRepository] Barcode search for "${barcode}" completed in ${(performance.now() - startTime).toFixed(2)} ms`,
+    );
     return match;
   }
 
@@ -76,9 +82,7 @@ export class CustomerRepository {
 
     const q = query.toLowerCase().trim();
     return customers.filter(
-      (c) =>
-        c.name.toLowerCase().includes(q) ||
-        (c.phone && c.phone.includes(q))
+      (c) => c.name.toLowerCase().includes(q) || (c.phone && c.phone.includes(q)),
     );
   }
 }
@@ -93,13 +97,17 @@ export class SaleRepository {
     return SaleRepository.instance;
   }
 
-  async createOfflineSale(salePayload: Omit<OfflinePendingSale, "syncStatus">): Promise<OfflinePendingSale> {
+  async createOfflineSale(
+    salePayload: Omit<OfflinePendingSale, "syncStatus">,
+  ): Promise<OfflinePendingSale> {
     const fullPayload: OfflinePendingSale = {
       ...salePayload,
       syncStatus: "pending",
     };
     await queueOfflineSale(fullPayload);
-    console.log(`[SaleRepository] Enqueued offline sale ${fullPayload.invoice_number} (OfflineId: ${fullPayload.offlineId})`);
+    console.log(
+      `[SaleRepository] Enqueued offline sale ${fullPayload.invoice_number} (OfflineId: ${fullPayload.offlineId})`,
+    );
     return fullPayload;
   }
 

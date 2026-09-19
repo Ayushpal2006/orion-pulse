@@ -7,12 +7,7 @@ import { SettingsController } from "../controllers/settings.controller";
 const router = Router();
 const controller = new SettingsController();
 
-// Configure multer for database uploads
-const tempDir = path.join(__dirname, "../../uploads/temp");
-if (!fs.existsSync(tempDir)) {
-  fs.mkdirSync(tempDir, { recursive: true });
-}
-const upload = multer({ dest: tempDir });
+const upload = multer({ storage: multer.memoryStorage() });
 
 router.get("/", controller.getAll);
 router.post("/", controller.update);

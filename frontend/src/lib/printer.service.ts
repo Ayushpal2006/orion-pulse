@@ -2,7 +2,12 @@ import { UniversalReceiptModel, createCanonicalReceiptModel } from "./receipt-mo
 import { UniversalReceiptRenderer, RenderOptions } from "./universal-receipt-renderer";
 import { getPrintAdapter, PrintAdapter } from "./print-adapter";
 import { toast } from "sonner";
-import { PrinterProfile, DEFAULT_PRINTER_PROFILES, printerProfileService, validatePrinterProfile } from "./printer-profile.service";
+import {
+  PrinterProfile,
+  DEFAULT_PRINTER_PROFILES,
+  printerProfileService,
+  validatePrinterProfile,
+} from "./printer-profile.service";
 
 export type { PrinterProfile };
 export { DEFAULT_PRINTER_PROFILES, printerProfileService, validatePrinterProfile };
@@ -47,7 +52,11 @@ export class PrinterService {
     return PrinterService.instance;
   }
 
-  async print(receiptInput: any, profile?: PrinterProfile, options?: RenderOptions): Promise<boolean> {
+  async print(
+    receiptInput: any,
+    profile?: PrinterProfile,
+    options?: RenderOptions,
+  ): Promise<boolean> {
     const startTime = Date.now();
 
     // Resolve store profile if not passed explicitly
@@ -58,15 +67,26 @@ export class PrinterService {
     }
 
     const model = createCanonicalReceiptModel(receiptInput);
-    const connType = activeProfile?.connectionType || (typeof receiptInput === "string" ? receiptInput : "browser");
+    const connType =
+      activeProfile?.connectionType ||
+      (typeof receiptInput === "string" ? receiptInput : "browser");
     const adapter = getPrintAdapter(connType);
 
     const isSmallPaper = activeProfile?.paperWidth === "58mm" || options?.paperWidth === "58mm";
-    const charsPerLine = activeProfile?.charactersPerLine ?? options?.charsPerLine ?? (isSmallPaper ? 32 : 48);
+    const charsPerLine =
+      activeProfile?.charactersPerLine ?? options?.charsPerLine ?? (isSmallPaper ? 32 : 48);
     const printableWidthMm = activeProfile?.printableWidthMm ?? (isSmallPaper ? 48 : 72);
     const printerDpi = activeProfile?.printerDpi ?? 203;
 
-    const mergedOptions: RenderOptions & { profile?: PrinterProfile; charsPerLine?: number; printableWidthMm?: number; printerDpi?: number; bluetoothMac?: string; printerIp?: string; printerPort?: number } = {
+    const mergedOptions: RenderOptions & {
+      profile?: PrinterProfile;
+      charsPerLine?: number;
+      printableWidthMm?: number;
+      printerDpi?: number;
+      bluetoothMac?: string;
+      printerIp?: string;
+      printerPort?: number;
+    } = {
       paperWidth: activeProfile?.paperWidth || options?.paperWidth || "80mm",
       charsPerLine,
       printableWidthMm,
@@ -181,19 +201,24 @@ export class PrinterService {
       marginRight: activeProf.marginRight,
     };
 
-    toast.info(`Executing Test Print for ${activeProf.name} (${activeProf.connectionType.toUpperCase()})...`);
+    toast.info(
+      `Executing Test Print for ${activeProf.name} (${activeProf.connectionType.toUpperCase()})...`,
+    );
     return await this.print(testInput, activeProf, renderOpts);
   }
 
   getDiagnostics(profile?: PrinterProfile, storeInfo?: any, orgInfo?: any): PrinterDiagnostics {
-    const avgTime = this.totalPrintCount > 0 ? Math.round(this.totalPrintTimeMs / this.totalPrintCount) : 0;
+    const avgTime =
+      this.totalPrintCount > 0 ? Math.round(this.totalPrintTimeMs / this.totalPrintCount) : 0;
     const activeProfName = profile?.name || DEFAULT_PRINTER_PROFILES[0].name;
     const connType = profile?.connectionType || "browser";
     const width = profile?.paperWidth || "80mm";
 
     const storeName = storeInfo?.name || storeInfo?.shop_name || "";
     const orgName = orgInfo?.name || storeName;
-    const pendingCount = this.jobQueue.filter((j) => j.status === "pending" || j.status === "printing").length;
+    const pendingCount = this.jobQueue.filter(
+      (j) => j.status === "pending" || j.status === "printing",
+    ).length;
 
     return {
       status: this.lastError ? "ERROR" : this.totalPrintCount > 0 ? "ONLINE" : "READY",

@@ -31,7 +31,7 @@ export function InvoiceCard({ invoice, onClick }: InvoiceCardProps) {
       onClick={onClick}
       className={cn(
         "flex w-full flex-col gap-2 rounded-2xl border border-border bg-elevated p-4 text-left shadow-sm hover:shadow-md hover:bg-muted/20 transition-all cursor-pointer relative overflow-hidden",
-        isVoid && "border-rose-500/20 bg-rose-500/[0.01]"
+        isVoid && "border-rose-500/20 bg-rose-500/[0.01]",
       )}
     >
       {/* Top row: Invoice #, Status, Grand Total */}
@@ -57,7 +57,8 @@ export function InvoiceCard({ invoice, onClick }: InvoiceCardProps) {
           </span>
         </div>
         <div className="text-right truncate">
-          Cashier: <span className="font-semibold text-foreground">{invoice.cashier_name || "Admin"}</span>
+          Cashier:{" "}
+          <span className="font-semibold text-foreground">{invoice.cashier_name || "Admin"}</span>
         </div>
       </div>
 

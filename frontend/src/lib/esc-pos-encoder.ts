@@ -87,8 +87,8 @@ export class EscPosEncoder {
   barcode(data: string, type: "CODE128" | "CODE39" = "CODE128"): this {
     this.align("center");
     this.buffer.push(0x1d, 0x68, 60); // GS h height (60 dots)
-    this.buffer.push(0x1d, 0x77, 2);  // GS w width (2)
-    this.buffer.push(0x1d, 0x48, 2);  // GS H text position (below)
+    this.buffer.push(0x1d, 0x77, 2); // GS w width (2)
+    this.buffer.push(0x1d, 0x48, 2); // GS H text position (below)
 
     if (type === "CODE128") {
       const len = data.length + 2;
@@ -102,7 +102,11 @@ export class EscPosEncoder {
     return this;
   }
 
-  rasterImage(pixelData: Uint8ClampedArray | Uint8Array | number[], width: number, height: number): this {
+  rasterImage(
+    pixelData: Uint8ClampedArray | Uint8Array | number[],
+    width: number,
+    height: number,
+  ): this {
     // Width in dots must be a multiple of 8
     const widthBytes = Math.ceil(width / 8);
     const xL = widthBytes % 256;
@@ -134,7 +138,7 @@ export class EscPosEncoder {
               // Dark pixels with sufficient alpha become black dot (1)
               const luminance = 0.299 * r + 0.587 * g + 0.114 * b_;
               if (a > 128 && luminance < 160) {
-                byteVal |= (1 << (7 - bit));
+                byteVal |= 1 << (7 - bit);
               }
             }
           }

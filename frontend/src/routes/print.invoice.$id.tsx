@@ -43,8 +43,8 @@ function ThermalReceipt({ receipt, template, paperWidth, qrPosition }: ThermalRe
   const containerWidth = paperWidth === "58mm" ? "58mm" : paperWidth === "A4" ? "210mm" : "80mm";
 
   return (
-    <div 
-      className="thermal-receipt" 
+    <div
+      className="thermal-receipt"
       style={{
         width: containerWidth,
         padding: "2mm",
@@ -79,7 +79,13 @@ function PrintInvoicePage() {
   }, []);
 
   // Fetch receipt details
-  const { data: receipt, isLoading, isError, error, refetch } = useQuery({
+  const {
+    data: receipt,
+    isLoading,
+    isError,
+    error,
+    refetch,
+  } = useQuery({
     queryKey: ["receipt", id],
     queryFn: () => getSaleReceipt(id),
     staleTime: 5000,
@@ -133,10 +139,10 @@ function PrintInvoicePage() {
         } catch (e) {
           console.error("Resource wait failed:", e);
         }
-        
+
         // Final additional safety delay for Android WebViews to parse fonts and layout
         await new Promise<void>((resolve) => setTimeout(resolve, 300));
-        
+
         if (active) {
           setIsReady(true);
         }
@@ -161,18 +167,23 @@ function PrintInvoicePage() {
         styleEl.id = "orion-print-style-inject";
         document.head.appendChild(styleEl);
       }
-      
-      const sizeValue = paperWidth === "80mm" ? "80mm auto" : paperWidth === "A4" ? "A4 portrait" : "58mm auto";
+
+      const sizeValue =
+        paperWidth === "80mm" ? "80mm auto" : paperWidth === "A4" ? "A4 portrait" : "58mm auto";
       styleEl.innerHTML = `@media print { @page { size: ${sizeValue}; margin: 0; } }`;
 
-      const isMobile = /Android|iPhone|iPad|iPod|Opera Mini|IEMobile|WPDesktop/i.test(navigator.userAgent);
+      const isMobile = /Android|iPhone|iPad|iPod|Opera Mini|IEMobile|WPDesktop/i.test(
+        navigator.userAgent,
+      );
 
       const handleAfterPrint = () => {
         console.log("PRINT STEP 10: afterprint event fired");
         if (!isMobile) {
           window.close();
         } else {
-          console.log("Running on mobile client: preventing auto window.close() to preserve spooler rendering context.");
+          console.log(
+            "Running on mobile client: preventing auto window.close() to preserve spooler rendering context.",
+          );
         }
       };
 
@@ -220,7 +231,11 @@ function PrintInvoicePage() {
           <Button onClick={() => refetch()} className="rounded-xl h-10 px-4">
             🔄 Retry
           </Button>
-          <Button variant="outline" onClick={() => window.history.back()} className="rounded-xl h-10 px-4">
+          <Button
+            variant="outline"
+            onClick={() => window.history.back()}
+            className="rounded-xl h-10 px-4"
+          >
             👈 Go Back
           </Button>
         </div>
@@ -237,10 +252,17 @@ function PrintInvoicePage() {
           <span className="text-xs font-semibold font-mono">{receipt.invoiceNumber}</span>
         </div>
         <div className="flex gap-2">
-          <Button onClick={() => printerService.print(receipt)} className="rounded-xl h-8 text-[11px] px-2.5">
+          <Button
+            onClick={() => printerService.print(receipt)}
+            className="rounded-xl h-8 text-[11px] px-2.5"
+          >
             Print
           </Button>
-          <Button variant="outline" onClick={() => window.history.back()} className="rounded-xl h-8 text-[11px] px-2.5">
+          <Button
+            variant="outline"
+            onClick={() => window.history.back()}
+            className="rounded-xl h-8 text-[11px] px-2.5"
+          >
             Back
           </Button>
         </div>
@@ -248,8 +270,8 @@ function PrintInvoicePage() {
 
       {/* Print template container */}
       <div id="orion-print-section">
-        <ThermalReceipt 
-          receipt={receipt} 
+        <ThermalReceipt
+          receipt={receipt}
           template={template as any}
           paperWidth={(paperWidth === "A4" ? "80mm" : paperWidth) as any}
           qrPosition={qrPosition as any}

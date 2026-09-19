@@ -1,9 +1,22 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useQueryClient } from "@tanstack/react-query";
 import { useApp } from "@/lib/store";
 import { toast } from "sonner";
@@ -13,7 +26,17 @@ import {
   downloadPurchasePdf,
   getPurchaseWhatsAppLink,
 } from "@/lib/api";
-import { Eye, Printer, FileText, Share2, Copy, Trash2, Pencil, AlertTriangle, RotateCcw } from "lucide-react";
+import {
+  Eye,
+  Printer,
+  FileText,
+  Share2,
+  Copy,
+  Trash2,
+  Pencil,
+  AlertTriangle,
+  RotateCcw,
+} from "lucide-react";
 
 export function PurchaseActionsMenu({
   purchase,
@@ -136,42 +159,84 @@ export function PurchaseActionsMenu({
 
       <div className="grid grid-cols-2 gap-2">
         {/* View Dedicated Page */}
-        <Button variant="outline" size="sm" onClick={handleView} className="h-10 rounded-xl justify-start gap-2 text-xs font-semibold">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleView}
+          className="h-10 rounded-xl justify-start gap-2 text-xs font-semibold"
+        >
           <Eye className="size-4 text-primary" /> View Invoice Page
         </Button>
 
         {/* Edit */}
         {!isVoid && !isDeleted && onEdit && (
-          <Button variant="outline" size="sm" onClick={() => { onEdit(purchase.id); onCloseDrawer?.(); }} className="h-10 rounded-xl justify-start gap-2 text-xs font-semibold">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              onEdit(purchase.id);
+              onCloseDrawer?.();
+            }}
+            className="h-10 rounded-xl justify-start gap-2 text-xs font-semibold"
+          >
             <Pencil className="size-4 text-amber-500" /> Edit Purchase
           </Button>
         )}
 
         {/* Duplicate */}
         {onDuplicate && (
-          <Button variant="outline" size="sm" onClick={() => { onDuplicate(purchase.id); onCloseDrawer?.(); }} className="h-10 rounded-xl justify-start gap-2 text-xs font-semibold">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              onDuplicate(purchase.id);
+              onCloseDrawer?.();
+            }}
+            className="h-10 rounded-xl justify-start gap-2 text-xs font-semibold"
+          >
             <Copy className="size-4 text-purple-500" /> Duplicate Draft
           </Button>
         )}
 
         {/* Print */}
-        <Button variant="outline" size="sm" onClick={handlePrint} className="h-10 rounded-xl justify-start gap-2 text-xs font-semibold">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handlePrint}
+          className="h-10 rounded-xl justify-start gap-2 text-xs font-semibold"
+        >
           <Printer className="size-4 text-foreground" /> Print Voucher
         </Button>
 
         {/* Download PDF */}
-        <Button variant="outline" size="sm" onClick={handleDownloadPdf} disabled={downloadingPdf} className="h-10 rounded-xl justify-start gap-2 text-xs font-semibold">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleDownloadPdf}
+          disabled={downloadingPdf}
+          className="h-10 rounded-xl justify-start gap-2 text-xs font-semibold"
+        >
           <FileText className="size-4 text-blue-500" /> Download PDF
         </Button>
 
         {/* Share WhatsApp */}
-        <Button variant="outline" size="sm" onClick={handleWhatsApp} className="h-10 rounded-xl justify-start gap-2 text-xs font-semibold text-green-600 border-green-500/20 hover:bg-green-500/10">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleWhatsApp}
+          className="h-10 rounded-xl justify-start gap-2 text-xs font-semibold text-green-600 border-green-500/20 hover:bg-green-500/10"
+        >
           <Share2 className="size-4 text-green-500" /> Share WhatsApp
         </Button>
 
         {/* Void */}
         {!isVoid && !isDeleted && (
-          <Button variant="outline" size="sm" onClick={() => setVoidDialogOpen(true)} className="h-10 rounded-xl justify-start gap-2 text-xs font-semibold text-rose-600 border-rose-500/20 hover:bg-rose-500/10">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setVoidDialogOpen(true)}
+            className="h-10 rounded-xl justify-start gap-2 text-xs font-semibold text-rose-600 border-rose-500/20 hover:bg-rose-500/10"
+          >
             <RotateCcw className="size-4 text-rose-500" /> Void Purchase
           </Button>
         )}
@@ -195,7 +260,8 @@ export function PurchaseActionsMenu({
               <AlertTriangle className="size-5" /> Void Purchase Order
             </DialogTitle>
             <DialogDescription className="text-xs">
-              Voiding this order will reverse stock increases and deduct the amount from the supplier's balance ledger.
+              Voiding this order will reverse stock increases and deduct the amount from the
+              supplier's balance ledger.
             </DialogDescription>
           </DialogHeader>
 
@@ -245,7 +311,11 @@ export function PurchaseActionsMenu({
 
             <div className="space-y-1">
               <label className="text-xs font-semibold">
-                Type last 4 digits of PO (<span className="font-mono text-rose-600 font-bold">{(poNumber || "").slice(-4)}</span>) to confirm
+                Type last 4 digits of PO (
+                <span className="font-mono text-rose-600 font-bold">
+                  {(poNumber || "").slice(-4)}
+                </span>
+                ) to confirm
               </label>
               <Input
                 placeholder="Enter last 4 digits"

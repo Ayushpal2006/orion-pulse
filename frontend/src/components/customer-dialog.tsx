@@ -1,5 +1,11 @@
 import { useEffect, useState } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -8,7 +14,10 @@ import { useApp } from "@/lib/store";
 import type { Customer } from "@/lib/mock-data";
 import { toast } from "sonner";
 
-import { createCustomer as createCustomerApi, updateCustomer as updateCustomerApi } from "@/lib/api";
+import {
+  createCustomer as createCustomerApi,
+  updateCustomer as updateCustomerApi,
+} from "@/lib/api";
 
 export function CustomerDialog({
   open,
@@ -32,11 +41,7 @@ export function CustomerDialog({
 
   useEffect(() => {
     if (open) {
-      setForm(
-        customer
-          ? { ...customer }
-          : { ...blank(), mobile: defaultMobile ?? "" },
-      );
+      setForm(customer ? { ...customer } : { ...blank(), mobile: defaultMobile ?? "" });
     }
   }, [open, customer, defaultMobile]);
 
@@ -71,7 +76,11 @@ export function CustomerDialog({
           ltv: saved.lifetime_value / 100, // paise to Rs
           visits: saved.total_orders,
           lastVisit: saved.last_visit || "Never",
-          since: new Date(saved.created_at).toLocaleString("en-IN", { month: "short", year: "numeric", timeZone: "Asia/Kolkata" }),
+          since: new Date(saved.created_at).toLocaleString("en-IN", {
+            month: "short",
+            year: "numeric",
+            timeZone: "Asia/Kolkata",
+          }),
           email: saved.email || undefined,
           address: saved.address || undefined,
           notes: saved.notes || undefined,
@@ -88,7 +97,11 @@ export function CustomerDialog({
           ltv: saved.lifetime_value / 100,
           visits: saved.total_orders,
           lastVisit: saved.last_visit || "Never",
-          since: new Date(saved.created_at).toLocaleString("en-IN", { month: "short", year: "numeric", timeZone: "Asia/Kolkata" }),
+          since: new Date(saved.created_at).toLocaleString("en-IN", {
+            month: "short",
+            year: "numeric",
+            timeZone: "Asia/Kolkata",
+          }),
           email: saved.email || undefined,
           address: saved.address || undefined,
           notes: saved.notes || undefined,
@@ -113,7 +126,11 @@ export function CustomerDialog({
         </DialogHeader>
         <div className="space-y-3">
           <Field label="Name">
-            <Input value={form.name} onChange={(e) => upd("name", e.target.value)} placeholder="Full name" />
+            <Input
+              value={form.name}
+              onChange={(e) => upd("name", e.target.value)}
+              placeholder="Full name"
+            />
           </Field>
           <Field label="Mobile">
             <Input
@@ -126,17 +143,31 @@ export function CustomerDialog({
             />
           </Field>
           <Field label="Email">
-            <Input value={form.email ?? ""} onChange={(e) => upd("email", e.target.value)} placeholder="name@example.com" />
+            <Input
+              value={form.email ?? ""}
+              onChange={(e) => upd("email", e.target.value)}
+              placeholder="name@example.com"
+            />
           </Field>
           <Field label="Address">
-            <Textarea value={form.address ?? ""} onChange={(e) => upd("address", e.target.value)} rows={2} />
+            <Textarea
+              value={form.address ?? ""}
+              onChange={(e) => upd("address", e.target.value)}
+              rows={2}
+            />
           </Field>
           <Field label="Notes">
-            <Textarea value={form.notes ?? ""} onChange={(e) => upd("notes", e.target.value)} rows={2} />
+            <Textarea
+              value={form.notes ?? ""}
+              onChange={(e) => upd("notes", e.target.value)}
+              rows={2}
+            />
           </Field>
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={submitting}>Cancel</Button>
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={submitting}>
+            Cancel
+          </Button>
           <Button onClick={submit} disabled={submitting}>
             {submitting ? "Saving..." : mode === "add" ? "Add customer" : "Save"}
           </Button>
@@ -163,6 +194,10 @@ function blank(): Customer {
     ltv: 0,
     visits: 0,
     lastVisit: "Never",
-    since: new Date().toLocaleString("en-IN", { month: "short", year: "numeric", timeZone: "Asia/Kolkata" }),
+    since: new Date().toLocaleString("en-IN", {
+      month: "short",
+      year: "numeric",
+      timeZone: "Asia/Kolkata",
+    }),
   };
 }

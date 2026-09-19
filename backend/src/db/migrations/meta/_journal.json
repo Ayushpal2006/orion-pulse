@@ -162,6 +162,13 @@
       "when": 1784900007000,
       "tag": "0022_add_secondary_performance_indexes",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1784900008000,
+      "tag": "0023_add_kot_tables_and_kitchen_flag",
+      "breakpoints": true
     }
   ]
 }

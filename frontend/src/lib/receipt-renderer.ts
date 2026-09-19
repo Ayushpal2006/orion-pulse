@@ -68,12 +68,29 @@ export class ReceiptRenderer {
     // Header
     const shopName = (data.shopName || "").toUpperCase();
     if (shopName) lines.push(shopName.padStart(Math.floor((maxLen + shopName.length) / 2)));
-    if (data.shopAddress) lines.push(data.shopAddress.padStart(Math.floor((maxLen + data.shopAddress.length) / 2)));
-    if (data.shopPhone) lines.push(`Phone: ${data.shopPhone}`.padStart(Math.floor((maxLen + `Phone: ${data.shopPhone}`.length) / 2)));
-    if (data.shopGst) lines.push(`GSTIN: ${data.shopGst}`.padStart(Math.floor((maxLen + `GSTIN: ${data.shopGst}`.length) / 2)));
+    if (data.shopAddress)
+      lines.push(data.shopAddress.padStart(Math.floor((maxLen + data.shopAddress.length) / 2)));
+    if (data.shopPhone)
+      lines.push(
+        `Phone: ${data.shopPhone}`.padStart(
+          Math.floor((maxLen + `Phone: ${data.shopPhone}`.length) / 2),
+        ),
+      );
+    if (data.shopGst)
+      lines.push(
+        `GSTIN: ${data.shopGst}`.padStart(
+          Math.floor((maxLen + `GSTIN: ${data.shopGst}`.length) / 2),
+        ),
+      );
 
     lines.push(divider);
-    lines.push(this.formatLine(`Invoice: ${data.invoiceNumber}`, `Date: ${data.date || new Date().toLocaleDateString()}`, maxLen));
+    lines.push(
+      this.formatLine(
+        `Invoice: ${data.invoiceNumber}`,
+        `Date: ${data.date || new Date().toLocaleDateString()}`,
+        maxLen,
+      ),
+    );
     if (data.customerName) lines.push(`Customer: ${data.customerName}`);
     if (data.customerPhone) lines.push(`Phone: ${data.customerPhone}`);
     if (data.cashierName) lines.push(`Cashier: ${data.cashierName}`);
@@ -97,8 +114,12 @@ export class ReceiptRenderer {
 
     lines.push(doubleDivider);
     lines.push(this.formatLine("Subtotal:", this.formatThermalAmount(data.subtotal), maxLen));
-    if (data.discount > 0) lines.push(this.formatLine("Discount:", this.formatThermalAmount(data.discount, true), maxLen));
-    if (data.tax > 0) lines.push(this.formatLine("Tax/GST:", this.formatThermalAmount(data.tax), maxLen));
+    if (data.discount > 0)
+      lines.push(
+        this.formatLine("Discount:", this.formatThermalAmount(data.discount, true), maxLen),
+      );
+    if (data.tax > 0)
+      lines.push(this.formatLine("Tax/GST:", this.formatThermalAmount(data.tax), maxLen));
     lines.push(doubleDivider);
     lines.push(this.formatLine("GRAND TOTAL:", this.formatThermalAmount(data.total), maxLen));
     lines.push(this.formatLine("Payment Method:", data.paymentMethod || "CASH", maxLen));
@@ -129,13 +150,23 @@ export class ReceiptRenderer {
     if (data.shopGst) encoder.line(`GSTIN: ${data.shopGst}`);
 
     encoder.align("left").line(divider);
-    encoder.line(this.formatLine(`Inv: ${data.invoiceNumber}`, `Date: ${data.date || new Date().toLocaleDateString()}`, maxLen));
+    encoder.line(
+      this.formatLine(
+        `Inv: ${data.invoiceNumber}`,
+        `Date: ${data.date || new Date().toLocaleDateString()}`,
+        maxLen,
+      ),
+    );
     if (data.customerName) encoder.line(`Customer: ${data.customerName}`);
     if (data.customerPhone) encoder.line(`Phone: ${data.customerPhone}`);
     encoder.line(divider);
 
     // Items
-    encoder.bold(true).line(this.formatLine("ITEM", "TOTAL", maxLen)).bold(false).line(divider);
+    encoder
+      .bold(true)
+      .line(this.formatLine("ITEM", "TOTAL", maxLen))
+      .bold(false)
+      .line(divider);
     for (const item of data.items || []) {
       const rightCol = this.formatThermalAmount(item.total);
       const prefix = `${item.qty}x ${item.name}`;
@@ -151,9 +182,18 @@ export class ReceiptRenderer {
 
     // Totals
     encoder.line(this.formatLine("Subtotal:", this.formatThermalAmount(data.subtotal), maxLen));
-    if (data.discount > 0) encoder.line(this.formatLine("Discount:", this.formatThermalAmount(data.discount, true), maxLen));
-    if (data.tax > 0) encoder.line(this.formatLine("Tax/GST:", this.formatThermalAmount(data.tax), maxLen));
-    encoder.bold(true).size(1, 2).line(this.formatLine("GRAND TOTAL:", this.formatThermalAmount(data.total), maxLen)).size(1, 1).bold(false);
+    if (data.discount > 0)
+      encoder.line(
+        this.formatLine("Discount:", this.formatThermalAmount(data.discount, true), maxLen),
+      );
+    if (data.tax > 0)
+      encoder.line(this.formatLine("Tax/GST:", this.formatThermalAmount(data.tax), maxLen));
+    encoder
+      .bold(true)
+      .size(1, 2)
+      .line(this.formatLine("GRAND TOTAL:", this.formatThermalAmount(data.total), maxLen))
+      .size(1, 1)
+      .bold(false);
     encoder.line(this.formatLine("Payment:", data.paymentMethod || "CASH", maxLen));
     encoder.line(divider);
 
@@ -166,7 +206,10 @@ export class ReceiptRenderer {
     }
 
     // Footer
-    encoder.align("center").line(data.footerText || "Thank you for shopping with us!").feed(3);
+    encoder
+      .align("center")
+      .line(data.footerText || "Thank you for shopping with us!")
+      .feed(3);
 
     if (options?.autoCut !== false) {
       encoder.cut(false);

@@ -1,7 +1,7 @@
 import React from "react";
 import { ReceiptRenderer, ReceiptData, ReceiptRendererProps } from "./receipt-templates";
 
-export interface InvoiceTemplateRendererProps extends ReceiptRendererProps {}
+export type InvoiceTemplateRendererProps = ReceiptRendererProps;
 
 /**
  * InvoiceTemplateRenderer
