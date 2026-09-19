@@ -270,10 +270,16 @@ export class CheckoutService {
 
         // Calculations
         let unitPricePaise = product.selling_price;
-        if (item.unitPrice !== undefined && item.unitPrice !== null) {
-          unitPricePaise = item.unitPrice > 1000 ? Math.round(item.unitPrice) : Math.round(item.unitPrice * 100);
-        } else if (item.price !== undefined && item.price !== null) {
-          unitPricePaise = item.price > 1000 ? Math.round(item.price) : Math.round(item.price * 100);
+        if (item.unitPrice !== undefined && item.unitPrice !== null && (item.unitPrice as any) !== "") {
+          const p = Number(item.unitPrice);
+          if (!isNaN(p) && p >= 0) {
+            unitPricePaise = Math.round(p * 100);
+          }
+        } else if (item.price !== undefined && item.price !== null && (item.price as any) !== "") {
+          const p = Number(item.price);
+          if (!isNaN(p) && p >= 0) {
+            unitPricePaise = Math.round(p * 100);
+          }
         }
 
         const lineGrossPaise = item.quantity * unitPricePaise;
@@ -281,16 +287,17 @@ export class CheckoutService {
         let lineDiscountPaise = 0;
         if (item.discountPercent !== undefined && item.discountPercent !== null) {
           lineDiscountPaise = Math.round((lineGrossPaise * Number(item.discountPercent)) / 100);
-        } else if (item.discount !== undefined && item.discount !== null) {
+        } else if (item.discount !== undefined && item.discount !== null && (item.discount as any) !== "") {
           const rawDisc = Number(item.discount);
-          if (rawDisc > 0 && rawDisc <= 100) {
-            lineDiscountPaise = Math.round((lineGrossPaise * rawDisc) / 100);
-          } else if (rawDisc > 1000) {
-            lineDiscountPaise = Math.round(rawDisc);
-          } else {
-            lineDiscountPaise = Math.round(rawDisc * 100);
+          if (!isNaN(rawDisc) && rawDisc >= 0) {
+            if (rawDisc > 0 && rawDisc <= 100 && (item as any).isDiscountPercent) {
+              lineDiscountPaise = Math.round((lineGrossPaise * rawDisc) / 100);
+            } else {
+              lineDiscountPaise = Math.round(rawDisc * 100);
+            }
           }
         }
+        lineDiscountPaise = Math.min(lineGrossPaise, lineDiscountPaise);
 
         const lineTaxablePaise = Math.max(0, lineGrossPaise - lineDiscountPaise);
         const gstRate = product.gst !== undefined && product.gst !== null ? Number(product.gst) : 18;
@@ -315,18 +322,20 @@ export class CheckoutService {
       console.log("[Checkout Flow] Stock Updated");
 
       let cartDiscountPaise = 0;
-      if (request.discount !== undefined && request.discount !== null) {
+      if (request.discount !== undefined && request.discount !== null && (request.discount as any) !== "") {
         const rawDisc = Number(request.discount);
-        if (rawDisc > 1000 && request.subtotal && rawDisc >= request.subtotal) {
-          cartDiscountPaise = Math.round(rawDisc);
-        } else {
+        if (!isNaN(rawDisc) && rawDisc >= 0) {
           cartDiscountPaise = Math.round(rawDisc * 100);
         }
       }
       const discount = Math.min(subtotal, cartDiscountPaise);
       const grandTotal = Math.max(0, subtotal - discount + totalGst);
-      const paidAmount = request.paidAmount !== undefined ? (request.paidAmount > 1000 ? Math.round(request.paidAmount) : Math.round(request.paidAmount * 100)) : grandTotal;
-      const balance = request.balance !== undefined ? (request.balance > 1000 ? Math.round(request.balance) : Math.round(request.balance * 100)) : Math.max(0, grandTotal - paidAmount);
+      const paidAmount = request.paidAmount !== undefined && request.paidAmount !== null && (request.paidAmount as any) !== ""
+        ? Math.round(Number(request.paidAmount) * 100)
+        : grandTotal;
+      const balance = request.balance !== undefined && request.balance !== null && (request.balance as any) !== ""
+        ? Math.round(Number(request.balance) * 100)
+        : Math.max(0, grandTotal - paidAmount);
 
       const paymentDetailsJson = request.paymentDetails ? JSON.stringify(request.paymentDetails) : null;
 

@@ -61,7 +61,7 @@ function resolveBackendSellingPricePaise(itemRequest, dbProduct) {
   } else if (itemRequest.selling_price !== undefined && itemRequest.selling_price !== null && itemRequest.selling_price !== "") {
     const p = Number(itemRequest.selling_price);
     if (!isNaN(p) && p >= 0) {
-      sellingPricePaise = Math.round(p > 1000 ? p : p * 100);
+      sellingPricePaise = Math.round(p * 100);
     }
   }
   return sellingPricePaise;
