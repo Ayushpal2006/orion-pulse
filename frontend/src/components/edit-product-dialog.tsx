@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
 import {
   Dialog,
   DialogContent,
@@ -101,10 +102,12 @@ export function EditProductDialog({
         updateProduct(finalProduct.id, productWithImage);
       }
 
-      if (onSuccess) onSuccess();
       onOpenChange(false);
-    } catch (error: any) {
-      toast.error(error.message || "Failed to save product. Please check server availability.");
+      if (onSuccess) {
+        onSuccess();
+      }
+    } catch (e: any) {
+      toast.error("Failed to save product", { description: e?.message });
     } finally {
       setSubmitting(false);
     }
@@ -112,43 +115,53 @@ export function EditProductDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
+      <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{mode === "add" ? "New product" : "Edit product"}</DialogTitle>
+          <DialogTitle>{mode === "add" ? "Add new product" : "Edit product"}</DialogTitle>
           <DialogDescription>
-            All fields are optional except name & selling price.
+            {mode === "add"
+              ? "Add a new item to your store catalog."
+              : "Update product details, pricing, and stock levels."}
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-3">
-          <div className="flex items-center gap-3">
-            <div className="grid size-14 place-items-center overflow-hidden rounded-xl bg-muted text-2xl border border-border">
+        <div className="space-y-4 py-2">
+          {/* Image Upload Preview & Selector */}
+          <div className="flex items-center gap-4 border p-3 rounded-lg bg-muted/20">
+            <div className="w-16 h-16 rounded-md border border-dashed flex items-center justify-center overflow-hidden bg-background shrink-0 relative">
               {previewUrl || form.image ? (
-                <img src={previewUrl || form.image} alt="" className="size-full object-cover" />
+                <img
+                  src={previewUrl || form.image}
+                  alt="Preview"
+                  className="w-full h-full object-cover"
+                />
               ) : (
-                <span>{form.emoji || "📦"}</span>
+                <span className="text-2xl">{form.emoji || "📦"}</span>
               )}
             </div>
-            <div className="flex-1">
-              <Label className="text-xs font-medium text-muted-foreground">Product image</Label>
+            <div className="space-y-1.5 flex-1">
+              <Label className="text-xs font-medium text-muted-foreground block">
+                Product Image (Max 5MB)
+              </Label>
               <Input
                 type="file"
                 accept="image/png, image/jpeg, image/jpg, image/webp"
-                className="mt-1 h-9 rounded-lg text-xs"
                 onChange={handleFileChange}
                 disabled={submitting}
+                className="text-xs file:text-xs h-8 cursor-pointer"
               />
             </div>
           </div>
 
-          <Field label="Product name">
+          <Field label="Product name *">
             <Input
               value={form.name}
               onChange={(e) => upd("name", e.target.value)}
-              placeholder="Denim Jacket"
+              placeholder="e.g. Masala Dosa, Cold Drink"
               disabled={submitting}
             />
           </Field>
+
           <div className="grid grid-cols-2 gap-3">
             <Field label="SKU">
               <Input
@@ -161,18 +174,31 @@ export function EditProductDialog({
               <Input
                 value={form.barcode}
                 onChange={(e) => upd("barcode", e.target.value)}
+                placeholder="Optional"
                 disabled={submitting}
               />
             </Field>
           </div>
-          <Field label="Category">
-            <Input
-              value={form.category}
-              onChange={(e) => upd("category", e.target.value)}
-              placeholder="e.g. Beverages, Main Course"
-              disabled={submitting}
-            />
-          </Field>
+
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Category">
+              <Input
+                value={form.category}
+                onChange={(e) => upd("category", e.target.value)}
+                placeholder="Food, Drinks, etc."
+                disabled={submitting}
+              />
+            </Field>
+            <Field label="Icon / Emoji">
+              <Input
+                value={form.emoji}
+                onChange={(e) => upd("emoji", e.target.value)}
+                maxLength={4}
+                disabled={submitting}
+              />
+            </Field>
+          </div>
+
           <div className="grid grid-cols-2 gap-3">
             <Field label="Purchase price">
               <Input
@@ -183,7 +209,7 @@ export function EditProductDialog({
                 disabled={submitting}
               />
             </Field>
-            <Field label="Selling price">
+            <Field label="Selling price *">
               <Input
                 inputMode="numeric"
                 value={form.price || ""}
@@ -193,6 +219,7 @@ export function EditProductDialog({
               />
             </Field>
           </div>
+
           <div className="grid grid-cols-3 gap-3">
             <Field label="GST %">
               <Input
@@ -218,6 +245,21 @@ export function EditProductDialog({
                 disabled={submitting}
               />
             </Field>
+          </div>
+
+          {/* Kitchen Order Ticket (KOT) Item Switch */}
+          <div className="flex items-center justify-between rounded-lg border p-3 bg-muted/10 shadow-xs">
+            <div className="space-y-0.5">
+              <Label className="text-sm font-medium">Kitchen Item (KOT)</Label>
+              <p className="text-xs text-muted-foreground">
+                Routes to Kitchen printer ticket when ordered in POS billing
+              </p>
+            </div>
+            <Switch
+              checked={Boolean(form.is_kitchen_item)}
+              onCheckedChange={(checked) => upd("is_kitchen_item", checked ? 1 : 0)}
+              disabled={submitting}
+            />
           </div>
         </div>
 
@@ -257,6 +299,7 @@ function blank(): Product {
     gst: 12,
     stock: 0,
     reorder: 5,
+    is_kitchen_item: 0,
     emoji: "📦",
     createdAt: now,
     updatedAt: now,

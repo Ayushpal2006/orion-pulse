@@ -256,3 +256,81 @@ export function createCanonicalReceiptModel(input: any): UniversalReceiptModel {
     },
   };
 }
+
+export function createCanonicalKotModel(input: any): UniversalReceiptModel {
+  const now = new Date();
+  const kotNumber = input.kotNumber || input.kot_number || (input.kot ? input.kot.kotNumber : "1");
+  const invoiceNum = input.invoiceNumber || input.invoice || (input.kot ? input.kot.invoiceNumber : "");
+  const tableNo = input.tableNo || input.table_no || (input.kot ? input.kot.tableNo : "");
+  const orderType = input.orderType || input.order_type || (input.kot ? input.kot.orderType : "DINE_IN");
+  const notes = input.notes || (input.kot ? input.kot.notes : "");
+  const reprintCount = input.reprintCount ?? input.reprint_count ?? 0;
+
+  const invDate =
+    input.date ||
+    now.toLocaleDateString("en-IN", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      timeZone: "Asia/Kolkata",
+    });
+
+  const invTime =
+    input.time ||
+    now.toLocaleTimeString("en-IN", {
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      timeZone: "Asia/Kolkata",
+    });
+
+  const rawItems = input.items || (input.kot ? input.kot.items : []) || [];
+  const kotItems: ReceiptItemModel[] = rawItems.map((i: any, idx: number) => ({
+    id: i.id || i.product_id || idx + 1,
+    name: i.productName || i.product_name_snapshot || i.name || `Item ${idx + 1}`,
+    price: 0,
+    qty: Number(i.quantity ?? i.qty ?? 1),
+    total: 0,
+    sku: i.notes || "",
+  }));
+
+  const reprintHeader = reprintCount > 0 ? `[ REPRINT #${reprintCount} ]\n` : "";
+  const tableInfo = tableNo ? `TABLE: ${tableNo}` : `ORDER: ${orderType}`;
+
+  return {
+    id: `KOT-${kotNumber}-${Date.now()}`,
+    invoiceNumber: `${reprintHeader}KOT #${kotNumber}`,
+    date: invDate,
+    time: invTime,
+    template: "Compact",
+    business: {
+      name: "KITCHEN ORDER TICKET",
+      address: `${tableInfo} | Type: ${orderType}`,
+      phone: invoiceNum ? `Ref Inv: ${invoiceNum}` : "",
+    },
+    store: {
+      id: input.storeId || 1,
+      name: input.storeName || "Kitchen Station",
+    },
+    cashierName: input.cashierName || "POS",
+    items: kotItems,
+    subtotal: 0,
+    discount: 0,
+    tax: 0,
+    grandTotal: 0,
+    payment: {
+      method: "KOT",
+      amountPaid: 0,
+      changeAmount: 0,
+    },
+    footerText: notes ? `Notes: ${notes}\nTime: ${invTime}` : `Printed: ${invTime}`,
+    metadata: {
+      isKot: true,
+      kotNumber,
+      invoiceNumber: invoiceNum,
+      tableNo,
+      orderType,
+      reprintCount,
+    },
+  };
+}

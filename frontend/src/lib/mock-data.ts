@@ -12,6 +12,7 @@ export type Product = {
   unit_price?: number;
   unitPrice?: number;
   gst: number;
+  is_kitchen_item?: number | boolean;
   stock: number;
   reorder: number;
   emoji: string;

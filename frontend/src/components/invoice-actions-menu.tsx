@@ -95,6 +95,26 @@ export function InvoiceActionsMenu({
     }
   };
 
+  const handlePrintKot = async () => {
+    setPrinting(true);
+    try {
+      const kotData = {
+        kotNumber: receipt.kotNumber || "1",
+        invoiceNumber: receipt.invoiceNumber,
+        storeName: receipt.shop?.name || "Kitchen",
+        items: receipt.items?.filter((it: any) => it.is_kitchen_item || it.isKitchenItem) || receipt.items || [],
+      };
+      const ok = await printerService.printKot(kotData);
+      if (ok) {
+        toast.success("Kitchen KOT printed successfully");
+      }
+    } catch (err: any) {
+      toast.error(err.message || "Failed to print KOT");
+    } finally {
+      setPrinting(false);
+    }
+  };
+
   const handleDownloadPdf = async () => {
     setDownloadingPdf(true);
     try {
@@ -321,6 +341,16 @@ export function InvoiceActionsMenu({
             >
               <Share2 className="mr-2 size-3.5 text-green-500" />{" "}
               {sharingWhatsApp ? "Opening..." : "WhatsApp"}
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handlePrintKot}
+              disabled={printing}
+              className="h-10 rounded-xl justify-start font-medium text-xs text-orange-600 dark:text-orange-400 border-orange-500/30 hover:bg-orange-500/10"
+            >
+              <Printer className="mr-2 size-3.5 text-orange-500" />
+              {printing ? "Printing..." : "Reprint KOT"}
             </Button>
           </div>
         </div>

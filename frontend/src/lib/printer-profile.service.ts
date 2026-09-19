@@ -4,6 +4,7 @@ export interface PrinterProfile {
   id: string;
   name: string;
   isDefault: boolean;
+  role?: "CUSTOMER_RECEIPT" | "KITCHEN_KOT" | "BOTH";
   connectionType: "browser" | "escpos" | "usb" | "bluetooth" | "lan" | "android_pos";
   paperWidth: "58mm" | "80mm" | "A4";
   receiptTemplate: "Classic" | "Compact" | "Modern" | "Retail" | "Minimal";
@@ -70,8 +71,9 @@ export function validatePrinterProfile(profile: Partial<PrinterProfile>): {
 export const DEFAULT_PRINTER_PROFILES: PrinterProfile[] = [
   {
     id: "prof-counter-01",
-    name: "Counter Thermal Printer",
+    name: "Counter Customer Printer",
     isDefault: true,
+    role: "CUSTOMER_RECEIPT",
     connectionType: "browser",
     paperWidth: "80mm",
     printableWidthMm: 72,
@@ -88,9 +90,30 @@ export const DEFAULT_PRINTER_PROFILES: PrinterProfile[] = [
     marginRight: 0,
   },
   {
-    id: "prof-office-a4",
-    name: "Office A4 Printer",
+    id: "prof-kitchen-01",
+    name: "Kitchen KOT Printer",
     isDefault: false,
+    role: "KITCHEN_KOT",
+    connectionType: "browser",
+    paperWidth: "80mm",
+    printableWidthMm: 72,
+    charactersPerLine: 48,
+    printerDpi: 203,
+    receiptTemplate: "Compact",
+    autoCut: true,
+    showLogo: false,
+    showQr: false,
+    showBarcode: false,
+    marginTop: 0,
+    marginBottom: 0,
+    marginLeft: 0,
+    marginRight: 0,
+  },
+  {
+    id: "prof-office-a4",
+    name: "Office A4 Invoice Printer",
+    isDefault: false,
+    role: "CUSTOMER_RECEIPT",
     connectionType: "browser",
     paperWidth: "A4",
     printableWidthMm: 190,
@@ -110,6 +133,7 @@ export const DEFAULT_PRINTER_PROFILES: PrinterProfile[] = [
     id: "prof-compact-58",
     name: "Compact 58mm Mini Printer",
     isDefault: false,
+    role: "CUSTOMER_RECEIPT",
     connectionType: "bluetooth",
     paperWidth: "58mm",
     printableWidthMm: 48,
@@ -263,6 +287,22 @@ export class PrinterProfileService {
       console.error("[PrinterProfileService] Save error (saved locally):", err);
       return true; // Still return true as it's saved locally for offline operation
     }
+  }
+
+  getCustomerProfile(profiles: PrinterProfile[]): PrinterProfile {
+    return (
+      profiles.find((p) => p.role === "CUSTOMER_RECEIPT" || p.role === "BOTH" || p.isDefault) ||
+      profiles[0] ||
+      DEFAULT_PRINTER_PROFILES[0]
+    );
+  }
+
+  getKitchenProfile(profiles: PrinterProfile[]): PrinterProfile | null {
+    return (
+      profiles.find((p) => p.role === "KITCHEN_KOT") ||
+      profiles.find((p) => p.role === "BOTH") ||
+      null
+    );
   }
 
   clearCache(): void {

@@ -25,7 +25,7 @@ export class KotController {
 
   getById = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const id = parseInt(req.params.id, 10);
+      const id = parseInt(req.params.id as string, 10);
       if (isNaN(id)) {
         res.status(400).json({
           success: false,
@@ -46,7 +46,7 @@ export class KotController {
 
   getBySaleId = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const saleId = parseInt(req.params.saleId, 10);
+      const saleId = parseInt(req.params.saleId as string, 10);
       if (isNaN(saleId)) {
         res.status(400).json({
           success: false,
@@ -67,7 +67,7 @@ export class KotController {
 
   updateStatus = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const id = parseInt(req.params.id, 10);
+      const id = parseInt(req.params.id as string, 10);
       const { status } = req.body;
 
       if (isNaN(id) || !status) {
@@ -90,7 +90,7 @@ export class KotController {
 
   reprint = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const id = parseInt(req.params.id, 10);
+      const id = parseInt(req.params.id as string, 10);
       if (isNaN(id)) {
         res.status(400).json({
           success: false,

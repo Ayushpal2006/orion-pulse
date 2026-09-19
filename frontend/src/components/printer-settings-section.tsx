@@ -251,13 +251,30 @@ export function PrinterSettingsSection({
   const handleRunRealTestPrint = async () => {
     setTesting(true);
     try {
-      const ok = await printerService.runTestPrint(activeProfile, currentStore);
+      const customerProfile = printerProfileService.getCustomerProfile(profiles) || activeProfile;
+      const ok = await printerService.runTestPrint(customerProfile, currentStore);
       setDiagnostics(printerService.getDiagnostics(activeProfile, currentStore));
       if (ok) {
-        toast.success("REAL Test Print dispatched to hardware via active adapter!");
+        toast.success("REAL Test Print dispatched to customer hardware via active adapter!");
       }
     } catch (e: any) {
       toast.error("Test print error: " + (e.message || e));
+    } finally {
+      setTesting(false);
+    }
+  };
+
+  const handleRunRealTestKot = async () => {
+    setTesting(true);
+    try {
+      const kitchenProfile = printerProfileService.getKitchenProfile(profiles) || activeProfile;
+      const ok = await printerService.runTestKot(kitchenProfile, currentStore);
+      setDiagnostics(printerService.getDiagnostics(activeProfile, currentStore));
+      if (ok) {
+        toast.success("REAL Test KOT dispatched to kitchen hardware!");
+      }
+    } catch (e: any) {
+      toast.error("Test KOT error: " + (e.message || e));
     } finally {
       setTesting(false);
     }
@@ -292,13 +309,12 @@ export function PrinterSettingsSection({
               </Badge>
             </div>
             <p className="text-xs text-muted-foreground">
-              Configure hardware profiles, paper formats, ESC/POS adapters, and live diagnostics per
-              store.
+              Configure dual hardware profiles (Customer Receipt & Kitchen KOT), paper formats, and live diagnostics.
             </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <Button
             onClick={handleRunRealTestPrint}
             disabled={testing || loading}
@@ -310,7 +326,20 @@ export function PrinterSettingsSection({
             ) : (
               <Zap className="h-4 w-4 text-amber-500" />
             )}
-            {testing ? "Testing Hardware..." : "⚡ REAL Test Print"}
+            {testing ? "Testing..." : "⚡ Customer Test Print"}
+          </Button>
+          <Button
+            onClick={handleRunRealTestKot}
+            disabled={testing || loading}
+            variant="outline"
+            className="rounded-xl text-xs font-semibold gap-2 border-border text-orange-600 dark:text-orange-400"
+          >
+            {testing ? (
+              <RefreshCw className="h-4 w-4 animate-spin" />
+            ) : (
+              <Layers className="h-4 w-4 text-orange-500" />
+            )}
+            {testing ? "Testing..." : "🍽️ Kitchen KOT Test"}
           </Button>
           <Button
             onClick={() => handleSavePrinterSettings(profiles, activeProfileId)}
@@ -955,6 +984,25 @@ export function PrinterSettingsSection({
                   placeholder="e.g. Counter Thermal 80mm"
                   className="rounded-xl bg-background border-border text-xs"
                 />
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-xs font-semibold">Printer Role / Purpose</Label>
+                <Select
+                  value={editingProfile.role || "CUSTOMER_RECEIPT"}
+                  onValueChange={(val: any) =>
+                    setEditingProfile({ ...editingProfile, role: val })
+                  }
+                >
+                  <SelectTrigger className="rounded-xl bg-background border-border text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="CUSTOMER_RECEIPT">🧾 Customer Receipt (All Items & Totals)</SelectItem>
+                    <SelectItem value="KITCHEN_KOT">🍽️ Kitchen KOT (Kitchen Items Only)</SelectItem>
+                    <SelectItem value="BOTH">🔄 Dual Role (Receipt + KOT)</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
 
               <div className="grid grid-cols-2 gap-3">

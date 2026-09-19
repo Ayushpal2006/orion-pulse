@@ -77,8 +77,58 @@ export async function initDb(): Promise<void> {
         CREATE INDEX IF NOT EXISTS idx_google_integrations_org_id ON google_integrations (organization_id);
         CREATE INDEX IF NOT EXISTS idx_google_integrations_store_id ON google_integrations (store_id);
       `);
+
+      // 2c. Ensure KOT tables and product kitchen flag exist safely
+      await db.execute(sql`ALTER TABLE products ADD COLUMN IF NOT EXISTS is_kitchen_item integer DEFAULT 0 NOT NULL;`);
+      await db.execute(sql`CREATE INDEX IF NOT EXISTS idx_products_kitchen ON products (store_id, is_kitchen_item);`);
+      await db.execute(sql`
+        CREATE TABLE IF NOT EXISTS kots (
+          id SERIAL PRIMARY KEY,
+          organization_id INTEGER REFERENCES organizations(id),
+          store_id INTEGER NOT NULL REFERENCES stores(id),
+          sale_id INTEGER NOT NULL REFERENCES sales(id) ON DELETE CASCADE,
+          kot_number INTEGER NOT NULL,
+          status TEXT DEFAULT 'PENDING' NOT NULL,
+          table_no TEXT,
+          order_type TEXT DEFAULT 'DINE_IN' NOT NULL,
+          notes TEXT,
+          printed_at TIMESTAMP,
+          reprint_count INTEGER DEFAULT 0 NOT NULL,
+          created_at TIMESTAMP DEFAULT NOW() NOT NULL,
+          updated_at TIMESTAMP DEFAULT NOW() NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_kots_organization_id ON kots (organization_id);
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_kots_store_kot_number ON kots (store_id, kot_number);
+        CREATE INDEX IF NOT EXISTS idx_kots_sale_id ON kots (sale_id);
+        CREATE INDEX IF NOT EXISTS idx_kots_store_status ON kots (store_id, status);
+        CREATE INDEX IF NOT EXISTS idx_kots_store_created ON kots (store_id, created_at);
+
+        CREATE TABLE IF NOT EXISTS kot_items (
+          id SERIAL PRIMARY KEY,
+          organization_id INTEGER REFERENCES organizations(id),
+          store_id INTEGER REFERENCES stores(id),
+          kot_id INTEGER NOT NULL REFERENCES kots(id) ON DELETE CASCADE,
+          product_id INTEGER NOT NULL REFERENCES products(id),
+          quantity INTEGER NOT NULL,
+          product_name_snapshot TEXT NOT NULL,
+          notes TEXT,
+          created_at TIMESTAMP DEFAULT NOW() NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_kot_items_organization_id ON kot_items (organization_id);
+        CREATE INDEX IF NOT EXISTS idx_kot_items_store_id ON kot_items (store_id);
+        CREATE INDEX IF NOT EXISTS idx_kot_items_kot_id ON kot_items (kot_id);
+        CREATE INDEX IF NOT EXISTS idx_kot_items_product_id ON kot_items (product_id);
+
+        CREATE TABLE IF NOT EXISTS store_kot_sequences (
+          id SERIAL PRIMARY KEY,
+          store_id INTEGER NOT NULL REFERENCES stores(id),
+          last_kot_number INTEGER DEFAULT 0 NOT NULL,
+          updated_at TIMESTAMP DEFAULT NOW() NOT NULL
+        );
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_store_kot_sequences_store_id ON store_kot_sequences (store_id);
+      `);
     } catch (colErr) {
-      logger.warn("Table/column migration notice for google_integrations: " + String(colErr));
+      logger.warn("Table/column migration notice for schema additions: " + String(colErr));
     }
 
     logger.info("✅ Drizzle migrations applied successfully.");

@@ -1344,6 +1344,26 @@ export function SlipDialog({
     }
   };
 
+  const handlePrintKot = async () => {
+    setPrinting(true);
+    try {
+      const kotData = result?.kot || {
+        kotNumber: result?.kot?.kotNumber || "1",
+        invoiceNumber: receipt?.invoiceNumber,
+        storeName: receipt?.shop?.name || "Kitchen",
+        items: result?.kot?.items || receipt?.items?.filter((it: any) => it.is_kitchen_item || it.isKitchenItem) || [],
+      };
+      const ok = await printerService.printKot(kotData);
+      if (ok) {
+        toast.success("Kitchen KOT printed successfully");
+      }
+    } catch (err: any) {
+      toast.error(err.message || "Failed to print KOT");
+    } finally {
+      setPrinting(false);
+    }
+  };
+
   const handleWhatsApp = async () => {
     // 1. If result has a pre-generated valid whatsappUrl with an actual target number:
     if (result?.whatsappUrl && /wa\.me\/\d{10,15}/.test(result.whatsappUrl)) {
@@ -1668,6 +1688,16 @@ export function SlipDialog({
               >
                 {sharingWhatsApp ? "Opening..." : "💬 WhatsApp"}
               </Button>
+              {(result?.kot || receipt.items?.some((it: any) => it.is_kitchen_item || it.isKitchenItem)) && (
+                <Button
+                  variant="outline"
+                  onClick={handlePrintKot}
+                  disabled={printing || isLoading}
+                  className="rounded-xl text-xs h-9 text-orange-600 border-orange-500/30 hover:bg-orange-500/10 col-span-2 font-semibold"
+                >
+                  {printing ? "Printing KOT…" : "🍽️ Print Kitchen KOT"}
+                </Button>
+              )}
             </div>
 
             {!showMoreActions ? (

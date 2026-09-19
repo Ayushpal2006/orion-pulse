@@ -1,4 +1,4 @@
-import { UniversalReceiptModel, createCanonicalReceiptModel } from "./receipt-model";
+import { UniversalReceiptModel, createCanonicalReceiptModel, createCanonicalKotModel } from "./receipt-model";
 import { UniversalReceiptRenderer, RenderOptions } from "./universal-receipt-renderer";
 import { getPrintAdapter, PrintAdapter } from "./print-adapter";
 import { toast } from "sonner";
@@ -119,6 +119,110 @@ export class PrinterService {
     return this.processJob(job, adapter);
   }
 
+  async printKot(
+    kotInput: any,
+    profile?: PrinterProfile,
+    options?: RenderOptions,
+  ): Promise<boolean> {
+    const startTime = Date.now();
+
+    let targetProfile = profile;
+    if (!targetProfile) {
+      const config = await printerProfileService.getStorePrinterConfig();
+      targetProfile = printerProfileService.getKitchenProfile(config.profiles) || config.activeProfile;
+    }
+
+    const model = createCanonicalKotModel(kotInput);
+    const connType = targetProfile?.connectionType || "browser";
+    const adapter = getPrintAdapter(connType);
+
+    const isSmallPaper = targetProfile?.paperWidth === "58mm" || options?.paperWidth === "58mm";
+    const charsPerLine =
+      targetProfile?.charactersPerLine ?? options?.charsPerLine ?? (isSmallPaper ? 32 : 48);
+    const printableWidthMm = targetProfile?.printableWidthMm ?? (isSmallPaper ? 48 : 72);
+    const printerDpi = targetProfile?.printerDpi ?? 203;
+
+    const mergedOptions: RenderOptions & {
+      profile?: PrinterProfile;
+      charsPerLine?: number;
+      printableWidthMm?: number;
+      printerDpi?: number;
+      bluetoothMac?: string;
+      printerIp?: string;
+      printerPort?: number;
+    } = {
+      paperWidth: targetProfile?.paperWidth || options?.paperWidth || "80mm",
+      charsPerLine,
+      printableWidthMm,
+      printerDpi,
+      showLogo: false,
+      showQr: false,
+      showBarcode: false,
+      autoCut: targetProfile?.autoCut ?? options?.autoCut ?? true,
+      marginTop: targetProfile?.marginTop ?? options?.marginTop ?? 0,
+      marginBottom: targetProfile?.marginBottom ?? options?.marginBottom ?? 0,
+      marginLeft: targetProfile?.marginLeft ?? options?.marginLeft ?? 0,
+      marginRight: targetProfile?.marginRight ?? options?.marginRight ?? 0,
+      profile: targetProfile,
+      bluetoothMac: targetProfile?.bluetoothMac,
+      printerIp: targetProfile?.printerIp,
+      printerPort: targetProfile?.printerPort,
+      ...options,
+    };
+
+    const job: PrintJob = {
+      id: `KOT-JOB-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+      model,
+      profile: targetProfile,
+      options: mergedOptions,
+      status: "pending",
+      timestamp: startTime,
+    };
+
+    this.jobQueue.push(job);
+    return this.processJob(job, adapter);
+  }
+
+  /**
+   * Dual Printer Routing Engine:
+   * Dispatches Customer Receipt to Customer Printer, and KOT to Kitchen Printer.
+   * Printer errors are non-blocking and NEVER throw or roll back sales.
+   */
+  async routeDualPrint(params: {
+    receiptInput?: any;
+    kotInput?: any;
+    profiles?: PrinterProfile[];
+  }): Promise<{ receiptPrinted: boolean; kotPrinted: boolean; error?: string }> {
+    const config = await printerProfileService.getStorePrinterConfig();
+    const allProfiles = params.profiles || config.profiles;
+
+    const customerProfile = printerProfileService.getCustomerProfile(allProfiles);
+    const kitchenProfile = printerProfileService.getKitchenProfile(allProfiles) || customerProfile;
+
+    let receiptPrinted = false;
+    let kotPrinted = false;
+
+    // 1. Dispatch Customer Receipt
+    if (params.receiptInput) {
+      try {
+        receiptPrinted = await this.print(params.receiptInput, customerProfile);
+      } catch (err: any) {
+        console.warn("[PrinterService] Customer receipt print error (non-blocking):", err);
+      }
+    }
+
+    // 2. Dispatch Kitchen KOT (if kitchen items exist)
+    if (params.kotInput && (params.kotInput.items?.length > 0 || params.kotInput.kot?.items?.length > 0)) {
+      try {
+        kotPrinted = await this.printKot(params.kotInput, kitchenProfile);
+      } catch (err: any) {
+        console.warn("[PrinterService] Kitchen KOT print error (non-blocking):", err);
+      }
+    }
+
+    return { receiptPrinted, kotPrinted };
+  }
+
   private async processJob(job: PrintJob, adapter: PrintAdapter): Promise<boolean> {
     job.status = "printing";
     const start = Date.now();
@@ -205,6 +309,29 @@ export class PrinterService {
       `Executing Test Print for ${activeProf.name} (${activeProf.connectionType.toUpperCase()})...`,
     );
     return await this.print(testInput, activeProf, renderOpts);
+  }
+
+  async runTestKot(profile?: PrinterProfile, storeInfo?: any, orgInfo?: any): Promise<boolean> {
+    const activeProf = profile || DEFAULT_PRINTER_PROFILES[1];
+    const nowStr = new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" });
+
+    const storeName = storeInfo?.name || storeInfo?.shop_name || "Apka Bill Kitchen";
+    const testKotInput = {
+      kotNumber: "999",
+      invoiceNumber: "INV-TEST-001",
+      tableNo: "Table 12",
+      orderType: "DINE_IN",
+      notes: "Extra spicy, no onions",
+      storeName: storeName,
+      cashierName: "Kitchen Test",
+      items: [
+        { productName: "Masala Dosa (Test)", quantity: 2, notes: "Crispy" },
+        { productName: "Filter Coffee (Test)", quantity: 1, notes: "Strong" },
+      ],
+    };
+
+    toast.info(`Executing Test KOT for ${activeProf.name}...`);
+    return await this.printKot(testKotInput, activeProf);
   }
 
   getDiagnostics(profile?: PrinterProfile, storeInfo?: any, orgInfo?: any): PrinterDiagnostics {
