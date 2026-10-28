@@ -1,3 +1,4 @@
+import { Capacitor } from "@capacitor/core";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
   Outlet,
@@ -160,6 +161,9 @@ function RootComponent() {
   const isWizardRoute = pathname === "/setup-wizard" || pathname.startsWith("/setup-wizard");
 
   useEffect(() => {
+    // The Capacitor app ships its assets inside the APK; a service worker there would only
+    // serve stale bundles after an app update.
+    if (Capacitor.isNativePlatform()) return;
     if (typeof window !== "undefined" && "serviceWorker" in navigator) {
       window.addEventListener("load", () => {
         navigator.serviceWorker
