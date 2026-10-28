@@ -167,11 +167,9 @@ export function createCanonicalReceiptModel(input: any): UniversalReceiptModel {
     input.changeAmount || input.payment?.changeAmount || input.change_amount || 0,
   );
 
-  const upiPayload =
-    input.qr?.upiPayload ||
-    input.upiPayload ||
-    input.qrCodeUrl ||
-    (invNumber ? `https://apkabill.in/invoice/v/${invNumber}` : "");
+  // Only a real upi:// link may fill this: receipts print it under "Scan to pay via UPI",
+  // so falling back to an invoice web link sent customers to a page instead of payment.
+  const upiPayload = input.qr?.upiPayload || input.upiPayload || input.qrCodeUrl || "";
   const upiQrCode = input.qr?.upiQrCode || input.upiQrCode || input.metadata?.upiQrCode;
 
   const receiptTemplate =
@@ -260,9 +258,11 @@ export function createCanonicalReceiptModel(input: any): UniversalReceiptModel {
 export function createCanonicalKotModel(input: any): UniversalReceiptModel {
   const now = new Date();
   const kotNumber = input.kotNumber || input.kot_number || (input.kot ? input.kot.kotNumber : "1");
-  const invoiceNum = input.invoiceNumber || input.invoice || (input.kot ? input.kot.invoiceNumber : "");
+  const invoiceNum =
+    input.invoiceNumber || input.invoice || (input.kot ? input.kot.invoiceNumber : "");
   const tableNo = input.tableNo || input.table_no || (input.kot ? input.kot.tableNo : "");
-  const orderType = input.orderType || input.order_type || (input.kot ? input.kot.orderType : "DINE_IN");
+  const orderType =
+    input.orderType || input.order_type || (input.kot ? input.kot.orderType : "DINE_IN");
   const notes = input.notes || (input.kot ? input.kot.notes : "");
   const reprintCount = input.reprintCount ?? input.reprint_count ?? 0;
 

@@ -1351,7 +1351,10 @@ export function SlipDialog({
         kotNumber: result?.kot?.kotNumber || "1",
         invoiceNumber: receipt?.invoiceNumber,
         storeName: receipt?.shop?.name || "Kitchen",
-        items: result?.kot?.items || receipt?.items?.filter((it: any) => it.is_kitchen_item || it.isKitchenItem) || [],
+        items:
+          result?.kot?.items ||
+          receipt?.items?.filter((it: any) => it.is_kitchen_item || it.isKitchenItem) ||
+          [],
       };
       const ok = await printerService.printKot(kotData);
       if (ok) {
@@ -1632,7 +1635,7 @@ export function SlipDialog({
 
             <div className="text-center">Paid via {receipt.paymentMethod}</div>
 
-            {receipt.paymentMethod === "UPI" && receipt.status !== "VOID" && (
+            {receipt.paymentMethod === "UPI" && receipt.status !== "VOID" && receipt.upiPayload && (
               <div className="mt-3 flex flex-col items-center gap-1">
                 <div className="rounded border border-neutral-200 bg-white p-2">
                   <QRCodeSVG value={receipt.upiPayload} size={80} />
@@ -1688,7 +1691,8 @@ export function SlipDialog({
               >
                 {sharingWhatsApp ? "Opening..." : "💬 WhatsApp"}
               </Button>
-              {(result?.kot || receipt.items?.some((it: any) => it.is_kitchen_item || it.isKitchenItem)) && (
+              {(result?.kot ||
+                receipt.items?.some((it: any) => it.is_kitchen_item || it.isKitchenItem)) && (
                 <Button
                   variant="outline"
                   onClick={handlePrintKot}
