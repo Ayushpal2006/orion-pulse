@@ -158,36 +158,39 @@ function LoginPage() {
             </Button>
           </form>
 
-          {/* Quick Demo Login Credentials Chips */}
-          <div className="pt-3 border-t border-border/60 space-y-2">
-            <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest text-center">
-              Demo Quick Sign-in
+          {/* Quick Demo Login Credentials Chips. Local dev only: import.meta.env.DEV is false in
+              production builds, so Vite drops this block (and the credentials) from the bundle. */}
+          {import.meta.env.DEV && (
+            <div className="pt-3 border-t border-border/60 space-y-2">
+              <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest text-center">
+                Demo Quick Sign-in
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEmail("admin@orion.com");
+                    setPassword("admin123");
+                  }}
+                  className="px-2.5 py-2 rounded-xl border border-border bg-muted/30 hover:bg-muted text-[11px] font-semibold text-foreground text-left transition-colors flex items-center justify-between"
+                >
+                  <span>Org Admin</span>
+                  <span className="text-[9px] font-mono text-muted-foreground">admin@orion</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEmail("superadmin@apkabill.com");
+                    setPassword("SuperAdmin@123");
+                  }}
+                  className="px-2.5 py-2 rounded-xl border border-border bg-muted/30 hover:bg-muted text-[11px] font-semibold text-foreground text-left transition-colors flex items-center justify-between"
+                >
+                  <span>Super Admin</span>
+                  <span className="text-[9px] font-mono text-muted-foreground">super@apkabill</span>
+                </button>
+              </div>
             </div>
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  setEmail("admin@orion.com");
-                  setPassword("admin123");
-                }}
-                className="px-2.5 py-2 rounded-xl border border-border bg-muted/30 hover:bg-muted text-[11px] font-semibold text-foreground text-left transition-colors flex items-center justify-between"
-              >
-                <span>Org Admin</span>
-                <span className="text-[9px] font-mono text-muted-foreground">admin@orion</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setEmail("superadmin@apkabill.com");
-                  setPassword("SuperAdmin@123");
-                }}
-                className="px-2.5 py-2 rounded-xl border border-border bg-muted/30 hover:bg-muted text-[11px] font-semibold text-foreground text-left transition-colors flex items-center justify-between"
-              >
-                <span>Super Admin</span>
-                <span className="text-[9px] font-mono text-muted-foreground">super@apkabill</span>
-              </button>
-            </div>
-          </div>
+          )}
 
           <div className="pt-2 border-t border-border/40 text-center">
             <button
