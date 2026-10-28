@@ -58,3 +58,7 @@ mobile-expo/apkabill-*.txt
 # Schema migrations are source code; the *.sql rule above is for database dumps only.
 !backend/src/db/migrations/*.sql
 !backend/src/schemas/*.sql
+# Local SQLite databases
+*.db
+*.db-shm
+*.db-wal
