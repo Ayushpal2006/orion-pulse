@@ -10,6 +10,7 @@ lerna-debug.log*
 node_modules
 dist
 dist-ssr
+dist-capacitor
 .output
 .vinxi
 .tanstack/**
@@ -54,3 +55,6 @@ mobile-expo/.git-broken/
 mobile-expo/apkabill-*.txt
 *.dump
 *.sql
+# Schema migrations are source code; the *.sql rule above is for database dumps only.
+!backend/src/db/migrations/*.sql
+!backend/src/schemas/*.sql
