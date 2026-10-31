@@ -441,6 +441,20 @@ router.post("/upload", async (req: Request, res: Response): Promise<void> => {
 });
 
 // GET download/pull offline-first delta changes
+// Pull pagination. Sales, purchases and expenses are paged by ascending id (keyset), because they
+// can be large. Everything else (products, customers, suppliers, settings) is returned in full on
+// the first page only. A client must keep requesting pages while `sync.hasMore` is true, passing back
+// `sync.nextCursor` and `sweepStart`, and must only persist `syncTime` once `hasMore` is false.
+const PULL_DEFAULT_PAGE_SIZE = 500;
+const PULL_MAX_PAGE_SIZE = 1000;
+const EPOCH_ISO = "1970-01-01T00:00:00.000Z";
+
+const parsePositiveInt = (raw: unknown, fallback: number, max = Number.MAX_SAFE_INTEGER): number => {
+  const n = Number.parseInt(String(raw ?? ""), 10);
+  if (!Number.isFinite(n) || n < 0) return fallback;
+  return Math.min(n, max);
+};
+
 const handlePullSync = async (req: Request, res: Response): Promise<void> => {
   try {
     const { organizationId, currentStoreId } = getTenantContext();
@@ -457,6 +471,18 @@ const handlePullSync = async (req: Request, res: Response): Promise<void> => {
     }
 
     const lastSyncTimeStr = req.query.lastSyncTime as string | undefined;
+
+    const pageSize = Math.max(1, parsePositiveInt(req.query.pageSize, PULL_DEFAULT_PAGE_SIZE, PULL_MAX_PAGE_SIZE));
+    const afterSalesId = parsePositiveInt(req.query.afterSalesId, 0);
+    const afterPurchasesId = parsePositiveInt(req.query.afterPurchasesId, 0);
+    const afterExpensesId = parsePositiveInt(req.query.afterExpensesId, 0);
+    const isFirstPage = afterSalesId === 0 && afterPurchasesId === 0 && afterExpensesId === 0;
+
+    // The sweep start time is the cursor to persist once every page has been fetched. Taking it
+    // before any query runs means rows written during the sweep are re-delivered next time, never lost.
+    const requestedSweepStart = req.query.sweepStart ? new Date(String(req.query.sweepStart)) : null;
+    const sweepStart =
+      requestedSweepStart && !Number.isNaN(requestedSweepStart.getTime()) ? requestedSweepStart : new Date();
 
     let downloadCond: any = and(eq(products.organization_id, orgId), eq(products.store_id, storeId));
     let custCond: any = and(eq(customers.organization_id, orgId), eq(customers.store_id, storeId));
@@ -476,13 +502,25 @@ const handlePullSync = async (req: Request, res: Response): Promise<void> => {
       expCond = and(expCond, gt(expenses.updated_at, lastSyncDate));
     }
 
-    const updatedProducts = await db.select().from(products).where(downloadCond);
-    const updatedCustomers = await db.select().from(customers).where(custCond);
-    const updatedSettings = await db.select().from(settings).where(settingsCond);
-    const updatedSales = await db.select().from(sales).where(salesCond).orderBy(sql`${sales.id} DESC`).limit(100);
-    const updatedSuppliers = await db.select().from(suppliers).where(suppCond);
-    const updatedPurchases = await db.select().from(purchase_orders).where(poCond).orderBy(sql`${purchase_orders.id} DESC`).limit(50);
-    const updatedExpenses = await db.select().from(expenses).where(expCond).orderBy(sql`${expenses.id} DESC`).limit(50);
+    if (afterSalesId > 0) salesCond = and(salesCond, gt(sales.id, afterSalesId));
+    if (afterPurchasesId > 0) poCond = and(poCond, gt(purchase_orders.id, afterPurchasesId));
+    if (afterExpensesId > 0) expCond = and(expCond, gt(expenses.id, afterExpensesId));
+
+    // Unpaged collections are sent once, on the first page of a sweep.
+    const updatedProducts = isFirstPage ? await db.select().from(products).where(downloadCond) : [];
+    const updatedCustomers = isFirstPage ? await db.select().from(customers).where(custCond) : [];
+    const updatedSettings = isFirstPage ? await db.select().from(settings).where(settingsCond) : [];
+    const updatedSuppliers = isFirstPage ? await db.select().from(suppliers).where(suppCond) : [];
+
+    // Fetch one extra row per paged collection to learn whether more remain.
+    const salesPage = await db.select().from(sales).where(salesCond).orderBy(sql`${sales.id} ASC`).limit(pageSize + 1);
+    const purchasesPage = await db.select().from(purchase_orders).where(poCond).orderBy(sql`${purchase_orders.id} ASC`).limit(pageSize + 1);
+    const expensesPage = await db.select().from(expenses).where(expCond).orderBy(sql`${expenses.id} ASC`).limit(pageSize + 1);
+
+    const hasMore = salesPage.length > pageSize || purchasesPage.length > pageSize || expensesPage.length > pageSize;
+    const updatedSales = salesPage.slice(0, pageSize);
+    const updatedPurchases = purchasesPage.slice(0, pageSize);
+    const updatedExpenses = expensesPage.slice(0, pageSize);
 
     const saleIds = updatedSales.map((s) => s.id);
     let updatedSaleItems: any[] = [];
@@ -513,7 +551,17 @@ const handlePullSync = async (req: Request, res: Response): Promise<void> => {
       items: updatedPOItems.filter((item) => item.purchase_order_id === p.id),
     }));
 
-    const nowIso = new Date().toISOString();
+    const nowIso = sweepStart.toISOString();
+    const lastOf = (rows: Array<{ id: number }>, previous: number): number =>
+      rows.length > 0 ? rows[rows.length - 1].id : previous;
+    const nextCursor = {
+      afterSalesId: lastOf(updatedSales, afterSalesId),
+      afterPurchasesId: lastOf(updatedPurchases, afterPurchasesId),
+      afterExpensesId: lastOf(updatedExpenses, afterExpensesId),
+    };
+    // While pages remain, never advance a non-paging client's saved cursor past undelivered rows:
+    // hand back the time it asked from (or the epoch), so at worst it re-pulls rather than loses data.
+    const syncTimeForClient = hasMore ? lastSyncTimeStr || EPOCH_ISO : nowIso;
 
     res.status(200).json({
       success: true,
@@ -531,8 +579,12 @@ const handlePullSync = async (req: Request, res: Response): Promise<void> => {
         sales: salesWithItems,
         saleItems: updatedSaleItems,
         sync: {
-          cursor: nowIso,
-          syncTime: nowIso,
+          cursor: syncTimeForClient,
+          syncTime: syncTimeForClient,
+          sweepStart: nowIso,
+          hasMore,
+          pageSize,
+          nextCursor: hasMore ? nextCursor : null,
           counts: {
             products: updatedProducts.length,
             customers: updatedCustomers.length,
@@ -544,7 +596,10 @@ const handlePullSync = async (req: Request, res: Response): Promise<void> => {
             settings: updatedSettings.length,
           },
         },
-        syncTime: nowIso,
+        syncTime: syncTimeForClient,
+        sweepStart: nowIso,
+        hasMore,
+        nextCursor: hasMore ? nextCursor : null,
       },
     });
   } catch (error: any) {
