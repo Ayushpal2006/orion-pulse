@@ -11,7 +11,9 @@
 
 import { storeStorage } from "../db/context";
 import { kotService } from "../services/kot.service";
-import { checkoutService } from "../services/checkout.service";
+import { CheckoutService } from "../services/checkout.service";
+
+const checkoutService = new CheckoutService();
 import { kotRepository } from "../repositories";
 import { db } from "../db";
 import { products, kots, kot_items, sales } from "../db/schema";
@@ -38,6 +40,7 @@ async function runKotDualPrinterE2ETest() {
             organization_id: targetOrgId,
             store_id: targetStoreId,
             name: `E2E Masala Dosa ${Date.now()}`,
+            sku: `E2E-KOT-K-${Date.now()}`,
             selling_price: 12000, // ₹120.00
             purchase_price: 5000,
             stock: 100,
@@ -54,6 +57,7 @@ async function runKotDualPrinterE2ETest() {
             organization_id: targetOrgId,
             store_id: targetStoreId,
             name: `E2E Chilled Coke ${Date.now()}`,
+            sku: `E2E-KOT-N-${Date.now()}`,
             selling_price: 4000, // ₹40.00
             purchase_price: 2500,
             stock: 100,
@@ -78,8 +82,8 @@ async function runKotDualPrinterE2ETest() {
           notes: "VIP Guest",
         };
 
-        const result = await checkoutService.processCheckout(checkoutPayload);
-        console.log(`✅ Checkout successful! Sale ID: ${result.sale.id}, Invoice: ${result.sale.invoice_number}`);
+        const result = await checkoutService.executeCheckout(checkoutPayload);
+        console.log(`✅ Checkout successful! Sale ID: ${result.saleId}, Invoice: ${result.invoice}`);
         
         if (!result.kot) {
           throw new Error("❌ Expected KOT to be generated for sale with kitchen items, but result.kot is null!");
@@ -127,8 +131,8 @@ async function runKotDualPrinterE2ETest() {
           paymentMethod: "UPI",
           items: [{ productId: prodNonKitchen.id, quantity: 2, unitPrice: 40 }],
         };
-        const retailResult = await checkoutService.processCheckout(retailOnlyPayload);
-        console.log(`✅ Retail Checkout successful! Invoice: ${retailResult.sale.invoice_number}`);
+        const retailResult = await checkoutService.executeCheckout(retailOnlyPayload);
+        console.log(`✅ Retail Checkout successful! Invoice: ${retailResult.invoice}`);
         if (retailResult.kot !== null && retailResult.kot !== undefined) {
           throw new Error("❌ Expected NO KOT for retail-only sale, but KOT was returned!");
         }
