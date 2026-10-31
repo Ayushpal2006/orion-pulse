@@ -25,16 +25,16 @@ import com.getcapacitor.JSObject;
 import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
+import com.getcapacitor.PermissionState;
 import com.getcapacitor.annotation.CapacitorPlugin;
 import com.getcapacitor.annotation.Permission;
-
-import java.util.HashMap;
+import com.getcapacitor.annotation.PermissionCallback;
 
 @CapacitorPlugin(
     name = "ThermalPrinter",
     permissions = {
-        @Permission(strings = { Manifest.permission.BLUETOOTH, Manifest.permission.BLUETOOTH_ADMIN }, name = "bluetooth"),
-        @Permission(strings = { Manifest.permission.BLUETOOTH_CONNECT, Manifest.permission.BLUETOOTH_SCAN }, name = "bluetoothConnect")
+        @Permission(strings = { Manifest.permission.BLUETOOTH, Manifest.permission.BLUETOOTH_ADMIN }, alias = "bluetooth"),
+        @Permission(strings = { Manifest.permission.BLUETOOTH_CONNECT, Manifest.permission.BLUETOOTH_SCAN }, alias = "bluetoothConnect")
     }
 )
 public class ThermalPrinterPlugin extends Plugin {
@@ -42,15 +42,46 @@ public class ThermalPrinterPlugin extends Plugin {
     private static final String TAG = "ThermalPrinterPlugin";
 
     /**
+     * Android 12+ makes BLUETOOTH_CONNECT a runtime permission; touching paired devices or
+     * opening a socket without it throws SecurityException. Returns true when the call was
+     * parked on a permission prompt and will be re-dispatched by bluetoothPermsCallback.
+     */
+    private boolean requestBluetoothPermissionIfNeeded(PluginCall call, String connectionType) {
+        if (!"bluetooth".equals(connectionType)
+            || Build.VERSION.SDK_INT < Build.VERSION_CODES.S
+            || getPermissionState("bluetoothConnect") == PermissionState.GRANTED) {
+            return false;
+        }
+        requestPermissionForAlias("bluetoothConnect", call, "bluetoothPermsCallback");
+        return true;
+    }
+
+    @PermissionCallback
+    private void bluetoothPermsCallback(PluginCall call) {
+        if (getPermissionState("bluetoothConnect") != PermissionState.GRANTED) {
+            call.reject("Bluetooth permission was denied. Allow \"Nearby devices\" for Apka Bill in Android settings.");
+            return;
+        }
+        switch (call.getMethodName()) {
+            case "listBluetoothDevices": listBluetoothDevices(call); break;
+            case "testConnection": testConnection(call); break;
+            case "printReceipt": printReceipt(call); break;
+            case "testPrint": testPrint(call); break;
+            default: call.reject("Unknown method after permission grant: " + call.getMethodName());
+        }
+    }
+
+    /**
      * List all paired Bluetooth thermal printers
      */
     @PluginMethod
     public void listBluetoothDevices(PluginCall call) {
+        if (requestBluetoothPermissionIfNeeded(call, "bluetooth")) return;
         JSArray deviceList = new JSArray();
         try {
-            BluetoothPrintersConnections[] connections = BluetoothPrintersConnections.getList();
+            BluetoothConnection[] connections = new BluetoothPrintersConnections().getList();
             if (connections != null) {
-                for (BluetoothPrintersConnections conn : connections) {
+                for (BluetoothConnection conn : connections) {
                     BluetoothDevice device = conn.getDevice();
                     if (device != null) {
                         JSObject obj = new JSObject();
@@ -76,9 +107,9 @@ public class ThermalPrinterPlugin extends Plugin {
     public void listUsbDevices(PluginCall call) {
         JSArray deviceList = new JSArray();
         try {
-            UsbPrintersConnections[] connections = UsbPrintersConnections.getList(getContext());
+            UsbConnection[] connections = new UsbPrintersConnections(getContext()).getList();
             if (connections != null) {
-                for (UsbPrintersConnections conn : connections) {
+                for (UsbConnection conn : connections) {
                     UsbDevice device = conn.getDevice();
                     if (device != null) {
                         JSObject obj = new JSObject();
@@ -106,6 +137,7 @@ public class ThermalPrinterPlugin extends Plugin {
     @PluginMethod
     public void testConnection(PluginCall call) {
         String connectionType = call.getString("connectionType", "bluetooth").toLowerCase();
+        if (requestBluetoothPermissionIfNeeded(call, connectionType)) return;
         DeviceConnection connection = null;
 
         try {
@@ -138,7 +170,11 @@ public class ThermalPrinterPlugin extends Plugin {
     @PluginMethod
     public void printReceipt(PluginCall call) {
         String connectionType = call.getString("connectionType", "bluetooth").toLowerCase();
-        String formattedText = call.getString("formattedText", "");
+        if (requestBluetoothPermissionIfNeeded(call, connectionType)) return;
+        print(call, connectionType, call.getString("formattedText", ""));
+    }
+
+    private void print(PluginCall call, String connectionType, String formattedText) {
         int printerDpi = call.getInt("printerDpi", 203);
         float printableWidthMm = call.getFloat("printableWidthMm", 72.0f);
         int charsPerLine = call.getInt("charsPerLine", 48);
@@ -199,6 +235,7 @@ public class ThermalPrinterPlugin extends Plugin {
     @PluginMethod
     public void testPrint(PluginCall call) {
         String connectionType = call.getString("connectionType", "bluetooth").toLowerCase();
+        if (requestBluetoothPermissionIfNeeded(call, connectionType)) return;
         int charsPerLine = call.getInt("charsPerLine", 48);
 
         StringBuilder sb = new StringBuilder();
@@ -217,8 +254,7 @@ public class ThermalPrinterPlugin extends Plugin {
         sb.append("[C]--------------------------------\n");
         sb.append("[C]<cut/>\n");
 
-        call.put("formattedText", sb.toString());
-        printReceipt(call);
+        print(call, connectionType, sb.toString());
     }
 
     /**
@@ -236,7 +272,7 @@ public class ThermalPrinterPlugin extends Plugin {
                 return new BluetoothConnection(device);
             }
             // Fallback: pick first paired printer connection if no MAC provided
-            BluetoothPrintersConnections first = BluetoothPrintersConnections.selectFirstPaired();
+            BluetoothConnection first = BluetoothPrintersConnections.selectFirstPaired();
             if (first != null) {
                 return first;
             }
@@ -253,7 +289,7 @@ public class ThermalPrinterPlugin extends Plugin {
             if (usbManager == null) {
                 throw new Exception("USB Service is not available on this Android device.");
             }
-            UsbPrintersConnections firstUsb = UsbPrintersConnections.selectFirstConnected(getContext());
+            UsbConnection firstUsb = UsbPrintersConnections.selectFirstConnected(getContext());
             if (firstUsb != null) {
                 return firstUsb;
             }

@@ -50,6 +50,9 @@ interface TemplateProps {
 const formatInr = (val: any) => `₹${(Number.isFinite(Number(val)) ? Number(val) : 0).toFixed(2)}`;
 
 function renderQr(receipt: ReceiptData, color = "#000000", size = 110) {
+  // No valid store VPA means no payment QR at all; a bare "upi://pay" code would scan as a
+  // payment request with no payee.
+  if (!receipt.upiQrCode && !receipt.upiPayload) return null;
   return (
     <div
       style={{ display: "flex", flexDirection: "column", alignItems: "center", margin: "6px 0" }}
@@ -70,7 +73,7 @@ function renderQr(receipt: ReceiptData, color = "#000000", size = 110) {
             alt="UPI QR Code"
           />
         ) : (
-          <QRCodeSVG value={receipt.upiPayload || "upi://pay"} size={size} />
+          <QRCodeSVG value={receipt.upiPayload ?? ""} size={size} />
         )}
       </div>
       <span style={{ fontSize: "8px", color, fontWeight: "bold", marginTop: "2px" }}>

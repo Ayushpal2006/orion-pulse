@@ -4,6 +4,41 @@ import { settings, stores, organizations } from "../../db/schema";
 import { eq, and, desc } from "drizzle-orm";
 import { getTenantContext, TenantContext } from "../../db/context";
 
+// Keys that name the same setting. Clients disagree on spelling (web sends shop_name, older
+// Expo/setup-wizard builds wrote storeName/store_name), so every write fans out to the whole
+// group and reads let the canonical (first) key win. Without this, a stale alias row could
+// override a fresh save on the next reload depending on Postgres row order.
+const ALIAS_GROUPS: string[][] = [
+  ["shop_name", "storeName", "store_name"],
+  ["shop_gstin", "gstin"],
+  ["shop_phone", "phone", "storePhone"],
+  ["shop_address", "address", "storeAddress"],
+  ["shop_email", "email", "storeEmail"],
+  ["logo", "logoUrl", "logo_url"],
+  ["shop_upi_id", "upiId", "upi_id"],
+  ["inv_prefix", "invoicePrefix"],
+  ["po_prefix", "purchasePrefix"],
+  ["tax_rate", "taxRate"],
+  ["low_stock_threshold", "lowStockThreshold"],
+  ["receipt_header", "receiptHeader"],
+  ["receipt_footer", "receiptFooter"],
+  ["terms_and_conditions", "termsAndConditions"],
+  ["primary_color", "accentColor", "primaryColor"],
+  ["receipt_template", "receiptTemplate", "invoice_template", "invoiceTemplate"],
+  ["upi_qr_enabled", "upiQrEnabled", "show_qr_code", "showQrCode"],
+  ["whatsapp_template", "whatsappTemplate"],
+  ["whatsapp_template_custom", "whatsappTemplateCustom"],
+];
+
+export function aliasesOf(key: string): string[] {
+  return ALIAS_GROUPS.find((group) => group.includes(key)) ?? [key];
+}
+
+function isCanonicalAlias(key: string): boolean {
+  const group = aliasesOf(key);
+  return group.length > 1 && group[0] === key;
+}
+
 async function resolveStoreIdForContext(ctx: TenantContext, client: any): Promise<number> {
   if (ctx.organizationId && ctx.organizationId > 0) {
     if (ctx.currentStoreId && ctx.currentStoreId > 0) {
@@ -94,6 +129,12 @@ export class PostgresSettingsRepository implements ISettingsRepository {
       upiId: "",
       upi_id: "",
     };
+
+    // Apply canonical keys last so they win over any stale alias row for the same setting.
+    rows.sort(
+      (a: { key: string }, b: { key: string }) =>
+        Number(isCanonicalAlias(a.key)) - Number(isCanonicalAlias(b.key)),
+    );
 
     for (const row of rows) {
       settingsObj[row.key] = row.value;
@@ -249,13 +290,15 @@ export class PostgresSettingsRepository implements ISettingsRepository {
     const storeId = await resolveStoreIdForContext(ctx, client);
     const valStr = String(value ?? "");
 
-    await client
-      .insert(settings)
-      .values({ store_id: storeId, key, value: valStr })
-      .onConflictDoUpdate({
-        target: [settings.store_id, settings.key],
-        set: { value: valStr },
-      });
+    for (const aliasKey of aliasesOf(key)) {
+      await client
+        .insert(settings)
+        .values({ store_id: storeId, key: aliasKey, value: valStr })
+        .onConflictDoUpdate({
+          target: [settings.store_id, settings.key],
+          set: { value: valStr },
+        });
+    }
 
     // Also update stores table row if matching core identity attributes
     if (storeId > 0) {
@@ -282,13 +325,15 @@ export class PostgresSettingsRepository implements ISettingsRepository {
       if (value === undefined || value === null) continue;
       const valStr = String(value);
 
-      await client
-        .insert(settings)
-        .values({ store_id: storeId, key, value: valStr })
-        .onConflictDoUpdate({
-          target: [settings.store_id, settings.key],
-          set: { value: valStr },
-        });
+      for (const aliasKey of aliasesOf(key)) {
+        await client
+          .insert(settings)
+          .values({ store_id: storeId, key: aliasKey, value: valStr })
+          .onConflictDoUpdate({
+            target: [settings.store_id, settings.key],
+            set: { value: valStr },
+          });
+      }
 
       if (storeId > 0) {
         if (key === "shop_name" || key === "storeName" || key === "store_name") {

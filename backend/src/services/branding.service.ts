@@ -2,6 +2,7 @@ import { db } from "../db";
 import { stores, organizations, settings } from "../db/schema";
 import { eq, and } from "drizzle-orm";
 import { getTenantContext } from "../db/context";
+import { buildUpiUri } from "../utils/upi";
 
 export interface UnifiedBranding {
   logo: string;
@@ -83,7 +84,7 @@ export class BrandingService {
       returnPolicy,
       terms,
       upi,
-      qr: upi ? `upi://pay?pa=${encodeURIComponent(upi)}&pn=${encodeURIComponent(businessName)}` : "",
+      qr: buildUpiUri({ vpa: upi, payeeName: businessName }),
       receiptHeader: settingsMap.invoice_header || settingsMap.receiptHeader || settingsMap.receipt_header || "",
       primaryColor: settingsMap.primary_color || settingsMap.accentColor || settingsMap.primaryColor || "#0f172a",
       receiptTemplate: settingsMap.receipt_template || settingsMap.receiptTemplate || "Classic",

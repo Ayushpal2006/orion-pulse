@@ -129,12 +129,36 @@ export const SyncService = {
           ? `/api/sync/download?lastSyncTime=${encodeURIComponent(lastSyncTimeStr)}`
           : '/api/sync/download';
 
-        const syncRes = await apiClient.get<any>(syncUrl);
+        let syncRes = await apiClient.get<any>(syncUrl);
         if (syncRes.success && syncRes.data) {
           downloadedProducts = syncRes.data.products || [];
           downloadedCustomers = syncRes.data.customers || [];
           downloadedSettings = syncRes.data.settings || [];
           serverSyncTime = syncRes.data.syncTime || new Date().toISOString();
+
+          // The server pages sales/purchases/expenses. Keep following pages until it reports
+          // none remain, otherwise the saved cursor would skip the undelivered rows. Products,
+          // customers and settings arrive on the first page only.
+          const MAX_PAGES = 500;
+          let pages = 1;
+          while (syncRes.success && syncRes.data?.sync?.hasMore && syncRes.data.sync.nextCursor) {
+            if (++pages > MAX_PAGES) {
+              throw new Error('Sync pagination did not terminate');
+            }
+            const { afterSalesId, afterPurchasesId, afterExpensesId } = syncRes.data.sync.nextCursor;
+            const params = new URLSearchParams({
+              afterSalesId: String(afterSalesId ?? 0),
+              afterPurchasesId: String(afterPurchasesId ?? 0),
+              afterExpensesId: String(afterExpensesId ?? 0),
+              sweepStart: String(syncRes.data.sync.sweepStart),
+            });
+            if (lastSyncTimeStr) params.set('lastSyncTime', lastSyncTimeStr);
+            syncRes = await apiClient.get<any>(`/api/sync/download?${params.toString()}`);
+            if (!syncRes.success || !syncRes.data) {
+              throw new Error('Sync pagination page failed');
+            }
+            serverSyncTime = syncRes.data.syncTime || serverSyncTime;
+          }
         }
       } catch (err: any) {
         console.warn('[SyncService] /api/sync/download unavailable, falling back to REST endpoints:', err.message);

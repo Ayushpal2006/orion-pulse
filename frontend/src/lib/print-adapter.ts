@@ -420,5 +420,8 @@ export function getPrintAdapter(configuredType: string = "browser"): PrintAdapte
   ) {
     return new AndroidPosPrinterAdapter();
   }
+  // window.print() does nothing inside the Android WebView, so in the native app a "browser"
+  // profile would silently print nothing; use the native ESC/POS bridge (first paired printer).
+  if (ThermalPrinterBridge.isNativeAvailable()) return new BluetoothPrinterAdapter();
   return new BrowserPrintAdapter();
 }

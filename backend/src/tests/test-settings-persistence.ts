@@ -137,7 +137,7 @@ async function runSettingsPersistenceTest() {
     branding.businessName === "PAL GARMENTS" &&
     branding.upi === "palgarments.new@icici" &&
     branding.logo === "https://res.cloudinary.com/demo/image/upload/new_pal_logo_v2.png" &&
-    branding.qr.includes("pa=palgarments.new%40icici")
+    branding.qr.includes("pa=palgarments.new@icici&")
   ) {
     console.log("  ✓ TEST 6 PASSED: Receipt branding uses currently persisted store branding.");
     console.log(`  ✓ TEST 7 PASSED: UPI QR correctly generated from updated VPA: ${branding.qr}\n`);

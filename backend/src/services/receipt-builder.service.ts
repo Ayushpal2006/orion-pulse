@@ -3,6 +3,7 @@ import { sales, sale_items, products, customers, stores, organizations, settings
 import { eq, and } from "drizzle-orm";
 import { NotFoundError } from "../utils/errors";
 import { formatToKolkataDate, formatToKolkataTime } from "../utils/datetime";
+import { buildUpiUri } from "../utils/upi";
 import { storeStorage, getTenantContext } from "../db/context";
 import QRCode from "qrcode";
 import { ReceiptDTO, BrandingConfig, StoreConfig, ReceiptItemDTO, ThermalFormatItem } from "../types/receipt.types";
@@ -135,9 +136,11 @@ export class ReceiptBuilderService {
         const formattedTime = formatToKolkataTime(saleRecord.created_at);
 
         // Build UPI Payload & Offline QR Code
-        const upiPayload = branding.upiId
-          ? `upi://pay?pa=${branding.upiId}&pn=${encodeURIComponent(branding.shopName)}&am=${(saleRecord.grand_total / 100.0).toFixed(2)}&cu=INR`
-          : "";
+        const upiPayload = buildUpiUri({
+          vpa: branding.upiId,
+          payeeName: branding.shopName,
+          amountPaise: saleRecord.grand_total,
+        });
 
         let upiQrCode = "";
         if (saleRecord.payment_method === "UPI" && upiPayload) {
