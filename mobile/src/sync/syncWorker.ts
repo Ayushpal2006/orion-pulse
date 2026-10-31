@@ -13,6 +13,7 @@
 import { ApiClient } from '../api/client';
 import { SyncQueueRepository } from '../db/repositories';
 import { SyncQueueItem } from '../db/types';
+import { queuedPayloadToCheckoutRequest } from './checkoutPayload';
 
 let isQueueProcessing = false;
 let lockTimestamp = 0;
@@ -90,8 +91,9 @@ export const SyncWorker = {
       const idempotencyKey = item.idempotency_key;
 
       // Post to backend checkout with Idempotency headers & payload identifiers
+      // Queue payloads hold paise; /api/checkout expects rupees (see checkoutPayload.ts).
       const response = await apiClient.post<any>('/api/checkout', {
-        ...payload,
+        ...queuedPayloadToCheckoutRequest(payload),
         offlineIdentifier: item.entity_local_id,
         offlineInvoiceNumber: payload.offlineInvoiceNumber,
       }, {
