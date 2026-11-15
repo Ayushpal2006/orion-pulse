@@ -62,3 +62,14 @@ mobile-expo/apkabill-*.txt
 *.db
 *.db-shm
 *.db-wal
+
+# Generated storage & local invoice artifacts
+backend/storage/invoices/
+*.pdf
+
+# Built mobile release packages (binaries belong in release storage, not git)
+releases/**/*.apk
+releases/**/*.aab
+*.apk
+*.aab
+
