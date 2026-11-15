@@ -20,7 +20,14 @@ try {
 }
 
 // Ephemeral fallback ONLY for non-production local dev/tests when JWT_SECRET is unset
-const EPHEMERAL_DEV_SECRET = crypto.randomBytes(32).toString("hex");
+// Lazy loaded so crypto.randomBytes is not evaluated in global module scope (Cloudflare Worker runtime safety)
+let _ephemeralDevSecret: string | null = null;
+function getEphemeralDevSecret(): string {
+  if (!_ephemeralDevSecret) {
+    _ephemeralDevSecret = crypto.randomBytes(32).toString("hex");
+  }
+  return _ephemeralDevSecret;
+}
 
 const envSchema = z.object({
   PORT: z.coerce.number().default(8080),
@@ -113,7 +120,7 @@ export const env = {
     if (secret && secret.trim().length > 0) {
       return secret;
     }
-    return parsedData.JWT_SECRET || EPHEMERAL_DEV_SECRET;
+    return parsedData.JWT_SECRET || getEphemeralDevSecret();
   },
   JWT_EXPIRES_IN: parsedData.JWT_EXPIRES_IN || "24h",
   ADMIN_EMAIL: parsedData.ADMIN_EMAIL || "admin@orion.com",
