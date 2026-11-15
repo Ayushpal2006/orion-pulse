@@ -17,7 +17,7 @@ export const WHATSAPP_TEMPLATES_REGISTRY: WhatsAppTemplateConfig[] = [
     sampleData: {
       "{customer_name}": "Rahul Sharma",
       "{supplier_name}": "N/A",
-      "{shop_name}": "Orion POS Main Store",
+      "{shop_name}": "Apka Bill Store",
       "{invoice_number}": "INV-00124",
       "{purchase_number}": "N/A",
       "{quotation_number}": "N/A",
@@ -37,7 +37,7 @@ export const WHATSAPP_TEMPLATES_REGISTRY: WhatsAppTemplateConfig[] = [
     sampleData: {
       "{customer_name}": "N/A",
       "{supplier_name}": "Apex Electronics Supplies",
-      "{shop_name}": "Orion POS Main Store",
+      "{shop_name}": "Apka Bill Store",
       "{invoice_number}": "N/A",
       "{purchase_number}": "PO-PRCH-2026-0001",
       "{quotation_number}": "N/A",
@@ -57,7 +57,7 @@ export const WHATSAPP_TEMPLATES_REGISTRY: WhatsAppTemplateConfig[] = [
     sampleData: {
       "{customer_name}": "Vikram Malhotra",
       "{supplier_name}": "N/A",
-      "{shop_name}": "Orion POS Main Store",
+      "{shop_name}": "Apka Bill Store",
       "{invoice_number}": "INV-00098",
       "{purchase_number}": "N/A",
       "{quotation_number}": "N/A",
@@ -77,7 +77,7 @@ export const WHATSAPP_TEMPLATES_REGISTRY: WhatsAppTemplateConfig[] = [
     sampleData: {
       "{customer_name}": "Ananya Roy",
       "{supplier_name}": "N/A",
-      "{shop_name}": "Orion POS Main Store",
+      "{shop_name}": "Apka Bill Store",
       "{invoice_number}": "N/A",
       "{purchase_number}": "N/A",
       "{quotation_number}": "QTN-2026-0089",
@@ -97,7 +97,7 @@ export const WHATSAPP_TEMPLATES_REGISTRY: WhatsAppTemplateConfig[] = [
     sampleData: {
       "{customer_name}": "N/A",
       "{supplier_name}": "Utility Provider",
-      "{shop_name}": "Orion POS Main Store",
+      "{shop_name}": "Apka Bill Store",
       "{invoice_number}": "EXP-9921",
       "{purchase_number}": "N/A",
       "{quotation_number}": "N/A",
@@ -119,8 +119,11 @@ export function resolvePlaceholderValues(
   orgInfo?: any,
 ): Record<string, string> {
   const shopName =
-    storeInfo?.name || storeInfo?.shop_name || orgInfo?.name || "Orion POS Main Store";
-  const origin = typeof window !== "undefined" ? window.location.origin : "https://apkabill.in";
+    storeInfo?.name || storeInfo?.shop_name || orgInfo?.name || "Apka Bill Store";
+  const origin =
+    typeof window !== "undefined" && !/localhost|127\.0\.0\.1/i.test(window.location.origin)
+      ? window.location.origin
+      : "https://apkabill.in";
 
   const customerName =
     recordData?.customerName ||

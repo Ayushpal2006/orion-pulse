@@ -1,15 +1,23 @@
 import { kotRepository } from "../repositories";
 import { KotDTO, CreateKotInput } from "../types/kot.types";
 import { getStoreId, getOrganizationId } from "../db/context";
-import { NotFoundError, ValidationError } from "../utils/errors";
+import { NotFoundError, UnauthorizedError, ValidationError } from "../utils/errors";
 import { logger } from "../logger/logger";
+
+function requireTenant(): { storeId: number; orgId: number } {
+  const storeId = getStoreId();
+  const orgId = getOrganizationId();
+  if (!storeId || !orgId) {
+    throw new UnauthorizedError("Missing organization or store context for KOT operation");
+  }
+  return { storeId, orgId };
+}
 
 export class KotService {
   private kotRepo = kotRepository;
 
   async getById(id: number): Promise<KotDTO> {
-    const storeId = getStoreId() || 1;
-    const orgId = getOrganizationId() || 1;
+    const { storeId, orgId } = requireTenant();
 
     const kot = await this.kotRepo.getById(id, storeId, orgId);
     if (!kot) {
@@ -19,15 +27,13 @@ export class KotService {
   }
 
   async getBySaleId(saleId: number): Promise<KotDTO[]> {
-    const storeId = getStoreId() || 1;
-    const orgId = getOrganizationId() || 1;
+    const { storeId, orgId } = requireTenant();
 
     return await this.kotRepo.getBySaleId(saleId, storeId, orgId);
   }
 
   async getAll(params: { status?: string; limit?: number; offset?: number }): Promise<KotDTO[]> {
-    const storeId = getStoreId() || 1;
-    const orgId = getOrganizationId() || 1;
+    const { storeId, orgId } = requireTenant();
 
     return await this.kotRepo.getAll({
       storeId,
@@ -48,8 +54,7 @@ export class KotService {
       return null;
     }
 
-    const storeId = getStoreId() || 1;
-    const orgId = getOrganizationId() || 1;
+    const { storeId, orgId } = requireTenant();
 
     const input: CreateKotInput = {
       saleId,
@@ -65,8 +70,7 @@ export class KotService {
   }
 
   async updateStatus(id: number, status: 'PENDING' | 'PREPARING' | 'READY' | 'SERVED' | 'CANCELLED'): Promise<KotDTO> {
-    const storeId = getStoreId() || 1;
-    const orgId = getOrganizationId() || 1;
+    const { storeId, orgId } = requireTenant();
 
     const validStatuses = ['PENDING', 'PREPARING', 'READY', 'SERVED', 'CANCELLED'];
     if (!validStatuses.includes(status)) {
@@ -83,8 +87,7 @@ export class KotService {
   }
 
   async recordReprint(id: number): Promise<KotDTO> {
-    const storeId = getStoreId() || 1;
-    const orgId = getOrganizationId() || 1;
+    const { storeId, orgId } = requireTenant();
 
     const updated = await this.kotRepo.recordReprint(id, storeId, orgId);
     if (!updated) {

@@ -65,6 +65,8 @@ export interface CheckoutResponse {
   discount: number;
   gst: number;
   grandTotal: number;
+  paidAmount?: number;
+  balance?: number;
   publicToken?: string;
   whatsappUrl?: string;
   whatsappPrepared?: boolean;

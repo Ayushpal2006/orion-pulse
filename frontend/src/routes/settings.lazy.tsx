@@ -67,7 +67,15 @@ import {
   Key,
   Lock,
   KeyRound,
+  QrCode,
+  CreditCard,
+  Smartphone,
+  Wifi,
+  WifiOff,
 } from "lucide-react";
+import { QRCodeSVG } from "qrcode.react";
+import { usePWA } from "@/hooks/usePWA";
+import { saveSettingsOffline } from "@/lib/offline-db";
 import { getPrintAdapter } from "@/lib/print-adapter";
 import { printerService } from "@/lib/printer.service";
 import { DEFAULT_RECEIPT_TEMPLATES, saveActiveTemplateConfig } from "@/lib/receipt-template";
@@ -104,19 +112,21 @@ function SettingsPage() {
 }
 
 type SettingsSectionId =
+  | "shop"
+  | "billing"
+  | "payment"
+  | "printing"
+  | "preferences"
   | "general"
   | "organization"
   | "security"
-  | "shop"
   | "stores"
   | "users"
   | "branding"
-  | "billing"
   | "purchase"
   | "inventory"
   | "customers"
   | "reports"
-  | "printing"
   | "whatsapp"
   | "invoice_templates"
   | "taxes"
@@ -131,10 +141,56 @@ interface SectionMeta {
   icon: any;
   description: string;
   badge?: string;
+  simpleOrder?: number;
   keywords: string[];
 }
 
 const SECTIONS: SectionMeta[] = [
+  {
+    id: "shop",
+    name: "Shop Profile",
+    category: "Core",
+    icon: Store,
+    description: "Store name, address, phone, GSTIN & currency",
+    simpleOrder: 1,
+    keywords: ["shop", "store", "address", "phone", "gst", "gstin", "currency", "prefix", "identity"],
+  },
+  {
+    id: "billing",
+    name: "Billing Settings",
+    category: "Sales & Operations",
+    icon: Receipt,
+    description: "GST rates, tax inclusive/exclusive, round-off & auto-print",
+    simpleOrder: 2,
+    keywords: ["billing", "invoice", "prefix", "tax", "gst", "round", "auto print", "discount"],
+  },
+  {
+    id: "payment",
+    name: "Payment Settings",
+    category: "Sales & Operations",
+    icon: CreditCard,
+    description: "Cash, UPI, Card, Due/Credit & UPI QR preview",
+    simpleOrder: 3,
+    keywords: ["payment", "upi", "qr", "cash", "card", "credit", "due", "vpa"],
+  },
+  {
+    id: "printing",
+    name: "Printers",
+    category: "Communication & Output",
+    icon: Printer,
+    description: "Z91 Built-in, Bluetooth, 58mm/80mm & test print",
+    simpleOrder: 4,
+    keywords: ["print", "printer", "bluetooth", "z91", "58mm", "80mm", "thermal", "escpos"],
+  },
+  {
+    id: "preferences",
+    name: "App Preferences",
+    category: "Core",
+    icon: Smartphone,
+    description: "Theme, Hindi/English, offline sync & app version",
+    simpleOrder: 5,
+    keywords: ["theme", "dark", "light", "language", "hindi", "sync", "offline", "version", "about"],
+  },
   {
     id: "general",
     name: "General",
@@ -170,14 +226,6 @@ const SECTIONS: SectionMeta[] = [
     description: "Change owner login password & account security",
     badge: "Auth",
     keywords: ["security", "password", "owner", "login", "reset", "auth", "change password"],
-  },
-  {
-    id: "shop",
-    name: "Shop Information",
-    category: "Core",
-    icon: Building2,
-    description: "Store name, GSTIN & contact details",
-    keywords: ["shop", "store", "address", "phone", "email", "mobile", "contact", "identity"],
   },
   {
     id: "stores",
@@ -227,14 +275,6 @@ const SECTIONS: SectionMeta[] = [
     ],
   },
   {
-    id: "billing",
-    name: "Billing POS",
-    category: "Sales & Operations",
-    icon: Receipt,
-    description: "Invoice prefixes, payment modes & checkout",
-    keywords: ["billing", "invoice", "prefix", "sequence", "pos", "checkout", "payment", "inv-"],
-  },
-  {
     id: "purchase",
     name: "Purchase POS",
     category: "Sales & Operations",
@@ -265,24 +305,6 @@ const SECTIONS: SectionMeta[] = [
     icon: BarChart3,
     description: "Default date ranges & export formats",
     keywords: ["reports", "analytics", "export", "period", "date", "csv", "pdf", "month"],
-  },
-  {
-    id: "printing",
-    name: "Printing & Hardware",
-    category: "Communication & Output",
-    icon: Printer,
-    description: "Thermal widths (58mm/80mm) & POS setup",
-    keywords: [
-      "print",
-      "printing",
-      "printer",
-      "thermal",
-      "58mm",
-      "80mm",
-      "paper",
-      "hardware",
-      "escpos",
-    ],
   },
   {
     id: "whatsapp",
@@ -356,11 +378,12 @@ const SECTIONS: SectionMeta[] = [
   },
   {
     id: "advanced",
-    name: "Advanced & System",
+    name: "Advanced",
     category: "System & Data",
     icon: Terminal,
-    description: "Developer logs, API URLs & system health",
-    badge: "System",
+    description: "Multi-store, staff roles, Google Sheets & JSON backup",
+    badge: "Pro",
+    simpleOrder: 6,
     keywords: ["advanced", "system", "logs", "api", "diagnostics", "health", "environment"],
   },
 ];
@@ -377,17 +400,17 @@ interface BackupHistoryItem {
 function SettingsV2() {
   const queryClient = useQueryClient();
   const s = useApp();
-  const [activeSection, setActiveSection] = useState<SettingsSectionId>("general");
+  const { isOnline, isSyncing, pendingCount, lastSyncTime: pwaLastSync, syncNow } = usePWA();
+  const [activeSection, setActiveSection] = useState<SettingsSectionId>("shop");
+  const [showAllSettings, setShowAllSettings] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [focusedNavIndex, setFocusedNavIndex] = useState(0);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const [saving, setSaving] = useState(false);
-  const [lastSaved, setLastSaved] = useState<string>("Today, 02:40 AM");
+  const [lastSaved, setLastSaved] = useState<string>("Not saved yet");
 
-  // Billing Extended Settings State (Prefilled)
-  const [invPrefix, setInvPrefix] = useState(
-    () => localStorage.getItem("orion_inv_prefix") || "INV-",
-  );
+  // Billing Extended Settings State (Prefilled from Zustand / backend hydration)
+  const [invPrefix, setInvPrefix] = useState(() => s.invPrefix || "INV-");
   const [invStartNo, setInvStartNo] = useState("00001");
   const [allowNegativeStock, setAllowNegativeStock] = useState(false);
   const [quickBilling, setQuickBilling] = useState(true);
@@ -595,6 +618,7 @@ function SettingsV2() {
     storePhone: s.storePhone || "",
     storeEmail: s.storeEmail || "",
     storeAddress: s.storeAddress || "",
+    logo: s.logo || "",
     upiId: s.upiId || "",
     invoiceHeader: s.invoiceHeader || "",
     invoiceFooter: s.invoiceFooter || "",
@@ -622,6 +646,12 @@ function SettingsV2() {
     requireCustomerBeforeCheckout: Boolean(s.requireCustomerBeforeCheckout),
     currency: s.currency || "INR",
     theme: s.theme || "system",
+    taxRate: Number(s.taxRate) || 12,
+    taxInclusive: Boolean(s.taxInclusive),
+    roundOffEnabled: Boolean(s.roundOffEnabled),
+    autoPrintInvoice: Boolean(s.autoPrintInvoice),
+    acceptedPaymentModes: JSON.stringify(s.acceptedPaymentModes || ["Cash", "UPI", "Card", "Wallet"]),
+    language: s.language || "en",
   });
 
   const draftSettings = getSettingsSnapshot();
@@ -649,6 +679,17 @@ function SettingsV2() {
     s.setStoreEmail(clean.storeEmail || "");
     s.setStoreAddress(clean.storeAddress || "");
     s.setUpiId(clean.upiId || "");
+    s.setCurrency(clean.currency || "INR");
+    s.setTaxRate(clean.taxRate ?? 12);
+    s.setTaxInclusive(Boolean(clean.taxInclusive));
+    s.setRoundOffEnabled(clean.roundOffEnabled ?? true);
+    s.setAutoPrintInvoice(clean.autoPrintInvoice ?? true);
+    if (clean.acceptedPaymentModes) {
+      try {
+        s.setAcceptedPaymentModes(JSON.parse(clean.acceptedPaymentModes));
+      } catch (_) {}
+    }
+    if (clean.language === "hi" || clean.language === "en") s.setLanguage(clean.language);
     if (s.setInvoiceHeader) s.setInvoiceHeader(clean.invoiceHeader || "");
     if (s.setInvoiceFooter) s.setInvoiceFooter(clean.invoiceFooter || "");
     if (s.setReceiptFooter) s.setReceiptFooter(clean.receiptFooter || "");
@@ -701,11 +742,38 @@ function SettingsV2() {
           s.setStoreAddress(cfg.shop_address ?? "");
           s.setStorePhone(cfg.shop_phone ?? "");
           s.setStoreEmail(cfg.shop_email ?? "");
-          s.setLogo(cfg.logo ?? "");
+          const loadedLogo = cfg.logo ?? "";
+          s.setLogo(loadedLogo);
+          if (typeof window !== "undefined") {
+            if (loadedLogo) localStorage.setItem("orion_logo", loadedLogo);
+            else localStorage.removeItem("orion_logo");
+          }
           s.setUpiId(cfg.shop_upi_id ?? "");
-          setInvPrefix(cfg.inv_prefix ?? "INV-");
+          const resolvedInvPrefix = cfg.inv_prefix ?? "INV-";
+          setInvPrefix(resolvedInvPrefix);
+          s.setInvPrefix(resolvedInvPrefix);
           setPoPrefix(cfg.po_prefix ?? "PO-");
           s.setReceiptFooter(cfg.receipt_footer ?? "");
+          if (cfg.currency) s.setCurrency(cfg.currency);
+          if (cfg.tax_rate) s.setTaxRate(parseFloat(cfg.tax_rate) || 12);
+          if (cfg.tax_inclusive !== undefined) {
+            s.setTaxInclusive(cfg.tax_inclusive === "1" || cfg.tax_inclusive === "true");
+          }
+          if (cfg.round_off_enabled !== undefined) {
+            s.setRoundOffEnabled(cfg.round_off_enabled === "1" || cfg.round_off_enabled === "true");
+          }
+          if (cfg.auto_print_invoice !== undefined) {
+            s.setAutoPrintInvoice(
+              cfg.auto_print_invoice === "1" || cfg.auto_print_invoice === "true",
+            );
+          }
+          if (cfg.accepted_payments) {
+            try {
+              const parsed = JSON.parse(cfg.accepted_payments);
+              if (Array.isArray(parsed) && parsed.length > 0) s.setAcceptedPaymentModes(parsed);
+            } catch (_) {}
+          }
+          if (cfg.language === "hi" || cfg.language === "en") s.setLanguage(cfg.language);
           if (cfg.google_sheet_id !== undefined) setSheetId(cfg.google_sheet_id ?? "");
           if (cfg.google_sync_enabled !== undefined)
             setIsConnected(cfg.google_sync_enabled === "1");
@@ -724,14 +792,15 @@ function SettingsV2() {
                 cfg.require_customer_before_checkout === "true",
             );
           }
-
-          // Capture clean baseline snapshot after applying backend settings
-          const initialSnapshot = structuredClone(getSettingsSnapshot());
-          setSavedSettings(initialSnapshot);
-          setIsInitialized(true);
         }
+        // Always capture baseline snapshot cleanly even if empty store defaults
+        setTimeout(() => {
+          setSavedSettings(structuredClone(getSettingsSnapshot()));
+          setIsInitialized(true);
+        }, 0);
       })
       .catch(() => {
+        setSavedSettings(structuredClone(getSettingsSnapshot()));
         setIsInitialized(true);
       });
 
@@ -765,8 +834,14 @@ function SettingsV2() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Filtered sections array based on search query or keywords
-  const filteredSections = SECTIONS.filter((sec) => {
+  // Filtered sections array based on Simple Mode vs All Settings or Search Query
+  const visibleSections = searchQuery.trim() || showAllSettings
+    ? SECTIONS
+    : SECTIONS.filter((sec) => sec.simpleOrder !== undefined).sort(
+        (a, b) => (a.simpleOrder || 99) - (b.simpleOrder || 99),
+      );
+
+  const filteredSections = visibleSections.filter((sec) => {
     if (!searchQuery.trim()) return true;
     const q = searchQuery.toLowerCase().trim();
     return (
@@ -823,6 +898,21 @@ function SettingsV2() {
       q.includes("sgst")
     ) {
       setActiveSection("taxes");
+    } else if (
+      q.includes("upi") ||
+      q.includes("qr") ||
+      q.includes("card") ||
+      q.includes("cash")
+    ) {
+      setActiveSection("payment");
+    } else if (
+      q.includes("theme") ||
+      q.includes("hindi") ||
+      q.includes("language") ||
+      q.includes("sync") ||
+      q.includes("offline")
+    ) {
+      setActiveSection("preferences");
     } else if (
       q.includes("logo") ||
       q.includes("brand") ||
@@ -883,10 +973,6 @@ function SettingsV2() {
   }, [searchQuery]);
 
   const handleGlobalSave = async () => {
-    if (!isDirty) {
-      toast.info("No changes to save");
-      return;
-    }
     setSaving(true);
     try {
       const payload: Record<string, string> = {
@@ -897,6 +983,7 @@ function SettingsV2() {
         shop_email: s.storeEmail,
         logo: s.logo || "",
         shop_upi_id: s.upiId,
+        currency: s.currency || "INR",
         inv_prefix: invPrefix,
         po_prefix: poPrefix,
         receipt_footer: s.receiptFooter,
@@ -912,6 +999,11 @@ function SettingsV2() {
         terms_and_conditions: s.termsAndConditions || "",
         whatsapp_signature: s.whatsappSignature || "",
         tax_rate: String(s.taxRate || 12),
+        tax_inclusive: s.taxInclusive ? "1" : "0",
+        round_off_enabled: s.roundOffEnabled ? "1" : "0",
+        auto_print_invoice: s.autoPrintInvoice ? "1" : "0",
+        accepted_payments: JSON.stringify(s.acceptedPaymentModes || ["Cash", "UPI", "Card", "Wallet"]),
+        language: s.language || "en",
         low_stock_threshold: String(lowStockThreshold || 10),
         default_report_period: defaultReportPeriod,
         export_format: exportFormat,
@@ -928,8 +1020,11 @@ function SettingsV2() {
         throw new Error(`HTTP ${res.status}`);
       }
 
-      // Update React Query cache so all consumers have immediate fresh settings
+      s.setInvPrefix(invPrefix);
+
+      // Update React Query cache & offline IndexedDB cache immediately
       queryClient.setQueryData(["settings"], payload);
+      await saveSettingsOffline(payload).catch(() => {});
 
       // Success: update deep-cloned saved snapshot to match current form state
       setSavedSettings(structuredClone(getSettingsSnapshot()));
@@ -939,7 +1034,7 @@ function SettingsV2() {
       });
       setLastSaved(`Today, ${nowFormatted}`);
 
-      toast.success("Settings saved successfully");
+      toast.success("Settings saved successfully!");
     } catch (e: any) {
       toast.error("Failed to save settings: " + (e.message || e));
     } finally {
@@ -950,7 +1045,7 @@ function SettingsV2() {
   // Export All Application Settings (JSON file)
   const handleExportAllSettings = () => {
     const exportData = {
-      app: "Orion POS Enterprise",
+      app: "Apka Bill POS",
       schemaVersion: "2.0",
       exportedAt: new Date().toISOString(),
       multiStoreMetadata: {
@@ -1033,7 +1128,7 @@ function SettingsV2() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `Orion-Settings-Export-${new Date().toISOString().substring(0, 10)}.json`;
+    a.download = `ApkaBill-Settings-Export-${new Date().toISOString().substring(0, 10)}.json`;
     a.click();
     URL.revokeObjectURL(url);
 
@@ -1044,7 +1139,7 @@ function SettingsV2() {
 
   const handleManualJsonBackup = () => {
     const backupObj = {
-      app: "Orion POS Enterprise",
+      app: "Apka Bill POS",
       version: "2.0",
       timestamp: new Date().toISOString(),
       store: {
@@ -1066,7 +1161,7 @@ function SettingsV2() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `Orion-Backup-${new Date().toISOString().substring(0, 10)}.json`;
+    a.download = `ApkaBill-Backup-${new Date().toISOString().substring(0, 10)}.json`;
     a.click();
     URL.revokeObjectURL(url);
 
@@ -1099,7 +1194,7 @@ function SettingsV2() {
         // Schema validation check
         if (!json || typeof json !== "object" || (!json.settings && !json.store)) {
           toast.error("Invalid settings file format.", {
-            description: "File must be an Orion POS settings export JSON file.",
+            description: "File must be an Apka Bill settings export JSON file.",
           });
           return;
         }
@@ -1378,79 +1473,113 @@ function SettingsV2() {
   );
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto pb-20">
+    <div className="space-y-5 max-w-7xl mx-auto pb-24">
       {/* Header Banner */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-border pb-4">
         <div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <SlidersHorizontal className="size-6 text-primary" />
             <h1 className="text-xl font-bold tracking-tight text-foreground">
-              Orion Configuration Center V2
+              Apka Bill Settings
             </h1>
             <Badge variant="outline" className="text-[10px] font-mono border-primary text-primary">
-              Enterprise
+              {s.activeStoreName || "Main Store"}
             </Badge>
           </div>
           <p className="text-xs text-muted-foreground mt-1">
-            Centralized configuration manager for store branding, checkout rules, hardware & cloud
-            sync.
+            दुकान, बिल, यूपीआई पेमेंट और प्रिंटर सेटिंग्स आसानी से बदलें · Manage shop profile, billing, UPI &amp; printers.
           </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          {/* Export Settings Button */}
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={handleExportAllSettings}
-            className="rounded-xl h-9 text-xs font-semibold border-primary/30 text-primary hover:bg-primary/10 transition-all"
-            title="Export all store settings to JSON file"
-          >
-            <FileDown className="size-3.5 mr-1.5" /> Export Config
-          </Button>
-
-          {/* Import Settings Button */}
-          <label className="cursor-pointer">
-            <input
-              type="file"
-              accept=".json"
-              onChange={handleImportFileSelect}
-              className="hidden"
-            />
-            <span className="inline-flex items-center justify-center rounded-xl text-xs font-semibold h-9 px-3 border border-emerald-500/40 text-emerald-600 bg-emerald-500/10 hover:bg-emerald-500/20 shadow-2xs transition-all cursor-pointer">
-              <FileUp className="size-3.5 mr-1.5" /> Import Config
-            </span>
-          </label>
-
-          {/* Search Input with Keyboard Shortcuts */}
-          <div className="relative w-full md:w-72">
-            <Search className="absolute left-3 top-2.5 size-4 text-muted-foreground" />
-            <Input
-              ref={searchInputRef}
-              placeholder="Search settings (e.g. GST, Logo, Google)..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9 pr-14 h-9 rounded-xl text-xs bg-muted/30 focus:bg-background transition-all"
-            />
-            {searchQuery ? (
-              <button
-                type="button"
-                onClick={() => {
-                  setSearchQuery("");
-                  searchInputRef.current?.focus();
-                }}
-                className="absolute right-3 top-2 text-xs text-muted-foreground hover:text-foreground font-bold p-0.5"
-                title="Clear search (Esc)"
-              >
-                ✕
-              </button>
-            ) : (
-              <span className="pointer-events-none absolute right-3 top-2.5 hidden sm:inline-flex items-center gap-1">
-                <span className="kbd">⌘K</span>
-              </span>
-            )}
+          {/* Simple vs All Settings Toggle */}
+          <div className="inline-flex rounded-xl bg-muted border border-border p-0.5 text-xs font-semibold">
+            <button
+              type="button"
+              onClick={() => {
+                setShowAllSettings(false);
+                setSearchQuery("");
+                const currentMeta = SECTIONS.find((x) => x.id === activeSection);
+                if (!currentMeta?.simpleOrder) setActiveSection("shop");
+              }}
+              className={`px-3 py-1.5 rounded-lg transition-all min-h-[36px] ${
+                !showAllSettings
+                  ? "bg-background text-foreground shadow-xs"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              Simple View
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowAllSettings(true)}
+              className={`px-3 py-1.5 rounded-lg transition-all min-h-[36px] ${
+                showAllSettings
+                  ? "bg-background text-foreground shadow-xs"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              All Settings
+            </button>
           </div>
+
+          {showAllSettings && (
+            <>
+              {/* Export Settings Button */}
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={handleExportAllSettings}
+                className="rounded-xl h-9 text-xs font-semibold border-primary/30 text-primary hover:bg-primary/10 transition-all"
+                title="Export all store settings to JSON file"
+              >
+                <FileDown className="size-3.5 mr-1.5" /> Export JSON
+              </Button>
+
+              {/* Import Settings Button */}
+              <label className="cursor-pointer">
+                <input
+                  type="file"
+                  accept=".json"
+                  onChange={handleImportFileSelect}
+                  className="hidden"
+                />
+                <span className="inline-flex items-center justify-center rounded-xl text-xs font-semibold h-9 px-3 border border-emerald-500/40 text-emerald-600 bg-emerald-500/10 hover:bg-emerald-500/20 shadow-2xs transition-all cursor-pointer">
+                  <FileUp className="size-3.5 mr-1.5" /> Import JSON
+                </span>
+              </label>
+
+              {/* Search Input with Keyboard Shortcuts */}
+              <div className="relative w-full md:w-64">
+                <Search className="absolute left-3 top-2.5 size-4 text-muted-foreground" />
+                <Input
+                  ref={searchInputRef}
+                  placeholder="Search settings..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-9 pr-12 h-9 rounded-xl text-xs bg-muted/30 focus:bg-background transition-all"
+                />
+                {searchQuery ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSearchQuery("");
+                      searchInputRef.current?.focus();
+                    }}
+                    className="absolute right-3 top-2 text-xs text-muted-foreground hover:text-foreground font-bold p-0.5"
+                    title="Clear search (Esc)"
+                  >
+                    ✕
+                  </button>
+                ) : (
+                  <span className="pointer-events-none absolute right-3 top-2.5 hidden sm:inline-flex items-center gap-1">
+                    <span className="kbd">⌘K</span>
+                  </span>
+                )}
+              </div>
+            </>
+          )}
         </div>
       </div>
 
@@ -1470,13 +1599,13 @@ function SettingsV2() {
         </div>
       )}
 
-      {/* Mobile Horizontal Scrollable Tab Bar (UX Improvement for Mobile) */}
+      {/* Mobile Horizontal Scrollable Tab Bar (Clean 5 Retail Tabs + Advanced) */}
       <div
         className="lg:hidden flex items-center gap-1.5 overflow-x-auto pb-2 scrollbar-none border-b border-border"
         role="tablist"
         aria-label="Settings Mobile Navigation"
       >
-        {SECTIONS.map((sec) => {
+        {filteredSections.map((sec) => {
           const Icon = sec.icon;
           const isActive = activeSection === sec.id;
           return (
@@ -1738,16 +1867,20 @@ function SettingsV2() {
           {/* USERS MANAGEMENT */}
           {activeSection === "users" && <UsersManagementSection />}
 
-          {/* 2. SHOP INFORMATION */}
+          {/* 1. SHOP PROFILE */}
           {activeSection === "shop" && (
             <div className="card-soft p-5 space-y-5">
               <div className="border-b border-border pb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
-                  <div className="text-base font-bold text-foreground flex items-center gap-2">
-                    <Building2 className="size-5 text-primary" /> Shop Information
+                  <div className="flex flex-wrap items-center gap-2 text-base font-bold text-foreground">
+                    <Store className="size-5 text-primary" />
+                    <span>Shop Profile</span>
+                    <Badge variant="outline" className="text-[10px] font-mono border-primary/30 text-primary">
+                      Store Specific
+                    </Badge>
                   </div>
                   <div className="text-xs text-muted-foreground mt-0.5">
-                    Store details printed on invoices, receipts and tax filings.
+                    दुकान का नाम, पता, फ़ोन, GST नंबर और बिल प्रीफ़िक्स — रसीद और बिल पर छपने वाली जानकारी
                   </div>
                 </div>
                 <SectionHeaderActions />
@@ -1755,49 +1888,91 @@ function SettingsV2() {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <Label className="text-xs font-semibold">Shop Name *</Label>
+                  <Label className="text-xs font-semibold">
+                    Shop / Store Name * <span className="text-muted-foreground font-normal">(दुकान का नाम)</span>
+                  </Label>
                   <Input
                     value={s.shopName}
                     onChange={(e) => s.setShopName(e.target.value)}
-                    className="rounded-xl h-9 text-xs"
+                    placeholder="e.g. Sharma Kirana & General Store"
+                    className="rounded-xl h-11 text-sm"
                   />
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label className="text-xs font-semibold">GSTIN / Tax Registration</Label>
-                  <Input
-                    value={s.gstin}
-                    onChange={(e) => s.setGstin(e.target.value)}
-                    className="rounded-xl h-9 text-xs font-mono"
-                  />
-                </div>
-
-                <div className="space-y-1.5">
-                  <Label className="text-xs font-semibold">Phone Number</Label>
+                  <Label className="text-xs font-semibold">
+                    Phone Number <span className="text-muted-foreground font-normal">(मोबाइल नंबर)</span>
+                  </Label>
                   <Input
                     value={s.storePhone}
                     onChange={(e) => s.setStorePhone(e.target.value)}
-                    className="rounded-xl h-9 text-xs"
+                    placeholder="e.g. 9876543210"
+                    className="rounded-xl h-11 text-sm"
                   />
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label className="text-xs font-semibold">Email Address</Label>
+                  <Label className="text-xs font-semibold">
+                    GSTIN <span className="text-muted-foreground font-normal">(जीएसटी नंबर — Optional)</span>
+                  </Label>
+                  <Input
+                    value={s.gstin}
+                    onChange={(e) => s.setGstin(e.target.value.toUpperCase())}
+                    placeholder="e.g. 27AABCU9603R1ZM"
+                    className="rounded-xl h-11 text-sm font-mono uppercase"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold">
+                    Invoice Number Prefix <span className="text-muted-foreground font-normal">(बिल प्रीफ़िक्स)</span>
+                  </Label>
+                  <Input
+                    value={invPrefix}
+                    onChange={(e) => setInvPrefix(e.target.value)}
+                    placeholder="e.g. INV-"
+                    className="rounded-xl h-11 text-sm font-mono"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold">
+                    Currency <span className="text-muted-foreground font-normal">(मुद्रा)</span>
+                  </Label>
+                  <Select value={s.currency} onValueChange={(v) => s.setCurrency(v)}>
+                    <SelectTrigger className="rounded-xl h-11 text-sm">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="rounded-xl">
+                      <SelectItem value="INR">₹ INR (Indian Rupee)</SelectItem>
+                      <SelectItem value="USD">$ USD (US Dollar)</SelectItem>
+                      <SelectItem value="EUR">€ EUR (Euro)</SelectItem>
+                      <SelectItem value="AED">AED (UAE Dirham)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold">Email Address (Optional)</Label>
                   <Input
                     value={s.storeEmail}
                     onChange={(e) => s.setStoreEmail(e.target.value)}
-                    className="rounded-xl h-9 text-xs"
+                    placeholder="store@business.com"
+                    className="rounded-xl h-11 text-sm"
                   />
                 </div>
               </div>
 
               <div className="space-y-1.5">
-                <Label className="text-xs font-semibold">Full Store Address</Label>
+                <Label className="text-xs font-semibold">
+                  Full Shop Address <span className="text-muted-foreground font-normal">(दुकान का पूरा पता)</span>
+                </Label>
                 <Textarea
                   rows={3}
                   value={s.storeAddress}
                   onChange={(e) => s.setStoreAddress(e.target.value)}
-                  className="rounded-xl text-xs leading-relaxed"
+                  placeholder="Shop No, Market/Road, City, State & Pincode"
+                  className="rounded-xl text-sm leading-relaxed"
                 />
               </div>
             </div>
@@ -1806,16 +1981,20 @@ function SettingsV2() {
           {/* 3. BRANDING */}
           {activeSection === "branding" && <BrandingSettings />}
 
-          {/* 4. BILLING POS */}
+          {/* 2. BILLING SETTINGS */}
           {activeSection === "billing" && (
             <div className="card-soft p-5 space-y-5">
               <div className="border-b border-border pb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
-                  <div className="text-base font-bold text-foreground flex items-center gap-2">
-                    <Receipt className="size-5 text-primary" /> Billing POS Configuration
+                  <div className="flex flex-wrap items-center gap-2 text-base font-bold text-foreground">
+                    <Receipt className="size-5 text-primary" />
+                    <span>Billing Settings</span>
+                    <Badge variant="outline" className="text-[10px] font-mono border-primary/30 text-primary">
+                      Store Specific
+                    </Badge>
                   </div>
                   <div className="text-xs text-muted-foreground mt-0.5">
-                    Customize invoice prefix, starting numbers, and checkout controls.
+                    जीएसटी दर, राउंड-ऑफ़ और ऑटो-प्रिंट नियम · Configure GST calculation, round-off &amp; checkout behavior.
                   </div>
                 </div>
                 <SectionHeaderActions />
@@ -1823,88 +2002,366 @@ function SettingsV2() {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <Label className="text-xs font-semibold">Invoice Number Prefix</Label>
-                  <Input
-                    value={invPrefix}
-                    onChange={(e) => setInvPrefix(e.target.value)}
-                    className="rounded-xl h-9 text-xs font-mono"
-                    placeholder="e.g. INV-"
-                  />
-                </div>
-
-                <div className="space-y-1.5">
-                  <Label className="text-xs font-semibold">Starting Invoice Sequence Number</Label>
-                  <Input
-                    value={invStartNo}
-                    onChange={(e) => setInvStartNo(e.target.value)}
-                    className="rounded-xl h-9 text-xs font-mono"
-                  />
-                </div>
-
-                <div className="space-y-1.5">
-                  <Label className="text-xs font-semibold">Default Payment Method</Label>
-                  <Select value={s.payment} onValueChange={(v: any) => s.setPayment(v)}>
-                    <SelectTrigger className="rounded-xl h-9 text-xs">
+                  <Label className="text-xs font-semibold">
+                    Default GST Tax Rate (%) <span className="text-muted-foreground font-normal">(डिफ़ॉल्ट जीएसटी)</span>
+                  </Label>
+                  <Select
+                    value={String(s.taxRate)}
+                    onValueChange={(v) => s.setTaxRate(Number(v))}
+                  >
+                    <SelectTrigger className="rounded-xl h-11 text-sm">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent className="rounded-xl">
-                      <SelectItem value="UPI">UPI / QR Code</SelectItem>
-                      <SelectItem value="Cash">Cash</SelectItem>
-                      <SelectItem value="Card">Credit / Debit Card</SelectItem>
-                      <SelectItem value="Wallet">Wallet</SelectItem>
+                      <SelectItem value="0">0% (No Tax / Exempt)</SelectItem>
+                      <SelectItem value="5">5% GST</SelectItem>
+                      <SelectItem value="12">12% GST</SelectItem>
+                      <SelectItem value="18">18% GST</SelectItem>
+                      <SelectItem value="28">28% GST</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label className="text-xs font-semibold">Receipt Template</Label>
+                  <Label className="text-xs font-semibold">Receipt Layout Style</Label>
                   <Select
                     value={s.receiptTemplate}
                     onValueChange={(v: any) => s.setReceiptTemplate(v)}
                   >
-                    <SelectTrigger className="rounded-xl h-9 text-xs">
+                    <SelectTrigger className="rounded-xl h-11 text-sm">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent className="rounded-xl">
-                      <SelectItem value="Classic">Classic Thermal</SelectItem>
+                      <SelectItem value="Classic">Classic Thermal (Recommended)</SelectItem>
                       <SelectItem value="Retail">Retail Modern</SelectItem>
                       <SelectItem value="Premium">Premium Detailed</SelectItem>
-                      <SelectItem value="Compact">Compact Super-Mini</SelectItem>
+                      <SelectItem value="Compact">Compact Mini</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-1.5 md:col-span-2">
+                  <Label className="text-xs font-semibold">
+                    Receipt Footer Message <span className="text-muted-foreground font-normal">(रसीद के नीचे संदेश)</span>
+                  </Label>
+                  <Input
+                    value={s.receiptFooter}
+                    onChange={(e) => s.setReceiptFooter(e.target.value)}
+                    placeholder="Thank you — visit again!"
+                    className="rounded-xl h-11 text-sm"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-3 pt-3 border-t border-border">
+                <div className="flex items-center justify-between gap-4 py-1">
+                  <div className="space-y-0.5">
+                    <Label className="text-xs font-semibold">
+                      Tax Inclusive Pricing <span className="text-muted-foreground font-normal">(MRP में GST शामिल है)</span>
+                    </Label>
+                    <div className="text-[11px] text-muted-foreground">
+                      When enabled, selling prices already include GST instead of adding GST on top.
+                    </div>
+                  </div>
+                  <Switch
+                    checked={s.taxInclusive}
+                    onCheckedChange={(checked) => s.setTaxInclusive(checked)}
+                  />
+                </div>
+
+                <div className="flex items-center justify-between gap-4 py-1">
+                  <div className="space-y-0.5">
+                    <Label className="text-xs font-semibold">
+                      Auto Round-Off Bill Total <span className="text-muted-foreground font-normal">(राशि को पूर्ण रुपये में बदलें)</span>
+                    </Label>
+                    <div className="text-[11px] text-muted-foreground">
+                      Round final payable bill amount to nearest whole rupee (e.g. ₹149.80 → ₹150).
+                    </div>
+                  </div>
+                  <Switch
+                    checked={s.roundOffEnabled}
+                    onCheckedChange={(checked) => s.setRoundOffEnabled(checked)}
+                  />
+                </div>
+
+                <div className="flex items-center justify-between gap-4 py-1">
+                  <div className="space-y-0.5">
+                    <Label className="text-xs font-semibold">
+                      Auto-Print Receipt After Billing <span className="text-muted-foreground font-normal">(बिल बनते ही प्रिंट तैयार करें)</span>
+                    </Label>
+                    <div className="text-[11px] text-muted-foreground">
+                      Prompt thermal print immediately when checkout completes.
+                    </div>
+                  </div>
+                  <Switch
+                    checked={s.autoPrintInvoice}
+                    onCheckedChange={(checked) => s.setAutoPrintInvoice(checked)}
+                  />
+                </div>
+
+                <div className="flex items-center justify-between gap-4 py-1">
+                  <div className="space-y-0.5">
+                    <Label className="text-xs font-semibold">Allow Negative Stock Billing</Label>
+                    <div className="text-[11px] text-muted-foreground">
+                      Allow selling items even if current stock count shows 0.
+                    </div>
+                  </div>
+                  <Switch
+                    checked={allowNegativeStock}
+                    onCheckedChange={(checked) => setAllowNegativeStock(checked)}
+                  />
+                </div>
+
+                <div className="flex items-center justify-between gap-4 py-1">
+                  <div className="space-y-0.5">
+                    <Label className="text-xs font-semibold">Require Customer Phone Before Checkout</Label>
+                    <div className="text-[11px] text-muted-foreground">
+                      Ask cashier to attach customer mobile before completing any bill.
+                    </div>
+                  </div>
+                  <Switch
+                    checked={s.requireCustomerBeforeCheckout}
+                    onCheckedChange={(checked) => s.setRequireCustomerBeforeCheckout(checked)}
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* 3. PAYMENT SETTINGS (MODES + LIVE UPI QR PREVIEW) */}
+          {activeSection === "payment" && (
+            <div className="card-soft p-5 space-y-6">
+              <div className="border-b border-border pb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                  <div className="flex flex-wrap items-center gap-2 text-base font-bold text-foreground">
+                    <CreditCard className="size-5 text-primary" />
+                    <span>Payment &amp; UPI QR Settings</span>
+                    <Badge variant="outline" className="text-[10px] font-mono border-primary/30 text-primary">
+                      Store Specific
+                    </Badge>
+                  </div>
+                  <div className="text-xs text-muted-foreground mt-0.5">
+                    नकद, यूपीआई क्यूआर, कार्ड और उधार पेमेंट विकल्प · Choose accepted payment options &amp; test your live UPI QR.
+                  </div>
+                </div>
+                <SectionHeaderActions />
+              </div>
+
+              {/* Accepted Payment Modes */}
+              <div className="space-y-2.5">
+                <Label className="text-xs font-semibold">
+                  Accepted Payment Modes on Billing Screen <span className="text-muted-foreground font-normal">(पेमेंट के तरीके)</span>
+                </Label>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  {[
+                    { id: "Cash", label: "Cash (नकद)", hint: "Drawer / Notes" },
+                    { id: "UPI", label: "UPI / QR", hint: "PhonePe, GPay, Paytm" },
+                    { id: "Card", label: "Card (कार्ड)", hint: "Debit / Credit Card" },
+                    { id: "Wallet", label: "Due / Credit (उधार)", hint: "Customer Khata" },
+                  ].map((mode) => {
+                    const activeList = s.acceptedPaymentModes || ["Cash", "UPI", "Card", "Wallet"];
+                    const isEnabled = activeList.includes(mode.id);
+                    return (
+                      <button
+                        key={mode.id}
+                        type="button"
+                        onClick={() => {
+                          const next = isEnabled
+                            ? activeList.filter((m) => m !== mode.id)
+                            : [...activeList, mode.id];
+                          if (next.length === 0) {
+                            toast.error("At least one payment method must remain active.");
+                            return;
+                          }
+                          s.setAcceptedPaymentModes(next);
+                        }}
+                        className={`p-3 rounded-xl border text-left transition-all min-h-[56px] ${
+                          isEnabled
+                            ? "border-primary bg-primary/10 text-foreground shadow-2xs"
+                            : "border-border bg-muted/20 text-muted-foreground opacity-70"
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-bold">{mode.label}</span>
+                          <CheckCircle2
+                            className={`size-4 ${isEnabled ? "text-primary" : "text-muted-foreground/30"}`}
+                          />
+                        </div>
+                        <div className="text-[10px] text-muted-foreground mt-0.5">{mode.hint}</div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* UPI Configuration + Live Visual QR Preview */}
+              <div className="grid grid-cols-1 md:grid-cols-12 gap-5 pt-4 border-t border-border items-start">
+                <div className="md:col-span-7 space-y-4">
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-semibold">
+                      Merchant UPI ID (VPA) <span className="text-muted-foreground font-normal">(यूपीआई आईडी)</span>
+                    </Label>
+                    <Input
+                      value={s.upiId}
+                      onChange={(e) => s.setUpiId(e.target.value.trim())}
+                      placeholder="e.g. yourshop@okaxis or 9876543210@ybl"
+                      className="rounded-xl h-11 text-sm font-mono"
+                    />
+                    <p className="text-[11px] text-muted-foreground">
+                      This UPI ID is encoded directly into printed receipts and checkout QR screens.
+                    </p>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-semibold">Default Payment Option at Checkout</Label>
+                    <Select value={s.payment} onValueChange={(v: any) => s.setPayment(v)}>
+                      <SelectTrigger className="rounded-xl h-11 text-sm">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent className="rounded-xl">
+                        <SelectItem value="UPI">UPI / QR Code</SelectItem>
+                        <SelectItem value="Cash">Cash</SelectItem>
+                        <SelectItem value="Card">Card</SelectItem>
+                        <SelectItem value="Wallet">Due / Credit</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                <div className="md:col-span-5 flex flex-col items-center justify-center rounded-2xl border border-border bg-muted/20 p-5 text-center space-y-2.5">
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-foreground">
+                    <QrCode className="size-4 text-primary" /> Live UPI QR Preview
+                  </div>
+                  {s.upiId ? (
+                    <>
+                      <div className="p-3 rounded-xl bg-white border border-border shadow-sm">
+                        <QRCodeSVG
+                          value={`upi://pay?pa=${encodeURIComponent(s.upiId)}&pn=${encodeURIComponent(s.shopName || "Apka Bill Store")}&cu=INR`}
+                          size={140}
+                        />
+                      </div>
+                      <div className="text-[11px] font-mono text-foreground font-semibold break-all">
+                        {s.upiId}
+                      </div>
+                      <div className="text-[10px] text-emerald-600 font-medium">
+                        Scan with GPay / PhonePe / Paytm to verify payee name
+                      </div>
+                    </>
+                  ) : (
+                    <div className="py-8 text-xs text-muted-foreground max-w-[200px]">
+                      Enter your UPI ID on the left to generate and preview your payment QR code.
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* 5. APP PREFERENCES */}
+          {activeSection === "preferences" && (
+            <div className="card-soft p-5 space-y-6">
+              <div className="border-b border-border pb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                  <div className="text-base font-bold text-foreground flex items-center gap-2">
+                    <Smartphone className="size-5 text-primary" /> App Preferences &amp; Offline Sync
+                  </div>
+                  <div className="text-xs text-muted-foreground mt-0.5">
+                    ऐप की भाषा, थीम और ऑफ़लाइन सिंक स्थिति · Appearance, language, sync queue &amp; app version.
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="p-4 rounded-xl border border-border bg-muted/20 space-y-2.5">
+                  <Label className="text-xs font-semibold">App Theme (थीम)</Label>
+                  <div className="flex items-center gap-3">
+                    <ThemeToggle />
+                    <span className="text-xs text-muted-foreground">
+                      Light / Dark / System appearance
+                    </span>
+                  </div>
+                </div>
+
+                <div className="p-4 rounded-xl border border-border bg-muted/20 space-y-2">
+                  <Label className="text-xs font-semibold">Language Preference (भाषा)</Label>
+                  <Select
+                    value={s.language || "en"}
+                    onValueChange={(v: "en" | "hi") => s.setLanguage(v)}
+                  >
+                    <SelectTrigger className="rounded-xl h-10 text-xs bg-background">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="rounded-xl">
+                      <SelectItem value="en">English (Default)</SelectItem>
+                      <SelectItem value="hi">हिन्दी + Hinglish Labels (Beta)</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
               </div>
 
-              <div className="space-y-3 pt-3 border-t border-border">
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <Label className="text-xs font-semibold">Allow Negative Stock Checkout</Label>
-                    <div className="text-[10px] text-muted-foreground">
-                      Permit billing products even if stock level is 0.
+              {/* Offline Sync Status Card */}
+              <div className="p-4 rounded-2xl border border-border bg-card space-y-3">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <div
+                      className={`size-10 rounded-xl flex items-center justify-center ${
+                        isOnline
+                          ? "bg-emerald-500/10 text-emerald-600"
+                          : "bg-rose-500/10 text-rose-600"
+                      }`}
+                    >
+                      {isOnline ? <Wifi className="size-5" /> : <WifiOff className="size-5" />}
+                    </div>
+                    <div>
+                      <div className="text-sm font-bold text-foreground">
+                        {isOnline ? "Online & Connected" : "Offline Mode Active"}
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        Pending offline bills:{" "}
+                        <strong className="text-foreground">{pendingCount}</strong>
+                        {pwaLastSync ? ` · Last synced: ${pwaLastSync}` : ""}
+                      </div>
                     </div>
                   </div>
-                  <input
-                    type="checkbox"
-                    checked={allowNegativeStock}
-                    onChange={(e) => setAllowNegativeStock(e.target.checked)}
-                    className="size-4 accent-primary cursor-pointer rounded"
-                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => syncNow()}
+                    disabled={!isOnline || isSyncing}
+                    className="rounded-xl h-10 text-xs font-semibold gap-2"
+                  >
+                    <RefreshCw className={`size-4 ${isSyncing ? "animate-spin" : ""}`} />
+                    {isSyncing ? "Syncing..." : "Sync Pending Bills Now"}
+                  </Button>
                 </div>
+              </div>
 
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <Label className="text-xs font-semibold">Require Customer Selection</Label>
-                    <div className="text-[10px] text-muted-foreground">
-                      Force customer attach before completing checkout.
+              {/* About Apka Bill & Advanced Shortcut */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-2xl bg-muted/30 border border-border">
+                <div className="flex items-center gap-3">
+                  <img
+                    src="/logo.png"
+                    alt="Apka Bill"
+                    className="size-11 rounded-xl border border-border object-contain bg-white p-0.5"
+                  />
+                  <div>
+                    <div className="text-sm font-bold text-foreground">Apka Bill POS · v1.0.0</div>
+                    <div className="text-xs text-muted-foreground">
+                      Offline-First Retail Billing &amp; Inventory for Indian Businesses
                     </div>
                   </div>
-                  <input
-                    type="checkbox"
-                    checked={s.requireCustomerBeforeCheckout}
-                    onChange={(e) => s.setRequireCustomerBeforeCheckout(e.target.checked)}
-                    className="size-4 accent-primary cursor-pointer rounded"
-                  />
                 </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setShowAllSettings(true);
+                    setActiveSection("stores");
+                  }}
+                  className="rounded-xl h-10 text-xs font-semibold gap-1.5"
+                >
+                  Open Multi-Store &amp; Admin Tools <ArrowRight className="size-3.5" />
+                </Button>
               </div>
             </div>
           )}
@@ -2120,18 +2577,43 @@ function SettingsV2() {
           )}
 
           {/* 9. PRINTING */}
-          {activeSection === "printing" && (
-            <PrinterSettingsSection
-              currentStore={(s as any).currentStore}
-              onSaveSuccess={() => {
-                setSavedSettings(getSettingsSnapshot());
-              }}
-            />
-          )}
+          {activeSection === "printing" && (() => {
+            const matchedStore = (s.storesList || []).find(
+              (st: any) => Number(st.id) === Number(s.activeStoreId),
+            );
+            const fallbackStoreId =
+              s.activeStoreId ||
+              (typeof window !== "undefined"
+                ? Number(localStorage.getItem("currentStoreId") || 0) || 1
+                : 1);
+            const resolvedStore = {
+              ...(matchedStore || {}),
+              id: fallbackStoreId,
+              name: s.shopName || matchedStore?.name || s.activeStoreName || "Main Store",
+              address: s.storeAddress || matchedStore?.address || "",
+              phone: s.storePhone || matchedStore?.phone || "",
+              gst_number: s.gstin || matchedStore?.gst_number || "",
+              upiId: s.upiId || "",
+              logo: s.logo || matchedStore?.logo_url || "",
+            };
+            return (
+              <PrinterSettingsSection
+                currentStore={resolvedStore}
+                onSaveSuccess={() => {
+                  setSavedSettings(getSettingsSnapshot());
+                }}
+              />
+            );
+          })()}
 
           {/* 10. WHATSAPP TEMPLATES */}
           {activeSection === "whatsapp" && (
-            <WhatsAppTemplateManager currentStore={(s as any).currentStore} />
+            <WhatsAppTemplateManager
+              currentStore={{
+                id: s.activeStoreId || 1,
+                name: s.shopName || s.activeStoreName || "Main Store",
+              }}
+            />
           )}
 
           {/* 11. INVOICE TEMPLATES & LIVE PREVIEW */}
@@ -2894,34 +3376,98 @@ function SettingsV2() {
             </div>
           )}
 
-          {/* 15. ADVANCED & SYSTEM */}
+          {/* 6. ADVANCED & ENTERPRISE TOOLS */}
           {activeSection === "advanced" && (
-            <div className="card-soft p-5 space-y-5">
-              <div className="border-b border-border pb-3">
-                <div className="text-base font-bold text-foreground flex items-center gap-2">
-                  <Terminal className="size-5 text-primary" /> Advanced System & Health Diagnostics
+            <div className="space-y-5">
+              <div className="card-soft p-5 space-y-4">
+                <div className="border-b border-border pb-3 flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <div className="text-base font-bold text-foreground flex items-center gap-2">
+                      <Terminal className="size-5 text-primary" /> Advanced &amp; Enterprise Settings
+                    </div>
+                    <div className="text-xs text-muted-foreground mt-0.5">
+                      Multi-branch management, team roles, Google Sheets backup, WhatsApp templates &amp; diagnostics.
+                    </div>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowAllSettings(true)}
+                    className="rounded-xl text-xs font-semibold h-9"
+                  >
+                    Expand All 20 Sections
+                  </Button>
                 </div>
-                <div className="text-xs text-muted-foreground mt-0.5">
-                  Backend environment specs, API endpoints, and system logs.
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                  {[
+                    { id: "stores", label: "Stores & Outlets", desc: "Manage branches & outlets", icon: Store },
+                    { id: "users", label: "Users & Roles", desc: "Cashiers, managers & access", icon: Users },
+                    { id: "security", label: "Password & Security", desc: "Update owner password", icon: Key },
+                    { id: "backup", label: "Google Sheets & Backup", desc: "Cloud sync & snapshots", icon: Cloud },
+                    { id: "whatsapp", label: "WhatsApp Templates", desc: "Custom share messages", icon: MessageSquare },
+                    { id: "branding", label: "Logo & Invoice Design", desc: "Colors, header & templates", icon: Palette },
+                  ].map((shortcut) => {
+                    const SIcon = shortcut.icon;
+                    return (
+                      <button
+                        key={shortcut.id}
+                        type="button"
+                        onClick={() => {
+                          setShowAllSettings(true);
+                          setActiveSection(shortcut.id as SettingsSectionId);
+                        }}
+                        className="p-3.5 rounded-xl border border-border bg-muted/20 hover:bg-muted/50 text-left transition-all flex items-start gap-3"
+                      >
+                        <SIcon className="size-4 text-primary mt-0.5 shrink-0" />
+                        <div>
+                          <div className="text-xs font-bold text-foreground">{shortcut.label}</div>
+                          <div className="text-[11px] text-muted-foreground">{shortcut.desc}</div>
+                        </div>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
-              <div className="space-y-2 text-xs font-mono rounded-2xl bg-muted/20 p-4 border border-border/40">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">App Name:</span>
-                  <span className="text-foreground font-bold">Orion POS Enterprise</span>
+              <div className="card-soft p-5 space-y-4">
+                <div className="text-sm font-bold text-foreground">System Diagnostics &amp; Config Backup</div>
+                <div className="space-y-2 text-xs font-mono rounded-2xl bg-muted/20 p-4 border border-border/40">
+                  <div className="flex justify-between gap-2">
+                    <span className="text-muted-foreground">App Name:</span>
+                    <span className="text-foreground font-bold">Apka Bill POS</span>
+                  </div>
+                  <div className="flex justify-between gap-2">
+                    <span className="text-muted-foreground">API Base Endpoint:</span>
+                    <span className="text-foreground truncate">{API_BASE_URL}</span>
+                  </div>
+                  <div className="flex justify-between gap-2">
+                    <span className="text-muted-foreground">Database Engine:</span>
+                    <span className="text-emerald-500 font-bold">PostgreSQL + IndexedDB</span>
+                  </div>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">API Base Endpoint:</span>
-                  <span className="text-foreground">{API_BASE_URL}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Database Engine:</span>
-                  <span className="text-emerald-500 font-bold">PostgreSQL (Connected)</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">System Environment:</span>
-                  <span className="text-foreground">Production Release V2</span>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleExportAllSettings}
+                    className="rounded-xl h-9 text-xs font-semibold gap-1.5"
+                  >
+                    <FileDown className="size-3.5" /> Export Settings JSON
+                  </Button>
+                  <label className="cursor-pointer">
+                    <input
+                      type="file"
+                      accept=".json"
+                      onChange={handleImportFileSelect}
+                      className="hidden"
+                    />
+                    <span className="inline-flex items-center justify-center rounded-xl text-xs font-semibold h-9 px-3 border border-emerald-500/40 text-emerald-600 bg-emerald-500/10 hover:bg-emerald-500/20 cursor-pointer gap-1.5">
+                      <FileUp className="size-3.5" /> Import Settings JSON
+                    </span>
+                  </label>
                 </div>
               </div>
             </div>
@@ -2948,7 +3494,7 @@ function SettingsV2() {
               <div className="flex justify-between">
                 <span className="text-muted-foreground">App Architecture:</span>
                 <span className="font-bold text-foreground">
-                  {pendingRestoreData.app || "Orion POS"}
+                  {pendingRestoreData.app || "Apka Bill POS"}
                 </span>
               </div>
               <div className="flex justify-between">
@@ -3164,7 +3710,7 @@ function SettingsV2() {
 
       {/* Sticky Bottom Action & Save Status Bar - Rendered ONLY when there are unsaved changes */}
       {isDirty && (
-        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 bg-background/95 backdrop-blur-md border border-primary/40 rounded-2xl shadow-xl px-5 py-3 flex items-center gap-6 animate-in fade-in slide-in-from-bottom-3">
+        <div className="fixed bottom-[calc(4.75rem+env(safe-area-inset-bottom))] lg:bottom-5 left-1/2 -translate-x-1/2 z-50 w-[calc(100vw-1.5rem)] max-w-lg bg-background/95 backdrop-blur-md border border-primary/40 rounded-2xl shadow-xl px-4 sm:px-5 py-3 flex flex-wrap items-center justify-between gap-3 animate-in fade-in slide-in-from-bottom-3">
           <div className="text-xs font-semibold flex items-center gap-2">
             <span className="size-2 rounded-full bg-amber-500 animate-pulse" />
             <span className="text-foreground font-bold">Unsaved Changes</span>

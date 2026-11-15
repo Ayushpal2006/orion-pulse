@@ -16,7 +16,7 @@ export const Route = createFileRoute("/print/purchase/$id")({
   },
   head: () => ({
     meta: [
-      { title: "Print Purchase Order · Orion POS" },
+      { title: "Print Purchase Order · Apka Bill" },
       { name: "description", content: "Printable Purchase Order receipt page." },
     ],
   }),
@@ -309,7 +309,7 @@ function PrintPurchasePage() {
 
         {/* Footer */}
         <div className="mt-8 pt-4 border-t border-neutral-200 text-center text-[10px] text-neutral-400">
-          Generated automatically via Orion POS Purchase Management.
+          Generated automatically via Apka Bill Purchase Management.
         </div>
       </div>
     </div>

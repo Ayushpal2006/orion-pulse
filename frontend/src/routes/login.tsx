@@ -84,23 +84,23 @@ function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background px-4 py-12">
+    <div className="min-h-screen flex items-center justify-center bg-background px-4 py-8 pt-[calc(2rem+env(safe-area-inset-top))] pb-[calc(2rem+env(safe-area-inset-bottom))]">
       <div className="w-full max-w-md space-y-6">
         {/* BRANDING HEADER */}
         <div className="text-center space-y-2">
-          <div className="inline-flex items-center justify-center size-12 rounded-2xl bg-primary text-primary-foreground font-bold shadow-md mb-1">
-            <Building2 className="size-6" />
+          <div className="inline-flex items-center justify-center size-16 rounded-2xl bg-card border border-border shadow-md mb-1 overflow-hidden p-1">
+            <img src="/logo.png" alt="Apka Bill Logo" className="size-full object-contain rounded-xl" />
           </div>
           <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
             Apka Bill
           </h1>
           <p className="text-xs text-muted-foreground">
-            Sign in to your organization account to continue
+            Sign in to your business account to continue billing
           </p>
         </div>
 
         {/* LOGIN CARD */}
-        <div className="card-soft p-6 space-y-5 border border-border shadow-sm rounded-2xl bg-card">
+        <div className="card-soft p-5 sm:p-6 space-y-5 border border-border shadow-sm rounded-2xl bg-card">
           {errorMessage && (
             <div className="p-3 rounded-xl border border-destructive/30 bg-destructive/10 text-destructive text-xs font-medium flex items-start gap-2">
               <AlertCircle className="size-4 shrink-0 mt-0.5" />
@@ -118,7 +118,7 @@ function LoginPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="name@company.com"
-                className="rounded-xl h-10 text-xs"
+                className="rounded-xl h-11 text-sm"
                 autoComplete="email"
                 required
               />
@@ -134,14 +134,14 @@ function LoginPage() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
-                  className="rounded-xl h-10 text-xs pr-10"
+                  className="rounded-xl h-11 text-sm pr-11"
                   autoComplete="current-password"
                   required
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword((prev) => !prev)}
-                  className="absolute right-3 top-2.5 text-muted-foreground hover:text-foreground transition-colors focus:outline-none"
+                  className="absolute right-1.5 top-1/2 -translate-y-1/2 p-2 text-muted-foreground hover:text-foreground transition-colors focus:outline-none"
                   title={showPassword ? "Hide password" : "Show password"}
                 >
                   {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}

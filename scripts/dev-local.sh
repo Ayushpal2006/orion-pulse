@@ -12,10 +12,13 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-if ! psql -h localhost -U postgres -d orion -Atc 'select 1' >/dev/null 2>&1; then
-  echo "Cannot reach the 'orion' database as user 'postgres' on localhost:5432." >&2
-  echo "Run: brew services stop postgresql@17 && brew services start postgresql@18" >&2
-  exit 1
+if ! node scripts/run-local.mjs ensure-db >/dev/null 2>&1 || ! psql -h localhost -U postgres -d orion -Atc 'select 1' >/dev/null 2>&1; then
+  node scripts/run-local.mjs ensure-db || true
+  if ! psql -h localhost -U postgres -d orion -Atc 'select 1' >/dev/null 2>&1; then
+    echo "Cannot reach the 'orion' database as user 'postgres' on localhost:5432." >&2
+    echo "Run: brew services stop postgresql@17 && brew services start postgresql@18" >&2
+    exit 1
+  fi
 fi
 
 trap 'kill 0' EXIT INT TERM

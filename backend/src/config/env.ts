@@ -2,8 +2,9 @@ import { z } from "zod";
 import dotenv from "dotenv";
 import path from "path";
 import fs from "fs";
+import crypto from "crypto";
 
-console.log("Starting Orion Backend...");
+console.log("Starting Apka Bill Backend...");
 console.log("Loading environment...");
 
 // Load local .env if available in Node environment
@@ -18,6 +19,9 @@ try {
   // In serverless / Cloudflare Workers runtime, environment bindings are provided natively
 }
 
+// Ephemeral fallback ONLY for non-production local dev/tests when JWT_SECRET is unset
+const EPHEMERAL_DEV_SECRET = crypto.randomBytes(32).toString("hex");
+
 const envSchema = z.object({
   PORT: z.coerce.number().default(8080),
   NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
@@ -28,7 +32,7 @@ const envSchema = z.object({
     { message: "DATABASE_URL must be a valid PostgreSQL connection string starting with postgres:// or postgresql://" }
   ),
   BASE_URL: z.string().optional(),
-  JWT_SECRET: z.string().default("orion-pos-secret-key-change-in-prod"),
+  JWT_SECRET: z.string().optional(),
   JWT_EXPIRES_IN: z.string().default("24h"),
   ADMIN_EMAIL: z.string().email().default("admin@orion.com"),
   ADMIN_PASSWORD: z.string().default("admin123"),
@@ -88,24 +92,52 @@ const parsedData = result.success ? result.data : ({} as any);
 
 export const env = {
   PORT: parsedData.PORT || 8080,
-  NODE_ENV: parsedData.NODE_ENV || (process.env.NODE_ENV as any) || "production",
+  get NODE_ENV(): "development" | "production" | "test" {
+    return (process.env.NODE_ENV as any) || parsedData.NODE_ENV || "production";
+  },
   DB_TYPE: parsedData.DB_TYPE || "postgres",
   DATABASE_PROVIDER: parsedData.DATABASE_PROVIDER || "postgres",
-  DATABASE_URL: process.env.DATABASE_URL || parsedData.DATABASE_URL || "",
-  JWT_SECRET: process.env.JWT_SECRET || parsedData.JWT_SECRET || "orion-pos-secret-key-change-in-prod",
+  get DATABASE_URL(): string {
+    return process.env.DATABASE_URL || parsedData.DATABASE_URL || "";
+  },
+  get JWT_SECRET(): string {
+    const secret = process.env.JWT_SECRET;
+    if (this.NODE_ENV === "production") {
+      if (!secret || secret.trim().length === 0 || secret === "orion-pos-secret-key-change-in-prod") {
+        throw new Error(
+          "Critical security configuration error: JWT_SECRET environment variable is required in production.",
+        );
+      }
+      return secret;
+    }
+    if (secret && secret.trim().length > 0) {
+      return secret;
+    }
+    return parsedData.JWT_SECRET || EPHEMERAL_DEV_SECRET;
+  },
   JWT_EXPIRES_IN: parsedData.JWT_EXPIRES_IN || "24h",
   ADMIN_EMAIL: parsedData.ADMIN_EMAIL || "admin@orion.com",
   ADMIN_PASSWORD: parsedData.ADMIN_PASSWORD || "admin123",
-  ALLOWED_ORIGINS: process.env.ALLOWED_ORIGINS || parsedData.ALLOWED_ORIGINS || "*",
+  get ALLOWED_ORIGINS(): string {
+    return process.env.ALLOWED_ORIGINS || parsedData.ALLOWED_ORIGINS || "*";
+  },
   TRUST_PROXY: parsedData.TRUST_PROXY || "1",
   GOOGLE_SYNC_ENABLED: Boolean(parsedData.GOOGLE_SYNC_ENABLED),
   GOOGLE_SHEET_ID: parsedData.GOOGLE_SHEET_ID,
   GOOGLE_CLIENT_EMAIL: parsedData.GOOGLE_CLIENT_EMAIL,
   GOOGLE_PRIVATE_KEY: parsedData.GOOGLE_PRIVATE_KEY,
   CLOUDINARY_URL: parsedData.CLOUDINARY_URL,
-  CLOUDINARY_CLOUD_NAME: process.env.CLOUDINARY_CLOUD_NAME || parsedData.CLOUDINARY_CLOUD_NAME,
-  CLOUDINARY_API_KEY: process.env.CLOUDINARY_API_KEY || parsedData.CLOUDINARY_API_KEY,
-  CLOUDINARY_API_SECRET: process.env.CLOUDINARY_API_SECRET || parsedData.CLOUDINARY_API_SECRET,
-  BASE_URL: process.env.BASE_URL || parsedData.BASE_URL || "http://localhost:8080"
+  get CLOUDINARY_CLOUD_NAME() {
+    return process.env.CLOUDINARY_CLOUD_NAME || parsedData.CLOUDINARY_CLOUD_NAME;
+  },
+  get CLOUDINARY_API_KEY() {
+    return process.env.CLOUDINARY_API_KEY || parsedData.CLOUDINARY_API_KEY;
+  },
+  get CLOUDINARY_API_SECRET() {
+    return process.env.CLOUDINARY_API_SECRET || parsedData.CLOUDINARY_API_SECRET;
+  },
+  get BASE_URL(): string {
+    return process.env.BASE_URL || parsedData.BASE_URL || "http://localhost:8080";
+  },
 };
 export type EnvType = typeof env;

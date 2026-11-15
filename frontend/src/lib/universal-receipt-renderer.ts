@@ -1,6 +1,7 @@
 import { UniversalReceiptModel } from "./receipt-model";
 import { EscPosEncoder } from "./esc-pos-encoder";
 import { downloadSalePdf, buildImageUrl } from "./api";
+import { buildUpiUri, isValidUpiUri } from "./upi";
 
 export interface RenderOptions {
   paperWidth?: "58mm" | "80mm" | "A4";
@@ -31,17 +32,30 @@ export class HtmlRenderer {
   ): string {
     const tpl = options?.templateConfig || getActiveTemplateConfig();
     const templateName = model.template || (tpl as any).name || "Classic";
+    const showLogo = options?.showLogo !== false;
+    const showQr = options?.showQr !== false;
+    const showBarcode = options?.showBarcode !== false;
     const qrPosition = model.metadata?.qrPosition || (tpl.footer?.showQrCode ? "Bottom" : "None");
     const paperWidth = options?.paperWidth || tpl.paperWidth || "80mm";
+    const shopName = model.business?.name || model.shop?.name || model.store?.name || "Store";
+    const resolvedUpiId = String(model.metadata?.upiId || model.shop?.upiId || "").trim();
+    const rawUpiPayload = String(model.qrCodeUrl || model.upiPayload || "").trim();
+    const validUpiPayload = isValidUpiUri(rawUpiPayload)
+      ? rawUpiPayload
+      : buildUpiUri({
+          vpa: resolvedUpiId,
+          payeeName: shopName,
+          amountPaise: Math.round((Number(model.grandTotal ?? model.total ?? 0) || 0) * 100),
+        });
 
     const receiptData: ReceiptData = {
       shop: {
-        logo: model.business?.logoUrl || model.shop?.logo || "",
-        name: model.business?.name || model.shop?.name || model.store?.name || "Store",
+        logo: showLogo ? model.business?.logoUrl || model.shop?.logo || "" : "",
+        name: shopName,
         address: model.business?.address || model.shop?.address || "",
         phone: model.business?.phone || model.shop?.phone || "",
         gstin: model.business?.gstin || model.shop?.gstin || "",
-        upiId: model.metadata?.upiId || model.shop?.upiId || "",
+        upiId: resolvedUpiId,
       },
       invoiceNumber: model.invoiceNumber || "",
       date: model.date || "",
@@ -67,8 +81,9 @@ export class HtmlRenderer {
       gst: Number(model.tax || model.gst || 0),
       grandTotal: Number(model.grandTotal || model.grand_total || model.total || 0),
       paymentMethod: model.payment?.method || model.paymentMethod || "Cash",
-      upiQrCode: model.metadata?.upiQrCode || model.upiQrCode,
-      upiPayload: model.qrCodeUrl || model.upiPayload,
+      upiQrCode: showQr && validUpiPayload ? model.metadata?.upiQrCode || model.upiQrCode : undefined,
+      upiPayload: showQr ? validUpiPayload : "",
+      barcodeData: model.barcodeData || model.invoiceNumber || "",
       thankYouMessage:
         model.footerText ||
         model.thankYouMessage ||
@@ -84,8 +99,11 @@ export class HtmlRenderer {
       React.createElement(ReceiptRenderer, {
         receipt: receiptData,
         templateName,
-        qrPosition: qrPosition as any,
+        qrPosition: (qrPosition === "Top" ? "Top" : "Bottom") as any,
         paperWidth: paperWidth as any,
+        showLogo,
+        showQr,
+        showBarcode,
       }),
     );
 
@@ -130,11 +148,41 @@ export function wrapText(str: string, width: number): string[] {
   return lines;
 }
 
-export async function loadThermalLogoMonochrome(
+export function resolveModelQrUri(model: UniversalReceiptModel | any): string {
+  const existing = String(model?.qrCodeUrl || model?.payment?.upiQrCode || "").trim();
+  if (isValidUpiUri(existing)) return existing;
+  return buildUpiUri({
+    vpa: model?.metadata?.upiId || model?.payment?.upiId,
+    payeeName: model?.business?.name || model?.store?.name || "Store",
+    amountPaise: Math.round((Number(model?.grandTotal) || 0) * 100),
+  });
+}
+
+export function resolveModelBarcodeValue(model: UniversalReceiptModel | any): string {
+  return String(model?.barcodeData || model?.invoiceNumber || "")
+    .replace(/[^\x20-\x7E]/g, "")
+    .trim()
+    .slice(0, 32);
+}
+
+export function resolveModelLogoSource(model: UniversalReceiptModel | any): string {
+  const val = String(
+    model?.business?.logoUrl ||
+      model?.shop?.logo ||
+      model?.branding?.logo ||
+      model?.store?.logo ||
+      model?.logoUrl ||
+      "",
+  ).trim();
+  if (!val || val === "/logo.png") return "";
+  return val;
+}
+
+async function rasterizeThermalLogoCanvas(
   imageUrl?: string,
-  maxWidthDots: number = 280,
-  maxHeightDots: number = 140,
-): Promise<{ data: Uint8ClampedArray; width: number; height: number } | null> {
+  maxWidthDots: number = 240,
+  maxHeightDots: number = 120,
+): Promise<{ canvas: HTMLCanvasElement; width: number; height: number } | null> {
   if (!imageUrl || typeof window === "undefined" || typeof document === "undefined") {
     return null;
   }
@@ -142,9 +190,7 @@ export async function loadThermalLogoMonochrome(
   const resolvedUrl = buildImageUrl(imageUrl) || imageUrl.trim();
   if (!resolvedUrl) return null;
 
-  // 1. Try to fetch as Blob to create a same-origin URL that avoids canvas tainting.
-  // Awaited before the Promise below rather than inside it: the image load is
-  // callback-based, and an async executor would swallow a rejection thrown here.
+  // Fetch non-data URLs as Blob first so cross-origin servers with CORS keep the canvas untainted.
   let objectUrl: string | null = null;
   if (!resolvedUrl.startsWith("data:image/")) {
     try {
@@ -159,6 +205,15 @@ export async function loadThermalLogoMonochrome(
   }
 
   return new Promise((resolve) => {
+    let settled = false;
+    const finish = (val: { canvas: HTMLCanvasElement; width: number; height: number } | null) => {
+      if (settled) return;
+      settled = true;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+      resolve(val);
+    };
+    const timer = setTimeout(() => finish(null), 4000);
+
     try {
       const targetSrc = objectUrl || resolvedUrl;
       const img = new Image();
@@ -167,31 +222,33 @@ export async function loadThermalLogoMonochrome(
       }
 
       img.onload = () => {
+        clearTimeout(timer);
         try {
           const origW = img.naturalWidth || img.width;
           const origH = img.naturalHeight || img.height;
-
           if (!origW || !origH) {
-            if (objectUrl) URL.revokeObjectURL(objectUrl);
-            resolve(null);
+            finish(null);
             return;
           }
 
           let width = origW;
           let height = origH;
 
-          // Preserve aspect ratio and scale down if exceeding max printable dots
+          // Preserve aspect ratio cleanly while fitting thermal paper roll width & max height
           if (width > maxWidthDots || height > maxHeightDots) {
             const ratio = Math.min(maxWidthDots / width, maxHeightDots / height);
             width = Math.round(width * ratio);
             height = Math.round(height * ratio);
           }
 
-          // Width in thermal ESC/POS raster bitmap must be a multiple of 8
-          width = Math.max(8, Math.floor(width / 8) * 8);
+          // ESC/POS raster bitmap width must be a multiple of 8 dots; adjust height proportionally
+          const alignedWidth = Math.max(8, Math.floor(width / 8) * 8);
+          if (alignedWidth !== width && width > 0) {
+            height = Math.max(8, Math.round((height * alignedWidth) / width));
+            width = alignedWidth;
+          }
           if (width <= 0 || height <= 0) {
-            if (objectUrl) URL.revokeObjectURL(objectUrl);
-            resolve(null);
+            finish(null);
             return;
           }
 
@@ -200,43 +257,64 @@ export async function loadThermalLogoMonochrome(
           canvas.height = height;
           const ctx = canvas.getContext("2d");
           if (!ctx) {
-            if (objectUrl) URL.revokeObjectURL(objectUrl);
-            resolve(null);
+            finish(null);
             return;
           }
 
-          // Fill white background for transparent logos
+          // Composite transparent logos onto solid white thermal background
           ctx.fillStyle = "#ffffff";
           ctx.fillRect(0, 0, width, height);
           ctx.drawImage(img, 0, 0, width, height);
 
-          const imgData = ctx.getImageData(0, 0, width, height);
-          if (objectUrl) URL.revokeObjectURL(objectUrl);
-
-          console.log(
-            `[ThermalLogo] Loaded logo (${origW}x${origH}) -> Resized to (${width}x${height}) for 58mm printer.`,
-          );
-          resolve({ data: imgData.data, width, height });
+          finish({ canvas, width, height });
         } catch (rasterErr) {
           console.warn("[ThermalLogo] Raster conversion error:", rasterErr);
-          if (objectUrl) URL.revokeObjectURL(objectUrl);
-          resolve(null);
+          finish(null);
         }
       };
 
-      img.onerror = (err) => {
-        console.warn("[ThermalLogo] Failed to load logo from URL:", resolvedUrl, err);
-        if (objectUrl) URL.revokeObjectURL(objectUrl);
-        resolve(null);
+      img.onerror = () => {
+        clearTimeout(timer);
+        finish(null);
       };
 
       img.src = targetSrc;
-    } catch (err) {
-      console.warn("[ThermalLogo] Unexpected logo loading error:", err);
-      if (objectUrl) URL.revokeObjectURL(objectUrl);
-      resolve(null);
+    } catch {
+      clearTimeout(timer);
+      finish(null);
     }
   });
+}
+
+export async function loadThermalLogoMonochrome(
+  imageUrl?: string,
+  maxWidthDots: number = 240,
+  maxHeightDots: number = 120,
+): Promise<{ data: Uint8ClampedArray; width: number; height: number } | null> {
+  const rendered = await rasterizeThermalLogoCanvas(imageUrl, maxWidthDots, maxHeightDots);
+  if (!rendered) return null;
+  try {
+    const ctx = rendered.canvas.getContext("2d");
+    if (!ctx) return null;
+    const imgData = ctx.getImageData(0, 0, rendered.width, rendered.height);
+    return { data: imgData.data, width: rendered.width, height: rendered.height };
+  } catch {
+    return null;
+  }
+}
+
+export async function loadThermalLogoDataUrl(
+  imageUrl?: string,
+  maxWidthDots: number = 240,
+  maxHeightDots: number = 120,
+): Promise<string | null> {
+  const rendered = await rasterizeThermalLogoCanvas(imageUrl, maxWidthDots, maxHeightDots);
+  if (!rendered) return null;
+  try {
+    return rendered.canvas.toDataURL("image/png");
+  } catch {
+    return null;
+  }
 }
 
 // 2. ESC/POS HARDWARE RENDERER
@@ -389,20 +467,26 @@ export class EscPosRenderer {
     const payMethod = model.payment?.method || "Cash";
     encoder.align("center").line(`Paid via ${payMethod}`);
 
-    // 8. Centered QR Code
+    // 8. Centered UPI QR Code (strictly requires valid UPI URI — never fall back to non-UPI URL)
     const qrSize = maxLen === 48 ? 4 : 3;
-    if (options?.showQr !== false && (model.qrCodeUrl || model.invoiceNumber)) {
+    const validQrUri = resolveModelQrUri(model);
+    if (options?.showQr !== false && validQrUri) {
       encoder.line();
-      encoder.qrCode(model.qrCodeUrl || `https://apkabill.in/v/${model.invoiceNumber}`, qrSize);
+      encoder.qrCode(validQrUri, qrSize);
       encoder.align("center");
       encoder.line("Scan to Pay via UPI");
       encoder.line();
       encoder.align("left");
     }
 
-    // 9. Barcode
-    if (tpl.footer.showBarcode && options?.showBarcode !== false && model.invoiceNumber) {
-      encoder.barcode(model.invoiceNumber, "CODE128");
+    // 9. Invoice Barcode (explicit profile/options toggle controls visibility)
+    const barcodeValue = resolveModelBarcodeValue(model);
+    if (options?.showBarcode !== false && barcodeValue) {
+      const barWidth = isSmallPaper && barcodeValue.length > 14 ? 1 : 2;
+      encoder.barcode(barcodeValue, "CODE128", {
+        width: barWidth,
+        height: isSmallPaper ? 48 : 56,
+      });
     }
 
     // 10. Footer (CENTERED)
@@ -431,19 +515,12 @@ export class EscPosRenderer {
       options?.paperWidth === "58mm" ||
       (options?.paperWidth as string) === "55mm" ||
       (options?.paperWidth as string) === "2inch";
-    const maxDots = isSmallPaper ? 280 : 384;
-    const logoUrl =
-      options?.showLogo !== false
-        ? model.business?.logoUrl ||
-          (model as any).shop?.logo ||
-          (model as any).branding?.logo ||
-          (model as any).store?.logo ||
-          (model as any).logoUrl
-        : undefined;
+    const maxDots = isSmallPaper ? 240 : 340;
+    const logoUrl = options?.showLogo !== false ? resolveModelLogoSource(model) : "";
 
     let logoBitmap = null;
     if (logoUrl) {
-      logoBitmap = await loadThermalLogoMonochrome(logoUrl, maxDots, 140);
+      logoBitmap = await loadThermalLogoMonochrome(logoUrl, maxDots, 120);
     }
 
     return this.render(model, {
@@ -462,7 +539,10 @@ export class PdfRenderer {
 
 // 4. DANTSU FORMATTED TEXT RENDERER FOR NATIVE ANDROID ESC/POS
 export class DantsuFormattedRenderer {
-  static render(model: UniversalReceiptModel, options?: RenderOptions): string {
+  static render(
+    model: UniversalReceiptModel,
+    options?: RenderOptions & { resolvedLogoUrl?: string | null },
+  ): string {
     const paperWidth = options?.paperWidth || "58mm";
     const isSmallPaper =
       paperWidth === "58mm" ||
@@ -473,11 +553,13 @@ export class DantsuFormattedRenderer {
 
     const sb: string[] = [];
 
-    // 1. Centered Shop Logo
-    const logoUrl =
-      options?.showLogo !== false ? model.business.logoUrl || (model as any).shop?.logo : undefined;
-    if (logoUrl) {
-      sb.push(`[C]<img>${logoUrl}</img>`);
+    // 1. Centered Shop Logo (explicit toggle)
+    const rawLogo =
+      options?.resolvedLogoUrl !== undefined
+        ? options.resolvedLogoUrl
+        : resolveModelLogoSource(model);
+    if (options?.showLogo !== false && rawLogo) {
+      sb.push(`[C]<img>${rawLogo}</img>`);
     }
 
     // 2. Header
@@ -551,17 +633,20 @@ export class DantsuFormattedRenderer {
     const payMethod = model.payment?.method || "Cash";
     sb.push(`[C]Paid via ${payMethod}`);
 
-    // 8. QR Code (CENTERED)
-    if (options?.showQr !== false && (model.qrCodeUrl || model.invoiceNumber)) {
-      const qrData = model.qrCodeUrl || `https://apkabill.in/v/${model.invoiceNumber}`;
+    // 8. UPI QR Code (strictly requires valid UPI URI — never prints non-UPI fallback QR)
+    const validQrUri = resolveModelQrUri(model);
+    if (options?.showQr !== false && validQrUri) {
       const qrSize = maxLen === 48 ? 25 : 20;
-      sb.push(`\n[C]<qrcode size='${qrSize}'>${qrData}</qrcode>`);
+      sb.push(`\n[C]<qrcode size='${qrSize}'>${validQrUri}</qrcode>`);
       sb.push(`[C]Scan to Pay via UPI\n`);
     }
 
-    // 9. Barcode
-    if (options?.showBarcode !== false && model.invoiceNumber) {
-      sb.push(`[C]<barcode type='128' width='2' height='50'>${model.invoiceNumber}</barcode>`);
+    // 9. Invoice Barcode (explicit profile/options toggle; fits 58mm paper cleanly)
+    const barcodeValue = resolveModelBarcodeValue(model);
+    if (options?.showBarcode !== false && barcodeValue) {
+      const barWidth = isSmallPaper && barcodeValue.length > 14 ? 1 : 2;
+      const barHeight = isSmallPaper ? 45 : 55;
+      sb.push(`[C]<barcode type='128' width='${barWidth}' height='${barHeight}'>${barcodeValue}</barcode>`);
     }
 
     // 10. Footer (CENTERED)
@@ -574,6 +659,26 @@ export class DantsuFormattedRenderer {
     }
 
     return sb.join("\n");
+  }
+
+  static async renderAsync(
+    model: UniversalReceiptModel,
+    options?: RenderOptions,
+  ): Promise<string> {
+    const paperWidth = options?.paperWidth || "58mm";
+    const isSmallPaper =
+      paperWidth === "58mm" ||
+      (paperWidth as string) === "55mm" ||
+      (paperWidth as string) === "2inch";
+    let resolvedLogoUrl: string | null = null;
+    if (options?.showLogo !== false) {
+      const rawLogo = resolveModelLogoSource(model);
+      if (rawLogo) {
+        const fitted = await loadThermalLogoDataUrl(rawLogo, isSmallPaper ? 240 : 340, 120);
+        resolvedLogoUrl = fitted || rawLogo;
+      }
+    }
+    return this.render(model, { ...options, resolvedLogoUrl });
   }
 }
 
@@ -596,6 +701,13 @@ export class UniversalReceiptRenderer {
 
   static toDantsuFormattedText(model: UniversalReceiptModel, options?: RenderOptions): string {
     return DantsuFormattedRenderer.render(model, options);
+  }
+
+  static async toDantsuFormattedTextAsync(
+    model: UniversalReceiptModel,
+    options?: RenderOptions,
+  ): Promise<string> {
+    return await DantsuFormattedRenderer.renderAsync(model, options);
   }
 
   static async toPdfBlob(invoiceNumber: string): Promise<Blob> {

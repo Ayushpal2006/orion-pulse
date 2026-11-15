@@ -178,6 +178,15 @@ export class ReceiptBuilderService {
           { type: "text", value: branding.receiptFooter, align: "center" },
         ];
 
+        const rawGrandPaise = Number(saleRecord.grand_total ?? 0);
+        const rawPaidPaise = Number(saleRecord.paid_amount ?? 0);
+        const rawBalancePaise = Number(saleRecord.balance ?? 0);
+        // Legacy rows default both paid_amount and balance to 0; infer paid in full unless balance > 0
+        const resolvedPaidPaise =
+          rawPaidPaise === 0 && rawBalancePaise === 0 && rawGrandPaise > 0
+            ? rawGrandPaise
+            : rawPaidPaise;
+
         return {
           invoiceNumber: saleRecord.invoice_number,
           date: formattedDate,
@@ -194,7 +203,9 @@ export class ReceiptBuilderService {
           subtotal: saleRecord.subtotal / 100.0,
           discount: saleRecord.discount / 100.0,
           gst: saleRecord.gst / 100.0,
-          grandTotal: saleRecord.grand_total / 100.0,
+          grandTotal: rawGrandPaise / 100.0,
+          paidAmount: resolvedPaidPaise / 100.0,
+          balance: rawBalancePaise / 100.0,
           paymentMethod: saleRecord.payment_method,
           cashier: saleRecord.cashier_name || "Admin",
           publicToken: saleRecord.public_token || "",
