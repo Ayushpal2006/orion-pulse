@@ -60,9 +60,11 @@ export class EscPosEncoder {
   }
 
   qrCode(data: string, size: number = 3): this {
+    const clean = String(data || "").trim();
+    if (!clean) return this;
     // 1. Flush line buffer & Align Center
     this.align("center");
-    const len = data.length + 3;
+    const len = clean.length + 3;
     const pL = len % 256;
     const pH = Math.floor(len / 256);
 
@@ -75,7 +77,7 @@ export class EscPosEncoder {
     // 5. Store data
     this.buffer.push(0x1d, 0x28, 0x6b, pL, pH, 0x31, 0x50, 0x30);
     const encoder = new TextEncoder();
-    this.buffer.push(...Array.from(encoder.encode(data)));
+    this.buffer.push(...Array.from(encoder.encode(clean)));
     // 6. Print QR Code
     this.buffer.push(0x1d, 0x28, 0x6b, 0x03, 0x00, 0x31, 0x51, 0x30);
     this.buffer.push(0x0a); // LF to flush QR line buffer
@@ -84,17 +86,34 @@ export class EscPosEncoder {
     return this;
   }
 
-  barcode(data: string, type: "CODE128" | "CODE39" = "CODE128"): this {
+  barcode(
+    data: string,
+    type: "CODE128" | "CODE39" = "CODE128",
+    opts?: { width?: number; height?: number },
+  ): this {
+    const clean = String(data || "")
+      .replace(/[^\x20-\x7E]/g, "")
+      .trim()
+      .slice(0, 32);
+    if (!clean) return this;
+
+    const moduleWidth = Math.min(Math.max(Math.round(opts?.width ?? 2), 1), 4);
+    const barHeight = Math.min(Math.max(Math.round(opts?.height ?? 56), 24), 120);
+
     this.align("center");
-    this.buffer.push(0x1d, 0x68, 60); // GS h height (60 dots)
-    this.buffer.push(0x1d, 0x77, 2); // GS w width (2)
-    this.buffer.push(0x1d, 0x48, 2); // GS H text position (below)
+    this.buffer.push(0x1d, 0x68, barHeight); // GS h height
+    this.buffer.push(0x1d, 0x77, moduleWidth); // GS w module width
+    this.buffer.push(0x1d, 0x48, 2); // GS H HRI text below barcode
 
     if (type === "CODE128") {
-      const len = data.length + 2;
-      this.buffer.push(0x1d, 0x6b, 73, len, 0x7b, 0x42); // GS k CODE128
       const encoder = new TextEncoder();
-      this.buffer.push(...Array.from(encoder.encode(data)));
+      const encodedBytes = Array.from(encoder.encode(clean));
+      const len = encodedBytes.length + 2;
+      this.buffer.push(0x1d, 0x6b, 73, len, 0x7b, 0x42, ...encodedBytes); // GS k CODE128 {B
+    } else {
+      const encoder = new TextEncoder();
+      const encodedBytes = Array.from(encoder.encode(clean.toUpperCase()));
+      this.buffer.push(0x1d, 0x6b, 4, ...encodedBytes, 0x00); // GS k CODE39 NUL
     }
     this.buffer.push(0x0a);
     // Explicitly restore LEFT alignment

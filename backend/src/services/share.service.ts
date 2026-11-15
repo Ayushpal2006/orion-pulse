@@ -31,43 +31,66 @@ export function normalizeWhatsAppPhone(rawPhone?: string | null): string | null 
 }
 
 export class ShareService {
-  generateWhatsAppMessage(receipt: any): string {
-    const shopName = receipt.branding?.shopName || receipt.shop?.name || "Store";
-    const customerName = receipt.customer?.name || "Customer";
-    const invoiceNum = receipt.invoiceNumber;
-    const amount = receipt.grandTotal;
-    const token = receipt.publicToken || "";
+  /**
+   * Formats INR amount cleanly for WhatsApp text (e.g. ₹1,200.00).
+   */
+  private formatInr(amount: number): string {
+    const safe = Number.isFinite(amount) ? Math.round(amount * 100) / 100 : 0;
+    return new Intl.NumberFormat("en-IN", {
+      style: "currency",
+      currency: "INR",
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(safe);
+  }
 
-    let host = process.env.BASE_URL;
-    if (!host) {
-      if (process.env.NODE_ENV === "production") {
-        console.error("❌ [ShareService] ERROR: BASE_URL environment variable is missing in production!");
-      }
-      host = "http://localhost:8080";
-    }
-    const viewUrl = `${host}/invoice/v/${token}`;
-    const downloadUrl = `${host}/invoice/v/${token}/download`;
-    const shopPhone = receipt.branding?.phone || receipt.shop?.phone || "";
+  /**
+   * Generates a concise, readable WhatsApp invoice summary without PDF or localhost URLs.
+   * PDF link sharing is temporarily paused in WhatsApp workflows in favor of branded invoice images.
+   */
+  generateWhatsAppMessage(receipt: any): string {
+    const shopName = String(receipt?.branding?.shopName || receipt?.shop?.name || "Apka Bill Store").trim();
+    const rawCustomerName = String(receipt?.customer?.name || "").trim();
+    const hasNamedCustomer =
+      rawCustomerName.length > 0 && rawCustomerName.toLowerCase() !== "walk-in customer";
+    const greeting = hasNamedCustomer ? `Hello ${rawCustomerName},` : "Hello,";
+
+    const invoiceNum = String(receipt?.invoiceNumber || "INV").trim();
+    const datePart = [receipt?.date, receipt?.time].filter(Boolean).join(", ").trim();
+    const total = Number(receipt?.grandTotal ?? receipt?.total ?? 0);
+    const rawBalance = receipt?.balance;
+    const rawPaid = receipt?.paidAmount;
+    const balance =
+      rawBalance !== undefined && rawBalance !== null && rawBalance !== ""
+        ? Math.max(0, Number(rawBalance))
+        : rawPaid !== undefined && rawPaid !== null && rawPaid !== ""
+          ? Math.max(0, total - Number(rawPaid))
+          : 0;
+    const paid =
+      rawPaid !== undefined && rawPaid !== null && rawPaid !== ""
+        ? Number(rawPaid) === 0 && balance === 0 && total > 0
+          ? total
+          : Math.max(0, Number(rawPaid))
+        : Math.max(0, total - balance);
+
+    const shopPhone = String(receipt?.branding?.phone || receipt?.shop?.phone || "").trim();
 
     const lines: string[] = [
-      `Hi ${customerName} 👋`,
+      greeting,
       "",
-      `Thank you for shopping with ${shopName}.`,
+      `Thank you for shopping with ${shopName}!`,
       "",
-      `*Invoice Number*`,
-      invoiceNum,
+      `Invoice: ${invoiceNum}`,
+      ...(datePart ? [`Date: ${datePart}`] : []),
       "",
-      `*Amount Paid*`,
-      `₹${amount.toFixed(2)}`,
+      `Total Amount: ${this.formatInr(total)}`,
+      `Paid: ${this.formatInr(paid)}`,
+      `Balance: ${this.formatInr(balance)}`,
       "",
-      `*View Invoice*`,
-      viewUrl,
+      "Your invoice image is attached.",
+      ...(shopPhone ? ["", `Contact: ${shopPhone}`] : []),
       "",
-      `*Download PDF*`,
-      downloadUrl,
-      "",
-      ...(shopPhone ? [`Need help?`, `Call`, shopPhone, ""] : []),
-      `Thank you ❤️`
+      "Thank you for choosing us!",
     ];
 
     return lines.join("\n");

@@ -58,6 +58,8 @@ export interface ReceiptDTO {
   discount: number;
   gst: number;
   grandTotal: number;
+  paidAmount?: number;
+  balance?: number;
   paymentMethod: string;
   cashier: string;
   publicToken: string;

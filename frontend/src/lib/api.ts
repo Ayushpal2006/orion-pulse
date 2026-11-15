@@ -220,6 +220,7 @@ import {
   getCustomersOffline,
   saveSettingsOffline,
   getSettingsOffline,
+  clearOfflineTenantCaches,
 } from "./offline-db";
 
 export async function getProducts(): Promise<Product[]> {
@@ -872,23 +873,47 @@ export async function getSaleReceipt(idOrInvoice: string): Promise<any> {
         typeof window !== "undefined" ? localStorage.getItem("orion_address") || "" : "";
       const shopPhone =
         typeof window !== "undefined" ? localStorage.getItem("orion_phone") || "" : "";
+      const shopEmail =
+        typeof window !== "undefined" ? localStorage.getItem("orion_email") || "" : "";
       const shopUpi =
         typeof window !== "undefined" ? localStorage.getItem("orion_upi_id") || "" : "";
+      const shopLogo =
+        typeof window !== "undefined" ? localStorage.getItem("orion_logo") || "" : "";
+      const receiptFooter =
+        typeof window !== "undefined"
+          ? localStorage.getItem("orion_receipt_footer") ||
+            localStorage.getItem("orion_thank_you_message") ||
+            "Thank you for choosing us!"
+          : "Thank you for choosing us!";
+      const rawCustomerPhone =
+        found.customer_phone === "0000000000" ? "" : found.customer_phone || "";
 
       return {
         invoiceNumber: found.invoice_number,
         date: new Date(found.created_at).toLocaleDateString("en-IN"),
         time: new Date(found.created_at).toLocaleTimeString("en-IN"),
+        branding: {
+          shopName,
+          gstin: shopGstin,
+          phone: shopPhone,
+          address: shopAddress,
+          email: shopEmail,
+          upiId: shopUpi,
+          logo: shopLogo,
+          receiptFooter,
+        },
         shop: {
           name: shopName,
           gstin: shopGstin,
           phone: shopPhone,
           address: shopAddress,
+          email: shopEmail,
           upiId: shopUpi,
+          logo: shopLogo,
         },
         customer: {
           name: found.customer_name || "Walk-in Customer",
-          phone: "",
+          phone: rawCustomerPhone,
         },
         items: found.items.map((i: any) => ({
           productId: i.product_id,
@@ -902,9 +927,13 @@ export async function getSaleReceipt(idOrInvoice: string): Promise<any> {
         discount: found.discount,
         gst: found.tax,
         grandTotal: found.total_amount,
+        paidAmount: found.amount_paid ?? found.total_amount,
+        balance:
+          found.balance ??
+          Math.max(0, Number(found.total_amount || 0) - Number(found.amount_paid ?? found.total_amount ?? 0)),
         paymentMethod: found.payment_method,
-        cashier: "Admin",
-        thankYouMessage: "Thank you for shopping with us (Offline Receipt)",
+        cashier: found.cashier_name || "Admin",
+        thankYouMessage: receiptFooter,
         publicToken: found.offlineId,
         offline: true,
       };
@@ -2058,14 +2087,40 @@ export async function loginApi(email: string, password: string): Promise<any> {
 }
 
 export async function logoutApi(): Promise<any> {
-  const res = await apiFetch(`${API_BASE_URL}/api/auth/logout`, {
+  await apiFetch(`${API_BASE_URL}/api/auth/logout`, {
     method: "POST",
     headers: getStoreHeaders(),
   }).catch(() => ({}));
   if (typeof window !== "undefined") {
     localStorage.removeItem("token");
+    localStorage.removeItem("currentOrgId");
     localStorage.removeItem("currentStoreId");
+    localStorage.removeItem("apka_cached_session");
+    [
+      "orion_shop_name",
+      "orion_gstin",
+      "orion_logo",
+      "orion_address",
+      "orion_phone",
+      "orion_email",
+      "orion_upi_id",
+      "orion_inv_prefix",
+      "orion_po_prefix",
+      "orion_receipt_footer",
+      "orion_receipt_template",
+      "orion_currency",
+    ].forEach((k) => localStorage.removeItem(k));
+    const printerKeys: string[] = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k && k.startsWith("orion_printer_config_")) printerKeys.push(k);
+    }
+    printerKeys.forEach((k) => localStorage.removeItem(k));
   }
+  await import("./printer-profile.service")
+    .then((m) => m.printerProfileService.clearAllLocalCaches())
+    .catch(() => {});
+  await clearOfflineTenantCaches(false).catch(() => {});
   return true;
 }
 
@@ -2075,7 +2130,14 @@ export async function getCurrentUserApi(): Promise<any> {
   });
   const json = await res.json().catch(() => ({}));
   if (!res.ok || !json.success) {
-    throw new Error(json.error || "Failed to get current user session");
+    const err: any = new Error(json.error || "Failed to get current user session");
+    err.status = res.status;
+    throw err;
+  }
+  if (typeof window !== "undefined" && json.data) {
+    try {
+      localStorage.setItem("apka_cached_session", JSON.stringify(json.data));
+    } catch (_) {}
   }
   return json.data;
 }
@@ -2457,13 +2519,15 @@ export async function changePasswordApi(data: {
 
 export async function getSettingsApi(): Promise<Record<string, string>> {
   try {
-    const res = await apiFetch(`${API_BASE_URL}/settings`);
+    const res = await apiFetch(`${API_BASE_URL}/settings`, {
+      headers: getStoreHeaders(),
+    });
     if (!res.ok) {
       throw new Error(`HTTP error! status: ${res.status}`);
     }
     const payload = await res.json();
     if (payload.success && payload.data) {
-      saveSettingsOffline(payload.data);
+      await saveSettingsOffline(payload.data);
       return payload.data;
     }
     return {};
@@ -2484,6 +2548,7 @@ export async function updateSettingsApi(settings: Record<string, string>): Promi
     const errorData = await res.json().catch(() => ({}));
     throw new Error(errorData.error || `Failed to update settings (HTTP ${res.status})`);
   }
+  await saveSettingsOffline(settings).catch(() => {});
 }
 
 export async function fetchAndApplyStoreSettings(): Promise<Record<string, string>> {
@@ -2491,34 +2556,59 @@ export async function fetchAndApplyStoreSettings(): Promise<Record<string, strin
   if (cfg && Object.keys(cfg).length > 0) {
     const { useApp } = await import("./store");
     const s = useApp.getState();
-    const shopName = cfg.shop_name || cfg.storeName || cfg.store_name || "";
-    const gstin = cfg.shop_gstin || cfg.gstin || "";
-    const address = cfg.shop_address || cfg.address || cfg.storeAddress || "";
-    const phone = cfg.shop_phone || cfg.phone || cfg.storePhone || "";
-    const email = cfg.shop_email || cfg.email || cfg.storeEmail || "";
-    const logo = cfg.logo || cfg.logoUrl || cfg.logo_url || "";
-    const upiId = cfg.shop_upi_id || cfg.upiId || cfg.upi_id || "";
+    const shopName = cfg.shop_name ?? cfg.storeName ?? cfg.store_name ?? "";
+    const gstin = cfg.shop_gstin ?? cfg.gstin ?? "";
+    const address = cfg.shop_address ?? cfg.address ?? cfg.storeAddress ?? "";
+    const phone = cfg.shop_phone ?? cfg.phone ?? cfg.storePhone ?? "";
+    const email = cfg.shop_email ?? cfg.email ?? cfg.storeEmail ?? "";
+    const logo = cfg.logo ?? cfg.logoUrl ?? cfg.logo_url ?? "";
+    const upiId = cfg.shop_upi_id ?? cfg.upiId ?? cfg.upi_id ?? "";
 
-    if (shopName) s.setShopName(shopName);
-    if (gstin) s.setGstin(gstin);
-    if (address) s.setStoreAddress(address);
-    if (phone) s.setStorePhone(phone);
-    if (email) s.setStoreEmail(email);
-    if (logo) s.setLogo(logo);
-    if (upiId) s.setUpiId(upiId);
-    if (cfg.receipt_footer) s.setReceiptFooter(cfg.receipt_footer);
+    s.setShopName(shopName);
+    s.setGstin(gstin);
+    s.setStoreAddress(address);
+    s.setStorePhone(phone);
+    s.setStoreEmail(email);
+    s.setLogo(logo || undefined);
+    if (typeof window !== "undefined") {
+      if (logo) localStorage.setItem("orion_logo", logo);
+      else localStorage.removeItem("orion_logo");
+    }
+    s.setUpiId(upiId);
+    if (cfg.currency) s.setCurrency(cfg.currency);
+    if (cfg.inv_prefix !== undefined) s.setInvPrefix(cfg.inv_prefix || "INV-");
+    if (cfg.receipt_footer !== undefined) s.setReceiptFooter(cfg.receipt_footer || "*** Thank you — visit again ***");
     if (cfg.theme) s.setTheme(cfg.theme as any);
     if (cfg.receipt_template) s.setReceiptTemplate(cfg.receipt_template as any);
-    if (cfg.primary_color && s.setPrimaryColor) s.setPrimaryColor(cfg.primary_color);
-    if (cfg.tagline && s.setTagline) s.setTagline(cfg.tagline);
-    if (cfg.website && s.setWebsite) s.setWebsite(cfg.website);
-    if (cfg.invoice_header && s.setInvoiceHeader) s.setInvoiceHeader(cfg.invoice_header);
-    if (cfg.invoice_footer && s.setInvoiceFooter) s.setInvoiceFooter(cfg.invoice_footer);
-    if (cfg.terms_and_conditions && s.setTermsAndConditions)
+    if (cfg.paper_width) s.setPaperWidth(cfg.paper_width as any);
+    if (cfg.primary_color !== undefined && s.setPrimaryColor) s.setPrimaryColor(cfg.primary_color);
+    if (cfg.tagline !== undefined && s.setTagline) s.setTagline(cfg.tagline);
+    if (cfg.website !== undefined && s.setWebsite) s.setWebsite(cfg.website);
+    if (cfg.invoice_header !== undefined && s.setInvoiceHeader) s.setInvoiceHeader(cfg.invoice_header);
+    if (cfg.invoice_footer !== undefined && s.setInvoiceFooter) s.setInvoiceFooter(cfg.invoice_footer);
+    if (cfg.terms_and_conditions !== undefined && s.setTermsAndConditions)
       s.setTermsAndConditions(cfg.terms_and_conditions);
-    if (cfg.whatsapp_signature && s.setWhatsappSignature)
+    if (cfg.whatsapp_signature !== undefined && s.setWhatsappSignature)
       s.setWhatsappSignature(cfg.whatsapp_signature);
     if (cfg.tax_rate && s.setTaxRate) s.setTaxRate(parseFloat(cfg.tax_rate) || 12);
+    if (cfg.tax_inclusive !== undefined && s.setTaxInclusive) {
+      s.setTaxInclusive(cfg.tax_inclusive === "1" || cfg.tax_inclusive === "true");
+    }
+    if (cfg.round_off_enabled !== undefined && s.setRoundOffEnabled) {
+      s.setRoundOffEnabled(cfg.round_off_enabled === "1" || cfg.round_off_enabled === "true");
+    }
+    if (cfg.auto_print_invoice !== undefined && s.setAutoPrintInvoice) {
+      s.setAutoPrintInvoice(cfg.auto_print_invoice === "1" || cfg.auto_print_invoice === "true");
+    }
+    if (cfg.accepted_payments && s.setAcceptedPaymentModes) {
+      try {
+        const parsed = JSON.parse(cfg.accepted_payments);
+        if (Array.isArray(parsed) && parsed.length > 0) s.setAcceptedPaymentModes(parsed);
+      } catch (_) {}
+    }
+    if (cfg.language === "hi" || cfg.language === "en") {
+      s.setLanguage(cfg.language);
+    }
     if (cfg.require_customer_before_checkout !== undefined && s.setRequireCustomerBeforeCheckout) {
       s.setRequireCustomerBeforeCheckout(
         cfg.require_customer_before_checkout === "1" ||

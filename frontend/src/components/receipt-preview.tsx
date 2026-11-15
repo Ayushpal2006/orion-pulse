@@ -1,8 +1,19 @@
 import { useApp } from "@/lib/store";
 import { cn } from "@/lib/utils";
 import { InvoiceTemplateRenderer } from "./invoice-template-renderer";
+import { printerProfileService } from "@/lib/printer-profile.service";
 
-export function ReceiptPreview() {
+interface ReceiptPreviewProps {
+  showLogo?: boolean;
+  showQr?: boolean;
+  showBarcode?: boolean;
+}
+
+export function ReceiptPreview({
+  showLogo,
+  showQr,
+  showBarcode,
+}: ReceiptPreviewProps = {}) {
   const shopName = useApp((s) => s.shopName);
   const gstin = useApp((s) => s.gstin);
   const storeAddress = useApp((s) => s.storeAddress);
@@ -14,6 +25,12 @@ export function ReceiptPreview() {
   const paperWidth = useApp((s) => s.paperWidth);
   const logo = useApp((s) => s.logo);
   const receiptTemplate = useApp((s) => s.receiptTemplate);
+
+  const activeProfile = printerProfileService.getActiveProfile();
+  const effectiveShowLogo = showLogo !== undefined ? showLogo : (activeProfile?.showLogo ?? true);
+  const effectiveShowQr = showQr !== undefined ? showQr : (activeProfile?.showQr ?? true);
+  const effectiveShowBarcode =
+    showBarcode !== undefined ? showBarcode : (activeProfile?.showBarcode ?? true);
 
   const receipt = {
     shop: {
@@ -55,6 +72,9 @@ export function ReceiptPreview() {
         templateName={receiptTemplate}
         paperWidth={paperWidth === "A4" ? "80mm" : paperWidth}
         qrPosition={qrPosition}
+        showLogo={effectiveShowLogo}
+        showQr={effectiveShowQr}
+        showBarcode={effectiveShowBarcode}
       />
     </div>
   );

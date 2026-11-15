@@ -125,8 +125,7 @@ function Reports() {
       <div className="flex h-[80vh] flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-border bg-muted/20 p-6 text-center">
         <div className="text-sm font-semibold text-foreground">Reports could not be loaded</div>
         <div className="max-w-md text-sm text-muted-foreground">
-          The backend could not produce the selected report. Please retry or verify the SQLite data
-          source.
+          The backend could not produce the selected report. Please check your network connection and retry.
         </div>
         <Button variant="outline" size="sm" onClick={() => refetch()}>
           <RefreshCw className="mr-2 size-4" /> Retry
@@ -162,7 +161,7 @@ function Reports() {
         <div>
           <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">Reports</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            All reports computed in real-time from active SQLite ledger.
+            All reports computed in real-time from your active store ledger.
           </p>
         </div>
         <div className="flex gap-2">
@@ -324,7 +323,8 @@ function Reports() {
                 <div className="border-b border-border p-4 text-sm font-semibold">
                   Top Selling Products
                 </div>
-                <table className="w-full text-sm">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
                   <thead className="bg-muted/40 text-xs uppercase tracking-wide text-muted-foreground">
                     <tr>
                       <th className="px-4 py-3 text-left font-medium">Product</th>
@@ -361,6 +361,7 @@ function Reports() {
                     )}
                   </tbody>
                 </table>
+                </div>
               </div>
 
               {/* Summary Cards */}
@@ -398,40 +399,42 @@ function Reports() {
               <div className="border-b border-border p-4 text-sm font-semibold">
                 Top Spender Customers
               </div>
-              <table className="w-full text-sm">
-                <thead className="bg-muted/40 text-xs uppercase tracking-wide text-muted-foreground">
-                  <tr>
-                    <th className="px-4 py-3 text-left font-medium">Customer</th>
-                    <th className="px-4 py-3 text-right font-medium">Orders</th>
-                    <th className="px-4 py-3 text-right font-medium">Total Spend</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border">
-                  {topCustomers.length === 0 ? (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-muted/40 text-xs uppercase tracking-wide text-muted-foreground">
                     <tr>
-                      <td
-                        colSpan={3}
-                        className="px-4 py-8 text-center text-xs text-muted-foreground"
-                      >
-                        No customer spends found.
-                      </td>
+                      <th className="px-4 py-3 text-left font-medium">Customer</th>
+                      <th className="px-4 py-3 text-right font-medium">Orders</th>
+                      <th className="px-4 py-3 text-right font-medium">Total Spend</th>
                     </tr>
-                  ) : (
-                    topCustomers.map((c: any, idx: number) => (
-                      <tr key={idx}>
-                        <td className="px-4 py-3 font-medium text-foreground">
-                          <div>{c.name}</div>
-                          <div className="text-[10px] text-muted-foreground">{c.phone}</div>
-                        </td>
-                        <td className="px-4 py-3 text-right text-muted-foreground">{c.orders}</td>
-                        <td className="px-4 py-3 text-right font-semibold text-foreground">
-                          {inr(c.spend)}
+                  </thead>
+                  <tbody className="divide-y divide-border">
+                    {topCustomers.length === 0 ? (
+                      <tr>
+                        <td
+                          colSpan={3}
+                          className="px-4 py-8 text-center text-xs text-muted-foreground"
+                        >
+                          No customer spends found.
                         </td>
                       </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
+                    ) : (
+                      topCustomers.map((c: any, idx: number) => (
+                        <tr key={idx}>
+                          <td className="px-4 py-3 font-medium text-foreground">
+                            <div>{c.name}</div>
+                            <div className="text-[10px] text-muted-foreground">{c.phone}</div>
+                          </td>
+                          <td className="px-4 py-3 text-right text-muted-foreground">{c.orders}</td>
+                          <td className="px-4 py-3 text-right font-semibold text-foreground">
+                            {inr(c.spend)}
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
 
@@ -458,45 +461,47 @@ function Reports() {
             <div className="border-b border-border p-4 text-sm font-semibold">
               GST summary · {FILTERS.find((f) => f.key === filter)?.label ?? "Custom range"}
             </div>
-            <table className="w-full text-sm">
-              <thead className="bg-muted/40 text-xs uppercase tracking-wide text-muted-foreground">
-                <tr>
-                  <th className="px-4 py-3 text-left font-medium">Slab</th>
-                  <th className="px-4 py-3 text-right font-medium">Taxable value</th>
-                  <th className="px-4 py-3 text-right font-medium">Tax collected</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {gstRows.length === 0 ? (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-muted/40 text-xs uppercase tracking-wide text-muted-foreground">
                   <tr>
-                    <td colSpan={3} className="px-4 py-8 text-center text-xs text-muted-foreground">
-                      No GST logs found in this period.
-                    </td>
+                    <th className="px-4 py-3 text-left font-medium">Slab</th>
+                    <th className="px-4 py-3 text-right font-medium">Taxable value</th>
+                    <th className="px-4 py-3 text-right font-medium">Tax collected</th>
                   </tr>
-                ) : (
-                  gstRows.map((r: any) => (
-                    <tr key={r.slab}>
-                      <td className="px-4 py-3 font-medium text-foreground">GST {r.slab}%</td>
-                      <td className="px-4 py-3 text-right tabular text-muted-foreground">
-                        {inr(r.taxable)}
-                      </td>
-                      <td className="px-4 py-3 text-right tabular font-semibold text-foreground">
-                        {inr(r.tax)}
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {gstRows.length === 0 ? (
+                    <tr>
+                      <td colSpan={3} className="px-4 py-8 text-center text-xs text-muted-foreground">
+                        No GST logs found in this period.
                       </td>
                     </tr>
-                  ))
-                )}
-                <tr className="bg-muted/40 font-semibold text-foreground">
-                  <td className="px-4 py-3">Total</td>
-                  <td className="px-4 py-3 text-right tabular">
-                    {inr(gstRows.reduce((s: number, r: any) => s + r.taxable, 0))}
-                  </td>
-                  <td className="px-4 py-3 text-right tabular">
-                    {inr(gstRows.reduce((s: number, r: any) => s + r.tax, 0))}
-                  </td>
-                </tr>
-              </tbody>
-            </table>
+                  ) : (
+                    gstRows.map((r: any) => (
+                      <tr key={r.slab}>
+                        <td className="px-4 py-3 font-medium text-foreground">GST {r.slab}%</td>
+                        <td className="px-4 py-3 text-right tabular text-muted-foreground">
+                          {inr(r.taxable)}
+                        </td>
+                        <td className="px-4 py-3 text-right tabular font-semibold text-foreground">
+                          {inr(r.tax)}
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                  <tr className="bg-muted/40 font-semibold text-foreground">
+                    <td className="px-4 py-3">Total</td>
+                    <td className="px-4 py-3 text-right tabular">
+                      {inr(gstRows.reduce((s: number, r: any) => s + r.taxable, 0))}
+                    </td>
+                    <td className="px-4 py-3 text-right tabular">
+                      {inr(gstRows.reduce((s: number, r: any) => s + r.tax, 0))}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
           </div>
         </TabsContent>
 

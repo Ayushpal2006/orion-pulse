@@ -744,7 +744,7 @@ function SupplierDetail({
             No ledger transactions recorded yet.
           </div>
         ) : (
-          <div className="border border-border/40 rounded-xl bg-background/50 overflow-hidden">
+          <div className="border border-border/40 rounded-xl bg-background/50 overflow-x-auto">
             <table className="w-full text-left text-xs border-collapse">
               <thead>
                 <tr className="bg-muted/40 border-b border-border/40 text-[9px] uppercase font-bold text-muted-foreground">

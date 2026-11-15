@@ -1,3 +1,4 @@
+import { Capacitor } from "@capacitor/core";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
   Outlet,
@@ -114,13 +115,11 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       },
       {
         property: "og:image",
-        content:
-          "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/b3fc29be-0b57-4e9a-b844-6755c2314997/id-preview-22f71ad6--e84940c3-6160-4784-8f61-6ddbed0125ec.lovable.app-1783471899172.png",
+        content: "/logo.png",
       },
       {
         name: "twitter:image",
-        content:
-          "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/b3fc29be-0b57-4e9a-b844-6755c2314997/id-preview-22f71ad6--e84940c3-6160-4784-8f61-6ddbed0125ec.lovable.app-1783471899172.png",
+        content: "/logo.png",
       },
     ],
     links: [
@@ -160,16 +159,19 @@ function RootComponent() {
   const isWizardRoute = pathname === "/setup-wizard" || pathname.startsWith("/setup-wizard");
 
   useEffect(() => {
+    // The Capacitor app ships its assets inside the APK; a service worker there would only
+    // serve stale bundles after an app update.
+    if (Capacitor.isNativePlatform()) return;
     if (typeof window !== "undefined" && "serviceWorker" in navigator) {
       window.addEventListener("load", () => {
         navigator.serviceWorker
           .register("/sw.js")
           .then((reg) => {
-            console.log("Orion POS: Service Worker successfully loaded:", reg.scope);
+            console.log("Apka Bill: Service Worker successfully loaded:", reg.scope);
             reg.update();
           })
           .catch((err) => {
-            console.error("Orion POS: Service Worker registration failed:", err);
+            console.error("Apka Bill: Service Worker registration failed:", err);
           });
       });
     }

@@ -305,8 +305,48 @@ export class PrinterProfileService {
     );
   }
 
+  getActiveProfile(storeId?: string): PrinterProfile {
+    const activeStoreId =
+      storeId ||
+      (typeof window !== "undefined"
+        ? window.localStorage?.getItem("orion_active_store_id") || "default"
+        : "default");
+    const cacheKey = `store_${activeStoreId}`;
+    const cached = this.profileCache.get(cacheKey);
+    if (cached) {
+      return (
+        cached.profiles.find((p) => p.id === cached.activeId) ||
+        cached.profiles[0] ||
+        DEFAULT_PRINTER_PROFILES[0]
+      );
+    }
+    if (typeof window !== "undefined" && window.localStorage) {
+      const storageKey = `orion_printer_config_${activeStoreId}`;
+      const localData = window.localStorage.getItem(storageKey);
+      if (localData) {
+        try {
+          const parsed = JSON.parse(localData);
+          if (parsed.profiles && parsed.activeId) {
+            return (
+              parsed.profiles.find((p: PrinterProfile) => p.id === parsed.activeId) ||
+              parsed.profiles[0] ||
+              DEFAULT_PRINTER_PROFILES[0]
+            );
+          }
+        } catch {
+          // ignore parsing error and return default
+        }
+      }
+    }
+    return DEFAULT_PRINTER_PROFILES[0];
+  }
+
   clearCache(): void {
     this.profileCache.clear();
+  }
+
+  clearAllLocalCaches(): void {
+    this.clearCache();
   }
 }
 

@@ -10,6 +10,7 @@ import { httpServerHandler } from "cloudflare:node";
 
 import { app } from "./app";
 import { getPool, detachPool } from "./db";
+import { ensureDatabaseSchema } from "./db/schema-ensure";
 
 export interface Env {
   HYPERDRIVE?: {
@@ -84,10 +85,11 @@ export default {
       );
     }
 
-    // Dedicated /health/db probe verifying Neon Hyperdrive connectivity
+    // Dedicated /health/db probe verifying Neon Hyperdrive connectivity and running schema safety check
     if (url.pathname === "/health/db") {
       try {
         const pool = getPool();
+        await ensureDatabaseSchema(pool);
         await pool.query("SELECT 1 as connected");
         return new Response(
           JSON.stringify({
@@ -95,6 +97,7 @@ export default {
             database: "connected",
             provider: "postgresql",
             hyperdrive: true,
+            schemaEnsured: true,
             timestamp: new Date().toISOString(),
           }),
           {
@@ -123,6 +126,12 @@ export default {
         );
       }
     }
+
+    // Auto-ensure schema compatibility on live PostgreSQL for all incoming traffic
+    try {
+      const pool = getPool();
+      await ensureDatabaseSchema(pool);
+    } catch (_) {}
 
     try {
       return await nodeHandler.fetch(request, env, ctx);

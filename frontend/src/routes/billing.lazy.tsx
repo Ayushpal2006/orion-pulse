@@ -36,13 +36,13 @@ import {
   checkout as checkoutApi,
   getSaleReceipt,
   printSaleReceipt,
-  getWhatsAppShareLink,
   downloadSalePdf,
   getSalePublicLink,
   API_BASE_URL,
   apiFetch,
   logSaleAudit,
 } from "@/lib/api";
+import { shareInvoiceToWhatsApp } from "@/lib/invoice-share";
 import { queueOfflineSale } from "@/lib/offline-db";
 import { refreshPendingCount } from "@/lib/sync-engine";
 import { printQueue } from "@/lib/print-queue";
@@ -50,6 +50,8 @@ import { printBenchmark } from "@/lib/print-benchmark";
 import { createCanonicalReceiptModel } from "@/lib/receipt-model";
 import { getPrintAdapter, printPdfFallback } from "@/lib/print-adapter";
 import { printerService } from "@/lib/printer.service";
+import { printerProfileService } from "@/lib/printer-profile.service";
+import { ReceiptBarcode } from "@/components/receipt-templates";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -185,8 +187,10 @@ function Billing() {
     } else {
       setLoadingProducts(false);
     }
-    // Auto-focus search bar on mount for instant barcode scanning
-    setTimeout(() => searchInputRef.current?.focus(), 200);
+    // Auto-focus search bar only on large desktop screens so Android/iOS soft keyboard doesn't pop up
+    if (typeof window !== "undefined" && window.innerWidth >= 1024) {
+      setTimeout(() => searchInputRef.current?.focus(), 200);
+    }
     // Mount-only bootstrap: loadProducts is not memoised and `products.length` is only
     // an initial emptiness check, so listing either would re-load in a loop.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -334,10 +338,14 @@ function Billing() {
     return customers.find((c) => c.mobile === mobile);
   }, [mobile, customers, selectedCustomer]);
 
+  const roundOffEnabled = useApp((s) => s.roundOffEnabled);
+  const invPrefix = useApp((s) => s.invPrefix);
+  const acceptedPaymentModes = useApp((s) => s.acceptedPaymentModes);
+
   const numericCartDiscount = parseFloat(cartDiscount) || 0;
   const totals = useMemo(() => {
-    return cartTotals(cart, numericCartDiscount, discountMode);
-  }, [cart, numericCartDiscount, discountMode]);
+    return cartTotals(cart, numericCartDiscount, discountMode, roundOffEnabled);
+  }, [cart, numericCartDiscount, discountMode, roundOffEnabled]);
   const hasSelectedCustomer = mobile.length >= 10 && (name || knownCustomer);
 
   const scan = () => {
@@ -349,6 +357,30 @@ function Billing() {
     const p = inStock[Math.floor(Math.random() * inStock.length)];
     addToCart(p);
     toast.success(`Scanned: ${p.name}`, { description: p.sku });
+  };
+
+  const getActiveCashierName = () => {
+    try {
+      const cached = localStorage.getItem("apka_cached_session");
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (parsed?.user?.name) return parsed.user.name;
+      }
+    } catch (_) {}
+    return "Cashier";
+  };
+
+  const isOfflineOrNetworkFailure = (err: any) => {
+    if (typeof navigator !== "undefined" && !navigator.onLine) return true;
+    const msg = String(err?.message || "").toLowerCase();
+    return (
+      msg.includes("offline mode") ||
+      msg.includes("network error") ||
+      msg.includes("unavailable") ||
+      msg.includes("failed to fetch") ||
+      msg.includes("timeout") ||
+      msg.includes("http error! status: 5")
+    );
   };
 
   const runCheckout = async () => {
@@ -371,6 +403,7 @@ function Billing() {
       const currentCustomerName = isCustomerMissing
         ? "Walk-in Customer"
         : name.trim() || selectedCustomer?.name || `Customer - ${sanitizedMobile}`;
+      const activeCashier = getActiveCashierName();
 
       const dto = {
         customerId:
@@ -379,7 +412,7 @@ function Billing() {
             : undefined,
         customerPhone: currentCustomerPhone,
         paymentMethod: payment,
-        cashierName: "Admin",
+        cashierName: activeCashier,
         subtotal: totals.subtotal,
         discount: totals.discount,
         gst: totals.gst,
@@ -401,26 +434,37 @@ function Billing() {
       try {
         res = await checkoutApi(dto);
       } catch (networkErr: any) {
+        if (!isOfflineOrNetworkFailure(networkErr)) {
+          throw networkErr;
+        }
         console.warn(
-          "[Checkout Flow] Online API failed, switching to Offline Sales Queue:",
+          "[Checkout Flow] Offline / network unreachable, saving to Offline Sales Queue:",
           networkErr,
         );
         const offlineId = `OFF-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
-        const offlineInvoice = `INV-OFF-${Date.now()}`;
+        const prefixClean = (invPrefix || "INV-").replace(/-+$/, "");
+        const offlineInvoice = `${prefixClean}-OFF-${Date.now()}`;
         const offlineSalePayload: any = {
           offlineId,
           invoice_number: offlineInvoice,
+          organization_id:
+            typeof window !== "undefined" ? localStorage.getItem("currentOrgId") || "" : "",
+          store_id:
+            typeof window !== "undefined" ? localStorage.getItem("currentStoreId") || "" : "",
           customer_id:
             selectedCustomer && selectedCustomer.mobile === sanitizedMobile
               ? Number(selectedCustomer.id)
               : undefined,
+          customer_phone: currentCustomerPhone,
           customer_name: currentCustomerName,
+          cashier_name: activeCashier,
           items: cart.map((i: any) => ({
             product_id: Number(i.productId || i.id),
             name: i.name,
             unit_price: i.price,
             quantity: i.qty,
-            subtotal: (i.price || 0) * (i.qty || 1),
+            discount: i.discount || 0,
+            subtotal: (i.price || 0) * (i.qty || 1) * (1 - (i.discount || 0) / 100),
           })),
           subtotal: totals.subtotal,
           discount: totals.discount,
@@ -428,6 +472,7 @@ function Billing() {
           total_amount: totals.total,
           payment_method: payment,
           amount_paid: totals.total,
+          balance: 0,
           change_amount: 0,
           created_at: new Date().toISOString(),
           syncStatus: "pending",
@@ -441,20 +486,29 @@ function Billing() {
           saleId: offlineId,
           invoice: offlineInvoice,
           total: totals.total,
+          grandTotal: totals.total,
+          paidAmount: totals.total,
+          balance: 0,
           subtotal: totals.subtotal,
           tax: totals.gst,
+          gst: totals.gst,
           discount: totals.discount,
           paymentMethod: payment,
+          cashierName: activeCashier,
+          customerName: currentCustomerName,
+          customerPhone: currentCustomerPhone,
           items: cart.map((i: any) => ({
             id: i.productId || i.id,
+            productId: i.productId || i.id,
             name: i.name,
             qty: i.qty,
             price: i.price,
-            total: (i.price || 0) * (i.qty || 1),
+            discount: i.discount || 0,
+            total: (i.price || 0) * (i.qty || 1) * (1 - (i.discount || 0) / 100),
           })),
           offline: true,
         };
-        toast.info("🔴 Saved to Offline Queue", {
+        toast.info("Saved offline — will sync automatically when internet returns", {
           description: `Offline Receipt: ${offlineInvoice}`,
         });
       }
@@ -530,18 +584,25 @@ function Billing() {
 
   const changeAmount = useMemo(() => {
     const tender = parseFloat(tenderAmount);
-    const total = cartTotals(cart).total;
+    const total = totals.total;
     if (!isNaN(tender) && tender >= total && total > 0) return tender - total;
     return null;
-  }, [tenderAmount, cart]);
+  }, [tenderAmount, totals.total]);
+
+  const scrollToCartPanel = () => {
+    const el = document.getElementById("billing-cart-panel");
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  };
 
   return (
     <div className="grid gap-4 lg:grid-cols-[1fr_420px]">
       {/* LEFT: catalog */}
-      <div className="space-y-4">
-        <div className="card-soft p-4">
+      <div className="space-y-4 min-w-0">
+        <div className="card-soft p-3 sm:p-4">
           <div className="flex flex-wrap gap-2">
-            <div className="relative flex-1 min-w-[220px]">
+            <div className="relative flex-1 min-w-[200px]">
               <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
               <Input
                 ref={searchInputRef}
@@ -552,9 +613,9 @@ function Billing() {
                   // Detect barcode scanner burst input (fast keystrokes > 4 chars with rapid timing)
                   if (e.target.value.length > 4) triggerScanFlash();
                 }}
-                placeholder="Search name, SKU or barcode… (F2 or /)"
+                placeholder="Search item, SKU or barcode…"
                 className={cn(
-                  "h-11 rounded-xl pl-9 transition-all duration-300",
+                  "h-11 rounded-xl pl-9 transition-all duration-300 text-sm",
                   scanFlash && "animate-scan-flash",
                 )}
                 aria-label="Product search — scan barcode or type name"
@@ -565,20 +626,20 @@ function Billing() {
                     setQ("");
                     searchInputRef.current?.focus();
                   }}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1 text-muted-foreground hover:bg-muted"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1.5 text-muted-foreground hover:bg-muted"
                   aria-label="Clear search"
                 >
-                  <X className="size-3.5" />
+                  <X className="size-4" />
                 </button>
               )}
             </div>
-            <Button onClick={scan} variant="outline" className="h-11 rounded-xl gap-1.5">
-              <ScanBarcode className="size-4" /> Scan demo
+            <Button onClick={scan} variant="outline" className="h-11 rounded-xl gap-1.5 px-3">
+              <ScanBarcode className="size-4" /> <span className="hidden sm:inline">Scan demo</span>
             </Button>
             <ParkedSalesPopover />
           </div>
-          {/* Keyboard shortcut hints */}
-          <div className="mt-2 flex flex-wrap gap-2 text-[10px] text-muted-foreground">
+          {/* Keyboard shortcut hints (desktop only) */}
+          <div className="mt-2 hidden lg:flex flex-wrap gap-2 text-[10px] text-muted-foreground">
             <span className="flex items-center gap-1">
               <span className="kbd">F2</span> Search
             </span>
@@ -594,7 +655,7 @@ function Billing() {
         {loadingProducts ? (
           <ProductGridSkeleton />
         ) : filteredProducts.length === 0 ? (
-          <div className="card-soft flex flex-col items-center justify-center p-12 text-center gap-3">
+          <div className="card-soft flex flex-col items-center justify-center p-10 text-center gap-3">
             <div className="grid size-16 place-items-center rounded-2xl bg-muted">
               <Package className="size-7 text-muted-foreground" />
             </div>
@@ -610,14 +671,14 @@ function Billing() {
                   setQ("");
                   searchInputRef.current?.focus();
                 }}
-                className="text-xs font-medium text-primary hover:underline"
+                className="text-xs font-medium text-primary hover:underline min-h-[44px] px-4"
               >
                 Clear search
               </button>
             )}
           </div>
         ) : (
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
+          <div className="grid grid-cols-2 gap-2.5 sm:gap-3 sm:grid-cols-3 xl:grid-cols-4">
             {filteredProducts.map((p) => {
               const cartItem = cart.find((item) => item.productId === p.id);
               const inCart = !!cartItem;
@@ -626,72 +687,80 @@ function Billing() {
               const isOutOfStock = p.stock === 0;
 
               return (
-                <button
+                <div
                   key={p.id}
-                  onClick={() => addToCart(p)}
-                  disabled={isOutOfStock}
                   className={cn(
-                    "card-soft flex flex-col p-4 text-left transition-all active:scale-[0.97] relative touch-manipulation",
-                    "hover:border-foreground/20 hover:shadow-md hover:-translate-y-0.5",
+                    "card-soft flex flex-col text-left transition-all relative min-w-0",
+                    "hover:border-foreground/20 hover:shadow-md",
                     inCart &&
                       "bg-emerald-50/70 border-emerald-500/30 dark:bg-emerald-950/20 dark:border-emerald-500/30",
-                    isOutOfStock && "opacity-50 cursor-not-allowed",
+                    isOutOfStock && "opacity-50",
                   )}
                 >
-                  {inCart && (
-                    <span className="absolute right-2 top-2 rounded-full bg-emerald-500 px-2 py-0.5 text-[10px] font-bold text-white shadow-sm animate-scale-in">
-                      ×{cartQty}
-                    </span>
-                  )}
-                  {isLowStock && !inCart && (
-                    <span className="absolute right-2 top-2 rounded-full bg-amber-500/90 px-1.5 py-0.5 text-[9px] font-bold text-white shadow-sm">
-                      LOW
-                    </span>
-                  )}
-                  {isOutOfStock && (
-                    <span className="absolute right-2 top-2 rounded-full bg-rose-500/90 px-1.5 py-0.5 text-[9px] font-bold text-white">
-                      OUT
-                    </span>
-                  )}
-                  <div className="grid size-12 place-items-center overflow-hidden rounded-xl bg-muted text-2xl">
-                    {p.image ? (
-                      <img src={p.image} alt="" className="size-full object-cover" />
-                    ) : (
-                      p.emoji
+                  <button
+                    type="button"
+                    onClick={() => addToCart(p)}
+                    disabled={isOutOfStock}
+                    className={cn(
+                      "flex flex-col p-3 sm:p-4 text-left w-full h-full touch-manipulation active:scale-[0.97] rounded-2xl",
+                      isOutOfStock && "cursor-not-allowed",
                     )}
-                  </div>
-                  <div className="mt-3 line-clamp-1 text-sm font-semibold">{p.name}</div>
-                  <div className="text-[11px] text-muted-foreground">{p.sku}</div>
-                  <div className="mt-2 flex items-center justify-between">
-                    <div className="flex items-center gap-1.5">
-                      <span className="tabular text-sm font-bold text-money">{inr(p.price)}</span>
-                      <button
-                        type="button"
-                        title="Edit Selling Price"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setQuickPriceProduct(p);
-                          setQuickPriceOpen(true);
-                        }}
-                        className="p-1 rounded-md hover:bg-muted/80 text-muted-foreground hover:text-foreground transition-colors"
-                      >
-                        <Pencil className="size-3" />
-                      </button>
-                    </div>
-                    <span
-                      className={cn(
-                        "text-[11px] tabular font-medium",
-                        isOutOfStock
-                          ? "text-rose-500"
-                          : isLowStock
-                            ? "text-amber-600 dark:text-amber-400"
-                            : "text-muted-foreground",
+                  >
+                    {inCart && (
+                      <span className="absolute right-2 top-2 rounded-full bg-emerald-500 px-2 py-0.5 text-[10px] font-bold text-white shadow-sm animate-scale-in">
+                        ×{cartQty}
+                      </span>
+                    )}
+                    {isLowStock && !inCart && (
+                      <span className="absolute right-2 top-2 rounded-full bg-amber-500/90 px-1.5 py-0.5 text-[9px] font-bold text-white shadow-sm">
+                        LOW
+                      </span>
+                    )}
+                    {isOutOfStock && (
+                      <span className="absolute right-2 top-2 rounded-full bg-rose-500/90 px-1.5 py-0.5 text-[9px] font-bold text-white">
+                        OUT
+                      </span>
+                    )}
+                    <div className="grid size-11 sm:size-12 place-items-center overflow-hidden rounded-xl bg-muted text-2xl">
+                      {p.image ? (
+                        <img src={p.image} alt="" className="size-full object-cover" />
+                      ) : (
+                        p.emoji
                       )}
-                    >
-                      {isOutOfStock ? "Out of stock" : `${p.stock} left`}
-                    </span>
-                  </div>
-                </button>
+                    </div>
+                    <div className="mt-2.5 line-clamp-1 text-sm font-semibold">{p.name}</div>
+                    <div className="text-[11px] text-muted-foreground truncate">{p.sku}</div>
+                    <div className="mt-2 flex items-center justify-between gap-1 w-full pr-6">
+                      <span className="tabular text-sm font-bold text-money truncate">
+                        {inr(p.price)}
+                      </span>
+                      <span
+                        className={cn(
+                          "text-[11px] tabular font-medium shrink-0",
+                          isOutOfStock
+                            ? "text-rose-500"
+                            : isLowStock
+                              ? "text-amber-600 dark:text-amber-400"
+                              : "text-muted-foreground",
+                        )}
+                      >
+                        {isOutOfStock ? "Out" : `${p.stock} left`}
+                      </span>
+                    </div>
+                  </button>
+                  <button
+                    type="button"
+                    title="Edit Selling Price"
+                    onClick={() => {
+                      setQuickPriceProduct(p);
+                      setQuickPriceOpen(true);
+                    }}
+                    className="absolute bottom-2.5 right-2 p-2 rounded-lg hover:bg-muted/80 text-muted-foreground hover:text-foreground transition-colors"
+                    aria-label={`Edit price for ${p.name}`}
+                  >
+                    <Pencil className="size-3.5" />
+                  </button>
+                </div>
               );
             })}
           </div>
@@ -699,7 +768,10 @@ function Billing() {
       </div>
 
       {/* RIGHT: cart */}
-      <div className="lg:sticky lg:top-20 lg:h-[calc(100vh-6rem)]">
+      <div
+        id="billing-cart-panel"
+        className="scroll-mt-20 min-w-0 lg:sticky lg:top-20 lg:h-[calc(100vh-6rem)]"
+      >
         <div className="card-soft flex h-full flex-col">
           <div className="flex items-center justify-between border-b border-border p-4">
             <div>
@@ -786,7 +858,7 @@ function Billing() {
                             <Trash2 className="size-4" />
                           </button>
                         </div>
-                        <div className="mt-2.5 flex items-center justify-between gap-2">
+                        <div className="mt-2.5 flex flex-wrap items-center justify-between gap-2">
                           <div className="inline-flex items-center rounded-xl border border-border bg-elevated shadow-xs">
                             <button
                               onClick={() => dec(l.productId)}
@@ -1029,32 +1101,42 @@ function Billing() {
               <div className="mb-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
                 Payment method
               </div>
-              <div className="grid grid-cols-4 gap-1.5">
-                {payments.map((p) => (
-                  <button
-                    key={p.label}
-                    onClick={() => {
-                      setPayment(p.label);
-                      if (p.label !== "Cash") setTenderAmount("");
-                    }}
-                    className={cn(
-                      "rounded-xl border p-2.5 text-center transition-all duration-150 touch-manipulation",
-                      payment === p.label
-                        ? "border-primary bg-primary text-primary-foreground shadow-sm ring-2 ring-primary/20"
-                        : "border-border hover:border-foreground/30 hover:bg-muted/50",
-                    )}
-                  >
-                    <div className="text-xs font-bold">{p.label}</div>
-                    <div
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
+                {payments
+                  .filter(
+                    (p) =>
+                      !acceptedPaymentModes ||
+                      acceptedPaymentModes.length === 0 ||
+                      acceptedPaymentModes.includes(p.label),
+                  )
+                  .map((p) => (
+                    <button
+                      key={p.label}
+                      type="button"
+                      onClick={() => {
+                        setPayment(p.label);
+                        if (p.label !== "Cash") setTenderAmount("");
+                      }}
                       className={cn(
-                        "text-[10px] mt-0.5",
-                        payment === p.label ? "opacity-80" : "text-muted-foreground",
+                        "rounded-xl border p-2.5 min-h-[48px] text-center transition-all duration-150 touch-manipulation",
+                        payment === p.label
+                          ? "border-primary bg-primary text-primary-foreground shadow-sm ring-2 ring-primary/20"
+                          : "border-border hover:border-foreground/30 hover:bg-muted/50",
                       )}
                     >
-                      {p.hint}
-                    </div>
-                  </button>
-                ))}
+                      <div className="text-xs font-bold">
+                        {p.label === "Wallet" ? "Due / Credit" : p.label}
+                      </div>
+                      <div
+                        className={cn(
+                          "text-[10px] mt-0.5",
+                          payment === p.label ? "opacity-80" : "text-muted-foreground",
+                        )}
+                      >
+                        {p.hint}
+                      </div>
+                    </button>
+                  ))}
               </div>
 
               {/* Cash tender chips — only for Cash payment */}
@@ -1192,6 +1274,39 @@ function Billing() {
         </div>
       </div>
 
+      {/* Sticky Mobile Cart Summary Bar (visible on mobile/tablet when cart has items) */}
+      {cart.length > 0 && !showSlip && step < 0 && (
+        <div className="lg:hidden fixed left-3 right-3 bottom-[calc(4.5rem+env(safe-area-inset-bottom))] z-25">
+          <div className="rounded-2xl border border-primary/20 bg-primary text-primary-foreground shadow-lg px-4 py-3 flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <div className="text-[11px] opacity-85 font-medium">
+                {cart.reduce((acc, item) => acc + item.qty, 0)} item(s) · {payment}
+              </div>
+              <div className="text-base font-extrabold tabular truncate">{inr(totals.total)}</div>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                onClick={scrollToCartPanel}
+                className="h-10 rounded-xl text-xs font-bold px-3"
+              >
+                Review Cart
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                onClick={runCheckout}
+                className="h-10 rounded-xl text-xs font-bold px-3.5 bg-emerald-500 hover:bg-emerald-600 text-white border-0 gap-1"
+              >
+                <Zap className="size-3.5" /> Pay
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <CheckoutDialog open={step >= 0 && !showSlip} step={step} />
       <SlipDialog open={showSlip} onClose={finalizeSale} result={checkoutResult} />
       <Dialog open={showCustomerRequiredAlert} onOpenChange={setShowCustomerRequiredAlert}>
@@ -1317,12 +1432,97 @@ export function SlipDialog({
 
   const queryClient = useQueryClient();
   const role = useApp((s) => s.role);
+  const shopName = useApp((s) => s.shopName);
+  const storeAddress = useApp((s) => s.storeAddress);
+  const storePhone = useApp((s) => s.storePhone);
+  const storeEmail = useApp((s) => s.storeEmail);
+  const gstin = useApp((s) => s.gstin);
+  const logo = useApp((s) => s.logo);
+  const upiId = useApp((s) => s.upiId);
+  const receiptFooter = useApp((s) => s.receiptFooter);
+  const thankYouMessage = useApp((s) => s.thankYouMessage);
+  const primaryColor = useApp((s) => s.primaryColor);
 
-  const { data: receipt, isLoading } = useQuery({
+  const isOfflineSale = Boolean(result?.offline);
+
+  const { data: remoteReceipt, isLoading: remoteLoading } = useQuery({
     queryKey: ["receipt", invoiceId],
     queryFn: () => getSaleReceipt(invoiceId),
-    enabled: open && !!invoiceId,
+    enabled: open && !!invoiceId && !isOfflineSale,
+    retry: 1,
   });
+
+  const offlineReceiptFallback = useMemo(() => {
+    if (!result || !invoiceId) return null;
+    if (!isOfflineSale && remoteReceipt) return null;
+    const now = new Date();
+    const totalVal = Number(result.grandTotal ?? result.total ?? 0);
+    const cleanShop = shopName || "Apka Bill Store";
+    const upiPayload = upiId
+      ? `upi://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(cleanShop)}&am=${totalVal.toFixed(2)}&cu=INR&tn=${encodeURIComponent(invoiceId)}`
+      : "";
+    return {
+      invoiceNumber: invoiceId,
+      date: now.toLocaleDateString("en-IN"),
+      time: now.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" }),
+      cashier: result.cashierName || "Cashier",
+      paymentMethod: result.paymentMethod || "Cash",
+      status: "COMPLETED",
+      offline: isOfflineSale,
+      shop: {
+        name: cleanShop,
+        address: storeAddress || "",
+        phone: storePhone || "",
+        email: storeEmail || "",
+        gstin: gstin || "",
+        logo: logo || "",
+      },
+      customer: {
+        name: result.customerName || "Walk-in Customer",
+        phone: result.customerPhone === "0000000000" ? "" : result.customerPhone || "",
+      },
+      items: (result.items || []).map((it: any) => ({
+        productId: it.productId || it.id,
+        name: it.name,
+        qty: it.qty ?? it.quantity ?? 1,
+        price: it.price ?? 0,
+        discount: it.discount ?? 0,
+        lineTotal: it.total ?? it.lineTotal ?? 0,
+      })),
+      subtotal: Number(result.subtotal ?? totalVal),
+      discount: Number(result.discount ?? 0),
+      gst: Number(result.gst ?? result.tax ?? 0),
+      grandTotal: totalVal,
+      paidAmount: Number(result.paidAmount ?? result.amount_paid ?? totalVal),
+      balance: Number(
+        result.balance ?? Math.max(0, totalVal - Number(result.paidAmount ?? result.amount_paid ?? totalVal)),
+      ),
+      upiPayload,
+      thankYouMessage: thankYouMessage || receiptFooter || "Thank you for choosing us!",
+    };
+  }, [
+    result,
+    invoiceId,
+    isOfflineSale,
+    remoteReceipt,
+    shopName,
+    storeAddress,
+    storePhone,
+    storeEmail,
+    gstin,
+    logo,
+    upiId,
+    receiptFooter,
+    thankYouMessage,
+  ]);
+
+  const receipt = remoteReceipt || offlineReceiptFallback;
+  const isLoading = !isOfflineSale && remoteLoading && !offlineReceiptFallback;
+
+  const activeProfile = printerProfileService.getActiveProfile();
+  const showLogo = activeProfile?.showLogo ?? true;
+  const showQr = activeProfile?.showQr ?? true;
+  const showBarcode = activeProfile?.showBarcode ?? true;
 
   const handlePrint = async () => {
     if (!receipt) return;
@@ -1331,14 +1531,32 @@ export function SlipDialog({
       const ok = await printerService.print(receipt);
       if (ok) {
         toast.success("Receipt printed successfully");
-        await logSaleAudit(
-          receipt.invoiceNumber,
-          "INVOICE_PRINT",
-          `${role} printed Invoice ${receipt.invoiceNumber}`,
-        );
+        if (!isOfflineSale) {
+          await logSaleAudit(
+            receipt.invoiceNumber,
+            "INVOICE_PRINT",
+            `${role} printed Invoice ${receipt.invoiceNumber}`,
+          ).catch(() => {});
+        }
+      } else {
+        toast.error("Printer did not complete job. Sale is saved safely.", {
+          action: {
+            label: "Retry Print",
+            onClick: () => {
+              handlePrint();
+            },
+          },
+        });
       }
     } catch (err: any) {
-      toast.error(err.message || "Failed to print receipt");
+      toast.error((err.message || "Failed to print receipt") + " — Sale is saved safely.", {
+        action: {
+          label: "Retry Print",
+          onClick: () => {
+            handlePrint();
+          },
+        },
+      });
     } finally {
       setPrinting(false);
     }
@@ -1351,7 +1569,10 @@ export function SlipDialog({
         kotNumber: result?.kot?.kotNumber || "1",
         invoiceNumber: receipt?.invoiceNumber,
         storeName: receipt?.shop?.name || "Kitchen",
-        items: result?.kot?.items || receipt?.items?.filter((it: any) => it.is_kitchen_item || it.isKitchenItem) || [],
+        items:
+          result?.kot?.items ||
+          receipt?.items?.filter((it: any) => it.is_kitchen_item || it.isKitchenItem) ||
+          [],
       };
       const ok = await printerService.printKot(kotData);
       if (ok) {
@@ -1365,38 +1586,44 @@ export function SlipDialog({
   };
 
   const handleWhatsApp = async () => {
-    // 1. If result has a pre-generated valid whatsappUrl with an actual target number:
-    if (result?.whatsappUrl && /wa\.me\/\d{10,15}/.test(result.whatsappUrl)) {
-      window.open(result.whatsappUrl, "_blank");
-      if (receipt) {
-        await logSaleAudit(
-          receipt.invoiceNumber,
-          "INVOICE_SHARE",
-          `${role} shared invoice ${receipt.invoiceNumber} on WhatsApp`,
-        );
-      }
-      return;
-    }
-
-    // 2. Fetch fresh canonical WhatsApp share URL for this exact invoice from backend
     if (!receipt) return;
-    const phoneDigits = (receipt.customer?.phone || "").replace(/\D/g, "");
-    if (!phoneDigits || phoneDigits === "0000000000" || phoneDigits.length < 10) {
-      toast.error("Customer phone number is required to share on WhatsApp.");
-      return;
-    }
 
     setSharingWhatsApp(true);
     try {
-      const url = await getWhatsAppShareLink(receipt.invoiceNumber);
-      window.open(url, "_blank");
-      await logSaleAudit(
-        receipt.invoiceNumber,
-        "INVOICE_SHARE",
-        `${role} shared invoice ${receipt.invoiceNumber} on WhatsApp`,
-      );
+      const shareResult = await shareInvoiceToWhatsApp(receipt, {
+        shopName,
+        address: storeAddress,
+        phone: storePhone,
+        email: storeEmail,
+        gstin,
+        logo,
+        receiptFooter,
+        thankYouMessage,
+        primaryColor,
+      });
+
+      if (shareResult.mode === "cancelled") {
+        toast.info("Share cancelled");
+        return;
+      }
+
+      toast.success(shareResult.message, {
+        action: shareResult.whatsappUrl
+          ? {
+              label: "Open WhatsApp",
+              onClick: () => window.open(shareResult.whatsappUrl, "_blank"),
+            }
+          : undefined,
+      });
+      if (!isOfflineSale) {
+        await logSaleAudit(
+          receipt.invoiceNumber,
+          "INVOICE_SHARE",
+          `${role} shared invoice ${receipt.invoiceNumber} (${shareResult.mode})`,
+        ).catch(() => {});
+      }
     } catch (err: any) {
-      toast.error(err.message || "Failed to generate WhatsApp share link");
+      toast.error(err?.message || "Failed to generate invoice image for sharing");
     } finally {
       setSharingWhatsApp(false);
     }
@@ -1545,9 +1772,16 @@ export function SlipDialog({
   return (
     <>
       <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="text-center font-mono">Apka Bill Receipt</DialogTitle>
+            <DialogTitle className="text-center font-mono flex items-center justify-center gap-2">
+              <span>Apka Bill Receipt</span>
+              {receipt.offline && (
+                <Badge variant="outline" className="text-[10px] border-amber-500/40 text-amber-600">
+                  Saved Offline
+                </Badge>
+              )}
+            </DialogTitle>
           </DialogHeader>
 
           {/* 58mm Thermal Receipt Preview Layout */}
@@ -1563,6 +1797,15 @@ export function SlipDialog({
             )}
 
             <div className="text-center">
+              {showLogo && receipt.shop.logo && (
+                <div className="mb-2 flex justify-center">
+                  <img
+                    src={receipt.shop.logo}
+                    alt={receipt.shop.name}
+                    className="max-h-12 max-w-[120px] object-contain"
+                  />
+                </div>
+              )}
               <div className="text-sm font-bold uppercase tracking-wider">{receipt.shop.name}</div>
               <div className="text-[9px] text-neutral-500">{receipt.shop.address}</div>
               <div className="text-[9px] text-neutral-500">PH: {receipt.shop.phone}</div>
@@ -1632,12 +1875,18 @@ export function SlipDialog({
 
             <div className="text-center">Paid via {receipt.paymentMethod}</div>
 
-            {receipt.paymentMethod === "UPI" && receipt.status !== "VOID" && (
+            {showQr && receipt.paymentMethod === "UPI" && receipt.status !== "VOID" && receipt.upiPayload && (
               <div className="mt-3 flex flex-col items-center gap-1">
                 <div className="rounded border border-neutral-200 bg-white p-2">
                   <QRCodeSVG value={receipt.upiPayload} size={80} />
                 </div>
                 <div className="text-[9px] text-neutral-500">Scan to pay via UPI</div>
+              </div>
+            )}
+
+            {showBarcode && (
+              <div className="mt-2 flex flex-col items-center">
+                <ReceiptBarcode value={receipt.invoiceNumber} enabled={true} />
               </div>
             )}
 
@@ -1686,19 +1935,28 @@ export function SlipDialog({
                 disabled={sharingWhatsApp || isLoading}
                 className="rounded-xl text-xs h-9 text-green-600 border-green-500/30 hover:bg-green-500/10"
               >
-                {sharingWhatsApp ? "Opening..." : "💬 WhatsApp"}
+                {sharingWhatsApp ? "Preparing..." : "💬 Share Invoice"}
               </Button>
-              {(result?.kot || receipt.items?.some((it: any) => it.is_kitchen_item || it.isKitchenItem)) && (
+              {(result?.kot ||
+                receipt.items?.some((it: any) => it.is_kitchen_item || it.isKitchenItem)) && (
                 <Button
                   variant="outline"
                   onClick={handlePrintKot}
                   disabled={printing || isLoading}
-                  className="rounded-xl text-xs h-9 text-orange-600 border-orange-500/30 hover:bg-orange-500/10 col-span-2 font-semibold"
+                  className="rounded-xl text-xs h-10 text-orange-600 border-orange-500/30 hover:bg-orange-500/10 col-span-2 font-semibold"
                 >
                   {printing ? "Printing KOT…" : "🍽️ Print Kitchen KOT"}
                 </Button>
               )}
             </div>
+
+            <Button
+              type="button"
+              onClick={onClose}
+              className="w-full rounded-xl h-11 font-bold text-sm"
+            >
+              Done / Next Bill
+            </Button>
 
             {!showMoreActions ? (
               <Button

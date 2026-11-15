@@ -65,6 +65,7 @@ import {
 } from "@/lib/api";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
+import { printerProfileService } from "@/lib/printer-profile.service";
 
 export type NavItem = { to: string; label: string; icon: any; exact?: boolean; roles?: Role[] };
 export type NavGroup = { label: string; icon: any; items: NavItem[]; roles?: Role[] };
@@ -166,6 +167,7 @@ function OrganizationSwitcher() {
 }
 
 function StoreSwitcher() {
+  const queryClient = useQueryClient();
   const activeStoreId = useApp((s) => s.activeStoreId);
   const activeStoreName = useApp((s) => s.activeStoreName);
   const storesList = useApp((s) => s.storesList);
@@ -173,16 +175,21 @@ function StoreSwitcher() {
   const setActiveStoreName = useApp((s) => s.setActiveStoreName);
   const setProducts = useApp((s) => s.setProducts);
   const setCustomers = useApp((s) => s.setCustomers);
+  const resetTenantState = useApp((s) => s.resetTenantState);
 
   const handleSwitch = async (store: any) => {
     if (store.id === activeStoreId) return;
     try {
       await switchStore(store.id);
+      queryClient.clear();
+      printerProfileService.clearCache();
+      resetTenantState();
       setActiveStoreId(store.id);
       setActiveStoreName(store.name);
+      localStorage.setItem("currentStoreId", String(store.id));
       toast.success(`Switched to store: ${store.name}`);
       // Refetch data for newly selected store and refresh tenant cache
-      const [prods, custs] = await Promise.all([getProducts(), getCustomers()]);
+      const [prods, custs] = await Promise.all([getProducts(), getCustomers(), fetchAndApplyStoreSettings()]);
       setProducts(prods);
       setCustomers(
         custs.map((c: any) => ({
@@ -397,9 +404,13 @@ export function AppShell({ children }: { children: ReactNode }) {
     } catch (e) {
       // ignore
     } finally {
+      queryClient.clear();
+      useApp.getState().resetTenantState();
       localStorage.removeItem("token");
       localStorage.removeItem("currentOrgId");
       localStorage.removeItem("currentStoreId");
+      localStorage.removeItem("apka_cached_session");
+      localStorage.removeItem("apka_cached_stores");
       window.location.href = "/login";
     }
   };
@@ -449,41 +460,86 @@ export function AppShell({ children }: { children: ReactNode }) {
     const isAdminRoute =
       pathname === "/admin" || pathname.startsWith("/admin") || pathname.startsWith("/super-admin");
 
+    const applyUserSession = (data: any) => {
+      if (data?.user) {
+        setCurrentUser(data.user);
+        const roleLower = (data.user.role || "").toLowerCase();
+        const isSuperAdminUser = roleLower === "super_admin" || roleLower === "superadmin";
+        const formattedRole: Role = isSuperAdminUser
+          ? "Super Admin"
+          : roleLower === "cashier"
+            ? "Cashier"
+            : roleLower === "manager"
+              ? "Manager"
+              : "Admin";
+        setRole(formattedRole);
+      }
+      if (
+        !isAdminRoute &&
+        data?.organization &&
+        (data.organization.onboarding_completed === 0 ||
+          data.organization.onboarding_completed === false) &&
+        pathname !== "/setup-wizard"
+      ) {
+        window.location.href = "/setup-wizard";
+      }
+    };
+
     getCurrentUserApi()
       .then((data) => {
-        if (data?.user) {
-          setCurrentUser(data.user);
-          const roleLower = (data.user.role || "").toLowerCase();
-          const isSuperAdminUser = roleLower === "super_admin" || roleLower === "superadmin";
-          const formattedRole: Role = isSuperAdminUser
-            ? "Super Admin"
-            : roleLower === "cashier"
-              ? "Cashier"
-              : roleLower === "manager"
-                ? "Manager"
-                : "Admin";
-          setRole(formattedRole);
-        }
-        if (
-          !isAdminRoute &&
-          data?.organization &&
-          (data.organization.onboarding_completed === 0 ||
-            data.organization.onboarding_completed === false) &&
-          pathname !== "/setup-wizard"
-        ) {
-          window.location.href = "/setup-wizard";
-        }
+        applyUserSession(data);
       })
       .catch((err) => {
-        console.warn("Session invalid or suspended:", err);
-        handleLogout();
+        // Only terminate session when the server explicitly rejects the token (401/403).
+        // Network/offline startup must keep the user logged in with cached data so offline billing works.
+        if (err?.status === 401 || err?.status === 403) {
+          console.warn("Session invalid or expired:", err);
+          handleLogout();
+          return;
+        }
+        console.warn("Offline session check — restoring last cached user profile:", err?.message);
+        try {
+          const cachedRaw = localStorage.getItem("apka_cached_session");
+          if (cachedRaw) {
+            applyUserSession(JSON.parse(cachedRaw));
+          }
+        } catch (_) {}
       });
 
-    // Fetch stores first, validate store ownership for current org, then fetch products & customers
+    // Always hydrate products, customers & settings (even offline) without nesting inside getStores()
     if (!isAdminRoute) {
+      const hydrateOfflineOrRemoteData = () =>
+        Promise.all([
+          queryClient
+            .fetchQuery({ queryKey: ["products"], queryFn: getProducts })
+            .then(setProducts)
+            .catch((err) => console.error("AppShell products fetch failed:", err)),
+          queryClient
+            .fetchQuery({ queryKey: ["customers"], queryFn: getCustomers })
+            .then((data) => {
+              const mapped = (data || []).map((c: any) => ({
+                ...c,
+                loyaltyPoints: c.loyalty_points ?? c.loyaltyPoints ?? 0,
+                totalSpent: c.total_spent ?? c.totalSpent ?? 0,
+              }));
+              setCustomers(mapped);
+            })
+            .catch((err) => console.error("AppShell customers fetch failed:", err)),
+          fetchAndApplyStoreSettings()
+            .then((settings) => {
+              if (settings) {
+                queryClient.setQueryData(["settings"], settings);
+              }
+            })
+            .catch((err) => console.error("AppShell settings fetch failed:", err)),
+        ]);
+
       getStores()
         .then((stores) => {
           setStoresList(stores);
+          try {
+            localStorage.setItem("apka_cached_stores", JSON.stringify(stores || []));
+          } catch (_) {}
           if (stores && stores.length > 0) {
             const savedStoreIdRaw = localStorage.getItem("currentStoreId");
             const savedStoreId = savedStoreIdRaw ? parseInt(savedStoreIdRaw, 10) : null;
@@ -497,34 +553,31 @@ export function AppShell({ children }: { children: ReactNode }) {
               localStorage.setItem("currentStoreId", String(found.id));
             }
           }
-
-          // Prime canonical React Query cache and sync to Zustand store
-          Promise.all([
-            queryClient
-              .fetchQuery({ queryKey: ["products"], queryFn: getProducts })
-              .then(setProducts)
-              .catch((err) => console.error("AppShell products fetch failed:", err)),
-            queryClient
-              .fetchQuery({ queryKey: ["customers"], queryFn: getCustomers })
-              .then((data) => {
-                const mapped = (data || []).map((c: any) => ({
-                  ...c,
-                  loyaltyPoints: c.loyalty_points ?? c.loyaltyPoints ?? 0,
-                  totalSpent: c.total_spent ?? c.totalSpent ?? 0,
-                }));
-                setCustomers(mapped);
-              })
-              .catch((err) => console.error("AppShell customers fetch failed:", err)),
-            fetchAndApplyStoreSettings()
-              .then((settings) => {
-                if (settings) {
-                  queryClient.setQueryData(["settings"], settings);
-                }
-              })
-              .catch((err) => console.error("AppShell settings fetch failed:", err)),
-          ]);
+          hydrateOfflineOrRemoteData();
         })
-        .catch((err) => console.error("AppShell stores fetch failed:", err));
+        .catch((err) => {
+          console.warn("AppShell stores fetch failed (offline fallback):", err?.message);
+          try {
+            const cachedStoresRaw = localStorage.getItem("apka_cached_stores");
+            if (cachedStoresRaw) {
+              const stores = JSON.parse(cachedStoresRaw);
+              if (Array.isArray(stores) && stores.length > 0) {
+                setStoresList(stores);
+                const savedStoreIdRaw = localStorage.getItem("currentStoreId");
+                const savedStoreId = savedStoreIdRaw ? parseInt(savedStoreIdRaw, 10) : null;
+                const found =
+                  stores.find((st: any) => st.id === savedStoreId) ||
+                  stores.find((st: any) => st.is_default === 1) ||
+                  stores[0];
+                if (found) {
+                  setActiveStoreId(found.id);
+                  setActiveStoreName(found.name);
+                }
+              }
+            }
+          } catch (_) {}
+          hydrateOfflineOrRemoteData();
+        });
     }
     // Bootstrap load, intentionally mount-only: `pathname` is read only as a route
     // guard, so listing it would re-run the whole store/product/customer fetch on
@@ -631,7 +684,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   };
 
   return (
-    <div className="min-h-screen bg-background text-foreground antialiased">
+    <div className="min-h-screen overflow-x-hidden bg-background text-foreground antialiased">
       {/* Desktop Sidebar */}
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-60 flex-col border-r border-border bg-elevated/60 backdrop-blur lg:flex">
         <div className="flex h-16 items-center gap-2.5 px-4 border-b border-border/40 justify-between">
@@ -651,17 +704,20 @@ export function AppShell({ children }: { children: ReactNode }) {
         </div>
       </aside>
 
-      {/* Top bar */}
-      <header className="sticky top-0 z-20 border-b border-border bg-elevated/80 backdrop-blur lg:pl-60">
-        <div className="flex h-16 items-center gap-3 px-4 sm:px-6">
+      {/* Top bar (respects Android edge-to-edge status bar safe area) */}
+      <header className="sticky top-0 z-20 border-b border-border bg-elevated/90 backdrop-blur pt-[env(safe-area-inset-top)] lg:pl-60">
+        <div className="flex h-16 items-center gap-2 sm:gap-3 px-3 sm:px-6 min-w-0">
           {/* Mobile menu trigger */}
           <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
             <SheetTrigger asChild>
-              <Button variant="ghost" size="icon" className="lg:hidden size-10 rounded-xl">
+              <Button variant="ghost" size="icon" className="lg:hidden size-11 shrink-0 rounded-xl">
                 <Menu className="size-5" />
               </Button>
             </SheetTrigger>
-            <SheetContent side="left" className="w-72 p-0 flex flex-col">
+            <SheetContent
+              side="left"
+              className="w-72 max-w-[85vw] p-0 flex flex-col pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]"
+            >
               <SheetHeader className="p-4 border-b border-border text-left flex flex-row items-center justify-between gap-2.5">
                 <div className="flex items-center gap-2">
                   <img
@@ -684,11 +740,11 @@ export function AppShell({ children }: { children: ReactNode }) {
 
           <button
             onClick={() => setPaletteOpen(true)}
-            className="group flex h-10 flex-1 max-w-xl items-center gap-2 rounded-xl border border-border bg-muted/40 px-3 text-sm text-muted-foreground transition-colors hover:bg-muted"
+            className="group flex h-11 min-w-0 flex-1 max-w-xl items-center gap-2 rounded-xl border border-border bg-muted/40 px-3 text-sm text-muted-foreground transition-colors hover:bg-muted"
           >
-            <Search className="size-4" />
-            <span className="truncate">Search products, customers, invoices…</span>
-            <kbd className="ml-auto hidden rounded-md border border-border bg-elevated px-1.5 py-0.5 text-[10px] font-medium sm:inline-block">
+            <Search className="size-4 shrink-0" />
+            <span className="truncate">Search products, customers, bills…</span>
+            <kbd className="ml-auto hidden rounded-md border border-border bg-elevated px-1.5 py-0.5 text-[10px] font-medium sm:inline-block shrink-0">
               ⌘K
             </kbd>
           </button>
@@ -711,6 +767,9 @@ export function AppShell({ children }: { children: ReactNode }) {
             )}
           </div>
 
+          <div className="lg:hidden shrink-0">
+            <OfflineBadge compact />
+          </div>
           <div className="hidden lg:block">
             <OfflineBadge />
           </div>
@@ -773,12 +832,12 @@ export function AppShell({ children }: { children: ReactNode }) {
       </header>
 
       {/* Main */}
-      <main className="pb-24 lg:pb-8 lg:pl-60">
-        <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">{children}</div>
+      <main className="pb-[calc(6.5rem+env(safe-area-inset-bottom))] lg:pb-8 lg:pl-60">
+        <div className="mx-auto max-w-7xl px-3 py-4 sm:px-6 sm:py-6 lg:px-8">{children}</div>
       </main>
 
-      {/* Mobile bottom nav */}
-      <nav className="fixed bottom-0 left-0 right-0 z-30 border-t border-border bg-elevated/95 backdrop-blur lg:hidden">
+      {/* Mobile bottom nav (respects Android gesture navigation bar safe area) */}
+      <nav className="fixed bottom-0 left-0 right-0 z-30 border-t border-border bg-elevated/95 backdrop-blur pb-[env(safe-area-inset-bottom)] lg:hidden">
         <div className={cn("grid", role === "Cashier" ? "grid-cols-3" : "grid-cols-5")}>
           {(role === "Cashier"
             ? [
@@ -801,19 +860,19 @@ export function AppShell({ children }: { children: ReactNode }) {
                 key={n.to}
                 to={n.to}
                 className={cn(
-                  "flex flex-col items-center gap-1 py-2 text-[11px] font-medium transition-colors touch-manipulation",
+                  "flex flex-col items-center justify-center gap-0.5 py-2 min-h-[54px] text-[11px] font-medium transition-colors touch-manipulation",
                   active ? "text-foreground" : "text-muted-foreground",
                 )}
               >
                 <div
                   className={cn(
-                    "grid size-9 place-items-center rounded-xl transition-colors",
+                    "grid size-8 place-items-center rounded-xl transition-colors",
                     active ? "bg-primary text-primary-foreground" : "",
                   )}
                 >
                   <Icon className="size-[18px]" />
                 </div>
-                {n.label}
+                <span className="truncate max-w-full px-0.5">{n.label}</span>
               </Link>
             );
           })}
@@ -825,21 +884,17 @@ export function AppShell({ children }: { children: ReactNode }) {
   );
 }
 
-function OfflineBadge() {
+function OfflineBadge({ compact = false }: { compact?: boolean }) {
   const { isOnline, isSyncing, pendingCount, syncNow } = usePWA();
 
   if (isSyncing) {
     return (
       <button
         onClick={() => syncNow()}
-        className="inline-flex items-center gap-2 rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1.5 text-xs font-semibold text-amber-600 dark:text-amber-400 hover:bg-amber-500/20 transition-colors"
+        className="inline-flex items-center gap-1.5 rounded-full border border-amber-500/30 bg-amber-500/10 px-2.5 py-1.5 text-xs font-semibold text-amber-600 dark:text-amber-400 hover:bg-amber-500/20 transition-colors"
       >
-        <span className="relative flex size-2">
-          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-amber-500 opacity-60" />
-          <span className="relative inline-flex size-2 rounded-full bg-amber-500" />
-        </span>
-        <RefreshCw className="size-3.5 animate-spin" />
-        Syncing... ({pendingCount})
+        <RefreshCw className="size-3.5 animate-spin shrink-0" />
+        <span>{compact ? `${pendingCount}` : `Syncing... (${pendingCount})`}</span>
       </button>
     );
   }
@@ -848,38 +903,41 @@ function OfflineBadge() {
     return (
       <button
         onClick={() => syncNow()}
-        className="inline-flex items-center gap-2 rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1.5 text-xs font-semibold text-amber-600 dark:text-amber-400 hover:bg-amber-500/20 transition-colors"
+        className="inline-flex items-center gap-1.5 rounded-full border border-amber-500/30 bg-amber-500/10 px-2.5 py-1.5 text-xs font-semibold text-amber-600 dark:text-amber-400 hover:bg-amber-500/20 transition-colors"
+        title="Tap to sync pending offline bills"
       >
-        <span className="relative flex size-2">
-          <span className="relative inline-flex size-2 rounded-full bg-amber-500" />
-        </span>
-        <RefreshCw className="size-3.5" />
-        Sync ({pendingCount} pending)
+        <RefreshCw className="size-3.5 shrink-0" />
+        <span>{compact ? `${pendingCount} Sync` : `Sync (${pendingCount} pending)`}</span>
       </button>
     );
   }
 
   if (isOnline) {
     return (
-      <div className="inline-flex items-center gap-2 rounded-full border border-success/30 bg-success/10 px-3 py-1.5 text-xs font-semibold text-success-foreground">
-        <span className="relative flex size-2">
-          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-success opacity-60" />
-          <span className="relative inline-flex size-2 rounded-full bg-success" />
+      <div
+        className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1.5 text-xs font-semibold text-emerald-700 dark:text-emerald-400"
+        title="Connected Online"
+      >
+        <span className="relative flex size-2 shrink-0">
+          <span className="relative inline-flex size-2 rounded-full bg-emerald-500" />
         </span>
-        <Wifi className="size-3.5" />
-        Online
+        {!compact && (
+          <>
+            <Wifi className="size-3.5" />
+            <span>Online</span>
+          </>
+        )}
       </div>
     );
   }
 
   return (
-    <div className="inline-flex items-center gap-2 rounded-full border border-destructive/30 bg-destructive/10 px-3 py-1.5 text-xs font-semibold text-destructive-foreground animate-pulse">
-      <span className="relative flex size-2">
-        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-destructive opacity-60" />
-        <span className="relative inline-flex size-2 rounded-full bg-destructive" />
-      </span>
-      <WifiOff className="size-3.5" />
-      Offline
+    <div
+      className="inline-flex items-center gap-1.5 rounded-full border border-rose-500/30 bg-rose-500/10 px-2.5 py-1.5 text-xs font-semibold text-rose-600 dark:text-rose-400 animate-pulse"
+      title="Offline Mode Active"
+    >
+      <WifiOff className="size-3.5 shrink-0" />
+      <span>{compact ? "Off" : "Offline"}</span>
     </div>
   );
 }

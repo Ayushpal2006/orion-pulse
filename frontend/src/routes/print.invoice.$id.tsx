@@ -6,6 +6,7 @@ import { getSaleReceipt, getSettingsApi, API_BASE_URL, apiFetch } from "@/lib/ap
 import { waitForReceiptResources } from "@/lib/print-adapter";
 import { Button } from "@/components/ui/button";
 import { printerService } from "@/lib/printer.service";
+import { printerProfileService } from "@/lib/printer-profile.service";
 import { InvoiceTemplateRenderer } from "@/components/invoice-template-renderer";
 
 export const Route = createFileRoute("/print/invoice/$id")({
@@ -28,9 +29,20 @@ interface ThermalReceiptProps {
   template: string;
   paperWidth: "58mm" | "80mm" | "A4";
   qrPosition: "Top" | "Bottom";
+  showLogo?: boolean;
+  showQr?: boolean;
+  showBarcode?: boolean;
 }
 
-function ThermalReceipt({ receipt, template, paperWidth, qrPosition }: ThermalReceiptProps) {
+function ThermalReceipt({
+  receipt,
+  template,
+  paperWidth,
+  qrPosition,
+  showLogo = true,
+  showQr = true,
+  showBarcode = true,
+}: ThermalReceiptProps) {
   useEffect(() => {
     console.log("PRINT STEP 4: Receipt component mounted");
   }, []);
@@ -59,6 +71,9 @@ function ThermalReceipt({ receipt, template, paperWidth, qrPosition }: ThermalRe
         templateName={template}
         paperWidth={paperWidth}
         qrPosition={qrPosition}
+        showLogo={showLogo}
+        showQr={showQr}
+        showBarcode={showBarcode}
       />
     </div>
   );
@@ -102,6 +117,20 @@ function PrintInvoicePage() {
   const template = settings?.receipt_template || "Classic";
   const qrPosition = settings?.qr_position || "Bottom";
   const paperWidth = settings?.paper_width || "58mm";
+
+  const activeProfile = printerProfileService.getActiveProfile();
+  const showLogo =
+    settings?.show_logo !== undefined
+      ? Boolean(settings.show_logo)
+      : (activeProfile?.showLogo ?? true);
+  const showQr =
+    settings?.show_qr !== undefined
+      ? Boolean(settings.show_qr)
+      : (activeProfile?.showQr ?? true);
+  const showBarcode =
+    settings?.show_barcode !== undefined
+      ? Boolean(settings.show_barcode)
+      : (activeProfile?.showBarcode ?? true);
 
   // Fetch complete log
   useEffect(() => {
@@ -275,6 +304,9 @@ function PrintInvoicePage() {
           template={template as any}
           paperWidth={(paperWidth === "A4" ? "80mm" : paperWidth) as any}
           qrPosition={qrPosition as any}
+          showLogo={showLogo}
+          showQr={showQr}
+          showBarcode={showBarcode}
         />
       </div>
     </div>

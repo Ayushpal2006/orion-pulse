@@ -3,6 +3,7 @@ import { registerPlugin, Capacitor } from "@capacitor/core";
 export interface BluetoothDeviceItem {
   name: string;
   address: string;
+  isLikelyPrinter?: boolean;
 }
 
 export interface UsbDeviceItem {
@@ -14,7 +15,17 @@ export interface UsbDeviceItem {
 }
 
 export interface PrinterConnectionOptions {
-  connectionType: "bluetooth" | "lan" | "network" | "usb" | "escpos";
+  connectionType:
+    | "bluetooth"
+    | "lan"
+    | "network"
+    | "usb"
+    | "escpos"
+    | "internal"
+    | "z91"
+    | "builtin"
+    | "pos"
+    | "android_pos";
   macAddress?: string;
   bluetoothMac?: string;
   ip?: string;
@@ -29,6 +40,13 @@ export interface PrinterConnectionOptions {
   autoCut?: boolean;
 }
 
+export interface PrinterStatusResult {
+  success: boolean;
+  connected?: boolean;
+  status?: "CONNECTED" | "DISCONNECTED" | "ERROR";
+  message?: string;
+}
+
 export interface ThermalPrinterPluginInterface {
   listBluetoothDevices(): Promise<{ devices: BluetoothDeviceItem[] }>;
   listUsbDevices(): Promise<{ devices: UsbDeviceItem[] }>;
@@ -37,7 +55,7 @@ export interface ThermalPrinterPluginInterface {
     options: PrinterConnectionOptions & { formattedText: string },
   ): Promise<{ success: boolean; message: string }>;
   testPrint(options: PrinterConnectionOptions): Promise<{ success: boolean; message: string }>;
-  getPrinterStatus(options?: PrinterConnectionOptions): Promise<{ success: boolean }>;
+  getPrinterStatus(options?: PrinterConnectionOptions): Promise<PrinterStatusResult>;
 }
 
 const NativeThermalPrinter = registerPlugin<ThermalPrinterPluginInterface>("ThermalPrinter");
@@ -113,5 +131,26 @@ export class ThermalPrinterBridge {
     }
     const res = await NativeThermalPrinter.testPrint(options);
     return res.success;
+  }
+
+  static async getPrinterStatus(options: PrinterConnectionOptions): Promise<PrinterStatusResult> {
+    if (!this.isNativeAvailable()) {
+      return {
+        success: options.connectionType === "lan" || options.connectionType === "network",
+        connected: false,
+        status: "DISCONNECTED",
+        message: "Browser mode (System Print / PDF)",
+      };
+    }
+    try {
+      return await NativeThermalPrinter.getPrinterStatus(options);
+    } catch (err: any) {
+      return {
+        success: false,
+        connected: false,
+        status: "ERROR",
+        message: err?.message || String(err),
+      };
+    }
   }
 }

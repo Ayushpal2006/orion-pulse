@@ -21,7 +21,8 @@ export class AuthController {
       console.log("Email received:", normalizedEmail);
 
       const superAdminEmail = (process.env.SUPER_ADMIN_EMAIL || "superadmin@orion.com").trim().toLowerCase();
-      const superAdminPass = process.env.SUPER_ADMIN_PASSWORD || "admin";
+      const configuredSuperPass = process.env.SUPER_ADMIN_PASSWORD;
+      const isDevEnv = env.NODE_ENV !== "production";
 
       // Super Admin dedicated authentication check before database user lookup
       if (
@@ -29,7 +30,11 @@ export class AuthController {
         normalizedEmail === "superadmin" ||
         normalizedEmail === "superadmin@apkabill.com"
       ) {
-        if (password === superAdminPass || password === "admin" || password === "SuperAdmin@123") {
+        const isPasswordValid = configuredSuperPass
+          ? password === configuredSuperPass
+          : isDevEnv && (password === "admin" || password === "SuperAdmin@123");
+
+        if (isPasswordValid) {
           const token = jwt.sign(
             {
               id: "super-admin",

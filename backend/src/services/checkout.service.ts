@@ -15,7 +15,8 @@ const idempotencyCache = new Map<string, { timestamp: number; response: any }>()
 function cleanStaleIdempotencyKeys() {
   const now = Date.now();
   for (const [key, val] of idempotencyCache.entries()) {
-    if (now - val.timestamp > 10000) {
+    const ttlMs = key.includes("-offline-") ? 300000 : 10000;
+    if (now - val.timestamp > ttlMs) {
       idempotencyCache.delete(key);
     }
   }
@@ -59,34 +60,83 @@ export class CheckoutService {
     return `${prefix}${seqStr}`;
   }
 
-  async executeCheckout(request: CheckoutRequest & { paymentDetails?: any; paidAmount?: number; balance?: number; offlineIdentifier?: string }): Promise<CheckoutResponse> {
+  async executeCheckout(request: CheckoutRequest & { paymentDetails?: any; paidAmount?: number; amountPaid?: number; balance?: number; offlineIdentifier?: string }): Promise<CheckoutResponse> {
     const storeId = getStoreId() || 1;
     const orgId = getOrganizationId() || 1;
 
     cleanStaleIdempotencyKeys();
-    const offlineId = request.offlineIdentifier || (request as any).offline_identifier || (request as any).offlineIdentifier;
+    const rawOfflineId = request.offlineIdentifier || (request as any).offline_identifier;
+    const offlineId = rawOfflineId ? String(rawOfflineId).trim() : "";
     const offlineInvoice = (request as any).offlineInvoiceNumber || (request as any).offline_invoice_number;
+    const scopedOfflineKey = offlineId ? `${orgId}-${storeId}-offline-${offlineId}` : "";
 
-    if (offlineId && idempotencyCache.has(offlineId)) {
+    if (scopedOfflineKey && idempotencyCache.has(scopedOfflineKey)) {
       console.log(`[Checkout Service] Idempotent retry hit for offline sale: ${offlineId}`);
-      return idempotencyCache.get(offlineId)!.response;
+      return idempotencyCache.get(scopedOfflineKey)!.response;
+    }
+
+    if (offlineId) {
+      const [existingLog] = await db
+        .select({ details: audit_logs.details })
+        .from(audit_logs)
+        .where(
+          and(
+            eq(audit_logs.organization_id, orgId),
+            eq(audit_logs.store_id, storeId),
+            eq(audit_logs.action, "INVOICE_CREATE"),
+            like(audit_logs.details, `%[offlineId:${offlineId}]%`)
+          )
+        )
+        .limit(1);
+
+      if (existingLog?.details) {
+        const invMatch = existingLog.details.match(/created Invoice ([^\s\[]+)/);
+        const matchedInv = invMatch?.[1];
+        if (matchedInv) {
+          const [existingSale] = await db
+            .select()
+            .from(sales)
+            .where(and(eq(sales.organization_id, orgId), eq(sales.store_id, storeId), eq(sales.invoice_number, matchedInv)))
+            .limit(1);
+
+          if (existingSale) {
+            console.log(`[Checkout Service] DB idempotency hit via offlineId ${offlineId} -> ${matchedInv}`);
+            const resp: CheckoutResponse = {
+              success: true,
+              saleId: existingSale.id,
+              invoice: existingSale.invoice_number,
+              grandTotal: existingSale.grand_total / 100,
+              subtotal: existingSale.subtotal / 100,
+              gst: existingSale.gst / 100,
+              discount: existingSale.discount / 100,
+              items: [],
+            };
+            if (scopedOfflineKey) idempotencyCache.set(scopedOfflineKey, { timestamp: Date.now(), response: resp });
+            return resp;
+          }
+        }
+      }
     }
 
     if (offlineInvoice) {
-      const [existingSale] = await db.select().from(sales).where(eq(sales.invoice_number, offlineInvoice)).limit(1);
+      const [existingSale] = await db
+        .select()
+        .from(sales)
+        .where(and(eq(sales.organization_id, orgId), eq(sales.store_id, storeId), eq(sales.invoice_number, offlineInvoice)))
+        .limit(1);
       if (existingSale) {
         console.log(`[Checkout Service] Database idempotency hit for existing invoice: ${offlineInvoice}`);
         const resp: CheckoutResponse = {
           success: true,
           saleId: existingSale.id,
           invoice: existingSale.invoice_number,
-          grandTotal: existingSale.grand_total,
-          subtotal: existingSale.subtotal,
-          gst: existingSale.gst,
-          discount: existingSale.discount,
+          grandTotal: existingSale.grand_total / 100,
+          subtotal: existingSale.subtotal / 100,
+          gst: existingSale.gst / 100,
+          discount: existingSale.discount / 100,
           items: [],
         };
-        if (offlineId) idempotencyCache.set(offlineId, { timestamp: Date.now(), response: resp });
+        if (scopedOfflineKey) idempotencyCache.set(scopedOfflineKey, { timestamp: Date.now(), response: resp });
         return resp;
       }
     }
@@ -330,9 +380,14 @@ export class CheckoutService {
       }
       const discount = Math.min(subtotal, cartDiscountPaise);
       const grandTotal = Math.max(0, subtotal - discount + totalGst);
-      const paidAmount = request.paidAmount !== undefined && request.paidAmount !== null && (request.paidAmount as any) !== ""
-        ? Math.round(Number(request.paidAmount) * 100)
-        : grandTotal;
+      const rawPaid =
+        request.paidAmount !== undefined && request.paidAmount !== null && (request.paidAmount as any) !== ""
+          ? request.paidAmount
+          : request.amountPaid;
+      const paidAmount =
+        rawPaid !== undefined && rawPaid !== null && (rawPaid as any) !== ""
+          ? Math.round(Number(rawPaid) * 100)
+          : grandTotal;
       const balance = request.balance !== undefined && request.balance !== null && (request.balance as any) !== ""
         ? Math.round(Number(request.balance) * 100)
         : Math.max(0, grandTotal - paidAmount);
@@ -367,14 +422,15 @@ export class CheckoutService {
 
       console.log("[Checkout Flow] Sale Saved:", sale.id);
 
-      // Add creation details to audit logs
+      // Add creation details to audit logs (including offlineId marker for persistent idempotency)
       const tAuditStart = performance.now();
+      const offlineTag = offlineId ? ` [offlineId:${offlineId}]` : "";
       await tx.insert(audit_logs).values({
         organization_id: orgId,
         store_id: storeId,
         user_id: getUserId(),
         action: "INVOICE_CREATE",
-        details: `${request.cashierName || "Admin"} created Invoice ${invoiceNumber}`,
+        details: `${request.cashierName || "Admin"} created Invoice ${invoiceNumber}${offlineTag}`,
       });
       const tAuditTime = performance.now() - tAuditStart;
 
@@ -461,6 +517,8 @@ export class CheckoutService {
         discount: discount / 100,
         gst: totalGst / 100,
         grandTotal: grandTotal / 100,
+        paidAmount: paidAmount / 100,
+        balance: balance / 100,
         total: grandTotal / 100,
         publicToken,
         kot: generatedKot,
@@ -534,8 +592,8 @@ export class CheckoutService {
       },
     };
 
-    if (offlineId) {
-      idempotencyCache.set(offlineId, { timestamp: Date.now(), response: finalResult });
+    if (scopedOfflineKey) {
+      idempotencyCache.set(scopedOfflineKey, { timestamp: Date.now(), response: finalResult });
     }
 
     // Enqueue background sync/notifications asynchronously outside response thread
@@ -543,17 +601,17 @@ export class CheckoutService {
       try {
         const { SyncQueueManager } = require("./sync.service");
         
-        // A. Sale Sync
+        // A. Sale Sync (result totals are already converted to rupees at lines 461-465)
         const syncPayload = {
           invoiceNumber: result.invoice,
           date: formatInTimeZone(new Date(), "Asia/Kolkata", "yyyy-MM-dd"),
           time: formatInTimeZone(new Date(), "Asia/Kolkata", "hh:mm a"),
           cashier: request.cashierName || "System",
           paymentMethod: request.paymentMethod,
-          subtotal: result.subtotal / 100.0,
-          discount: result.discount / 100.0,
-          gst: result.gst / 100.0,
-          grandTotal: result.grandTotal / 100.0,
+          subtotal: result.subtotal,
+          discount: result.discount,
+          gst: result.gst,
+          grandTotal: result.grandTotal,
           publicToken: result.publicToken
         };
         SyncQueueManager.getInstance().enqueue("sale", syncPayload);
