@@ -1,3 +1,4 @@
 [submodule "mobile-expo"]
 	path = mobile-expo
 	url = git@github.com:Ayushpal2006/mobile-expo.git
+	ignore = dirty
