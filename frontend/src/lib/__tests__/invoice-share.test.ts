@@ -269,6 +269,38 @@ describe("Invoice Share Cross-Platform Coordinator", () => {
     }
   });
 
+  it("desktop: copies the bill image before opening WhatsApp and does not overwrite it with text", async () => {
+    const order: string[] = [];
+    let copiedBlob: Blob | null = null;
+    let textCopied = false;
+    const result = await shareInvoiceToWhatsApp(sampleReceipt, undefined, {
+      isNativeAndroid: () => false,
+      generateImages: async (inv) => [makeFakeImage(`${inv.invoiceNumber}.png`)],
+      canShareFiles: () => false,
+      copyImage: async (png) => {
+        order.push("copyImage");
+        copiedBlob = await png;
+        return true;
+      },
+      preOpenWindow: () => {
+        order.push("preOpen");
+        return { navigate: () => order.push("navigate"), close: () => {} };
+      },
+      downloadImage: () => {},
+      copyText: async () => {
+        textCopied = true;
+        return true;
+      },
+    });
+    assert.deepEqual(order.slice(0, 2), ["copyImage", "preOpen"]);
+    assert.ok(copiedBlob);
+    assert.equal(result.imageCopied, true);
+    assert.equal(textCopied, false);
+    assert.equal(result.copiedText, false);
+    assert.match(result.message, /Ctrl\+V/);
+    assert.ok(result.whatsappUrl?.startsWith("https://wa.me/919811122333?text="));
+  });
+
   it("falls back to PNG download + text copy + clean wa.me draft when file sharing is unsupported", async () => {
     const downloaded: string[] = [];
     let copied = "";

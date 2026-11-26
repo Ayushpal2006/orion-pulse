@@ -26,6 +26,8 @@ export interface ShareInvoiceResult {
   images: GeneratedInvoiceImage[];
   downloadedFiles: string[];
   copiedText: boolean;
+  /** Desktop browsers: the first bill image is on the clipboard, ready to paste into the WhatsApp chat. */
+  imageCopied?: boolean;
   whatsappUrl?: string;
   shopWhatsappFallbackUrl?: string;
   popupBlocked?: boolean;
@@ -51,6 +53,7 @@ export interface ShareCoordinatorDeps {
   preOpenWindow?: () => PreOpenedWindowHandle | null;
   downloadImage?: (img: GeneratedInvoiceImage) => void;
   copyText?: (text: string) => Promise<boolean>;
+  copyImage?: (png: Promise<Blob>) => Promise<boolean>;
   openWhatsAppUrl?: (url: string) => boolean;
 }
 
@@ -79,6 +82,17 @@ async function defaultCopyText(text: string): Promise<boolean> {
     // Ignore clipboard rejection in restricted browser contexts
   }
   return false;
+}
+
+function defaultCopyImage(png: Promise<Blob>): Promise<boolean> {
+  try {
+    if (typeof ClipboardItem === "undefined" || !navigator.clipboard?.write) return Promise.resolve(false);
+    // Called synchronously from the click; ClipboardItem accepts a pending blob (Chrome, Edge, Safari).
+    const write = navigator.clipboard.write([new ClipboardItem({ "image/png": png })]).then(() => true, () => false);
+    return Promise.race([write, new Promise<boolean>((r) => setTimeout(() => r(false), 4000))]);
+  } catch {
+    return Promise.resolve(false);
+  }
 }
 
 function defaultPreOpenWindow(): PreOpenedWindowHandle | null {
@@ -161,6 +175,7 @@ function createDefaultDeps(): Required<ShareCoordinatorDeps> {
     preOpenWindow: defaultPreOpenWindow,
     downloadImage: defaultDownloadImage,
     copyText: defaultCopyText,
+    copyImage: defaultCopyImage,
     openWhatsAppUrl: defaultOpenWhatsAppUrl,
   };
 }
@@ -190,13 +205,20 @@ export async function shareInvoiceToWhatsApp(
   const isNative = deps.isNativeAndroid();
   const supportsWebFileShare = !isNative && typeof File !== "undefined" && deps.canShareFiles();
 
+  const imagesPromise = deps.generateImages(invoice);
+  const browserFallback = !isNative && !supportsWebFileShare;
+  // wa.me links cannot carry files, so put the bill image on the clipboard for pasting into the chat.
+  // Both calls must start synchronously inside the click: clipboard first (needs focus), then the popup.
+  const firstPng = imagesPromise.then((imgs) => imgs[0].blob);
+  firstPng.catch(() => {}); // generation errors surface from `await imagesPromise` below
+  const imageCopiedPromise = browserFallback ? deps.copyImage(firstPng) : Promise.resolve(false);
   // Reserve a browser popup synchronously BEFORE any `await` when Web File Share is unavailable,
   // preventing Chrome/Safari/Firefox from blocking the `wa.me` redirect after canvas encoding.
-  const preOpenedWin = !isNative && !supportsWebFileShare ? deps.preOpenWindow() : null;
+  const preOpenedWin = browserFallback ? deps.preOpenWindow() : null;
 
   let images: GeneratedInvoiceImage[];
   try {
-    images = await deps.generateImages(invoice);
+    images = await imagesPromise;
   } catch (err) {
     preOpenedWin?.close();
     throw err;
@@ -271,7 +293,9 @@ export async function shareInvoiceToWhatsApp(
     deps.downloadImage(img);
     downloadedFiles.push(img.filename);
   }
-  const copiedText = await deps.copyText(textOnlyMessage);
+  const imageCopied = await imageCopiedPromise;
+  // The text already travels in the wa.me link; copying it would replace the image on the clipboard.
+  const copiedText = imageCopied ? false : await deps.copyText(textOnlyMessage);
   const whatsappUrl = buildWhatsAppDirectUrl(textOnlyMessage, validCustomerPhone);
   const shopWhatsappFallbackUrl =
     !validCustomerPhone && validShopPhone
@@ -296,11 +320,16 @@ export async function shareInvoiceToWhatsApp(
     images,
     downloadedFiles,
     copiedText,
+    imageCopied,
     whatsappUrl,
     shopWhatsappFallbackUrl,
     popupBlocked,
-    message: popupBlocked
-      ? "Invoice image downloaded to your device. Tap 'Open WhatsApp' to send the message and attach the downloaded image."
-      : `${recipientNote}. Invoice image downloaded locally — attach the downloaded PNG in WhatsApp.`,
+    message: imageCopied
+      ? popupBlocked
+        ? "Bill image copied. Tap 'Open WhatsApp', then press Ctrl+V (⌘V on Mac) in the chat to attach it."
+        : `${recipientNote}. Bill image copied: press Ctrl+V (⌘V on Mac) in the chat to attach it.`
+      : popupBlocked
+        ? "Invoice image downloaded to your device. Tap 'Open WhatsApp' to send the message and attach the downloaded image."
+        : `${recipientNote}. Invoice image downloaded locally — attach the downloaded PNG in WhatsApp.`,
   };
 }
