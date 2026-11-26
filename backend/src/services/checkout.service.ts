@@ -228,7 +228,10 @@ export class CheckoutService {
               .values({
                 organization_id: orgId,
                 store_id: storeId,
-                name: (name || "").trim() || `Customer - ${sanitizedPhone}`,
+                name:
+                  (name || "").trim() && (name || "").trim() !== "Walk-in Customer"
+                    ? (name || "").trim()
+                    : `Customer - ${sanitizedPhone}`,
                 phone: sanitizedPhone,
                 email: null,
                 address: null,

@@ -13,13 +13,13 @@ describe("Worker JWT dynamic env configuration", () => {
     }
   });
 
-  test("safely returns stable fallback in production when JWT_SECRET is unset (zero session crash)", () => {
+  test("fails closed in production when JWT_SECRET is unset (the dev fallback is public)", () => {
     const prevEnv = process.env.NODE_ENV;
     const prevSecret = process.env.JWT_SECRET;
     try {
       process.env.NODE_ENV = "production";
       delete process.env.JWT_SECRET;
-      expect(env.JWT_SECRET).toBe("orion-pos-secret-key-change-in-prod");
+      expect(() => env.JWT_SECRET).toThrow(/JWT_SECRET is not configured/);
     } finally {
       if (prevEnv === undefined) delete process.env.NODE_ENV;
       else process.env.NODE_ENV = prevEnv;
