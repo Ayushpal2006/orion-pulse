@@ -6,7 +6,9 @@ minify = true
 
 [vars]
 NODE_ENV = "production"
-ALLOWED_ORIGINS = "*"
+# Browser origins allowed to call the API: web app + Capacitor Android/iOS WebViews.
+# Native (Expo) requests send no Origin header and are unaffected. Add the custom domain here when it exists.
+ALLOWED_ORIGINS = "https://apkabill.ayushpalworkplace2006.workers.dev,https://localhost,capacitor://localhost"
 # JWT_SECRET is a secret, never a var: `npx wrangler secret put JWT_SECRET` (the Worker refuses to start auth without it).
 
 [[hyperdrive]]

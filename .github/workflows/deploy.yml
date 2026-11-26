@@ -93,7 +93,7 @@ jobs:
 
       - name: Backend Auth / JWT Tests
         working-directory: backend
-        run: bun test src/tests/worker-jwt-env.test.ts src/tests/auth-jwt-secret.test.ts src/tests/admin-routes-guard.test.ts
+        run: bun test src/tests/worker-jwt-env.test.ts src/tests/auth-jwt-secret.test.ts src/tests/admin-routes-guard.test.ts src/tests/cors-allowlist.test.ts
 
       - name: Frontend Unit Tests (share, UPI, print toggles, offline payload)
         working-directory: frontend

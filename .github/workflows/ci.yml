@@ -51,7 +51,7 @@ jobs:
       - name: Run Backend Unit Tests
         run: |
           cd backend
-          bun test src/tests/worker-jwt-env.test.ts src/tests/auth-jwt-secret.test.ts src/tests/admin-routes-guard.test.ts
+          bun test src/tests/worker-jwt-env.test.ts src/tests/auth-jwt-secret.test.ts src/tests/admin-routes-guard.test.ts src/tests/cors-allowlist.test.ts
 
       - name: Frontend Production Bundle Build Check
         run: npm run build:frontend

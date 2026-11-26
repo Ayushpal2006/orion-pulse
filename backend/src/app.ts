@@ -1,6 +1,7 @@
 import { env } from "./config/env";
 import express from "express";
 import cors from "cors";
+import { isOriginAllowed } from "./utils/cors";
 import helmet from "helmet";
 import compression from "compression";
 
@@ -67,30 +68,12 @@ app.use((req, res, next) => {
 });
 
 // CORS configuration (deploy-safe, handles preflight OPTIONS & mobile origins)
-const parseAllowedOrigins = (originsStr?: string): string[] => {
-  if (!originsStr) return ["*"];
-  return originsStr.split(",").map((o) => o.trim().replace(/\/+$/, "")).filter(Boolean);
-};
-
 app.use(cors({
   origin: (origin, callback) => {
     // Allow non-browser requests (mobile native apps, curl, server-to-server) where origin is undefined
     if (!origin) return callback(null, true);
-
-    const cleanOrigin = origin.trim().replace(/\/+$/, "");
-    const allowed = parseAllowedOrigins(process.env.ALLOWED_ORIGINS || env.ALLOWED_ORIGINS);
-
-    if (
-      env.NODE_ENV === "development" ||
-      allowed.includes(cleanOrigin) ||
-      allowed.includes("*") ||
-      allowed.some((a) => a.startsWith("*.") && cleanOrigin.endsWith(a.slice(1)))
-    ) {
-      return callback(null, true);
-    }
-
     // Pass false to omit CORS headers without throwing an Express error that breaks preflight OPTIONS
-    return callback(null, false);
+    return callback(null, isOriginAllowed(origin, process.env.ALLOWED_ORIGINS || env.ALLOWED_ORIGINS, env.NODE_ENV));
   },
   credentials: true,
   methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
