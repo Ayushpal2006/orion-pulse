@@ -246,15 +246,13 @@ export function Dashboard() {
           <MetricCard
             label="Today's Sales"
             value={inr(stats.todayRevenue)}
-            delta={stats.todayRevenue > 0 ? 12 : undefined}
-            hint="vs yesterday"
+            hint="Today so far"
             accent="money"
             icon={<IndianRupee className="size-4" />}
           />
           <MetricCard
             label="Today's Orders"
             value={String(stats.todayOrders)}
-            delta={stats.todayOrders > 0 ? 8 : undefined}
             hint={`Avg ${inr(avgTicket)}`}
             accent="default"
             icon={<ShoppingBag className="size-4" />}
@@ -262,7 +260,6 @@ export function Dashboard() {
           <MetricCard
             label="Today's Profit"
             value={inr(stats.todayProfit)}
-            delta={stats.todayProfit > 0 ? 5 : undefined}
             hint={`Margin ${marginPercent.toFixed(1)}%`}
             accent="money"
             icon={<TrendingUp className="size-4" />}
@@ -305,15 +302,13 @@ export function Dashboard() {
           <MetricCard
             label="Today's Sales"
             value={inr(stats.todayRevenue)}
-            delta={stats.todayRevenue > 0 ? 12 : undefined}
-            hint="vs yesterday"
+            hint="Today so far"
             accent="money"
             icon={<IndianRupee className="size-4" />}
           />
           <MetricCard
             label="Today's Orders"
             value={String(stats.todayOrders)}
-            delta={stats.todayOrders > 0 ? 8 : undefined}
             hint={`Avg ticket ${inr(avgTicket)}`}
             accent="default"
             icon={<ShoppingBag className="size-4" />}
@@ -321,7 +316,6 @@ export function Dashboard() {
           <MetricCard
             label="Today's Profit"
             value={inr(stats.todayProfit)}
-            delta={stats.todayProfit > 0 ? -3 : undefined}
             hint={`Margin ${marginPercent.toFixed(1)}%`}
             accent="money"
             icon={<TrendingUp className="size-4" />}
