@@ -114,7 +114,11 @@ export class BrowserPrintAdapter implements PrintAdapter {
     doc.write(fullDocHtml);
     doc.close();
 
-    await new Promise<void>((resolve) => setTimeout(resolve, 200));
+    if (doc.body) {
+      await waitForReceiptResources(doc.body);
+    } else {
+      await new Promise<void>((resolve) => setTimeout(resolve, 200));
+    }
 
     try {
       iframe.contentWindow?.focus();
@@ -139,7 +143,10 @@ export class UsbPrinterAdapter implements PrintAdapter {
     // Native Capacitor Android Bridge
     if (ThermalPrinterBridge.isNativeAvailable()) {
       try {
-        const formattedText = UniversalReceiptRenderer.toDantsuFormattedText(model, options);
+        const formattedText = await UniversalReceiptRenderer.toDantsuFormattedTextAsync(
+          model,
+          options,
+        );
         await ThermalPrinterBridge.printReceipt({
           connectionType: "usb",
           formattedText,
@@ -149,7 +156,7 @@ export class UsbPrinterAdapter implements PrintAdapter {
           printableWidthMm: options?.profile?.printableWidthMm ?? 72,
         });
         toast.dismiss(toastId);
-        toast.success("Printed successfully to USB KP307 Printer!");
+        toast.success("Printed successfully to USB Thermal Printer!");
         return;
       } catch (err: any) {
         toast.dismiss(toastId);
@@ -207,30 +214,34 @@ export class BluetoothPrinterAdapter implements PrintAdapter {
     options?: RenderOptions & { profile?: any; bluetoothMac?: string },
   ): Promise<void> {
     const model: UniversalReceiptModel = createCanonicalReceiptModel(receipt);
-    const toastId = toast.loading("Sending receipt to Bluetooth KP307 Thermal Printer...");
+    const toastId = toast.loading("Sending receipt to Bluetooth Thermal Printer...");
 
     const mac = options?.bluetoothMac || options?.profile?.bluetoothMac;
+    const is80 = (options?.paperWidth || options?.profile?.paperWidth) === "80mm";
 
-    // Native Capacitor Android Bridge (Direct ESC/POS to KP307)
+    // Native Capacitor Android Bridge (Direct ESC/POS Bluetooth)
     if (ThermalPrinterBridge.isNativeAvailable()) {
       try {
-        const formattedText = UniversalReceiptRenderer.toDantsuFormattedText(model, options);
+        const formattedText = await UniversalReceiptRenderer.toDantsuFormattedTextAsync(
+          model,
+          options,
+        );
         await ThermalPrinterBridge.printReceipt({
           connectionType: "bluetooth",
           macAddress: mac,
           bluetoothMac: mac,
           formattedText,
           autoCut: options?.autoCut ?? options?.profile?.autoCut ?? true,
-          charsPerLine: options?.charsPerLine ?? options?.profile?.charactersPerLine ?? 32,
+          charsPerLine: options?.charsPerLine ?? options?.profile?.charactersPerLine ?? (is80 ? 48 : 32),
           printerDpi: options?.profile?.printerDpi ?? 203,
-          printableWidthMm: options?.profile?.printableWidthMm ?? 48,
+          printableWidthMm: options?.profile?.printableWidthMm ?? (is80 ? 72 : 48),
         });
         toast.dismiss(toastId);
-        toast.success("Printed successfully via Bluetooth to KP307!");
+        toast.success("Printed successfully via Bluetooth!");
         return;
       } catch (err: any) {
         toast.dismiss(toastId);
-        throw new Error("Android Bluetooth Printer error: " + (err.message || err));
+        throw new Error(err.message || String(err));
       }
     }
 
@@ -311,12 +322,15 @@ export class NetworkPrinterAdapter implements PrintAdapter {
     const model: UniversalReceiptModel = createCanonicalReceiptModel(receipt);
     const ip = options?.printerIp || options?.profile?.printerIp;
     const port = options?.printerPort || options?.profile?.printerPort || 9100;
-    const toastId = toast.loading("Sending job to Network KP307 Printer...");
+    const toastId = toast.loading("Sending receipt to Network Thermal Printer...");
 
     // Direct Native Android TCP Printing
     if (ThermalPrinterBridge.isNativeAvailable() && ip) {
       try {
-        const formattedText = UniversalReceiptRenderer.toDantsuFormattedText(model, options);
+        const formattedText = await UniversalReceiptRenderer.toDantsuFormattedTextAsync(
+          model,
+          options,
+        );
         await ThermalPrinterBridge.printReceipt({
           connectionType: "lan",
           ip,
@@ -355,7 +369,10 @@ export class NetworkPrinterAdapter implements PrintAdapter {
 
 // 5. ANDROID POS TERMINAL PRINTER ADAPTER (Sunmi / iMin / PAX / Verifone / Z91)
 export class AndroidPosPrinterAdapter implements PrintAdapter {
-  async print(receipt: any, options?: RenderOptions): Promise<void> {
+  async print(
+    receipt: any,
+    options?: RenderOptions & { profile?: any; bluetoothMac?: string },
+  ): Promise<void> {
     if (typeof window !== "undefined") {
       const model = createCanonicalReceiptModel(receipt);
       const payloadJson = JSON.stringify(receipt);
@@ -383,25 +400,54 @@ export class AndroidPosPrinterAdapter implements PrintAdapter {
       // Check Generic Android Javascript Bridge
       if ((window as any).Android && typeof (window as any).Android.printReceipt === "function") {
         (window as any).Android.printReceipt(payloadJson);
-        toast.success("Receipt printed to Android POS Thermal Printer");
+        toast.success("Receipt printed to built-in POS Printer");
         return;
       }
 
-      // Capacitor Native Bridge Fallback
+      // Capacitor Native Internal / Z91 Bridge (Internal BT / Serial / Loopback)
       if (ThermalPrinterBridge.isNativeAvailable()) {
-        const formattedText = UniversalReceiptRenderer.toDantsuFormattedText(model, options);
+        const formattedText = await UniversalReceiptRenderer.toDantsuFormattedTextAsync(
+          model,
+          options,
+        );
+        const mac = options?.bluetoothMac || options?.profile?.bluetoothMac;
+        const paperWidth = options?.paperWidth || options?.profile?.paperWidth || "58mm";
+        const isSmallPaper = paperWidth === "58mm";
         await ThermalPrinterBridge.printReceipt({
-          connectionType: "bluetooth",
+          connectionType: "internal",
+          macAddress: mac,
+          bluetoothMac: mac,
           formattedText,
-          autoCut: options?.autoCut ?? true,
+          autoCut: options?.autoCut ?? options?.profile?.autoCut ?? true,
+          charsPerLine:
+            options?.charsPerLine ?? options?.profile?.charactersPerLine ?? (isSmallPaper ? 32 : 48),
+          printerDpi: options?.profile?.printerDpi ?? 203,
+          printableWidthMm: options?.profile?.printableWidthMm ?? (isSmallPaper ? 48 : 72),
         });
-        toast.success("Receipt printed via Capacitor Thermal Printer Plugin");
+        toast.success("Receipt printed via built-in POS thermal printer");
         return;
       }
     }
     throw new Error(
       "Built-in Android POS Printer hardware interface is not detected on this device model.",
     );
+  }
+
+  async testConnection(): Promise<boolean> {
+    if (typeof window !== "undefined") {
+      if (
+        (window as any).SunmiPrinter ||
+        (window as any).iMinPrinter ||
+        (window as any).Android
+      ) {
+        return true;
+      }
+    }
+    if (ThermalPrinterBridge.isNativeAvailable()) {
+      const res = await ThermalPrinterBridge.testConnection({ connectionType: "internal" });
+      return res.success;
+    }
+    return false;
   }
 }
 
@@ -415,10 +461,16 @@ export function getPrintAdapter(configuredType: string = "browser"): PrintAdapte
     typeLower === "pos" ||
     typeLower === "android" ||
     typeLower === "android_pos" ||
+    typeLower === "internal" ||
+    typeLower === "z91" ||
+    typeLower === "builtin" ||
     typeLower === "sunmi" ||
     typeLower === "imin"
   ) {
     return new AndroidPosPrinterAdapter();
   }
+  // window.print() does nothing inside the Android WebView, so in the native app a "browser"
+  // profile would silently print nothing; use the native ESC/POS bridge (first paired printer).
+  if (ThermalPrinterBridge.isNativeAvailable()) return new BluetoothPrinterAdapter();
   return new BrowserPrintAdapter();
 }

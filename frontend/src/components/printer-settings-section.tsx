@@ -46,7 +46,13 @@ import {
   printerProfileService,
   validatePrinterProfile,
 } from "@/lib/printer.service";
-import { ThermalPrinterBridge, BluetoothDeviceItem } from "@/lib/thermal-printer-plugin";
+import {
+  ThermalPrinterBridge,
+  BluetoothDeviceItem,
+  type PrinterStatusResult,
+} from "@/lib/thermal-printer-plugin";
+import { useApp } from "@/lib/store";
+import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
 interface PrinterSettingsSectionProps {
@@ -73,6 +79,14 @@ export function PrinterSettingsSection({
   const [btDevices, setBtDevices] = useState<BluetoothDeviceItem[]>([]);
   const [scanningBt, setScanningBt] = useState(false);
   const [testingConnection, setTestingConnection] = useState(false);
+  const [liveStatus, setLiveStatus] = useState<PrinterStatusResult>({
+    success: false,
+    connected: false,
+    status: "DISCONNECTED",
+    message: "Checking printer status...",
+  });
+  const queryClient = useQueryClient();
+  const appState = useApp();
 
   const handleScanBluetoothDevices = async () => {
     setScanningBt(true);
@@ -81,7 +95,7 @@ export function PrinterSettingsSection({
       setBtDevices(devices);
       if (devices.length === 0) {
         toast.info(
-          "No paired Bluetooth printers found. Please pair your KP307 printer in Android Bluetooth Settings first.",
+          "No paired Bluetooth printers found. Please pair your printer in Android Bluetooth Settings first.",
         );
       } else {
         toast.success(`Found ${devices.length} paired Bluetooth device(s).`);
@@ -124,9 +138,31 @@ export function PrinterSettingsSection({
   const activeProfile =
     profiles.find((p) => p.id === activeProfileId) || profiles[0] || DEFAULT_PRINTER_PROFILES[0];
 
+  const refreshLiveStatus = async (prof: PrinterProfile = activeProfile) => {
+    const connType = prof.connectionType === "android_pos" ? "internal" : prof.connectionType;
+    if (connType === "browser") {
+      setLiveStatus({
+        success: true,
+        connected: true,
+        status: "CONNECTED",
+        message: "Browser Print / PDF Ready",
+      });
+      return;
+    }
+    const statusRes = await ThermalPrinterBridge.getPrinterStatus({
+      connectionType: connType as any,
+      bluetoothMac: prof.bluetoothMac,
+      ip: prof.printerIp,
+      port: prof.printerPort || 9100,
+    });
+    setLiveStatus(statusRes);
+  };
+
   useEffect(() => {
     setDiagnostics(printerService.getDiagnostics(activeProfile, currentStore));
-  }, [activeProfile, activeProfileId, currentStore]);
+    refreshLiveStatus(activeProfile).catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeProfile.id, activeProfile.connectionType, activeProfile.bluetoothMac, activeProfile.printerIp, currentStore]);
 
   const handleSavePrinterSettings = async (updatedProfiles: PrinterProfile[], activeId: string) => {
     for (const prof of updatedProfiles) {
@@ -139,12 +175,12 @@ export function PrinterSettingsSection({
 
     setSaving(true);
     try {
-      const ok = await printerProfileService.saveStorePrinterConfig(
+      await printerProfileService.saveStorePrinterConfig(
         updatedProfiles,
         activeId,
         currentStore?.id,
       );
-      if (!ok) throw new Error("Could not persist configuration to store database");
+      await queryClient.invalidateQueries({ queryKey: ["settings"] });
 
       toast.success(`Printer settings saved for ${currentStore?.name || "current store"}!`);
       if (onSaveSuccess) onSaveSuccess();
@@ -158,19 +194,39 @@ export function PrinterSettingsSection({
   const handleTestConnection = async () => {
     setTestingConnection(true);
     try {
+      const connType =
+        activeProfile.connectionType === "android_pos" ? "internal" : activeProfile.connectionType;
       const res = await ThermalPrinterBridge.testConnection({
-        connectionType: activeProfile.connectionType as any,
+        connectionType: connType as any,
         bluetoothMac: activeProfile.bluetoothMac,
         ip: activeProfile.printerIp,
         port: activeProfile.printerPort || 9100,
       });
       if (res.success) {
-        toast.success(res.message || "Connection to KP307 printer verified!");
+        setLiveStatus({
+          success: true,
+          connected: true,
+          status: "CONNECTED",
+          message: res.message || "Printer connected and ready",
+        });
+        toast.success(res.message || "Printer connection verified!");
       } else {
+        setLiveStatus({
+          success: false,
+          connected: false,
+          status: "ERROR",
+          message: res.message || "Connection test failed",
+        });
         toast.error(res.message || "Printer connection test failed.");
       }
     } catch (err: any) {
-      toast.error("Connection test error: " + (err.message || err));
+      setLiveStatus({
+        success: false,
+        connected: false,
+        status: "ERROR",
+        message: err.message || String(err),
+      });
+      toast.error(err.message || "Connection test failed.");
     } finally {
       setTestingConnection(false);
     }
@@ -251,11 +307,19 @@ export function PrinterSettingsSection({
   const handleRunRealTestPrint = async () => {
     setTesting(true);
     try {
-      const customerProfile = printerProfileService.getCustomerProfile(profiles) || activeProfile;
-      const ok = await printerService.runTestPrint(customerProfile, currentStore);
+      const storeWithSettings = {
+        ...currentStore,
+        name: appState.shopName || currentStore?.name,
+        address: appState.storeAddress || currentStore?.address,
+        phone: appState.storePhone || currentStore?.phone,
+        gst_number: appState.gstin || currentStore?.gst_number,
+        upiId: appState.upiId || currentStore?.upiId,
+        logo: appState.logo || currentStore?.logo || currentStore?.logo_url,
+      };
+      const ok = await printerService.runTestPrint(activeProfile, storeWithSettings);
       setDiagnostics(printerService.getDiagnostics(activeProfile, currentStore));
       if (ok) {
-        toast.success("REAL Test Print dispatched to customer hardware via active adapter!");
+        toast.success("Test receipt printed successfully!");
       }
     } catch (e: any) {
       toast.error("Test print error: " + (e.message || e));
@@ -271,7 +335,7 @@ export function PrinterSettingsSection({
       const ok = await printerService.runTestKot(kitchenProfile, currentStore);
       setDiagnostics(printerService.getDiagnostics(activeProfile, currentStore));
       if (ok) {
-        toast.success("REAL Test KOT dispatched to kitchen hardware!");
+        toast.success("Test KOT printed successfully!");
       }
     } catch (e: any) {
       toast.error("Test KOT error: " + (e.message || e));
@@ -281,6 +345,7 @@ export function PrinterSettingsSection({
   };
 
   const updateActiveProfileField = (key: keyof PrinterProfile, value: any) => {
+    const previousProfiles = profiles;
     const updated = profiles.map((p) => {
       if (p.id === activeProfile.id) {
         return { ...p, [key]: value };
@@ -288,7 +353,32 @@ export function PrinterSettingsSection({
       return p;
     });
     setProfiles(updated);
+
+    // Immediately persist toggle changes so Store Logo, UPI QR, Barcode, and Auto-Cut
+    // stay consistent across page reloads and POS checkouts without extra Save clicks.
+    if (
+      key === "showLogo" ||
+      key === "showQr" ||
+      key === "showBarcode" ||
+      key === "autoCut" ||
+      key === "receiptTemplate"
+    ) {
+      printerProfileService
+        .saveStorePrinterConfig(updated, activeProfile.id, currentStore?.id)
+        .then(() => queryClient.invalidateQueries({ queryKey: ["settings"] }))
+        .catch((err: any) => {
+          setProfiles(previousProfiles);
+          toast.error("Failed to save printer preference: " + (err?.message || err));
+        });
+    }
   };
+
+  const statusPillColor =
+    liveStatus.status === "CONNECTED"
+      ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/30"
+      : liveStatus.status === "ERROR"
+        ? "bg-rose-500/10 text-rose-600 border-rose-500/30"
+        : "bg-amber-500/10 text-amber-600 border-amber-500/30";
 
   return (
     <div className="space-y-6">
@@ -299,17 +389,24 @@ export function PrinterSettingsSection({
             <Printer className="h-6 w-6" />
           </div>
           <div>
-            <div className="flex items-center gap-2">
-              <h2 className="text-lg font-bold text-foreground">Printer Platform & Hardware</h2>
+            <div className="flex flex-wrap items-center gap-2">
+              <h2 className="text-lg font-bold text-foreground">Printer Setup</h2>
+              <Badge
+                variant="outline"
+                className={`text-[10px] font-bold uppercase ${statusPillColor}`}
+              >
+                {liveStatus.status || "DISCONNECTED"}
+              </Badge>
               <Badge
                 variant="outline"
                 className="text-[10px] uppercase font-mono tracking-wider border-primary/30 text-primary"
               >
-                Store Isolated ({currentStore?.name || "Main Store"})
+                {currentStore?.name || "Main Store"}
               </Badge>
             </div>
-            <p className="text-xs text-muted-foreground">
-              Configure dual hardware profiles (Customer Receipt & Kitchen KOT), paper formats, and live diagnostics.
+            <p className="text-xs text-muted-foreground mt-0.5">
+              {liveStatus.message ||
+                "प्रिंटर चुनें — Z91 Built-in, Bluetooth, USB या Wi-Fi प्रिंटर सेट करें"}
             </p>
           </div>
         </div>
@@ -319,27 +416,27 @@ export function PrinterSettingsSection({
             onClick={handleRunRealTestPrint}
             disabled={testing || loading}
             variant="outline"
-            className="rounded-xl text-xs font-semibold gap-2 border-border"
+            className="rounded-xl text-xs font-semibold gap-2 border-border min-h-[44px]"
           >
             {testing ? (
               <RefreshCw className="h-4 w-4 animate-spin" />
             ) : (
               <Zap className="h-4 w-4 text-amber-500" />
             )}
-            {testing ? "Testing..." : "⚡ Customer Test Print"}
+            {testing ? "Printing..." : "Print Test Receipt"}
           </Button>
           <Button
             onClick={handleRunRealTestKot}
             disabled={testing || loading}
             variant="outline"
-            className="rounded-xl text-xs font-semibold gap-2 border-border text-orange-600 dark:text-orange-400"
+            className="rounded-xl text-xs font-semibold gap-2 border-border text-orange-600 dark:text-orange-400 min-h-[44px]"
           >
             {testing ? (
               <RefreshCw className="h-4 w-4 animate-spin" />
             ) : (
               <Layers className="h-4 w-4 text-orange-500" />
             )}
-            {testing ? "Testing..." : "🍽️ Kitchen KOT Test"}
+            {testing ? "Testing..." : "Kitchen KOT Test"}
           </Button>
           <Button
             onClick={() => handleSavePrinterSettings(profiles, activeProfileId)}
@@ -490,17 +587,17 @@ export function PrinterSettingsSection({
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="android_pos">
-                        📱 Built-in Android POS Printer (Sunmi/iMin/PAX)
-                      </SelectItem>
-                      <SelectItem value="usb">
-                        🔌 USB ESC/POS Thermal Printer (Direct WebUSB / Android Native)
+                        📱 Built-in POS Printer (Z91 / Sunmi / iMin / InnerPrinter)
                       </SelectItem>
                       <SelectItem value="bluetooth">
-                        📡 Bluetooth ESC/POS Thermal Printer (KP307 / Android Native)
+                        📡 Bluetooth ESC/POS Thermal Printer (Android / WebBluetooth)
                       </SelectItem>
-                      <SelectItem value="lan">🌐 LAN / Network TCP Printer (Port 9100)</SelectItem>
+                      <SelectItem value="usb">
+                        🔌 USB ESC/POS Thermal Printer (Direct OTG / WebUSB)
+                      </SelectItem>
+                      <SelectItem value="lan">🌐 Wi-Fi / LAN Network Printer (Port 9100)</SelectItem>
                       <SelectItem value="browser">
-                        🌐 Browser Fallback (Silent Hidden Frame)
+                        🖨️ Browser / System Print (PDF Fallback)
                       </SelectItem>
                     </SelectContent>
                   </Select>
@@ -645,7 +742,7 @@ export function PrinterSettingsSection({
                     disabled={testingConnection}
                     size="sm"
                     variant="outline"
-                    className="w-full rounded-xl text-xs h-8 border-border gap-1.5"
+                    className="w-full rounded-xl text-xs h-9 border-border gap-1.5"
                   >
                     {testingConnection ? (
                       <RefreshCw className="h-3.5 w-3.5 animate-spin" />
@@ -654,6 +751,35 @@ export function PrinterSettingsSection({
                     )}
                     Test Bluetooth Connection
                   </Button>
+                </div>
+              )}
+
+              {activeProfile.connectionType === "android_pos" && (
+                <div className="p-3.5 rounded-xl bg-muted/40 border border-border space-y-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <div>
+                      <div className="text-xs font-semibold text-foreground">
+                        Built-in Terminal Printer (Z91 / Sunmi / iMin)
+                      </div>
+                      <div className="text-[11px] text-muted-foreground">
+                        Auto-detects InnerPrinter Bluetooth, serial ESC/POS port, or vendor SDK.
+                      </div>
+                    </div>
+                    <Button
+                      onClick={handleTestConnection}
+                      disabled={testingConnection}
+                      size="sm"
+                      variant="outline"
+                      className="rounded-xl text-xs h-9 shrink-0 gap-1.5"
+                    >
+                      {testingConnection ? (
+                        <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <Smartphone className="h-3.5 w-3.5 text-primary" />
+                      )}
+                      Check Printer
+                    </Button>
+                  </div>
                 </div>
               )}
 
@@ -953,8 +1079,8 @@ export function PrinterSettingsSection({
               <Sparkles className="h-4 w-4" /> Hardware ESC/POS Support
             </div>
             <p className="text-[11px] text-muted-foreground leading-relaxed">
-              Orion POS generates universal ESC/POS byte buffers for KP307, Epson, TVS, Sunmi, Star
-              Micronics, and Xprinter thermal hardware.
+              Apka Bill generates universal ESC/POS commands for Z91 built-in POS terminals,
+              Bluetooth 58mm/80mm thermal printers, Epson, TVS, Sunmi, Star, and Xprinter hardware.
             </p>
           </Card>
         </div>
@@ -1106,12 +1232,45 @@ export function PrinterSettingsSection({
                 </div>
               </div>
 
-              <div className="flex items-center justify-between rounded-xl bg-muted/40 p-3 border border-border">
-                <span className="text-xs font-semibold">Auto Paper Cut</span>
-                <Switch
-                  checked={editingProfile.autoCut}
-                  onCheckedChange={(chk) => setEditingProfile({ ...editingProfile, autoCut: chk })}
-                />
+              <div className="space-y-2">
+                <div className="flex items-center justify-between rounded-xl bg-muted/40 p-3 border border-border">
+                  <span className="text-xs font-semibold">Auto Paper Cut</span>
+                  <Switch
+                    checked={editingProfile.autoCut}
+                    onCheckedChange={(chk) =>
+                      setEditingProfile({ ...editingProfile, autoCut: chk })
+                    }
+                  />
+                </div>
+                <div className="grid grid-cols-3 gap-2">
+                  <div className="flex items-center justify-between rounded-xl bg-muted/40 p-2.5 border border-border">
+                    <span className="text-[11px] font-medium">Logo</span>
+                    <Switch
+                      checked={editingProfile.showLogo}
+                      onCheckedChange={(chk) =>
+                        setEditingProfile({ ...editingProfile, showLogo: chk })
+                      }
+                    />
+                  </div>
+                  <div className="flex items-center justify-between rounded-xl bg-muted/40 p-2.5 border border-border">
+                    <span className="text-[11px] font-medium">UPI QR</span>
+                    <Switch
+                      checked={editingProfile.showQr}
+                      onCheckedChange={(chk) =>
+                        setEditingProfile({ ...editingProfile, showQr: chk })
+                      }
+                    />
+                  </div>
+                  <div className="flex items-center justify-between rounded-xl bg-muted/40 p-2.5 border border-border">
+                    <span className="text-[11px] font-medium">Barcode</span>
+                    <Switch
+                      checked={editingProfile.showBarcode}
+                      onCheckedChange={(chk) =>
+                        setEditingProfile({ ...editingProfile, showBarcode: chk })
+                      }
+                    />
+                  </div>
+                </div>
               </div>
             </div>
           )}

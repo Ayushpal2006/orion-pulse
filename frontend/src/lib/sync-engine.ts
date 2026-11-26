@@ -1,6 +1,9 @@
-import { getPendingSalesOffline, updatePendingSaleStatus, OfflinePendingSale } from "./offline-db";
+import { getPendingSalesOffline, updatePendingSaleStatus } from "./offline-db";
+import { buildCheckoutPayloadFromOfflineSale } from "./offline-checkout-mapper";
 import { apiFetch, API_BASE_URL } from "./api";
 import { toast } from "sonner";
+
+export { buildCheckoutPayloadFromOfflineSale };
 
 export interface SyncStatusState {
   isOnline: boolean;
@@ -46,9 +49,12 @@ export async function refreshPendingCount(): Promise<number> {
 }
 
 export async function syncPendingSales(): Promise<{ successCount: number; failedCount: number }> {
-  if (isSyncingActive || !navigator.onLine) {
+  if (isSyncingActive || (typeof navigator !== "undefined" && !navigator.onLine)) {
     const pending = await getPendingSalesOffline();
-    updateSyncState({ isOnline: navigator.onLine, pendingCount: pending.length });
+    updateSyncState({
+      isOnline: typeof navigator !== "undefined" ? navigator.onLine : true,
+      pendingCount: pending.length,
+    });
     return { successCount: 0, failedCount: 0 };
   }
 
@@ -72,34 +78,29 @@ export async function syncPendingSales(): Promise<{ successCount: number; failed
       `[Sync Engine] Found ${pendingSales.length} pending offline sales. Initiating sync...`,
     );
 
+    const activeStoreId =
+      typeof window !== "undefined" ? localStorage.getItem("currentStoreId") || "" : "";
+
     for (const sale of pendingSales) {
+      // Never cross-sync a bill queued in another store
+      if (sale.store_id && activeStoreId && String(sale.store_id) !== String(activeStoreId)) {
+        continue;
+      }
+
       await updatePendingSaleStatus(sale.offlineId, "syncing");
       try {
-        const payload = {
-          items: sale.items.map((i) => ({
-            productId: i.product_id,
-            product_id: i.product_id,
-            quantity: i.quantity,
-            price: i.unit_price,
-            unit_price: i.unit_price,
-            discount: 0,
-          })),
-          customerId: sale.customer_id,
-          customer_id: sale.customer_id,
-          paymentMethod: sale.payment_method,
-          payment_method: sale.payment_method,
-          subtotal: sale.subtotal,
-          discount: sale.discount,
-          tax: sale.tax,
-          totalAmount: sale.total_amount,
-          amountPaid: sale.amount_paid,
-          offlineIdentifier: sale.offlineId,
-          offlineInvoiceNumber: sale.invoice_number,
+        const payload = buildCheckoutPayloadFromOfflineSale(sale);
+        const headers: Record<string, string> = {
+          "Content-Type": "application/json",
+          "X-Offline-Id": sale.offlineId,
         };
+        if (sale.store_id) {
+          headers["X-Store-Id"] = String(sale.store_id);
+        }
 
         const res = await apiFetch(`${API_BASE_URL}/checkout`, {
           method: "POST",
-          headers: { "Content-Type": "application/json", "X-Offline-Id": sale.offlineId },
+          headers,
           body: JSON.stringify(payload),
         });
 
@@ -128,7 +129,7 @@ export async function syncPendingSales(): Promise<{ successCount: number; failed
     });
 
     if (successCount > 0) {
-      toast.success(`🎉 Successfully synced ${successCount} offline sale(s) to server!`);
+      toast.success(`Synced ${successCount} offline sale(s) successfully!`);
     }
   } catch (globalErr: any) {
     console.error("[Sync Engine] Global sync error:", globalErr);
@@ -145,13 +146,13 @@ if (typeof window !== "undefined") {
   window.addEventListener("online", () => {
     console.log("[Sync Engine] Connection restored! Triggering auto-sync...");
     updateSyncState({ isOnline: true });
-    toast.info("🌐 Network restored. Syncing offline sales...");
+    toast.info("Internet restored. Syncing pending offline sales...");
     syncPendingSales();
   });
 
   window.addEventListener("offline", () => {
     console.log("[Sync Engine] Network disconnected. Switched to Offline mode.");
     updateSyncState({ isOnline: false });
-    toast.warning("🔴 You are offline. All sales will be saved locally.");
+    toast.warning("Offline mode active. Sales will be saved locally and synced later.");
   });
 }

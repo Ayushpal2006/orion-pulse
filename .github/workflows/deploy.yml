@@ -1,0 +1,188 @@
+name: Production Deploy (Cloudflare)
+
+# Every push to main is tested and then deployed to the existing Workers:
+#   backend  -> orion-pos-api   (deployed first, health-checked)
+#   frontend -> apkabill        (deployed only after the backend succeeds)
+# Manual runs stay available and still require typing CONFIRM.
+# Requires repo secrets CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID; without them the
+# deploy jobs are skipped (not failed) so CI stays green.
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      target:
+        description: 'Component to deploy to Cloudflare'
+        required: true
+        type: choice
+        default: 'all'
+        options:
+          - all
+          - backend
+          - frontend
+      confirm:
+        description: 'Type "CONFIRM" to authorize deployment'
+        required: true
+        type: string
+        default: 'NO'
+
+# Only one production deployment at a time; never cancel one midway.
+concurrency:
+  group: production-cloudflare-deploy
+  cancel-in-progress: false
+
+jobs:
+  guard:
+    name: Deployment Authorization Guard
+    runs-on: ubuntu-latest
+    outputs:
+      target: ${{ steps.decide.outputs.target }}
+      has_credentials: ${{ steps.decide.outputs.has_credentials }}
+    steps:
+      - name: Decide target and check credentials
+        id: decide
+        env:
+          EVENT: ${{ github.event_name }}
+          TARGET_INPUT: ${{ github.event.inputs.target }}
+          CONFIRM_INPUT: ${{ github.event.inputs.confirm }}
+          HAS_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN != '' && secrets.CLOUDFLARE_ACCOUNT_ID != '' }}
+        run: |
+          if [ "$EVENT" = "workflow_dispatch" ]; then
+            if [ "$CONFIRM_INPUT" != "CONFIRM" ]; then
+              echo "::error ::Deployment rejected. Type CONFIRM to run a manual deployment."
+              exit 1
+            fi
+            echo "target=$TARGET_INPUT" >> "$GITHUB_OUTPUT"
+          else
+            echo "target=all" >> "$GITHUB_OUTPUT"
+          fi
+          echo "has_credentials=$HAS_TOKEN" >> "$GITHUB_OUTPUT"
+          if [ "$HAS_TOKEN" != "true" ]; then
+            echo "::warning ::CLOUDFLARE_API_TOKEN / CLOUDFLARE_ACCOUNT_ID repo secrets are not set; deploy jobs will be skipped."
+          fi
+
+  build-and-test:
+    name: Pre-Flight Verification
+    needs: guard
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Backend Build & Typecheck
+        run: npm run build:backend
+
+      - name: Financial Amount Scale Matrix Test
+        run: node scripts/verify-amount-scale-fix.mjs
+
+      - name: Backend Auth / JWT Tests
+        working-directory: backend
+        run: bun test src/tests/worker-jwt-env.test.ts src/tests/auth-jwt-secret.test.ts src/tests/admin-routes-guard.test.ts
+
+      - name: Frontend Unit Tests (share, UPI, print toggles, offline payload)
+        working-directory: frontend
+        run: bun test src
+
+      - name: Frontend Build
+        run: npm run build:frontend
+        env:
+          NODE_OPTIONS: "--max-old-space-size=4096"
+
+  deploy-backend:
+    name: Deploy Backend Worker (orion-pos-api)
+    needs: [guard, build-and-test]
+    if: ${{ needs.guard.outputs.has_credentials == 'true' && (needs.guard.outputs.target == 'all' || needs.guard.outputs.target == 'backend') }}
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: https://orion-pos-api.ayushpalworkplace2006.workers.dev
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Build Backend Bundle
+        run: npm run build:backend
+
+      - name: Deploy Backend to Cloudflare Workers
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: backend
+          command: deploy --name orion-pos-api --message "ci ${{ github.sha }}"
+
+      - name: Backend Health Check
+        run: |
+          for i in 1 2 3 4 5 6; do
+            code=$(curl -s -o /dev/null -w '%{http_code}' https://orion-pos-api.ayushpalworkplace2006.workers.dev/health || true)
+            [ "$code" = "200" ] && echo "health 200" && exit 0
+            sleep 10
+          done
+          echo "::error ::Backend health check failed after deploy. Roll back with: npx wrangler rollback --name orion-pos-api"
+          exit 1
+
+  deploy-frontend:
+    name: Deploy Frontend Worker (apkabill)
+    needs: [guard, build-and-test, deploy-backend]
+    # Frontend must never go out ahead of a failed backend deploy.
+    if: ${{ always() && needs.guard.outputs.has_credentials == 'true' && needs.build-and-test.result == 'success' && (needs.deploy-backend.result == 'success' || needs.deploy-backend.result == 'skipped') && (needs.guard.outputs.target == 'all' || needs.guard.outputs.target == 'frontend') }}
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: https://apkabill.ayushpalworkplace2006.workers.dev
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Build Frontend SSR Bundle
+        run: npm run build:frontend
+        env:
+          NODE_OPTIONS: "--max-old-space-size=4096"
+
+      - name: Deploy Frontend to Cloudflare Workers
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: frontend
+          command: deploy --name apkabill dist/server/index.mjs --compatibility-date 2026-03-01 --compatibility-flags nodejs_compat --assets dist/public --message "ci ${{ github.sha }}"
+
+      - name: Frontend Health Check
+        run: |
+          code=$(curl -s -o /dev/null -w '%{http_code}' https://apkabill.ayushpalworkplace2006.workers.dev/login)
+          echo "frontend /login -> $code"
+          [ "$code" = "200" ] || { echo "::error ::Frontend check failed. Roll back with: npx wrangler rollback --name apkabill"; exit 1; }

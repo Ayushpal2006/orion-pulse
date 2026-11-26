@@ -2,7 +2,7 @@ import { ICustomerRepository } from "../interfaces/ICustomerRepository";
 import { Customer, CreateCustomerDTO, UpdateCustomerDTO } from "../../types/customer.types";
 import { db } from "../../db";
 import { customers, sales } from "../../db/schema";
-import { eq, and, desc, like, or, sql } from "drizzle-orm";
+import { eq, and, desc, like, or, sql, isNull } from "drizzle-orm";
 import { getTenantContext } from "../../db/context";
 
 export class PostgresCustomerRepository implements ICustomerRepository {
@@ -309,7 +309,12 @@ export class PostgresCustomerRepository implements ICustomerRepository {
         or(
           eq(customers.is_system, 1),
           eq(customers.type, "SYSTEM"),
-          eq(customers.name, "Walk-in Customer")
+          // A same-named customer with a real phone is a person, not the walk-in record;
+          // reusing it would send walk-in invoices to that person's WhatsApp.
+          and(
+            eq(customers.name, "Walk-in Customer"),
+            or(isNull(customers.phone), eq(customers.phone, ""), eq(customers.phone, "0000000000"))
+          )
         )
       );
 
@@ -317,6 +322,7 @@ export class PostgresCustomerRepository implements ICustomerRepository {
         .select()
         .from(customers)
         .where(cond)
+        .orderBy(sql`coalesce(${customers.is_system}, 0) desc`, customers.id)
         .limit(1);
 
       if (rows[0]) {

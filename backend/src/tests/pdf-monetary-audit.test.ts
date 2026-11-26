@@ -51,7 +51,7 @@ async function auditMonetaryValues() {
   console.log(`\n▶ Auditing ${recentPurchases.length} Purchase Orders...`);
 
   for (const p of recentPurchases) {
-    const fullPoData = await storeStorage.run({ storeId: 1, userId: 1, role: "Admin" }, async () => {
+    const fullPoData = await storeStorage.run({ storeId: 1, organizationId: 1, userId: 1, role: "Admin" }, async () => {
       return await purchaseService.getById(p.id);
     });
 

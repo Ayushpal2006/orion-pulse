@@ -10,9 +10,10 @@
     "build": "npm run build:backend && npm run build:frontend",
     "build:backend": "npm run build --workspace=backend",
     "build:frontend": "npm run build --workspace=tanstack_start_ts",
-    "dev:backend": "npm run dev --workspace=backend",
+    "dev": "node scripts/run-local.mjs dev",
+    "dev:backend": "node scripts/run-local.mjs dev:backend",
     "dev:frontend": "npm run dev --workspace=tanstack_start_ts",
-    "start": "npm run start --workspace=backend"
+    "start": "node scripts/run-local.mjs start"
   },
   "dependencies": {
     "typescript": "^5.9.3"

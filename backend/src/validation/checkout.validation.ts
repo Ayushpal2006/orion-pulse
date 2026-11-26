@@ -7,6 +7,7 @@ const CheckoutItemSchema = z.object({
   price: z.number().optional(),
   discount: z.number().optional(),
   discountPercent: z.number().optional(),
+  isDiscountPercent: z.boolean().optional(),
   notes: z.string().optional().nullable(),
 });
 
@@ -22,11 +23,18 @@ export const CheckoutRequestSchema = z.object({
   discountPercent: z.number().optional(),
   cartDiscount: z.number().optional(),
   gst: z.number().optional(),
+  tax: z.number().optional(),
   grandTotal: z.number().optional(),
+  totalAmount: z.number().optional(),
   paidAmount: z.number().optional(),
+  amountPaid: z.number().optional(),
   balance: z.number().optional(),
   paymentDetails: z.any().optional(),
   tableNo: z.string().optional().nullable(),
   orderType: z.enum(["DINE_IN", "TAKEAWAY", "DELIVERY"]).optional().default("DINE_IN"),
   notes: z.string().optional().nullable(),
+  offlineIdentifier: z.string().trim().optional().nullable(),
+  offline_identifier: z.string().trim().optional().nullable(),
+  offlineInvoiceNumber: z.string().trim().optional().nullable(),
+  offline_invoice_number: z.string().trim().optional().nullable(),
 });

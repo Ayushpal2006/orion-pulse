@@ -31,14 +31,25 @@ import {
   FileText,
 } from "lucide-react";
 import { useApp } from "@/lib/store";
-import { getStores, createStore, updateStore, disableStore, switchStore } from "@/lib/api";
+import {
+  getStores,
+  createStore,
+  updateStore,
+  disableStore,
+  switchStore,
+  fetchAndApplyStoreSettings,
+} from "@/lib/api";
+import { printerProfileService } from "@/lib/printer-profile.service";
+import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
 export function StoresManagementSection() {
+  const queryClient = useQueryClient();
   const activeStoreId = useApp((s) => s.activeStoreId);
   const setActiveStoreId = useApp((s) => s.setActiveStoreId);
   const setActiveStoreName = useApp((s) => s.setActiveStoreName);
+  const resetTenantState = useApp((s) => s.resetTenantState);
   const storesList = useApp((s) => s.storesList);
   const setStoresList = useApp((s) => s.setStoresList);
 
@@ -179,8 +190,12 @@ export function StoresManagementSection() {
     if (store.id === activeStoreId) return;
     try {
       await switchStore(store.id);
+      queryClient.clear();
+      printerProfileService.clearCache();
+      resetTenantState();
       setActiveStoreId(store.id);
       setActiveStoreName(store.name);
+      await fetchAndApplyStoreSettings().catch(() => {});
       toast.success(`Switched active store to "${store.name}"`);
     } catch (err: any) {
       toast.error(err.message || "Failed to switch store");

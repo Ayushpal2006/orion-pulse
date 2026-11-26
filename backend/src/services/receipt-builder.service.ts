@@ -3,6 +3,7 @@ import { sales, sale_items, products, customers, stores, organizations, settings
 import { eq, and } from "drizzle-orm";
 import { NotFoundError } from "../utils/errors";
 import { formatToKolkataDate, formatToKolkataTime } from "../utils/datetime";
+import { buildUpiUri } from "../utils/upi";
 import { storeStorage, getTenantContext } from "../db/context";
 import QRCode from "qrcode";
 import { ReceiptDTO, BrandingConfig, StoreConfig, ReceiptItemDTO, ThermalFormatItem } from "../types/receipt.types";
@@ -135,9 +136,11 @@ export class ReceiptBuilderService {
         const formattedTime = formatToKolkataTime(saleRecord.created_at);
 
         // Build UPI Payload & Offline QR Code
-        const upiPayload = branding.upiId
-          ? `upi://pay?pa=${branding.upiId}&pn=${encodeURIComponent(branding.shopName)}&am=${(saleRecord.grand_total / 100.0).toFixed(2)}&cu=INR`
-          : "";
+        const upiPayload = buildUpiUri({
+          vpa: branding.upiId,
+          payeeName: branding.shopName,
+          amountPaise: saleRecord.grand_total,
+        });
 
         let upiQrCode = "";
         if (saleRecord.payment_method === "UPI" && upiPayload) {
@@ -175,6 +178,15 @@ export class ReceiptBuilderService {
           { type: "text", value: branding.receiptFooter, align: "center" },
         ];
 
+        const rawGrandPaise = Number(saleRecord.grand_total ?? 0);
+        const rawPaidPaise = Number(saleRecord.paid_amount ?? 0);
+        const rawBalancePaise = Number(saleRecord.balance ?? 0);
+        // Legacy rows default both paid_amount and balance to 0; infer paid in full unless balance > 0
+        const resolvedPaidPaise =
+          rawPaidPaise === 0 && rawBalancePaise === 0 && rawGrandPaise > 0
+            ? rawGrandPaise
+            : rawPaidPaise;
+
         return {
           invoiceNumber: saleRecord.invoice_number,
           date: formattedDate,
@@ -191,7 +203,9 @@ export class ReceiptBuilderService {
           subtotal: saleRecord.subtotal / 100.0,
           discount: saleRecord.discount / 100.0,
           gst: saleRecord.gst / 100.0,
-          grandTotal: saleRecord.grand_total / 100.0,
+          grandTotal: rawGrandPaise / 100.0,
+          paidAmount: resolvedPaidPaise / 100.0,
+          balance: rawBalancePaise / 100.0,
           paymentMethod: saleRecord.payment_method,
           cashier: saleRecord.cashier_name || "Admin",
           publicToken: saleRecord.public_token || "",

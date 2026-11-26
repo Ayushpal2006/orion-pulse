@@ -1,5 +1,7 @@
 import React from "react";
 import { QRCodeSVG } from "qrcode.react";
+import JsBarcode from "jsbarcode";
+import { buildUpiUri, isValidUpiUri } from "@/lib/upi";
 
 export interface ReceiptItem {
   name: string;
@@ -36,6 +38,7 @@ export interface ReceiptData {
   paymentMethod: string;
   upiQrCode?: string;
   upiPayload?: string;
+  barcodeData?: string;
   thankYouMessage: string;
   invoiceHeader?: string;
   primaryColor?: string;
@@ -45,11 +48,33 @@ interface TemplateProps {
   receipt: ReceiptData;
   paperWidth?: "58mm" | "80mm" | "A4";
   qrPosition?: "Top" | "Bottom";
+  showLogo?: boolean;
+  showQr?: boolean;
+  showBarcode?: boolean;
 }
 
 const formatInr = (val: any) => `₹${(Number.isFinite(Number(val)) ? Number(val) : 0).toFixed(2)}`;
 
-function renderQr(receipt: ReceiptData, color = "#000000", size = 110) {
+function resolveValidQrPayload(receipt: ReceiptData): { payload: string; qrImage?: string } {
+  const rawPayload = String(receipt.upiPayload || "").trim();
+  if (isValidUpiUri(rawPayload)) {
+    return { payload: rawPayload, qrImage: receipt.upiQrCode };
+  }
+  const built = buildUpiUri({
+    vpa: receipt.shop?.upiId,
+    payeeName: receipt.shop?.name || "Store",
+    amountPaise: Math.round((Number(receipt.grandTotal) || 0) * 100),
+  });
+  if (built) {
+    return { payload: built, qrImage: receipt.upiQrCode };
+  }
+  return { payload: "", qrImage: undefined };
+}
+
+function renderQr(receipt: ReceiptData, color = "#000000", size = 110, enabled = true) {
+  if (!enabled) return null;
+  const resolved = resolveValidQrPayload(receipt);
+  if (!resolved.payload && !resolved.qrImage) return null;
   return (
     <div
       style={{ display: "flex", flexDirection: "column", alignItems: "center", margin: "6px 0" }}
@@ -63,14 +88,14 @@ function renderQr(receipt: ReceiptData, color = "#000000", size = 110) {
           display: "inline-block",
         }}
       >
-        {receipt.upiQrCode ? (
+        {resolved.qrImage ? (
           <img
-            src={receipt.upiQrCode}
+            src={resolved.qrImage}
             style={{ width: `${size}px`, height: `${size}px`, display: "block" }}
             alt="UPI QR Code"
           />
         ) : (
-          <QRCodeSVG value={receipt.upiPayload || "upi://pay"} size={size} />
+          <QRCodeSVG value={resolved.payload} size={size} />
         )}
       </div>
       <span style={{ fontSize: "8px", color, fontWeight: "bold", marginTop: "2px" }}>
@@ -80,10 +105,101 @@ function renderQr(receipt: ReceiptData, color = "#000000", size = 110) {
   );
 }
 
+/**
+ * Pure SSR-safe CODE128 vector SVG barcode rendered via JsBarcode encoder.
+ */
+export function ReceiptBarcode({
+  value,
+  enabled = true,
+  compact = false,
+}: {
+  value?: string;
+  enabled?: boolean;
+  compact?: boolean;
+}) {
+  if (!enabled) return null;
+  const clean = String(value || "")
+    .replace(/[^\x20-\x7E]/g, "")
+    .trim()
+    .slice(0, 32);
+  if (!clean) return null;
+
+  let bitString = "";
+  try {
+    const out: any = {};
+    JsBarcode(out, clean, { format: "CODE128" });
+    bitString = String(out.encodings?.[0]?.data || "");
+  } catch {
+    return null;
+  }
+  if (!bitString) return null;
+
+  const rects: { x: number; w: number }[] = [];
+  let i = 0;
+  while (i < bitString.length) {
+    if (bitString[i] === "1") {
+      const start = i;
+      while (i < bitString.length && bitString[i] === "1") i++;
+      rects.push({ x: start + 8, w: i - start });
+    } else {
+      i++;
+    }
+  }
+  const totalWidth = bitString.length + 16;
+  const height = compact ? 28 : 36;
+
+  return (
+    <div
+      data-receipt-barcode={clean}
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        margin: "6px 0 4px",
+      }}
+    >
+      <svg
+        viewBox={`0 0 ${totalWidth} ${height}`}
+        style={{
+          width: "100%",
+          maxWidth: compact ? "168px" : "210px",
+          height: `${height}px`,
+          background: "#ffffff",
+          display: "block",
+        }}
+        role="img"
+        aria-label={`Invoice Barcode ${clean}`}
+      >
+        <rect x="0" y="0" width={totalWidth} height={height} fill="#ffffff" />
+        {rects.map((r, idx) => (
+          <rect key={idx} x={r.x} y={2} width={r.w} height={height - 4} fill="#000000" />
+        ))}
+      </svg>
+      <span
+        style={{
+          fontSize: "7.5px",
+          fontFamily: "monospace",
+          letterSpacing: "0.08em",
+          color: "#111111",
+          marginTop: "2px",
+        }}
+      >
+        {clean}
+      </span>
+    </div>
+  );
+}
+
 // =========================================================
 // 1. CLASSIC TEMPLATE (80mm) — MATCH REFERENCE SCREENSHOT 1
 // =========================================================
-export function ClassicTemplate({ receipt, qrPosition = "Bottom" }: TemplateProps) {
+export function ClassicTemplate({
+  receipt,
+  qrPosition = "Bottom",
+  showLogo = true,
+  showQr = true,
+  showBarcode = true,
+}: TemplateProps) {
   return (
     <div
       style={{
@@ -105,11 +221,18 @@ export function ClassicTemplate({ receipt, qrPosition = "Bottom" }: TemplateProp
           marginBottom: "4px",
         }}
       >
-        {receipt.shop.logo && (
+        {showLogo && receipt.shop.logo && (
           <img
             src={receipt.shop.logo}
             alt="Logo"
-            style={{ maxHeight: "36px", objectFit: "contain", marginBottom: "4px" }}
+            style={{
+              maxWidth: "140px",
+              maxHeight: "42px",
+              width: "auto",
+              height: "auto",
+              objectFit: "contain",
+              marginBottom: "4px",
+            }}
           />
         )}
         <div style={{ fontSize: "13px", fontWeight: "bold", textTransform: "uppercase" }}>
@@ -157,7 +280,7 @@ export function ClassicTemplate({ receipt, qrPosition = "Bottom" }: TemplateProp
       </div>
       <div style={{ borderTop: "1px dashed #000000", margin: "4px 0" }}></div>
 
-      {qrPosition === "Top" && receipt.paymentMethod === "UPI" && renderQr(receipt, "#000000")}
+      {qrPosition === "Top" && renderQr(receipt, "#000000", 110, showQr)}
 
       <table
         style={{ width: "100%", fontSize: "8.5px", borderCollapse: "collapse", margin: "2px 0" }}
@@ -215,14 +338,14 @@ export function ClassicTemplate({ receipt, qrPosition = "Bottom" }: TemplateProp
       </div>
       <div style={{ borderTop: "1px dashed #000000", margin: "4px 0" }}></div>
 
-      {qrPosition === "Bottom" && receipt.paymentMethod === "UPI" && (
-        <div style={{ textAlign: "center", margin: "4px 0" }}>
-          <div style={{ fontSize: "8.5px", fontWeight: "bold" }}>
-            Paid via {receipt.paymentMethod}
-          </div>
-          {renderQr(receipt, "#000000", 110)}
+      <div style={{ textAlign: "center", margin: "4px 0" }}>
+        <div style={{ fontSize: "8.5px", fontWeight: "bold" }}>
+          Paid via {receipt.paymentMethod}
         </div>
-      )}
+        {qrPosition === "Bottom" && renderQr(receipt, "#000000", 110, showQr)}
+      </div>
+
+      <ReceiptBarcode value={receipt.barcodeData || receipt.invoiceNumber} enabled={showBarcode} />
 
       <div style={{ fontSize: "7.5px", textAlign: "center", color: "#444", marginTop: "4px" }}>
         {receipt.thankYouMessage || "Goods once sold cannot be returned without original receipt."}
@@ -234,7 +357,13 @@ export function ClassicTemplate({ receipt, qrPosition = "Bottom" }: TemplateProp
 // =========================================================
 // 2. MODERN TEMPLATE (80mm) — MATCH REFERENCE SCREENSHOT 2
 // =========================================================
-export function ModernTemplate({ receipt, qrPosition = "Bottom" }: TemplateProps) {
+export function ModernTemplate({
+  receipt,
+  qrPosition = "Bottom",
+  showLogo = true,
+  showQr = true,
+  showBarcode = true,
+}: TemplateProps) {
   const primary = receipt.primaryColor || "#2563eb";
   return (
     <div
@@ -328,7 +457,7 @@ export function ModernTemplate({ receipt, qrPosition = "Bottom" }: TemplateProps
         </div>
       </div>
 
-      {qrPosition === "Top" && receipt.paymentMethod === "UPI" && renderQr(receipt, primary)}
+      {qrPosition === "Top" && renderQr(receipt, primary, 110, showQr)}
 
       {/* Item Table with Blue Header */}
       <table
@@ -414,14 +543,14 @@ export function ModernTemplate({ receipt, qrPosition = "Bottom" }: TemplateProps
         </div>
       </div>
 
-      {qrPosition === "Bottom" && receipt.paymentMethod === "UPI" && (
-        <div style={{ textAlign: "center", margin: "4px 0" }}>
-          <div style={{ fontSize: "8.5px", fontWeight: "bold", color: primary }}>
-            Paid via {receipt.paymentMethod}
-          </div>
-          {renderQr(receipt, primary, 110)}
+      <div style={{ textAlign: "center", margin: "4px 0" }}>
+        <div style={{ fontSize: "8.5px", fontWeight: "bold", color: primary }}>
+          Paid via {receipt.paymentMethod}
         </div>
-      )}
+        {qrPosition === "Bottom" && renderQr(receipt, primary, 110, showQr)}
+      </div>
+
+      <ReceiptBarcode value={receipt.barcodeData || receipt.invoiceNumber} enabled={showBarcode} />
 
       <div style={{ fontSize: "7.5px", textAlign: "center", color: "#64748b" }}>
         {receipt.thankYouMessage || "Goods once sold cannot be returned without original receipt."}
@@ -433,7 +562,13 @@ export function ModernTemplate({ receipt, qrPosition = "Bottom" }: TemplateProps
 // =========================================================
 // 3. MINIMAL TEMPLATE (80mm) — MATCH REFERENCE SCREENSHOT 3
 // =========================================================
-export function MinimalTemplate({ receipt, qrPosition = "Bottom" }: TemplateProps) {
+export function MinimalTemplate({
+  receipt,
+  qrPosition = "Bottom",
+  showLogo = true,
+  showQr = true,
+  showBarcode = true,
+}: TemplateProps) {
   return (
     <div
       style={{
@@ -447,6 +582,20 @@ export function MinimalTemplate({ receipt, qrPosition = "Bottom" }: TemplateProp
       }}
     >
       <div style={{ textAlign: "center", marginBottom: "4px" }}>
+        {showLogo && receipt.shop.logo && (
+          <img
+            src={receipt.shop.logo}
+            alt="Logo"
+            style={{
+              maxWidth: "120px",
+              maxHeight: "34px",
+              width: "auto",
+              height: "auto",
+              objectFit: "contain",
+              margin: "0 auto 4px",
+            }}
+          />
+        )}
         <div style={{ fontSize: "12px", fontWeight: "bold" }}>{receipt.shop.name}</div>
         <div style={{ fontSize: "8px", color: "#555" }}>
           {receipt.shop.phone || "-"} | GST: {receipt.shop.gstin || "-"}
@@ -459,7 +608,7 @@ export function MinimalTemplate({ receipt, qrPosition = "Bottom" }: TemplateProp
       </div>
       <div style={{ borderTop: "1px solid #ccc", margin: "4px 0" }}></div>
 
-      {qrPosition === "Top" && receipt.paymentMethod === "UPI" && renderQr(receipt, "#000000", 90)}
+      {qrPosition === "Top" && renderQr(receipt, "#000000", 90, showQr)}
 
       <table
         style={{ width: "100%", fontSize: "8.5px", borderCollapse: "collapse", margin: "2px 0" }}
@@ -483,12 +632,12 @@ export function MinimalTemplate({ receipt, qrPosition = "Bottom" }: TemplateProp
         TOTAL:{formatInr(receipt.grandTotal)}
       </div>
 
-      {qrPosition === "Bottom" && receipt.paymentMethod === "UPI" && (
-        <div style={{ textAlign: "center", margin: "4px 0" }}>
-          <div style={{ fontSize: "8px" }}>Paid via {receipt.paymentMethod}</div>
-          {renderQr(receipt, "#000000", 90)}
-        </div>
-      )}
+      <div style={{ textAlign: "center", margin: "4px 0" }}>
+        <div style={{ fontSize: "8px" }}>Paid via {receipt.paymentMethod}</div>
+        {qrPosition === "Bottom" && renderQr(receipt, "#000000", 90, showQr)}
+      </div>
+
+      <ReceiptBarcode value={receipt.barcodeData || receipt.invoiceNumber} enabled={showBarcode} />
 
       <div style={{ fontSize: "7px", textAlign: "center", color: "#666", marginTop: "4px" }}>
         {receipt.thankYouMessage || "Goods once sold cannot be returned without original receipt."}
@@ -500,7 +649,13 @@ export function MinimalTemplate({ receipt, qrPosition = "Bottom" }: TemplateProp
 // =========================================================
 // 4. RETAIL TEMPLATE (80mm) — MATCH REFERENCE SCREENSHOT 4
 // =========================================================
-export function RetailTemplate({ receipt, qrPosition = "Bottom" }: TemplateProps) {
+export function RetailTemplate({
+  receipt,
+  qrPosition = "Bottom",
+  showLogo = true,
+  showQr = true,
+  showBarcode = true,
+}: TemplateProps) {
   return (
     <div
       style={{
@@ -521,11 +676,18 @@ export function RetailTemplate({ receipt, qrPosition = "Bottom" }: TemplateProps
           marginBottom: "4px",
         }}
       >
-        {receipt.shop.logo && (
+        {showLogo && receipt.shop.logo && (
           <img
             src={receipt.shop.logo}
             alt="Logo"
-            style={{ maxHeight: "36px", objectFit: "contain", marginBottom: "4px" }}
+            style={{
+              maxWidth: "140px",
+              maxHeight: "42px",
+              width: "auto",
+              height: "auto",
+              objectFit: "contain",
+              marginBottom: "4px",
+            }}
           />
         )}
         <div style={{ fontSize: "13px", fontWeight: "bold" }}>{receipt.shop.name}</div>
@@ -565,7 +727,7 @@ export function RetailTemplate({ receipt, qrPosition = "Bottom" }: TemplateProps
       </div>
       <div style={{ borderTop: "1px dashed #000000", margin: "4px 0" }}></div>
 
-      {qrPosition === "Top" && receipt.paymentMethod === "UPI" && renderQr(receipt, "#000000")}
+      {qrPosition === "Top" && renderQr(receipt, "#000000", 110, showQr)}
 
       <div style={{ width: "100%", margin: "2px 0" }}>
         <div
@@ -650,14 +812,14 @@ export function RetailTemplate({ receipt, qrPosition = "Bottom" }: TemplateProps
       </div>
       <div style={{ borderTop: "1px dashed #000000", margin: "4px 0" }}></div>
 
-      {qrPosition === "Bottom" && receipt.paymentMethod === "UPI" && (
-        <div style={{ textAlign: "center", margin: "4px 0" }}>
-          <div style={{ fontSize: "8px", fontWeight: "bold" }}>
-            Paid via {receipt.paymentMethod}
-          </div>
-          {renderQr(receipt, "#000000", 110)}
+      <div style={{ textAlign: "center", margin: "4px 0" }}>
+        <div style={{ fontSize: "8px", fontWeight: "bold" }}>
+          Paid via {receipt.paymentMethod}
         </div>
-      )}
+        {qrPosition === "Bottom" && renderQr(receipt, "#000000", 110, showQr)}
+      </div>
+
+      <ReceiptBarcode value={receipt.barcodeData || receipt.invoiceNumber} enabled={showBarcode} />
 
       <div style={{ fontSize: "7px", textAlign: "center", color: "#444" }}>
         {receipt.thankYouMessage || "Goods once sold cannot be returned without original receipt."}
@@ -669,7 +831,13 @@ export function RetailTemplate({ receipt, qrPosition = "Bottom" }: TemplateProps
 // =========================================================
 // 5. WHOLESALE TEMPLATE (A4) — MATCH REFERENCE SCREENSHOT 5
 // =========================================================
-export function WholesaleTemplate({ receipt, qrPosition = "Bottom" }: TemplateProps) {
+export function WholesaleTemplate({
+  receipt,
+  qrPosition = "Bottom",
+  showLogo = true,
+  showQr = true,
+  showBarcode = true,
+}: TemplateProps) {
   const primary = receipt.primaryColor || "#047857"; // Emerald Green
   return (
     <div
@@ -686,6 +854,22 @@ export function WholesaleTemplate({ receipt, qrPosition = "Bottom" }: TemplatePr
       }}
     >
       {/* Top Header Title */}
+      {showLogo && receipt.shop.logo && (
+        <div style={{ textAlign: "center", marginBottom: "6px" }}>
+          <img
+            src={receipt.shop.logo}
+            alt="Logo"
+            style={{
+              maxWidth: "160px",
+              maxHeight: "48px",
+              width: "auto",
+              height: "auto",
+              objectFit: "contain",
+              margin: "0 auto",
+            }}
+          />
+        </div>
+      )}
       <div
         style={{
           textAlign: "center",
@@ -901,7 +1085,7 @@ export function WholesaleTemplate({ receipt, qrPosition = "Bottom" }: TemplatePr
         }}
       >
         <div>
-          {receipt.paymentMethod === "UPI" && renderQr(receipt, primary, 85)}
+          {showQr && renderQr(receipt, primary, 85, showQr)}
           <div style={{ fontSize: "8px", fontWeight: "bold", color: primary }}>
             Paid via {receipt.paymentMethod}
           </div>
@@ -923,6 +1107,8 @@ export function WholesaleTemplate({ receipt, qrPosition = "Bottom" }: TemplatePr
           </div>
         </div>
       </div>
+
+      <ReceiptBarcode value={receipt.barcodeData || receipt.invoiceNumber} enabled={showBarcode} />
 
       <div style={{ fontSize: "7.5px", textAlign: "center", color: "#64748b", marginTop: "10px" }}>
         {receipt.thankYouMessage || "Goods once sold cannot be returned without original receipt."}
@@ -954,7 +1140,13 @@ export function FashionTemplate(props: TemplateProps) {
 // =========================================================
 // 10. COMPACT TEMPLATE (58mm) — MATCH REFERENCE SCREENSHOT 11
 // =========================================================
-export function CompactTemplate({ receipt }: TemplateProps) {
+export function CompactTemplate({
+  receipt,
+  qrPosition = "Bottom",
+  showLogo = true,
+  showQr = true,
+  showBarcode = true,
+}: TemplateProps) {
   return (
     <div
       style={{
@@ -967,6 +1159,20 @@ export function CompactTemplate({ receipt }: TemplateProps) {
       }}
     >
       <div style={{ textAlign: "center", marginBottom: "2px" }}>
+        {showLogo && receipt.shop.logo && (
+          <img
+            src={receipt.shop.logo}
+            alt="Logo"
+            style={{
+              maxWidth: "120px",
+              maxHeight: "34px",
+              width: "auto",
+              height: "auto",
+              objectFit: "contain",
+              margin: "0 auto 3px",
+            }}
+          />
+        )}
         <div style={{ fontSize: "11px", fontWeight: "bold" }}>{receipt.shop.name}</div>
         <div style={{ fontSize: "7.5px", color: "#444" }}>
           {receipt.shop.phone || "-"} | GST:{receipt.shop.gstin || "-"}
@@ -1029,6 +1235,18 @@ export function CompactTemplate({ receipt }: TemplateProps) {
       </div>
       <div style={{ borderTop: "1px dashed #000000", margin: "3px 0" }}></div>
 
+      {showQr && (
+        <div style={{ textAlign: "center", margin: "3px 0" }}>
+          {renderQr(receipt, "#000000", 86, showQr)}
+        </div>
+      )}
+
+      <ReceiptBarcode
+        value={receipt.barcodeData || receipt.invoiceNumber}
+        enabled={showBarcode}
+        compact
+      />
+
       <div style={{ fontSize: "7px", textAlign: "center", color: "#444" }}>
         Paid: {receipt.paymentMethod}
         <br />
@@ -1050,6 +1268,9 @@ export interface ReceiptRendererProps {
   receipt: ReceiptData;
   qrPosition?: "Top" | "Bottom";
   paperWidth?: "58mm" | "80mm" | "A4";
+  showLogo?: boolean;
+  showQr?: boolean;
+  showBarcode?: boolean;
 }
 
 export function ReceiptRenderer({
@@ -1057,18 +1278,22 @@ export function ReceiptRenderer({
   template,
   receipt,
   qrPosition = "Bottom",
+  paperWidth,
+  showLogo = true,
+  showQr = true,
+  showBarcode = true,
 }: ReceiptRendererProps) {
   const t = String(templateName || template || "Classic").trim();
-  if (t === "Modern") return <ModernTemplate receipt={receipt} qrPosition={qrPosition} />;
-  if (t === "Minimal") return <MinimalTemplate receipt={receipt} qrPosition={qrPosition} />;
-  if (t === "Retail") return <RetailTemplate receipt={receipt} qrPosition={qrPosition} />;
-  if (t === "Wholesale") return <WholesaleTemplate receipt={receipt} qrPosition={qrPosition} />;
-  if (t === "GST Professional")
-    return <GstProfessionalTemplate receipt={receipt} qrPosition={qrPosition} />;
-  if (t === "Restaurant") return <RestaurantTemplate receipt={receipt} qrPosition={qrPosition} />;
-  if (t === "Medical") return <MedicalTemplate receipt={receipt} qrPosition={qrPosition} />;
-  if (t === "Fashion") return <FashionTemplate receipt={receipt} qrPosition={qrPosition} />;
-  if (t === "Compact") return <CompactTemplate receipt={receipt} qrPosition={qrPosition} />;
-  if (t === "Thermal") return <ThermalTemplate receipt={receipt} qrPosition={qrPosition} />;
-  return <ClassicTemplate receipt={receipt} qrPosition={qrPosition} />;
+  const shared = { receipt, qrPosition, paperWidth, showLogo, showQr, showBarcode };
+  if (t === "Modern") return <ModernTemplate {...shared} />;
+  if (t === "Minimal") return <MinimalTemplate {...shared} />;
+  if (t === "Retail") return <RetailTemplate {...shared} />;
+  if (t === "Wholesale") return <WholesaleTemplate {...shared} />;
+  if (t === "GST Professional") return <GstProfessionalTemplate {...shared} />;
+  if (t === "Restaurant") return <RestaurantTemplate {...shared} />;
+  if (t === "Medical") return <MedicalTemplate {...shared} />;
+  if (t === "Fashion") return <FashionTemplate {...shared} />;
+  if (t === "Compact") return <CompactTemplate {...shared} />;
+  if (t === "Thermal") return <ThermalTemplate {...shared} />;
+  return <ClassicTemplate {...shared} />;
 }

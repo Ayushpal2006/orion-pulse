@@ -70,6 +70,13 @@ type State = {
   upiQrUrl?: string;
   accountHolderName?: string;
   bankDetails?: string;
+  // retail billing & app preferences
+  invPrefix: string;
+  taxInclusive: boolean;
+  roundOffEnabled: boolean;
+  autoPrintInvoice: boolean;
+  acceptedPaymentModes: string[];
+  language: "en" | "hi";
   // store management & switcher
   activeStoreId: number;
   activeStoreName: string;
@@ -142,6 +149,13 @@ type Actions = {
   setAccountHolderName?: (s: string) => void;
   setBankDetails?: (s: string) => void;
   setPrimaryColor?: (s: string) => void;
+  setInvPrefix: (s: string) => void;
+  setTaxInclusive: (v: boolean) => void;
+  setRoundOffEnabled: (v: boolean) => void;
+  setAutoPrintInvoice: (v: boolean) => void;
+  setAcceptedPaymentModes: (modes: string[]) => void;
+  setLanguage: (lang: "en" | "hi") => void;
+  resetTenantState: () => void;
 };
 
 export const useApp = create<State & Actions>((set, get) => ({
@@ -175,6 +189,12 @@ export const useApp = create<State & Actions>((set, get) => ({
   whatsappFooter: "Thank you for shopping. Visit Again.",
   requireCustomerBeforeCheckout: false,
   receiptTemplate: "Classic",
+  invPrefix: "INV-",
+  taxInclusive: false,
+  roundOffEnabled: true,
+  autoPrintInvoice: true,
+  acceptedPaymentModes: ["Cash", "UPI", "Card", "Wallet"],
+  language: "en",
 
   setActiveStoreId: (activeStoreId) => set({ activeStoreId }),
   setActiveStoreName: (activeStoreName) => set({ activeStoreName }),
@@ -342,6 +362,42 @@ export const useApp = create<State & Actions>((set, get) => ({
   setAccountHolderName: (accountHolderName) => set({ accountHolderName }),
   setBankDetails: (bankDetails) => set({ bankDetails }),
   setPrimaryColor: (primaryColor) => set({ primaryColor }),
+  setInvPrefix: (invPrefix) => set({ invPrefix }),
+  setTaxInclusive: (taxInclusive) => set({ taxInclusive }),
+  setRoundOffEnabled: (roundOffEnabled) => set({ roundOffEnabled }),
+  setAutoPrintInvoice: (autoPrintInvoice) => set({ autoPrintInvoice }),
+  setAcceptedPaymentModes: (acceptedPaymentModes) => set({ acceptedPaymentModes }),
+  setLanguage: (language) => set({ language }),
+  resetTenantState: () =>
+    set({
+      cart: [],
+      parkedSales: [],
+      products: [],
+      customers: [],
+      shopName: "",
+      gstin: "",
+      logo: undefined,
+      currency: "INR",
+      taxRate: 12,
+      receiptHeader: "Thank you for shopping with us",
+      receiptFooter: "*** Thank you — visit again ***",
+      upiId: "",
+      storeAddress: "",
+      storePhone: "",
+      storeEmail: "",
+      invPrefix: "INV-",
+      taxInclusive: false,
+      roundOffEnabled: true,
+      autoPrintInvoice: true,
+      acceptedPaymentModes: ["Cash", "UPI", "Card", "Wallet"],
+      primaryColor: undefined,
+      tagline: undefined,
+      website: undefined,
+      invoiceHeader: undefined,
+      invoiceFooter: undefined,
+      termsAndConditions: undefined,
+      whatsappSignature: undefined,
+    }),
 }));
 
 import {

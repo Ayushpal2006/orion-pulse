@@ -10,6 +10,20 @@ import { InventoryMovementService } from "../services/inventory-movement.service
 const router = Router();
 const movementService = new InventoryMovementService();
 
+/** True when a JSON value carries a usable number (not undefined / null / ""). */
+const hasValue = (v: unknown): boolean => v !== undefined && v !== null && v !== "";
+
+/**
+ * Converts a RUPEE amount from a client payload into integer PAISE for storage.
+ * Non-numeric / missing input yields 0. This is the only unit conversion allowed on the
+ * sync-upload path; the unit is fixed by contract, never guessed from the value.
+ */
+const rupeesToPaise = (v: unknown): number => {
+  if (!hasValue(v)) return 0;
+  const n = Number(v);
+  return Number.isFinite(n) ? Math.round(n * 100) : 0;
+};
+
 // POST upload offline-first delta changes
 router.post("/upload", async (req: Request, res: Response): Promise<void> => {
   try {
@@ -314,12 +328,16 @@ router.post("/upload", async (req: Request, res: Response): Promise<void> => {
             if (custByName) customerId = custByName.id;
           }
 
-          const cleanSubtotal = Math.round(Number(sale.subtotal || 0));
-          const cleanDiscount = Math.round(Number(sale.discount || 0));
-          const cleanGst = Math.round(Number(sale.gst !== undefined ? sale.gst : (sale.tax || 0)));
-          const cleanGrandTotal = Math.round(Number(sale.grand_total !== undefined ? sale.grand_total : (sale.total_amount || 0)));
-          const cleanPaidAmount = sale.paid_amount !== undefined && sale.paid_amount !== null ? Math.round(Number(sale.paid_amount)) : cleanGrandTotal;
-          const cleanBalance = sale.balance !== undefined && sale.balance !== null ? Math.round(Number(sale.balance)) : 0;
+          // MONEY CONTRACT: every monetary field in an uploaded sale is in RUPEES (the mobile
+          // outbox serialises paise / 100). The database stores integer PAISE, so convert here
+          // exactly once. Never infer the unit from the magnitude of the value.
+          const cleanSubtotal = rupeesToPaise(sale.subtotal);
+          const cleanDiscount = rupeesToPaise(sale.discount);
+          const cleanGst = rupeesToPaise(hasValue(sale.gst) ? sale.gst : sale.tax);
+          const cleanGrandTotal = rupeesToPaise(hasValue(sale.grand_total) ? sale.grand_total : sale.total_amount);
+          const rawPaid = hasValue(sale.paid_amount) ? sale.paid_amount : sale.amount_paid;
+          const cleanPaidAmount = hasValue(rawPaid) ? rupeesToPaise(rawPaid) : cleanGrandTotal;
+          const cleanBalance = hasValue(sale.balance) ? rupeesToPaise(sale.balance) : Math.max(0, cleanGrandTotal - cleanPaidAmount);
 
           // Insert Sale
           const [createdSale] = await tx
@@ -343,41 +361,61 @@ router.post("/upload", async (req: Request, res: Response): Promise<void> => {
             })
             .returning();
 
-          // Insert items & reduce stock (strictly validating product belongs to tenant)
+          // Insert items (strictly validating product belongs to tenant)
           if (sale.items && Array.isArray(sale.items)) {
             for (const item of sale.items) {
-              let prodId: number | null = null;
+              let prodRow: { id: number; gst: number | null } | null = null;
               if (item.product_id && !isNaN(parseInt(String(item.product_id), 10))) {
                 const checkProd = await tx
-                  .select({ id: products.id })
+                  .select({ id: products.id, gst: products.gst })
                   .from(products)
                   .where(and(eq(products.id, parseInt(String(item.product_id), 10)), eq(products.organization_id, orgId), eq(products.store_id, storeId)))
                   .limit(1);
-                if (checkProd.length > 0) prodId = checkProd[0].id;
+                if (checkProd.length > 0) prodRow = checkProd[0];
               }
 
-              if (!prodId && item.product_name) {
+              if (!prodRow && item.product_name) {
                 const checkByName = await tx
-                  .select({ id: products.id })
+                  .select({ id: products.id, gst: products.gst })
                   .from(products)
                   .where(and(eq(products.name, String(item.product_name)), eq(products.organization_id, orgId), eq(products.store_id, storeId)))
                   .limit(1);
-                if (checkByName.length > 0) prodId = checkByName[0].id;
+                if (checkByName.length > 0) prodRow = checkByName[0];
               }
 
-              if (!prodId) {
+              if (!prodRow) {
                 const firstProd = await tx
-                  .select({ id: products.id })
+                  .select({ id: products.id, gst: products.gst })
                   .from(products)
                   .where(and(eq(products.organization_id, orgId), eq(products.store_id, storeId)))
                   .limit(1);
-                prodId = firstProd.length > 0 ? firstProd[0].id : 1;
+                prodRow = firstProd.length > 0 ? firstProd[0] : { id: 1, gst: 18 };
               }
+              const prodId = prodRow.id;
 
-              const itemQty = Number(item.quantity) || 1;
-              const sellingPrice = Math.round(Number(item.selling_price || item.unit_price || 0));
-              const lineDiscount = Math.round(Number(item.discount || 0));
-              const lineTotal = Math.round(Number(item.line_total || item.subtotal || (sellingPrice * itemQty - lineDiscount)));
+              // Line amounts arrive in RUPEES; sale_items stores PAISE (same rules as CheckoutService).
+              const itemQty = Math.max(1, Math.round(Number(item.quantity) || 1));
+              const unitPricePaise = rupeesToPaise(
+                hasValue(item.selling_price) ? item.selling_price : hasValue(item.unit_price) ? item.unit_price : item.unitPrice
+              );
+              const lineGrossPaise = unitPricePaise * itemQty;
+
+              // Line discount: explicit rupee amount wins; otherwise a percentage. The legacy mobile
+              // outbox field `discount` has always carried the line discount PERCENT (0-100).
+              let lineDiscountPaise = 0;
+              if (hasValue(item.discount_amount)) {
+                lineDiscountPaise = rupeesToPaise(item.discount_amount);
+              } else if (hasValue(item.discount_percent)) {
+                lineDiscountPaise = Math.round((lineGrossPaise * Number(item.discount_percent)) / 100);
+              } else if (hasValue(item.discount)) {
+                lineDiscountPaise = Math.round((lineGrossPaise * Number(item.discount)) / 100);
+              }
+              lineDiscountPaise = Math.min(lineGrossPaise, Math.max(0, lineDiscountPaise));
+
+              const lineTaxablePaise = lineGrossPaise - lineDiscountPaise;
+              const gstRate = prodRow.gst !== undefined && prodRow.gst !== null ? Number(prodRow.gst) : 18;
+              const lineGstPaise = Math.round((lineTaxablePaise * gstRate) / 100);
+              const lineTotal = lineTaxablePaise + lineGstPaise;
 
               await tx.insert(sale_items).values({
                 organization_id: orgId,
@@ -385,8 +423,8 @@ router.post("/upload", async (req: Request, res: Response): Promise<void> => {
                 sale_id: createdSale.id,
                 product_id: prodId,
                 quantity: itemQty,
-                selling_price: sellingPrice,
-                discount: lineDiscount,
+                selling_price: unitPricePaise,
+                discount: lineDiscountPaise,
                 line_total: lineTotal,
               });
             }
@@ -441,6 +479,20 @@ router.post("/upload", async (req: Request, res: Response): Promise<void> => {
 });
 
 // GET download/pull offline-first delta changes
+// Pull pagination. Sales, purchases and expenses are paged by ascending id (keyset), because they
+// can be large. Everything else (products, customers, suppliers, settings) is returned in full on
+// the first page only. A client must keep requesting pages while `sync.hasMore` is true, passing back
+// `sync.nextCursor` and `sweepStart`, and must only persist `syncTime` once `hasMore` is false.
+const PULL_DEFAULT_PAGE_SIZE = 500;
+const PULL_MAX_PAGE_SIZE = 1000;
+const EPOCH_ISO = "1970-01-01T00:00:00.000Z";
+
+const parsePositiveInt = (raw: unknown, fallback: number, max = Number.MAX_SAFE_INTEGER): number => {
+  const n = Number.parseInt(String(raw ?? ""), 10);
+  if (!Number.isFinite(n) || n < 0) return fallback;
+  return Math.min(n, max);
+};
+
 const handlePullSync = async (req: Request, res: Response): Promise<void> => {
   try {
     const { organizationId, currentStoreId } = getTenantContext();
@@ -457,6 +509,18 @@ const handlePullSync = async (req: Request, res: Response): Promise<void> => {
     }
 
     const lastSyncTimeStr = req.query.lastSyncTime as string | undefined;
+
+    const pageSize = Math.max(1, parsePositiveInt(req.query.pageSize, PULL_DEFAULT_PAGE_SIZE, PULL_MAX_PAGE_SIZE));
+    const afterSalesId = parsePositiveInt(req.query.afterSalesId, 0);
+    const afterPurchasesId = parsePositiveInt(req.query.afterPurchasesId, 0);
+    const afterExpensesId = parsePositiveInt(req.query.afterExpensesId, 0);
+    const isFirstPage = afterSalesId === 0 && afterPurchasesId === 0 && afterExpensesId === 0;
+
+    // The sweep start time is the cursor to persist once every page has been fetched. Taking it
+    // before any query runs means rows written during the sweep are re-delivered next time, never lost.
+    const requestedSweepStart = req.query.sweepStart ? new Date(String(req.query.sweepStart)) : null;
+    const sweepStart =
+      requestedSweepStart && !Number.isNaN(requestedSweepStart.getTime()) ? requestedSweepStart : new Date();
 
     let downloadCond: any = and(eq(products.organization_id, orgId), eq(products.store_id, storeId));
     let custCond: any = and(eq(customers.organization_id, orgId), eq(customers.store_id, storeId));
@@ -476,13 +540,25 @@ const handlePullSync = async (req: Request, res: Response): Promise<void> => {
       expCond = and(expCond, gt(expenses.updated_at, lastSyncDate));
     }
 
-    const updatedProducts = await db.select().from(products).where(downloadCond);
-    const updatedCustomers = await db.select().from(customers).where(custCond);
-    const updatedSettings = await db.select().from(settings).where(settingsCond);
-    const updatedSales = await db.select().from(sales).where(salesCond).orderBy(sql`${sales.id} DESC`).limit(100);
-    const updatedSuppliers = await db.select().from(suppliers).where(suppCond);
-    const updatedPurchases = await db.select().from(purchase_orders).where(poCond).orderBy(sql`${purchase_orders.id} DESC`).limit(50);
-    const updatedExpenses = await db.select().from(expenses).where(expCond).orderBy(sql`${expenses.id} DESC`).limit(50);
+    if (afterSalesId > 0) salesCond = and(salesCond, gt(sales.id, afterSalesId));
+    if (afterPurchasesId > 0) poCond = and(poCond, gt(purchase_orders.id, afterPurchasesId));
+    if (afterExpensesId > 0) expCond = and(expCond, gt(expenses.id, afterExpensesId));
+
+    // Unpaged collections are sent once, on the first page of a sweep.
+    const updatedProducts = isFirstPage ? await db.select().from(products).where(downloadCond) : [];
+    const updatedCustomers = isFirstPage ? await db.select().from(customers).where(custCond) : [];
+    const updatedSettings = isFirstPage ? await db.select().from(settings).where(settingsCond) : [];
+    const updatedSuppliers = isFirstPage ? await db.select().from(suppliers).where(suppCond) : [];
+
+    // Fetch one extra row per paged collection to learn whether more remain.
+    const salesPage = await db.select().from(sales).where(salesCond).orderBy(sql`${sales.id} ASC`).limit(pageSize + 1);
+    const purchasesPage = await db.select().from(purchase_orders).where(poCond).orderBy(sql`${purchase_orders.id} ASC`).limit(pageSize + 1);
+    const expensesPage = await db.select().from(expenses).where(expCond).orderBy(sql`${expenses.id} ASC`).limit(pageSize + 1);
+
+    const hasMore = salesPage.length > pageSize || purchasesPage.length > pageSize || expensesPage.length > pageSize;
+    const updatedSales = salesPage.slice(0, pageSize);
+    const updatedPurchases = purchasesPage.slice(0, pageSize);
+    const updatedExpenses = expensesPage.slice(0, pageSize);
 
     const saleIds = updatedSales.map((s) => s.id);
     let updatedSaleItems: any[] = [];
@@ -513,7 +589,17 @@ const handlePullSync = async (req: Request, res: Response): Promise<void> => {
       items: updatedPOItems.filter((item) => item.purchase_order_id === p.id),
     }));
 
-    const nowIso = new Date().toISOString();
+    const nowIso = sweepStart.toISOString();
+    const lastOf = (rows: Array<{ id: number }>, previous: number): number =>
+      rows.length > 0 ? rows[rows.length - 1].id : previous;
+    const nextCursor = {
+      afterSalesId: lastOf(updatedSales, afterSalesId),
+      afterPurchasesId: lastOf(updatedPurchases, afterPurchasesId),
+      afterExpensesId: lastOf(updatedExpenses, afterExpensesId),
+    };
+    // While pages remain, never advance a non-paging client's saved cursor past undelivered rows:
+    // hand back the time it asked from (or the epoch), so at worst it re-pulls rather than loses data.
+    const syncTimeForClient = hasMore ? lastSyncTimeStr || EPOCH_ISO : nowIso;
 
     res.status(200).json({
       success: true,
@@ -531,8 +617,12 @@ const handlePullSync = async (req: Request, res: Response): Promise<void> => {
         sales: salesWithItems,
         saleItems: updatedSaleItems,
         sync: {
-          cursor: nowIso,
-          syncTime: nowIso,
+          cursor: syncTimeForClient,
+          syncTime: syncTimeForClient,
+          sweepStart: nowIso,
+          hasMore,
+          pageSize,
+          nextCursor: hasMore ? nextCursor : null,
           counts: {
             products: updatedProducts.length,
             customers: updatedCustomers.length,
@@ -544,7 +634,10 @@ const handlePullSync = async (req: Request, res: Response): Promise<void> => {
             settings: updatedSettings.length,
           },
         },
-        syncTime: nowIso,
+        syncTime: syncTimeForClient,
+        sweepStart: nowIso,
+        hasMore,
+        nextCursor: hasMore ? nextCursor : null,
       },
     });
   } catch (error: any) {

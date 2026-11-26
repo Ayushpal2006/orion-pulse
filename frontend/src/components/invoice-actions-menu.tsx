@@ -12,13 +12,13 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useApp } from "@/lib/store";
 import { toast } from "sonner";
 import {
-  getWhatsAppShareLink,
   downloadSalePdf,
   getSalePublicLink,
   logSaleAudit,
   deleteInvoice,
   voidSaleInvoice,
 } from "@/lib/api";
+import { shareInvoiceToWhatsApp } from "@/lib/invoice-share";
 import { printerService } from "@/lib/printer.service";
 import { EditInvoiceDialog } from "@/components/edit-invoice-dialog";
 import {
@@ -52,6 +52,15 @@ export function InvoiceActionsMenu({
 }) {
   const queryClient = useQueryClient();
   const role = useApp((s) => s.role);
+  const shopName = useApp((s) => s.shopName);
+  const storeAddress = useApp((s) => s.storeAddress);
+  const storePhone = useApp((s) => s.storePhone);
+  const storeEmail = useApp((s) => s.storeEmail);
+  const gstin = useApp((s) => s.gstin);
+  const logo = useApp((s) => s.logo);
+  const receiptFooter = useApp((s) => s.receiptFooter);
+  const thankYouMessage = useApp((s) => s.thankYouMessage);
+  const primaryColor = useApp((s) => s.primaryColor);
 
   const [printing, setPrinting] = useState(false);
   const [downloadingPdf, setDownloadingPdf] = useState(false);
@@ -141,22 +150,40 @@ export function InvoiceActionsMenu({
   };
 
   const handleWhatsApp = async () => {
-    const phoneDigits = (receipt?.customer?.phone || "").replace(/\D/g, "");
-    if (!phoneDigits || phoneDigits === "0000000000" || phoneDigits.length < 10) {
-      toast.error("Customer phone number is required to share on WhatsApp.");
-      return;
-    }
     setSharingWhatsApp(true);
     try {
-      const url = await getWhatsAppShareLink(invoiceNumber);
-      window.open(url, "_blank");
+      const shareResult = await shareInvoiceToWhatsApp(receipt, {
+        shopName,
+        address: storeAddress,
+        phone: storePhone,
+        email: storeEmail,
+        gstin,
+        logo,
+        receiptFooter,
+        thankYouMessage,
+        primaryColor,
+      });
+
+      if (shareResult.mode === "cancelled") {
+        toast.info("Share cancelled");
+        return;
+      }
+
+      toast.success(shareResult.message, {
+        action: shareResult.whatsappUrl
+          ? {
+              label: "Open WhatsApp",
+              onClick: () => window.open(shareResult.whatsappUrl, "_blank"),
+            }
+          : undefined,
+      });
       await logSaleAudit(
         invoiceNumber,
         "INVOICE_SHARE",
-        `${role} shared invoice ${invoiceNumber} on WhatsApp`,
-      );
+        `${role} shared invoice ${invoiceNumber} (${shareResult.mode})`,
+      ).catch(() => {});
     } catch (err: any) {
-      toast.error(err.message || "Failed to generate WhatsApp share link");
+      toast.error(err?.message || "Failed to generate invoice image for sharing");
     } finally {
       setSharingWhatsApp(false);
     }
@@ -340,7 +367,7 @@ export function InvoiceActionsMenu({
               className="h-10 rounded-xl justify-start font-medium text-xs text-green-600 border-green-500/30 hover:bg-green-500/10"
             >
               <Share2 className="mr-2 size-3.5 text-green-500" />{" "}
-              {sharingWhatsApp ? "Opening..." : "WhatsApp"}
+              {sharingWhatsApp ? "Preparing..." : "Share Invoice"}
             </Button>
             <Button
               variant="outline"

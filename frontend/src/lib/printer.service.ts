@@ -1,6 +1,7 @@
 import { UniversalReceiptModel, createCanonicalReceiptModel, createCanonicalKotModel } from "./receipt-model";
 import { UniversalReceiptRenderer, RenderOptions } from "./universal-receipt-renderer";
 import { getPrintAdapter, PrintAdapter } from "./print-adapter";
+import { buildUpiUri } from "./upi";
 import { toast } from "sonner";
 import {
   PrinterProfile,
@@ -128,7 +129,13 @@ export class PrinterService {
 
     let targetProfile = profile;
     if (!targetProfile) {
-      const config = await printerProfileService.getStorePrinterConfig();
+      const scopedStoreId =
+        kotInput?.storeId ||
+        kotInput?.store_id ||
+        (typeof window !== "undefined"
+          ? Number(window.localStorage.getItem("currentStoreId") || 0) || undefined
+          : undefined);
+      const config = await printerProfileService.getStorePrinterConfig(scopedStoreId);
       targetProfile = printerProfileService.getKitchenProfile(config.profiles) || config.activeProfile;
     }
 
@@ -263,41 +270,54 @@ export class PrinterService {
     const activeProf = profile || DEFAULT_PRINTER_PROFILES[0];
     const nowStr = new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" });
 
-    const storeName = storeInfo?.name || storeInfo?.shop_name || "";
+    const storeName = storeInfo?.name || storeInfo?.shop_name || "Apka Bill Store";
     const orgName = orgInfo?.name || storeName;
+    const upiId = storeInfo?.upiId || storeInfo?.shop_upi_id || storeInfo?.upi_id || "";
+    const logoUrl =
+      storeInfo?.logo ||
+      storeInfo?.logoUrl ||
+      storeInfo?.logo_url ||
+      (typeof window !== "undefined" ? window.localStorage.getItem("orion_logo") || "" : "");
+    const upiPayload = buildUpiUri({ vpa: upiId, payeeName: storeName, amountPaise: 15000 });
     const connMethod = activeProf.connectionType.toUpperCase();
     const paperWidth = activeProf.paperWidth;
 
     const testInput = {
       invoiceNumber: `TEST-${Date.now().toString().slice(-6)}`,
       date: nowStr.split(",")[0] || "Today",
-      time: nowStr.split(",")[1] || "Now",
+      time: nowStr.split(",")[1]?.trim() || "Now",
       businessName: orgName,
-      businessAddress: "Printer Diagnostic Test",
-      businessPhone: storeInfo?.phone || "",
-      businessGst: storeInfo?.gst_number || "",
-      logoUrl: "",
-      store: { name: storeName },
-      cashierName: "Diagnostics Engine",
-      customerName: "Hardware Test Verification",
+      businessAddress: storeInfo?.address || storeInfo?.shop_address || `${connMethod} (${paperWidth})`,
+      businessPhone: storeInfo?.phone || storeInfo?.shop_phone || "",
+      businessGst: storeInfo?.gst_number || storeInfo?.shop_gstin || "",
+      upiId,
+      upiPayload,
+      logoUrl,
+      template: activeProf.receiptTemplate,
+      store: {
+        id: storeInfo?.id || storeInfo?.storeId,
+        name: storeName,
+      },
+      cashierName: "Apka Bill POS",
+      customerName: "Sample Retail Customer",
       items: [
-        { id: 1, name: `Store: ${storeName}`, qty: 1, price: 0, total: 0 },
-        { id: 2, name: `Printer: ${connMethod}`, qty: 1, price: 0, total: 0 },
-        { id: 3, name: `Paper: ${paperWidth}`, qty: 1, price: 0, total: 0 },
+        { id: 1, name: "Toor Dal 1kg (Sample)", qty: 1, price: 120, total: 120 },
+        { id: 2, name: "Tata Salt 1kg (Sample)", qty: 1, price: 30, total: 30 },
       ],
-      subtotal: 0,
+      subtotal: 150,
       discount: 0,
       tax: 0,
-      total: 0,
-      paymentMethod: "DIAGNOSTIC",
-      footerText: `--------------------------------\nTest successful\n--------------------------------\n${nowStr}`,
+      total: 150,
+      paymentMethod: upiPayload ? "UPI" : "CASH",
+      footerText: `Printer Test Successful (${connMethod} · ${paperWidth})\nPowered by Apka Bill`,
     };
 
     const renderOpts: RenderOptions = {
       paperWidth: activeProf.paperWidth,
-      showLogo: false,
-      showQr: false,
-      showBarcode: false,
+      charsPerLine: activeProf.charactersPerLine,
+      showLogo: activeProf.showLogo,
+      showQr: activeProf.showQr && Boolean(upiPayload),
+      showBarcode: activeProf.showBarcode,
       autoCut: activeProf.autoCut,
       marginTop: activeProf.marginTop,
       marginBottom: activeProf.marginBottom,
@@ -306,7 +326,7 @@ export class PrinterService {
     };
 
     toast.info(
-      `Executing Test Print for ${activeProf.name} (${activeProf.connectionType.toUpperCase()})...`,
+      `Printing test receipt on ${activeProf.name} (${activeProf.connectionType.toUpperCase()})...`,
     );
     return await this.print(testInput, activeProf, renderOpts);
   }

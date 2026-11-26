@@ -3,11 +3,15 @@ import path from "path";
 import fs from "fs";
 import multer from "multer";
 import { SettingsController } from "../controllers/settings.controller";
+import { authorize } from "../middleware/auth.middleware";
 
 const router = Router();
 const controller = new SettingsController();
 
 const upload = multer({ storage: multer.memoryStorage() });
+
+// Full-database backup/restore: same roles as /api/backup, never cashiers.
+router.use(authorize("admin", "manager", "superadmin"));
 
 // GET    /settings/database/backup -> Streams SQL backup file download
 router.get("/backup", controller.backup);

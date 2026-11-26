@@ -181,7 +181,7 @@ export async function initDb(): Promise<void> {
         ["shop_gstin", "27AAAAA1111A1Z1"],
         ["shop_phone", "8285068670"],
         ["shop_address", "123, POS Center, Sector V, Salt Lake, Kolkata, 700091"],
-        ["shop_upi_id", "apkabill@upi"],
+        ["shop_upi_id", ""],
         ["whatsapp_footer", "Thank you for shopping. Visit Again."],
         ["signature", "Authorized Signatory"],
         ["exchange_policy", "Items can be exchanged within 7 days with original receipt and tags intact."],

@@ -83,7 +83,7 @@ export class PurchaseV2Service {
         const [product] = await tx
           .select()
           .from(products)
-          .where(and(eq(products.id, item.product_id), eq(products.store_id, storeId)))
+          .where(and(eq(products.id, item.product_id), eq(products.organization_id, orgId), eq(products.store_id, storeId)))
           .for("update");
 
         if (!product) {
@@ -324,7 +324,7 @@ export class PurchaseV2Service {
         const [product] = await tx
           .select()
           .from(products)
-          .where(and(eq(products.id, item.product_id), eq(products.store_id, storeId)))
+          .where(and(eq(products.id, item.product_id), eq(products.organization_id, orgId), eq(products.store_id, storeId)))
           .for("update");
 
         if (!product) {

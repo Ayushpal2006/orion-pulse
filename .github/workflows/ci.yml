@@ -1,0 +1,59 @@
+name: CI Validation (No Deployment)
+
+on:
+  push:
+    branches:
+      - main
+      - 'fix/**'
+      - 'feat/**'
+  pull_request:
+    branches:
+      - main
+      - 'fix/**'
+
+# Cancel in-progress runs for the same branch/PR to save CI minutes
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Build & Verify (Quality Gate)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+        with:
+          submodules: false # Keep CI fast and isolated from submodules
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+
+      - name: Setup Bun Runtime
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install Monorepo Dependencies
+        run: npm ci
+
+      - name: Backend Build & Typecheck
+        run: npm run build:backend
+
+      - name: Run Financial Amount Scale & Currency Matrix Check
+        run: node scripts/verify-amount-scale-fix.mjs
+
+      - name: Run Backend Unit Tests
+        run: |
+          cd backend
+          bun test src/tests/worker-jwt-env.test.ts src/tests/auth-jwt-secret.test.ts src/tests/admin-routes-guard.test.ts
+
+      - name: Frontend Production Bundle Build Check
+        run: npm run build:frontend
+        env:
+          NODE_OPTIONS: "--max-old-space-size=4096"

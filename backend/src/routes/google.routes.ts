@@ -122,7 +122,7 @@ router.get("/callback", async (req: Request, res: Response): Promise<void> => {
     // Verify state token
     let decodedState: any;
     try {
-      decodedState = jwt.verify(String(state), env.JWT_SECRET);
+      decodedState = jwt.verify(String(state), env.JWT_SECRET, { algorithms: ["HS256"] });
     } catch (jwtErr) {
       logger.error("Failed to verify OAuth state token: " + String(jwtErr));
       res.redirect(`${getFrontendUrl(req)}/settings?google_auth=error&reason=invalid_state`);

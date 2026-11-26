@@ -110,10 +110,18 @@ export class EscposFormatter {
   }
 
   qrCode(data: string) {
+    if (!data) return this;
     const len = data.length + 3;
     const pL = len & 0xff;
     const pH = (len >> 8) & 0xff;
-    
+
+    // GS ( k 4 0 49 65 50 0 (model 2), GS ( k 3 0 49 67 6 (module size 6 dots),
+    // GS ( k 3 0 49 69 49 (error correction M). Without these, printers fall back to their
+    // own defaults, often a module size too small for phone cameras to scan.
+    this.buffer.push(0x1d, 0x28, 0x6b, 4, 0, 49, 65, 50, 0);
+    this.buffer.push(0x1d, 0x28, 0x6b, 3, 0, 49, 67, 6);
+    this.buffer.push(0x1d, 0x28, 0x6b, 3, 0, 49, 69, 49);
+
     // GS ( k pL pH 49 80 48 data (store QR code data)
     this.buffer.push(0x1d, 0x28, 0x6b, pL, pH, 49, 80, 48);
     for (let i = 0; i < data.length; i++) {

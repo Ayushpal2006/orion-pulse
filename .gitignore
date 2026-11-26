@@ -10,6 +10,7 @@ lerna-debug.log*
 node_modules
 dist
 dist-ssr
+dist-capacitor
 .output
 .vinxi
 .tanstack/**
@@ -54,3 +55,21 @@ mobile-expo/.git-broken/
 mobile-expo/apkabill-*.txt
 *.dump
 *.sql
+# Schema migrations are source code; the *.sql rule above is for database dumps only.
+!backend/src/db/migrations/*.sql
+!backend/src/schemas/*.sql
+# Local SQLite databases
+*.db
+*.db-shm
+*.db-wal
+
+# Generated storage & local invoice artifacts
+backend/storage/invoices/
+*.pdf
+
+# Built mobile release packages (binaries belong in release storage, not git)
+releases/**/*.apk
+releases/**/*.aab
+*.apk
+*.aab
+

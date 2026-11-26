@@ -1,5 +1,7 @@
 import { useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useApp } from "@/lib/store";
+import { updateSettingsApi } from "@/lib/api";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -32,39 +34,117 @@ import {
   Share2,
 } from "lucide-react";
 
+function readFileAsOptimizedLogoDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error("Could not read selected image file."));
+    reader.onload = (evt) => {
+      const rawDataUrl = evt.target?.result as string;
+      if (!rawDataUrl) {
+        reject(new Error("Empty logo file."));
+        return;
+      }
+      // Keep small logos & SVGs directly; resize large raster uploads cleanly for thermal/API efficiency
+      if (file.type === "image/svg+xml" || file.size <= 150 * 1024 || typeof document === "undefined") {
+        resolve(rawDataUrl);
+        return;
+      }
+      const img = new Image();
+      img.onload = () => {
+        try {
+          const maxDim = 512;
+          let w = img.naturalWidth || img.width;
+          let h = img.naturalHeight || img.height;
+          if (w > maxDim || h > maxDim) {
+            const ratio = Math.min(maxDim / w, maxDim / h);
+            w = Math.max(1, Math.round(w * ratio));
+            h = Math.max(1, Math.round(h * ratio));
+          }
+          const canvas = document.createElement("canvas");
+          canvas.width = w;
+          canvas.height = h;
+          const ctx = canvas.getContext("2d");
+          if (!ctx) {
+            resolve(rawDataUrl);
+            return;
+          }
+          ctx.drawImage(img, 0, 0, w, h);
+          resolve(canvas.toDataURL("image/png"));
+        } catch {
+          resolve(rawDataUrl);
+        }
+      };
+      img.onerror = () => resolve(rawDataUrl);
+      img.src = rawDataUrl;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
 export function BrandingSettings() {
+  const queryClient = useQueryClient();
   const s = useApp();
+  const [savingBranding, setSavingBranding] = useState(false);
   const [activePreviewTab, setActivePreviewTab] = useState<
     "invoice" | "receipt" | "whatsapp" | "pdf"
   >("invoice");
   const [logoPreviewOpen, setLogoPreviewOpen] = useState(false);
 
-  const handleSaveBranding = () => {
-    // Save to localStorage for instant local persistence
-    localStorage.setItem("orion_shop_name", s.shopName);
-    localStorage.setItem("orion_gstin", s.gstin);
-    if (s.logo) localStorage.setItem("orion_logo", s.logo);
-    if (s.tagline) localStorage.setItem("orion_tagline", s.tagline);
-    if (s.storeAddress) localStorage.setItem("orion_address", s.storeAddress);
-    if (s.storePhone) localStorage.setItem("orion_phone", s.storePhone);
-    if (s.storeEmail) localStorage.setItem("orion_email", s.storeEmail);
-    if (s.website) localStorage.setItem("orion_website", s.website);
-    if (s.invoiceHeader) localStorage.setItem("orion_invoice_header", s.invoiceHeader);
-    if (s.invoiceFooter) localStorage.setItem("orion_invoice_footer", s.invoiceFooter);
-    if (s.receiptFooter) localStorage.setItem("orion_receipt_footer", s.receiptFooter);
-    if (s.thankYouMessage) localStorage.setItem("orion_thank_you_message", s.thankYouMessage);
-    if (s.termsAndConditions) localStorage.setItem("orion_terms", s.termsAndConditions);
-    if (s.returnPolicy) localStorage.setItem("orion_return_policy", s.returnPolicy);
-    if (s.whatsappSignature) localStorage.setItem("orion_whatsapp_signature", s.whatsappSignature);
-    if (s.upiId) localStorage.setItem("orion_upi_id", s.upiId);
-    if (s.accountHolderName) localStorage.setItem("orion_account_holder", s.accountHolderName);
-    if (s.bankDetails) localStorage.setItem("orion_bank_details", s.bankDetails);
-    if (s.primaryColor) localStorage.setItem("orion_primary_color", s.primaryColor);
+  const handleSaveBranding = async () => {
+    setSavingBranding(true);
+    try {
+      const payload: Record<string, string> = {
+        shop_name: s.shopName || "",
+        shop_gstin: s.gstin || "",
+        shop_address: s.storeAddress || "",
+        shop_phone: s.storePhone || "",
+        shop_email: s.storeEmail || "",
+        logo: s.logo || "",
+        shop_upi_id: s.upiId || "",
+        tagline: s.tagline || "",
+        website: s.website || "",
+        invoice_header: s.invoiceHeader || "",
+        invoice_footer: s.invoiceFooter || "",
+        receipt_footer: s.receiptFooter || "",
+        terms_and_conditions: s.termsAndConditions || "",
+        whatsapp_signature: s.whatsappSignature || "",
+        primary_color: s.primaryColor || "#2563eb",
+      };
 
-    toast.success("Business branding updated successfully!", {
-      description:
-        "Changes applied across all future Invoices, Receipts, PDFs, and WhatsApp shares.",
-    });
+      await updateSettingsApi(payload);
+      await queryClient.invalidateQueries({ queryKey: ["settings"] });
+
+      // Update localStorage mirror after confirmed backend persistence
+      localStorage.setItem("orion_shop_name", s.shopName);
+      localStorage.setItem("orion_gstin", s.gstin);
+      if (s.logo) localStorage.setItem("orion_logo", s.logo);
+      else localStorage.removeItem("orion_logo");
+      if (s.tagline) localStorage.setItem("orion_tagline", s.tagline);
+      if (s.storeAddress) localStorage.setItem("orion_address", s.storeAddress);
+      if (s.storePhone) localStorage.setItem("orion_phone", s.storePhone);
+      if (s.storeEmail) localStorage.setItem("orion_email", s.storeEmail);
+      if (s.website) localStorage.setItem("orion_website", s.website);
+      if (s.invoiceHeader) localStorage.setItem("orion_invoice_header", s.invoiceHeader);
+      if (s.invoiceFooter) localStorage.setItem("orion_invoice_footer", s.invoiceFooter);
+      if (s.receiptFooter) localStorage.setItem("orion_receipt_footer", s.receiptFooter);
+      if (s.thankYouMessage) localStorage.setItem("orion_thank_you_message", s.thankYouMessage);
+      if (s.termsAndConditions) localStorage.setItem("orion_terms", s.termsAndConditions);
+      if (s.returnPolicy) localStorage.setItem("orion_return_policy", s.returnPolicy);
+      if (s.whatsappSignature) localStorage.setItem("orion_whatsapp_signature", s.whatsappSignature);
+      if (s.upiId) localStorage.setItem("orion_upi_id", s.upiId);
+      if (s.accountHolderName) localStorage.setItem("orion_account_holder", s.accountHolderName);
+      if (s.bankDetails) localStorage.setItem("orion_bank_details", s.bankDetails);
+      if (s.primaryColor) localStorage.setItem("orion_primary_color", s.primaryColor);
+
+      toast.success("Business branding saved successfully!", {
+        description:
+          "Changes persisted to store settings for future Invoices, Receipts, PDFs, and WhatsApp shares.",
+      });
+    } catch (err: any) {
+      toast.error("Failed to save branding settings: " + (err?.message || err));
+    } finally {
+      setSavingBranding(false);
+    }
   };
 
   return (
@@ -84,9 +164,11 @@ export function BrandingSettings() {
           type="button"
           size="sm"
           onClick={handleSaveBranding}
+          disabled={savingBranding}
           className="rounded-xl h-9 text-xs font-bold bg-primary text-primary-foreground px-5 shadow-sm"
         >
-          <CheckCircle className="size-3.5 mr-1.5" /> Save Branding Settings
+          <CheckCircle className="size-3.5 mr-1.5" />{" "}
+          {savingBranding ? "Saving..." : "Save Branding Settings"}
         </Button>
       </div>
 
@@ -134,22 +216,26 @@ export function BrandingSettings() {
                         type="file"
                         accept="image/*"
                         className="hidden"
-                        onChange={(e) => {
+                        onChange={async (e) => {
                           const file = e.target.files?.[0];
-                          if (file) {
-                            const reader = new FileReader();
-                            reader.onload = (evt) => {
-                              const base64 = evt.target?.result as string;
-                              if (base64) {
-                                s.setLogo(base64);
-                                localStorage.setItem("orion_logo", base64);
-                                toast.success("Brand logo updated successfully!", {
-                                  description:
-                                    "Logo will automatically appear on all future Invoices, Thermal Receipts, PDFs, and Shared Links.",
-                                });
-                              }
-                            };
-                            reader.readAsDataURL(file);
+                          e.target.value = "";
+                          if (!file) return;
+                          const prevLogo = s.logo;
+                          try {
+                            const optimized = await readFileAsOptimizedLogoDataUrl(file);
+                            s.setLogo(optimized);
+                            localStorage.setItem("orion_logo", optimized);
+                            await updateSettingsApi({ logo: optimized });
+                            await queryClient.invalidateQueries({ queryKey: ["settings"] });
+                            toast.success("Brand logo saved for this store!", {
+                              description:
+                                "Logo will automatically appear on printed Receipts, PDFs, and Shared Invoices when enabled.",
+                            });
+                          } catch (err: any) {
+                            s.setLogo(prevLogo);
+                            if (prevLogo) localStorage.setItem("orion_logo", prevLogo);
+                            else localStorage.removeItem("orion_logo");
+                            toast.error("Failed to save store logo: " + (err?.message || err));
                           }
                         }}
                       />
@@ -178,10 +264,19 @@ export function BrandingSettings() {
                         type="button"
                         variant="outline"
                         size="sm"
-                        onClick={() => {
-                          s.setLogo("");
-                          localStorage.removeItem("orion_logo");
-                          toast.info("Brand logo deleted.");
+                        onClick={async () => {
+                          const prevLogo = s.logo;
+                          try {
+                            s.setLogo("");
+                            localStorage.removeItem("orion_logo");
+                            await updateSettingsApi({ logo: "" });
+                            await queryClient.invalidateQueries({ queryKey: ["settings"] });
+                            toast.info("Brand logo deleted.");
+                          } catch (err: any) {
+                            s.setLogo(prevLogo);
+                            if (prevLogo) localStorage.setItem("orion_logo", prevLogo);
+                            toast.error("Failed to delete store logo: " + (err?.message || err));
+                          }
                         }}
                         className="rounded-xl h-9 text-xs text-rose-600 border-rose-500/20 hover:bg-rose-500/10 font-semibold"
                       >
@@ -596,7 +691,7 @@ export function BrandingSettings() {
             {activePreviewTab === "whatsapp" && (
               <div className="space-y-3 bg-emerald-500/5 p-3 rounded-xl border border-emerald-500/20 text-xs font-mono text-emerald-800 dark:text-emerald-300">
                 <div className="whitespace-pre-wrap leading-relaxed">
-                  {`Namaste Rahul Sharma 🙏\n\nYour invoice INV-00124 for ₹2,450.00 is ready.\nDate: 25 Jul 2026\nStore: ${s.shopName}\n\nView Invoice: https://orion.app/invoice/INV-00124\n\n${s.whatsappSignature || `Thanks for shopping with ${s.shopName}`}`}
+                  {`Hello Rahul Sharma,\n\nThank you for shopping with ${s.shopName || "Apka Bill Store"}!\n\nInvoice: INV-00124\nDate: 25 Jul 2026\n\nTotal Amount: ₹2,450.00\nPaid: ₹2,450.00\nBalance: ₹0.00\n\nYour invoice image is attached.\n\n${s.whatsappSignature || "Thank you for choosing us!"}`}
                 </div>
               </div>
             )}

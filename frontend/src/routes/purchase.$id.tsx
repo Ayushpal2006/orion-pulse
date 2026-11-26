@@ -20,7 +20,7 @@ import { toast } from "sonner";
 export const Route = createFileRoute("/purchase/$id")({
   head: () => ({
     meta: [
-      { title: "Purchase Details · Orion POS" },
+      { title: "Purchase Details · Apka Bill" },
       {
         name: "description",
         content: "View detailed purchase voucher, supplier info, and line items.",
