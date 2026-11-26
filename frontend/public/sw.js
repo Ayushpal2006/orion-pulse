@@ -1,4 +1,4 @@
-const CACHE_NAME = "orion-pos-v4";
+const CACHE_NAME = "orion-pos-v5"; // v5: new logo and app icons
 const PRECACHE_ASSETS = [
   "/offline.html",
   "/manifest.json",

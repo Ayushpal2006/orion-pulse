@@ -36,7 +36,7 @@ export function PWAInstallBanner() {
           <img
             src="/logo.png"
             alt="Apka Bill Logo"
-            className="size-10 shrink-0 rounded-xl object-cover shadow-sm border border-border/50"
+            className="size-10 shrink-0 object-contain dark:rounded-lg dark:bg-white dark:p-0.5"
           />
           <div>
             <h4 className="text-sm font-semibold tracking-tight">Install Apka Bill App</h4>

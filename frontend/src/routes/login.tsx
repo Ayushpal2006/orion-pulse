@@ -88,8 +88,8 @@ function LoginPage() {
       <div className="w-full max-w-md space-y-6">
         {/* BRANDING HEADER */}
         <div className="text-center space-y-2">
-          <div className="inline-flex items-center justify-center size-16 rounded-2xl bg-card border border-border shadow-md mb-1 overflow-hidden p-1">
-            <img src="/logo.png" alt="Apka Bill Logo" className="size-full object-contain rounded-xl" />
+          <div className="inline-flex items-center justify-center size-16 mb-1">
+            <img src="/logo.png" alt="Apka Bill Logo" className="size-full object-contain dark:rounded-lg dark:bg-white dark:p-0.5" />
           </div>
           <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
             Apka Bill
