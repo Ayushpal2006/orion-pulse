@@ -205,7 +205,8 @@ function RootComponent() {
           </AppShell>
         )}
         <Toaster position="top-right" />
-        <PWAInstallBanner />
+        {/* Installing only makes sense for signed-in shop users, not landing-page visitors. */}
+        {!isLanding && <PWAInstallBanner />}
       </QueryClientProvider>
     </ErrorBoundary>
   );
