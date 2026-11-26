@@ -557,7 +557,8 @@ export class CheckoutService {
     let whatsappError: string | undefined = undefined;
 
     try {
-      const isSystemWalkIn = !isExplicitCustomer || result.syncCustomer?.name === "Walk-in Customer";
+      // A walk-in with a typed phone is still shareable; the shared walk-in record (0000000000) fails normalization below.
+      const isSystemWalkIn = !isExplicitCustomer;
       const { normalizeWhatsAppPhone, ShareService } = require("./share.service");
       const normalizedPhone = normalizeWhatsAppPhone(result.syncCustomer?.phone);
 
