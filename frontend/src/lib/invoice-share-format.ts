@@ -99,7 +99,9 @@ export function formatInrCurrency(value: unknown): string {
 export function normalizeWhatsAppPhoneNumber(rawPhone?: string | null): string | null {
   if (!rawPhone) return null;
   let digits = String(rawPhone).replace(/\D/g, "");
-  if (!digits || /^0+$/.test(digits) || digits.length < 10) {
+  // Placeholder numbers made of one repeated digit (walk-in 0000000000 / 9999999999) are never a recipient.
+  const national = digits.length === 12 && digits.startsWith("91") ? digits.slice(2) : digits;
+  if (!digits || digits.length < 10 || /^(\d)\1+$/.test(national)) {
     return null;
   }
   if (digits.length === 11 && digits.startsWith("0")) {

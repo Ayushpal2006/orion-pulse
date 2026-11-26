@@ -333,7 +333,7 @@ export class SuperAdminController {
           organization_id: org.id,
           store_id: store.id,
           name: "Walk-in Customer",
-          phone: "9999999999",
+          phone: "0000000000",
           total_orders: 0,
           lifetime_value: 0,
           is_system: 1,

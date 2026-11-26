@@ -127,6 +127,8 @@ describe("Invoice Share Formatting & Layout", () => {
     assert.ok(text.startsWith("Hello,\n"));
     assert.doesNotMatch(text, /undefined|null|localhost|0000000000/);
     assert.equal(normalizeWhatsAppPhoneNumber("0000000000"), null);
+    for (const p of ["9999999999", "+91 99999 99999", "919999999999"]) assert.equal(normalizeWhatsAppPhoneNumber(p), null, p);
+    assert.equal(normalizeWhatsAppPhoneNumber("9919191919"), "919919191919");
     assert.ok(buildWhatsAppDirectUrl(text, "").startsWith("https://wa.me/?text="));
   });
 

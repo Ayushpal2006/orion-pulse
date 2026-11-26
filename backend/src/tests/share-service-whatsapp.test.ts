@@ -58,6 +58,8 @@ describe("Backend ShareService WhatsApp formatting (PDF links paused)", () => {
   it("normalizes Indian phone numbers and blocks empty/dummy numbers in generateWhatsAppLink", () => {
     assert.equal(normalizeWhatsAppPhone("9876543210"), "919876543210");
     assert.equal(normalizeWhatsAppPhone("0000000000"), null);
+    for (const p of ["9999999999", "+91 99999 99999", "919999999999", "1111111111"]) assert.equal(normalizeWhatsAppPhone(p), null, p);
+    assert.equal(normalizeWhatsAppPhone("9919191919"), "919919191919");
     assert.throws(
       () =>
         shareService.generateWhatsAppLink({

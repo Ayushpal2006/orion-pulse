@@ -2,8 +2,9 @@ export function normalizeWhatsAppPhone(rawPhone?: string | null): string | null 
   if (!rawPhone) return null;
   let phone = String(rawPhone).replace(/\D/g, "");
 
-  // Reject empty, all zeros (dummy walk-in), or too short
-  if (!phone || /^0+$/.test(phone) || phone.length < 10) {
+  // Reject empty, too short, or placeholder numbers made of one repeated digit (walk-in records use
+  // 0000000000 or 9999999999); a bill must never be sent to a guessed number.
+  if (!phone || phone.length < 10 || /^(\d)\1+$/.test(phone.length === 12 && phone.startsWith("91") ? phone.slice(2) : phone)) {
     return null;
   }
 
