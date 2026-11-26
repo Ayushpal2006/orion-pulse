@@ -40,7 +40,7 @@ import superAdminRoutes from "./routes/super-admin.routes";
 import subscriptionRoutes from "./routes/subscription.routes";
 import copilotRoutes from "./routes/copilot.routes";
 import databaseRoutes from "./routes/database.routes";
-import { authenticate, authorize } from "./middleware/auth.middleware";
+import { authenticate, authorize, authorizeSuperAdmin } from "./middleware/auth.middleware";
 
 import { errorMiddleware } from "./middleware/error.middleware";
 import { requestLogger } from "./middleware/requestLogger.middleware";
@@ -148,7 +148,8 @@ app.use("/sync", authenticate(), syncRoutes);
 app.use("/api/sync", authenticate(), syncRoutes);
 app.use("/google", googleRoutes);
 app.use("/api/google", googleRoutes);
-app.use("/api/admin", authenticate(), authorize("admin"), adminRoutes);
+// Platform-wide admin tools: super admin only (a tenant "admin" must never reach these).
+app.use("/api/admin", authenticate(), authorizeSuperAdmin(), adminRoutes);
 app.use("/kot", authenticate(), kotRoutes);
 app.use("/api/kot", authenticate(), kotRoutes);
 

@@ -243,9 +243,8 @@ export function authorizeSuperAdmin() {
     const isSuperAdmin =
       userRole === "superadmin" ||
       userRole === "super_admin" ||
-      (req.user as any).is_super_admin === 1 ||
-      req.user.email === "superadmin@apkabill.com" ||
-      req.user.email === "superadmin@orion.com";
+      // Role only: emails are user-chosen, so an email match would let a tenant mint a super admin.
+      (req.user as any).is_super_admin === 1;
 
     if (isSuperAdmin) {
       return next();
