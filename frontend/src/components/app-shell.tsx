@@ -696,7 +696,6 @@ export function AppShell({ children }: { children: ReactNode }) {
             />
             <span className="font-bold tracking-tight text-base leading-tight">Apka Bill</span>
           </div>
-          <StoreSwitcher />
         </div>
         <nav className="flex-1 space-y-1.5 p-3 overflow-y-auto">{renderNavItems()}</nav>
         <div className="p-3">
