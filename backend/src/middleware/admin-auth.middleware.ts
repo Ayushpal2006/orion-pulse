@@ -1,28 +1,12 @@
 import { Request, Response, NextFunction } from "express";
 import crypto from "crypto";
+import jwt from "jsonwebtoken";
 import { env } from "../config/env";
 import { logger } from "../logger/logger";
 
-// Self-contained HS256 JWT verification helper to avoid external dependencies
+// HS256 verification via jsonwebtoken: constant-time signature check, alg pinned, exp/nbf enforced.
 export function verifyHS256JWT(token: string, secret: string): any {
-  const parts = token.split(".");
-  if (parts.length !== 3) {
-    throw new Error("Invalid token structure");
-  }
-  const [headerB64, payloadB64, signatureB64] = parts;
-  
-  // Verify signature
-  const hmac = crypto.createHmac("sha256", secret);
-  hmac.update(`${headerB64}.${payloadB64}`);
-  const expectedSignatureB64 = hmac.digest("base64url");
-  
-  if (signatureB64 !== expectedSignatureB64) {
-    throw new Error("Invalid signature");
-  }
-  
-  // Parse payload
-  const payloadStr = Buffer.from(payloadB64, "base64url").toString("utf8");
-  return JSON.parse(payloadStr);
+  return jwt.verify(token, secret, { algorithms: ["HS256"] });
 }
 
 // Helper to sign HS256 JWT (useful for testing/verification scripts)

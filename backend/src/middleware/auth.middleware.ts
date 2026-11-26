@@ -32,8 +32,9 @@ export function authenticate() {
     const token = authHeader.split(" ")[1];
     try {
       // Only the configured secret is trusted; a fallback to the public dev secret would let anyone forge tokens.
-      const decoded: any = jwt.verify(token, env.JWT_SECRET);
-      const isSuperAdmin = (decoded?.role || "").toLowerCase().includes("super");
+      const decoded: any = jwt.verify(token, env.JWT_SECRET, { algorithms: ["HS256"] });
+      // Exact match: a substring check would make roles like "Supervisor" super admins.
+      const isSuperAdmin = String(decoded?.role || "").toLowerCase().replace(/[\s_-]/g, "") === "superadmin";
       if (!decoded || (!decoded.organization_id && !isSuperAdmin)) {
         return res.status(401).json({
           success: false,
@@ -145,6 +146,13 @@ export function authenticate() {
             .orderBy(desc(stores.is_default), stores.id)
             .limit(1);
 
+          if (!primaryStore && !isSuperAdmin) {
+            // Never fall back to the token's store for tenants: it may belong to another organization.
+            return res.status(403).json({
+              success: false,
+              error: "Forbidden: No store is available for your organization.",
+            });
+          }
           effectiveStoreId = primaryStore ? primaryStore.id : fallbackStoreId;
         }
       }
