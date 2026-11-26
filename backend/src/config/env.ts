@@ -31,7 +31,8 @@ function getEphemeralDevSecret(): string {
 
 const envSchema = z.object({
   PORT: z.coerce.number().default(8080),
-  NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
+  // Unset means production: every dev-only shortcut (CORS bypass, demo super-admin passwords) must be opt-in.
+  NODE_ENV: z.enum(["development", "production", "test"]).default("production"),
   DB_TYPE: z.enum(["postgres"]).default("postgres"),
   DATABASE_PROVIDER: z.enum(["postgres"]).default("postgres"),
   DATABASE_URL: z.string().default("postgresql://postgres:postgres@localhost:5432/orion").refine(

@@ -29,3 +29,13 @@ describe("Worker JWT dynamic env configuration", () => {
   });
 });
 
+
+describe("NODE_ENV resolution", () => {
+  test("an unset NODE_ENV resolves to production (no .env, fresh process)", () => {
+    const envFile = require("node:path").resolve(import.meta.dir, "../config/env.ts");
+    const tmp = require("node:fs").mkdtempSync(require("node:path").join(require("node:os").tmpdir(), "nodeenv-"));
+    const childEnv: Record<string, string> = { PATH: process.env.PATH || "", HOME: process.env.HOME || "" };
+    const p = Bun.spawnSync(["bun", "-e", `const { env } = await import(${JSON.stringify(envFile)}); console.log("NODE_ENV=" + env.NODE_ENV);`], { cwd: tmp, env: childEnv });
+    expect(p.stdout.toString()).toContain("NODE_ENV=production");
+  });
+});
