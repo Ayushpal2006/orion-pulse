@@ -50,8 +50,6 @@ export default {
       process.env.DATABASE_URL = env.DATABASE_URL;
     }
 
-    // Workers do not populate process.env from vars; without this the app saw NODE_ENV as unset.
-    process.env.NODE_ENV = env.NODE_ENV || "production";
     if (env.JWT_SECRET) process.env.JWT_SECRET = env.JWT_SECRET;
     if (env.ALLOWED_ORIGINS) process.env.ALLOWED_ORIGINS = env.ALLOWED_ORIGINS;
     if (env.CLOUDINARY_CLOUD_NAME) process.env.CLOUDINARY_CLOUD_NAME = env.CLOUDINARY_CLOUD_NAME;

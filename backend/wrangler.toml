@@ -11,6 +11,12 @@ NODE_ENV = "production"
 ALLOWED_ORIGINS = "https://apkabill.ayushpalworkplace2006.workers.dev,https://localhost,capacitor://localhost"
 # JWT_SECRET is a secret, never a var: `npx wrangler secret put JWT_SECRET` (the Worker refuses to start auth without it).
 
+# Wrangler replaces process.env.NODE_ENV at build time and otherwise picks it up from the
+# deploying shell or backend/.env (often "development"), which silently turned production
+# into dev mode. Pin it.
+[define]
+"process.env.NODE_ENV" = '"production"'
+
 [[hyperdrive]]
 binding = "HYPERDRIVE"
 id = "9a81c8bc8b224db18cd430f43b531b69"
