@@ -12,11 +12,12 @@ async function runV2Tests() {
   const storeId = 1;
 
   // Clean test artifacts if existing
-  let [supplier] = await db.select().from(suppliers).where(eq(suppliers.store_id, storeId)).limit(1);
+  let [supplier] = await db.select().from(suppliers).where(and(eq(suppliers.store_id, storeId), eq(suppliers.organization_id, 1))).limit(1);
   if (!supplier) {
     [supplier] = await db
       .insert(suppliers)
       .values({
+        organization_id: 1,
         store_id: storeId,
         supplier_code: "SUP-TEST-V2",
         company_name: "V2 Test Supplier",
@@ -31,6 +32,7 @@ async function runV2Tests() {
   const [product] = await db
     .insert(products)
     .values({
+      organization_id: 1,
       store_id: storeId,
       name: "V2 Test Item Widget",
       sku: `SKU-V2-${Date.now()}`,
@@ -51,7 +53,7 @@ async function runV2Tests() {
 
   const purchaseService = purchaseV2Service;
 
-  await storeStorage.run({ storeId, userId: 1, role: "Admin" }, async () => {
+  await storeStorage.run({ storeId, organizationId: 1, userId: 1, role: "Admin" }, async () => {
     // -------------------------------------------------------------
     // TEST 1: CREATE PURCHASE
     // -------------------------------------------------------------

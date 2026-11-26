@@ -22,7 +22,7 @@ async function runPurchaseManagementE2ETest() {
   const pdfService = new PdfService();
   const shareService = new ShareService();
 
-  await storeStorage.run({ storeId, userId: 1, role: "Admin" }, async () => {
+  await storeStorage.run({ storeId, organizationId: 1, userId: 1, role: "Admin" }, async () => {
     // 1. Setup / Fetch active supplier and product
     const [supplier] = await db.select().from(suppliers).where(eq(suppliers.store_id, storeId)).limit(1);
     assert.ok(supplier, "Supplier must exist for test");
