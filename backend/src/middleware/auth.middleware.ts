@@ -31,17 +31,8 @@ export function authenticate() {
 
     const token = authHeader.split(" ")[1];
     try {
-      let decoded: any;
-      try {
-        decoded = jwt.verify(token, env.JWT_SECRET) as any;
-      } catch (primaryErr) {
-        // Fallback verification for tokens issued prior to environment secret alignment
-        if (env.JWT_SECRET !== "orion-pos-secret-key-change-in-prod") {
-          decoded = jwt.verify(token, "orion-pos-secret-key-change-in-prod") as any;
-        } else {
-          throw primaryErr;
-        }
-      }
+      // Only the configured secret is trusted; a fallback to the public dev secret would let anyone forge tokens.
+      const decoded: any = jwt.verify(token, env.JWT_SECRET);
       const isSuperAdmin = (decoded?.role || "").toLowerCase().includes("super");
       if (!decoded || (!decoded.organization_id && !isSuperAdmin)) {
         return res.status(401).json({

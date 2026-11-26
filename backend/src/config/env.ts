@@ -97,6 +97,9 @@ if (!result.success) {
 
 const parsedData = result.success ? result.data : ({} as any);
 
+/** Local-development-only JWT secret. Rejected when NODE_ENV is production. */
+const DEV_JWT_SECRET = "orion-pos-secret-key-change-in-prod";
+
 export const env = {
   PORT: parsedData.PORT || 8080,
   get NODE_ENV(): "development" | "production" | "test" {
@@ -108,12 +111,15 @@ export const env = {
     return process.env.DATABASE_URL || parsedData.DATABASE_URL || "";
   },
   get JWT_SECRET(): string {
-    const secret = process.env.JWT_SECRET;
-    if (secret && secret.trim().length > 0) {
+    const secret = (process.env.JWT_SECRET || parsedData.JWT_SECRET || "").trim();
+    if (secret && secret !== DEV_JWT_SECRET) {
       return secret;
     }
-    // Stable shared secret across isolates and environments
-    return parsedData.JWT_SECRET || "orion-pos-secret-key-change-in-prod";
+    // The dev secret is public (it is in the repo), so tokens signed with it can be forged.
+    if ((process.env.NODE_ENV || parsedData.NODE_ENV || "production") === "production") {
+      throw new Error("JWT_SECRET is not configured. Set it with `wrangler secret put JWT_SECRET`.");
+    }
+    return DEV_JWT_SECRET;
   },
   JWT_EXPIRES_IN: parsedData.JWT_EXPIRES_IN || "24h",
   ADMIN_EMAIL: parsedData.ADMIN_EMAIL || "admin@orion.com",
