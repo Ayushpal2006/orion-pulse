@@ -791,7 +791,7 @@ export function SuperAdminPage() {
                     {metrics?.totalStores ?? 0}
                   </div>
                   <div className="text-xs text-muted-foreground font-medium">
-                    Active POS Outlets
+                    {(metrics?.totalStores ?? 0) - (metrics?.inactiveStores ?? 0)} active
                   </div>
                 </div>
 
@@ -803,7 +803,7 @@ export function SuperAdminPage() {
                   <div className="text-3xl font-extrabold text-foreground tabular">
                     {metrics?.totalUsers ?? 0}
                   </div>
-                  <div className="text-xs text-muted-foreground font-medium">Tenant Accounts</div>
+                  <div className="text-xs text-muted-foreground font-medium">{metrics?.activeUsers ?? 0} active · {metrics?.inactiveUsers ?? 0} inactive</div>
                 </div>
 
                 <div className="card-soft p-5 border-t-2 border-t-emerald-500 space-y-2">
@@ -812,10 +812,10 @@ export function SuperAdminPage() {
                     <DollarSign className="size-4 text-emerald-500" />
                   </div>
                   <div className="text-3xl font-extrabold text-foreground tabular">
-                    {inr(metrics?.totalSales ?? 0)}
+                    {inr((metrics?.totalSales ?? 0) / 100)}
                   </div>
                   <div className="text-xs text-emerald-600 dark:text-emerald-400 font-semibold">
-                    Processed Billing Sum
+                    Excludes voided bills{metrics?.salesLast24h != null ? ` · ${metrics.salesLast24h} bills in 24h` : ""}
                   </div>
                 </div>
               </div>
@@ -831,19 +831,19 @@ export function SuperAdminPage() {
                       <div className="text-2xl font-bold text-emerald-600">
                         {metrics?.activeOrganizations ?? 0}
                       </div>
-                      <div className="text-xs text-emerald-700">Active Paid Plans</div>
+                      <div className="text-xs text-emerald-700">Active</div>
                     </div>
                     <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-200">
                       <div className="text-2xl font-bold text-amber-600">
                         {metrics?.trialOrganizations ?? 0}
                       </div>
-                      <div className="text-xs text-amber-700">Free Trial Accounts</div>
+                      <div className="text-xs text-amber-700">Trial</div>
                     </div>
                     <div className="p-4 rounded-xl bg-destructive/10 border border-destructive/20">
                       <div className="text-2xl font-bold text-destructive">
                         {metrics?.suspendedOrganizations ?? 0}
                       </div>
-                      <div className="text-xs text-destructive">Suspended Orgs</div>
+                      <div className="text-xs text-destructive">Suspended / disabled</div>
                     </div>
                   </div>
                 </div>
@@ -852,26 +852,7 @@ export function SuperAdminPage() {
                   <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
                     <Server className="size-4 text-emerald-500" /> System Telemetry & Status
                   </h3>
-                  <div className="space-y-3 text-xs">
-                    <div className="flex items-center justify-between p-2.5 rounded-xl bg-emerald-500/10 text-emerald-700 font-medium">
-                      <span className="flex items-center gap-2">
-                        <Database className="size-3.5" /> Railway PostgreSQL
-                      </span>
-                      <span>99.99% ONLINE</span>
-                    </div>
-                    <div className="flex items-center justify-between p-2.5 rounded-xl bg-blue-500/10 text-blue-700 font-medium">
-                      <span className="flex items-center gap-2">
-                        <Globe className="size-3.5" /> Express API Gateway
-                      </span>
-                      <span>200 OK</span>
-                    </div>
-                    <div className="flex items-center justify-between p-2.5 rounded-xl bg-purple-500/10 text-purple-700 font-medium">
-                      <span className="flex items-center gap-2">
-                        <HardDrive className="size-3.5" /> Cloudinary Media CDN
-                      </span>
-                      <span>CONNECTED</span>
-                    </div>
-                  </div>
+                  <SystemStatusList health={systemHealth} metrics={metrics} />
                 </div>
               </div>
             </div>
@@ -1363,30 +1344,8 @@ export function SuperAdminPage() {
             <div className="space-y-4">
               <h2 className="text-lg font-bold text-foreground">System & Telemetry Status</h2>
               <p className="text-xs text-muted-foreground">Live infrastructure component health</p>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="p-5 rounded-2xl bg-card border border-border space-y-2">
-                  <div className="font-semibold text-xs flex items-center justify-between text-emerald-600">
-                    <span className="flex items-center gap-2">
-                      <Database className="size-4" /> PostgreSQL Database (Railway)
-                    </span>
-                    <CheckCircle className="size-4" />
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    Provider: Railway Managed PostgreSQL (Latency: 4ms)
-                  </p>
-                </div>
-
-                <div className="p-5 rounded-2xl bg-card border border-border space-y-2">
-                  <div className="font-semibold text-xs flex items-center justify-between text-blue-600">
-                    <span className="flex items-center gap-2">
-                      <HardDrive className="size-4" /> Cloudinary Media CDN
-                    </span>
-                    <CheckCircle className="size-4" />
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    Media CDN Storage & Upload API: CONNECTED
-                  </p>
-                </div>
+              <div className="p-5 rounded-2xl bg-card border border-border max-w-2xl">
+                <SystemStatusList health={systemHealth} metrics={metrics} />
               </div>
             </div>
           )}
@@ -2207,6 +2166,39 @@ export function SuperAdminPage() {
           </form>
         </DialogContent>
       </Dialog>
+    </div>
+  );
+}
+
+/** Live platform status. Only shows values returned by /system-health and /dashboard. */
+function SystemStatusList({ health, metrics }: { health: any; metrics: any }) {
+  if (!health) {
+    return <p className="text-xs text-muted-foreground">Status unavailable. The health check did not respond.</p>;
+  }
+  const rows: { label: string; value: string; ok: boolean }[] = [
+    {
+      label: health.database?.provider || "Database",
+      value: health.database?.status === "HEALTHY" ? `Connected · ${health.database?.latencyMs ?? "?"} ms` : `Down${health.database?.error ? ` · ${health.database.error}` : ""}`,
+      ok: health.database?.status === "HEALTHY",
+    },
+    { label: `API (${health.api?.runtime || "unknown"})`, value: `${health.api?.status || "?"} · ${health.api?.environment || "?"}`, ok: health.api?.environment === "production" || health.api?.runtime === "Node.js" },
+    { label: "Failed sync jobs", value: String(metrics?.failedSyncJobs ?? health.metrics?.failedSyncJobs ?? "?"), ok: !(metrics?.failedSyncJobs > 0) },
+    { label: "Failed logins (24h)", value: String(metrics?.failedLogins24h ?? "?"), ok: !(metrics?.failedLogins24h > 20) },
+    { label: "Super admin logins (24h)", value: String(metrics?.superAdminLogins24h ?? "?"), ok: true },
+    { label: "Super admin password secret", value: health.services?.superAdminPasswordConfigured ? "Configured" : "Not set", ok: !!health.services?.superAdminPasswordConfigured },
+    { label: "Cloudinary image uploads", value: health.services?.cloudinaryConfigured ? "Configured" : "Not configured", ok: !!health.services?.cloudinaryConfigured },
+  ];
+  return (
+    <div className="space-y-2 text-xs">
+      {rows.map((r) => (
+        <div
+          key={r.label}
+          className={`flex items-center justify-between gap-3 p-2.5 rounded-xl font-medium ${r.ok ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400" : "bg-amber-500/10 text-amber-700 dark:text-amber-400"}`}
+        >
+          <span>{r.label}</span>
+          <span className="text-right tabular">{r.value}</span>
+        </div>
+      ))}
     </div>
   );
 }

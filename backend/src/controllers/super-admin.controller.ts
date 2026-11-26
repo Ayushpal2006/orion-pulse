@@ -1,3 +1,5 @@
+import { env } from "../config/env";
+import { getTenantContext } from "../db/context";
 import { Request, Response, NextFunction } from "express";
 import { db } from "../db";
 import { organizations, stores, users, sales, products, customers, settings, audit_logs, user_store_access } from "../db/schema";
@@ -9,12 +11,18 @@ import bcrypt from "bcryptjs";
 async function logAudit(action: string, details: string, orgId?: number | null, storeId?: number | null, userId?: number | null) {
   try {
     const sId = storeId || 1;
+    // userId is the affected user; record who actually performed the action as well.
+    let actor = "unknown";
+    try {
+      const ctx = getTenantContext();
+      actor = `${ctx.role}:${ctx.userId}`;
+    } catch {}
     await db.insert(audit_logs).values({
       organization_id: orgId || null,
       store_id: sId,
       user_id: userId || null,
       action,
-      details,
+      details: `${details} [by ${actor}]`,
       created_at: new Date(),
     });
   } catch (err) {
@@ -25,32 +33,51 @@ async function logAudit(action: string, details: string, orgId?: number | null, 
 export class SuperAdminController {
   getDashboard = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const orgRows = await db.select({ id: organizations.id, status: organizations.status }).from(organizations);
-      const storeRows = await db.select({ id: stores.id }).from(stores);
-      const userRows = await db.select({ id: users.id }).from(users);
-
-      const totalOrganizations = orgRows.length;
-      const activeOrganizations = orgRows.filter((o) => (o.status || "").toLowerCase() === "active").length;
-      const trialOrganizations = orgRows.filter((o) => (o.status || "").toLowerCase() === "trial").length;
-      const suspendedOrganizations = orgRows.filter((o) => (o.status || "").toLowerCase() === "suspended").length;
-
-      const totalStores = storeRows.length;
-      const totalUsers = userRows.length;
-
-      const [salesSum] = await db
-        .select({ total: sql<string>`COALESCE(SUM(${sales.grand_total}), 0)` })
-        .from(sales);
+      // Every figure comes from a SQL aggregate; nothing is estimated or padded.
+      // audit_logs/sync_jobs timestamps are written as UTC into timestamp-without-time-zone.
+      const q = async (text: any) => ((await db.execute(text)) as any).rows[0];
+      const orgs: any = await q(sql`select count(*)::int as total,
+          count(*) filter (where lower(coalesce(status,'active')) = 'active')::int as active,
+          count(*) filter (where lower(status) = 'trial')::int as trial,
+          count(*) filter (where lower(status) in ('suspended','disabled'))::int as suspended
+        from organizations`);
+      const storeRow: any = await q(sql`select count(*)::int as total,
+          count(*) filter (where lower(coalesce(status,'active')) <> 'active')::int as inactive from stores`);
+      const userRow: any = await q(sql`select count(*)::int as total,
+          count(*) filter (where coalesce(is_active,1) = 1 and lower(coalesce(status,'active')) not in ('disabled','suspended'))::int as active
+        from users`);
+      const salesRow: any = await q(sql`select coalesce(sum(grand_total),0)::bigint as total_paise,
+          count(*) filter (where created_at > (now() at time zone 'utc') - interval '24 hours')::int as last24h
+        from sales where status is distinct from 'VOID'`);
+      const syncRow: any = await q(sql`select count(*) filter (where status = 'failed')::int as failed,
+          count(*) filter (where status = 'pending')::int as pending from sync_jobs`);
+      const authRow: any = await q(sql`select
+          count(*) filter (where action in ('LOGIN_FAILED','SUPER_ADMIN_LOGIN_FAILED'))::int as failed,
+          count(*) filter (where action = 'SUPER_ADMIN_LOGIN')::int as super_admin
+        from audit_logs where created_at > (now() at time zone 'utc') - interval '24 hours'`);
+      const recent = await db.select({ id: audit_logs.id, action: audit_logs.action, details: audit_logs.details, organizationId: audit_logs.organization_id, createdAt: audit_logs.created_at })
+        .from(audit_logs).orderBy(desc(audit_logs.id)).limit(10);
 
       res.status(200).json({
         success: true,
         data: {
-          totalOrganizations,
-          activeOrganizations,
-          trialOrganizations,
-          suspendedOrganizations,
-          totalStores,
-          totalUsers,
-          totalSales: Number(salesSum?.total || 0),
+          totalOrganizations: orgs.total,
+          activeOrganizations: orgs.active,
+          trialOrganizations: orgs.trial,
+          suspendedOrganizations: orgs.suspended,
+          totalStores: storeRow.total,
+          inactiveStores: storeRow.inactive,
+          totalUsers: userRow.total,
+          activeUsers: userRow.active,
+          inactiveUsers: userRow.total - userRow.active,
+          // PAISE (integer). Excludes VOID sales.
+          totalSales: Number(salesRow.total_paise),
+          salesLast24h: salesRow.last24h,
+          failedSyncJobs: syncRow.failed,
+          pendingSyncJobs: syncRow.pending,
+          failedLogins24h: authRow.failed,
+          superAdminLogins24h: authRow.super_admin,
+          recentActivity: recent,
         },
       });
     } catch (error) {
@@ -511,37 +538,20 @@ export class SuperAdminController {
 
   listStores = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const allStores = await db.select().from(stores);
-      const allOrgs = await db.select().from(organizations);
-      const allProducts = await db.select().from(products);
-      const allSales = await db.select().from(sales);
-      const allUsers = await db.select().from(users);
-
-      const result = allStores.map((s) => {
-        const org = allOrgs.find((o) => o.id === s.organization_id);
-        const storeProducts = allProducts.filter((p) => p.store_id === s.id);
-        const storeSales = allSales.filter((sal) => sal.store_id === s.id);
-        const manager = allUsers.find((u) => u.store_id === s.id && ["manager", "admin", "owner"].includes(u.role?.toLowerCase() || "")) || null;
-        
-        const totalSalesAmount = storeSales.reduce((acc, current) => acc + Number(current.grand_total || 0), 0);
-
-        return {
-          id: s.id,
-          organizationId: s.organization_id,
-          organizationName: org ? org.name : "N/A",
-          name: s.name,
-          code: s.code,
-          address: s.address || "",
-          phone: s.phone || "",
-          status: s.status || "active",
-          managerName: manager ? manager.name : "N/A",
-          totalProducts: storeProducts.length,
-          totalSales: totalSalesAmount,
-          createdAt: s.created_at,
-        };
-      });
-
-      res.status(200).json({ success: true, data: result });
+      // Aggregate in SQL; loading every sale/product row does not scale on a Worker.
+      const result = await db.execute(sql`
+        select s.id, s.organization_id as "organizationId", coalesce(o.name, 'N/A') as "organizationName",
+               s.name, s.code, coalesce(s.address,'') as address, coalesce(s.phone,'') as phone,
+               coalesce(s.status,'active') as status, s.created_at as "createdAt",
+               coalesce((select u.name from users u where u.store_id = s.id
+                          and lower(coalesce(u.role,'')) in ('manager','admin','owner') order by u.id limit 1), 'N/A') as "managerName",
+               (select count(*)::int from products p where p.store_id = s.id) as "totalProducts",
+               (select coalesce(sum(sa.grand_total),0)::bigint from sales sa where sa.store_id = s.id and sa.status is distinct from 'VOID') as "totalSales",
+               (select max(sa.created_at) from sales sa where sa.store_id = s.id) as "lastSaleAt"
+          from stores s left join organizations o on o.id = s.organization_id
+         order by s.id`);
+      const rows = (result as any).rows as any[];
+      res.status(200).json({ success: true, data: rows.map((r) => ({ ...r, totalSales: Number(r.totalSales) })) });
     } catch (error) {
       next(error);
     }
@@ -793,11 +803,16 @@ export class SuperAdminController {
 
   getAuditLogs = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
+      const { action, orgId, limit } = req.query as { action?: string; orgId?: string; limit?: string };
+      const conds: any[] = [];
+      if (action && action.trim()) conds.push(like(audit_logs.action, `%${action.trim().toUpperCase()}%`));
+      if (orgId && Number(orgId) > 0) conds.push(eq(audit_logs.organization_id, Number(orgId)));
       const logs = await db
         .select()
         .from(audit_logs)
+        .where(conds.length ? and(...conds) : undefined)
         .orderBy(desc(audit_logs.id))
-        .limit(100);
+        .limit(Math.min(Math.max(Number(limit) || 100, 1), 500));
 
       const allUsers = await db.select({ id: users.id, name: users.name, email: users.email }).from(users);
 
@@ -825,29 +840,33 @@ export class SuperAdminController {
 
   getSystemHealth = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const startMs = Date.now();
-      const [dbTest] = await db.select({ val: sql<number>`1` }).from(organizations).limit(1);
-      const latencyMs = Date.now() - startMs;
-
-      const [orgCount] = await db.select({ count: sql<string>`COUNT(*)` }).from(organizations);
-      const [storeCount] = await db.select({ count: sql<string>`COUNT(*)` }).from(stores);
-      const [userCount] = await db.select({ count: sql<string>`COUNT(*)` }).from(users);
-      const [productCount] = await db.select({ count: sql<string>`COUNT(*)` }).from(products);
-      const [salesCount] = await db.select({ count: sql<string>`COUNT(*)` }).from(sales);
-
+      // Only measured facts: DB round-trip, runtime, and whether optional services are configured.
+      let dbStatus = "HEALTHY";
+      let latencyMs: number | null = null;
+      let dbError: string | undefined;
+      try {
+        const startMs = Date.now();
+        await db.execute(sql`select 1`);
+        latencyMs = Date.now() - startMs;
+      } catch (err: any) {
+        dbStatus = "DOWN";
+        dbError = String(err?.message || err).slice(0, 200);
+      }
+      const onWorkers = Boolean(process.env.HYPERDRIVE_URL);
+      const counts: any = dbStatus === "HEALTHY"
+        ? ((await db.execute(sql`select (select count(*) from products)::int as products, (select count(*) from sales)::int as sales,
+             (select count(*) from sync_jobs where status = 'failed')::int as failed_sync`)) as any).rows[0]
+        : {};
       res.status(200).json({
         success: true,
         data: {
-          database: { status: dbTest ? "HEALTHY" : "DEGRADED", latencyMs, provider: "PostgreSQL on Railway" },
-          railway: { status: "OPERATIONAL", region: "iad", uptime: "99.99%" },
-          api: { status: "ONLINE", httpStatus: 200, timestamp: new Date().toISOString() },
-          metrics: {
-            totalOrganizations: Number(orgCount?.count || 0),
-            totalStores: Number(storeCount?.count || 0),
-            totalUsers: Number(userCount?.count || 0),
-            totalProducts: Number(productCount?.count || 0),
-            totalSales: Number(salesCount?.count || 0),
+          database: { status: dbStatus, latencyMs, provider: onWorkers ? "Neon PostgreSQL via Cloudflare Hyperdrive" : "PostgreSQL", error: dbError },
+          api: { status: "ONLINE", runtime: onWorkers ? "Cloudflare Workers" : "Node.js", environment: env.NODE_ENV, timestamp: new Date().toISOString() },
+          services: {
+            cloudinaryConfigured: Boolean(process.env.CLOUDINARY_URL || (process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_API_KEY)),
+            superAdminPasswordConfigured: Boolean(process.env.SUPER_ADMIN_PASSWORD),
           },
+          metrics: { totalProducts: counts.products ?? null, totalSales: counts.sales ?? null, failedSyncJobs: counts.failed_sync ?? null },
         },
       });
     } catch (error) {
