@@ -155,4 +155,15 @@ describe("Thermal Printing Settings & Matrix Verification", () => {
     assert.ok(html.includes("Shree Ganesh Kirana"));
     assert.ok(html.includes("INV-2026-9081"));
   });
+
+  it("HtmlRenderer: logo, UPI QR and barcode genuinely disappear when toggled off", () => {
+    const on = HtmlRenderer.render(sampleModel, { paperWidth: "58mm", showLogo: true, showQr: true, showBarcode: true });
+    const off = HtmlRenderer.render(sampleModel, { paperWidth: "58mm", showLogo: false, showQr: false, showBarcode: false });
+    const logo = sampleModel.business.logoUrl;
+    assert.ok(on.includes(logo), "logo rendered when ON");
+    assert.ok(!off.includes(logo), "logo absent when OFF");
+    assert.ok(!/upi:\/\/pay|upi%3A%2F%2Fpay/i.test(off), "UPI payload absent when OFF");
+    assert.ok(off.length < on.length, "OFF output is smaller than ON output");
+  });
 });
+
