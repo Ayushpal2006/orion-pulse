@@ -179,7 +179,9 @@ jobs:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           workingDirectory: frontend
-          command: deploy --name apkabill dist/server/index.mjs --compatibility-date 2026-03-01 --compatibility-flags nodejs_compat --assets dist/public --message "ci ${{ github.sha }}"
+          # The build writes .wrangler/deploy/config.json -> dist/server/wrangler.json (ASSETS binding,
+          # nodejs_compat). --name keeps the existing Worker; the generated name would create a new one.
+          command: deploy --name apkabill --message "ci ${{ github.sha }}"
 
       - name: Frontend Health Check
         run: |
