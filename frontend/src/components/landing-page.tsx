@@ -95,7 +95,7 @@ export function LandingPage() {
               src="/landing/billing-desktop.jpg"
               alt="Apka Bill billing screen on a computer with five items in the cart and a grand total of ₹1,308 including GST"
               width={1470}
-              height={779}
+              height={835}
               loading="lazy"
               className="hidden w-full max-w-4xl rounded-2xl border border-border shadow-xl sm:block"
             />

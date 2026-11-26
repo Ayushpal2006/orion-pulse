@@ -114,14 +114,11 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         content:
           "Offline-first retail command center — sales, orders, profit and inventory at a glance.",
       },
-      {
-        property: "og:image",
-        content: "/logo.png",
-      },
-      {
-        name: "twitter:image",
-        content: "/logo.png",
-      },
+      // Link previews (WhatsApp, Facebook, X) need an absolute URL. shortcut: hardcoded host, update with a custom domain.
+      { property: "og:image", content: "https://apkabill.ayushpalworkplace2006.workers.dev/og-image.jpg" },
+      { property: "og:image:width", content: "1200" },
+      { property: "og:image:height", content: "630" },
+      { name: "twitter:image", content: "https://apkabill.ayushpalworkplace2006.workers.dev/og-image.jpg" },
     ],
     links: [
       { rel: "stylesheet", href: appCss },
