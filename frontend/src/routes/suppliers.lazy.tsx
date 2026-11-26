@@ -332,7 +332,7 @@ function SuppliersPage() {
                 <div
                   key={s.id}
                   className={cn(
-                    "card-soft transition-all duration-200 hover:border-foreground/20 hover:shadow-md",
+                    "card-soft min-w-0 transition-all duration-200 hover:border-foreground/20 hover:shadow-md",
                     open && "ring-1 ring-primary/30",
                   )}
                 >
@@ -350,7 +350,7 @@ function SuppliersPage() {
                     </div>
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
-                        <div className="truncate font-bold text-foreground text-sm sm:text-base">
+                        <div className="min-w-0 truncate font-bold text-foreground text-sm sm:text-base">
                           {s.name}
                         </div>
                         {s.gstin && (
@@ -384,7 +384,7 @@ function SuppliersPage() {
                     </div>
                     <div
                       className={cn(
-                        "grid size-8 place-items-center rounded-xl bg-muted/60 transition-transform",
+                        "grid size-8 shrink-0 place-items-center rounded-xl bg-muted/60 transition-transform",
                         open && "rotate-180 bg-primary/10 text-primary",
                       )}
                     >

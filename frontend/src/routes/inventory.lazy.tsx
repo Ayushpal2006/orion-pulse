@@ -202,7 +202,7 @@ export function Inventory() {
               key={c}
               onClick={() => setCategory(c)}
               className={cn(
-                "rounded-full border px-3 py-1 text-xs font-medium transition-colors",
+                "rounded-full border px-3.5 min-h-9 text-sm font-medium transition-colors",
                 category === c
                   ? "border-foreground bg-foreground text-background"
                   : "border-border text-muted-foreground hover:bg-muted",
@@ -220,7 +220,7 @@ export function Inventory() {
                 key={s}
                 onClick={() => setStatus(s)}
                 className={cn(
-                  "rounded-md px-2.5 py-1 text-xs font-medium capitalize transition-colors",
+                  "rounded-md px-3 min-h-9 text-sm font-medium capitalize transition-colors",
                   status === s ? "bg-elevated text-foreground shadow-sm" : "text-muted-foreground",
                 )}
               >

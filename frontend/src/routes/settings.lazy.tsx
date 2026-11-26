@@ -3722,7 +3722,7 @@ function SettingsV2() {
               variant="outline"
               size="sm"
               onClick={restoreBackendSnapshot}
-              className="rounded-xl h-8 text-xs"
+              className="rounded-xl h-11 text-sm"
             >
               Cancel
             </Button>
@@ -3731,7 +3731,7 @@ function SettingsV2() {
               size="sm"
               onClick={handleGlobalSave}
               disabled={saving}
-              className="rounded-xl h-8 text-xs font-bold bg-primary text-primary-foreground px-4 shadow-sm"
+              className="rounded-xl h-11 text-sm font-bold bg-primary text-primary-foreground px-4 shadow-sm"
             >
               {saving ? (
                 <Loader2 className="size-3 animate-spin mr-1.5" />
