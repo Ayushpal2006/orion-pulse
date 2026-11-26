@@ -428,7 +428,7 @@ export function Dashboard() {
                 key={r}
                 onClick={() => setRange(r)}
                 className={cn(
-                  "rounded-lg px-3 py-1.5 text-xs font-medium transition-colors",
+                  "rounded-lg px-3 min-h-9 text-sm font-medium transition-colors",
                   range === r
                     ? "bg-elevated text-foreground shadow-sm"
                     : "text-muted-foreground hover:text-foreground",

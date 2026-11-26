@@ -167,16 +167,14 @@ function Reports() {
         <div className="flex gap-2">
           <Button
             variant="outline"
-            size="sm"
-            className="rounded-xl"
+            className="rounded-xl h-10"
             onClick={() => handleExport("pdf")}
           >
             <FileText className="mr-1.5 size-4" /> PDF Report
           </Button>
           <Button
             variant="outline"
-            size="sm"
-            className="rounded-xl"
+            className="rounded-xl h-10"
             onClick={() => handleExport("excel")}
           >
             <FileSpreadsheet className="mr-1.5 size-4" /> Excel Sheets
@@ -191,7 +189,7 @@ function Reports() {
             key={f.key}
             onClick={() => setFilter(f.key)}
             className={cn(
-              "rounded-full border px-3 py-1.5 text-xs font-medium transition-colors",
+              "rounded-full border px-3.5 min-h-9 text-sm font-medium transition-colors",
               filter === f.key
                 ? "border-foreground bg-foreground text-background"
                 : "border-border text-muted-foreground hover:bg-muted",
