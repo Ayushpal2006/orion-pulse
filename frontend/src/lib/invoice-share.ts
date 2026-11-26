@@ -69,8 +69,11 @@ function defaultDownloadImage(img: GeneratedInvoiceImage) {
 async function defaultCopyText(text: string): Promise<boolean> {
   try {
     if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
-      await navigator.clipboard.writeText(text);
-      return true;
+      // Chrome can leave writeText pending forever once user activation is gone; never block sharing on it.
+      return await Promise.race([
+        navigator.clipboard.writeText(text).then(() => true),
+        new Promise<boolean>((resolve) => setTimeout(() => resolve(false), 1500)),
+      ]);
     }
   } catch {
     // Ignore clipboard rejection in restricted browser contexts
@@ -123,6 +126,11 @@ function defaultCanShareFiles(data?: { files: File[]; text?: string; title?: str
       typeof navigator.share !== "function" ||
       typeof navigator.canShare !== "function"
     ) {
+      return false;
+    }
+    // Desktop share sheets reject file shares (NotAllowedError) and burn the click, so the wa.me popup gets blocked.
+    const uaMobile = (navigator as any).userAgentData?.mobile;
+    if (!(uaMobile ?? /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent))) {
       return false;
     }
     if (data) {

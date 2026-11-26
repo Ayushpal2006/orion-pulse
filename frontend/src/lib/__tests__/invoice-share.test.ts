@@ -239,6 +239,34 @@ describe("Invoice Share Cross-Platform Coordinator", () => {
     assert.equal(fallbackCalled, false);
   });
 
+  it("still offers WhatsApp when Web Share loses activation and the clipboard write hangs", async () => {
+    const originalNavigator = globalThis.navigator;
+    Object.defineProperty(globalThis, "navigator", {
+      configurable: true,
+      value: { clipboard: { writeText: () => new Promise(() => {}) } },
+    });
+    try {
+      const result = await shareInvoiceToWhatsApp(sampleReceipt, undefined, {
+        isNativeAndroid: () => false,
+        generateImages: async (inv) => [makeFakeImage(`${inv.invoiceNumber}.png`)],
+        canShareFiles: () => true,
+        webShare: async () => {
+          const err = new Error("Permission denied");
+          err.name = "NotAllowedError";
+          throw err;
+        },
+        downloadImage: () => {},
+        openWhatsAppUrl: () => false,
+      });
+      assert.equal(result.mode, "web_fallback");
+      assert.equal(result.copiedText, false);
+      assert.equal(result.popupBlocked, true);
+      assert.ok(result.whatsappUrl?.startsWith("https://wa.me/919811122333?text="));
+    } finally {
+      Object.defineProperty(globalThis, "navigator", { configurable: true, value: originalNavigator });
+    }
+  });
+
   it("falls back to PNG download + text copy + clean wa.me draft when file sharing is unsupported", async () => {
     const downloaded: string[] = [];
     let copied = "";
