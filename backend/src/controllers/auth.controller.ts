@@ -2,11 +2,25 @@ import { Request, Response, NextFunction } from "express";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { db } from "../db";
-import { users, organizations, stores } from "../db/schema";
+import { users, organizations, stores, audit_logs } from "../db/schema";
 import { eq, and } from "drizzle-orm";
 import { env } from "../config/env";
 import { getTenantContext } from "../db/context";
 import { AuthenticatedRequest } from "../middleware/auth.middleware";
+
+/** Login audit trail (never stores the password). audit_logs.store_id is required, so events
+ *  without a known store are only written to the Worker log. */
+async function recordAuthEvent(action: string, details: string, orgId: number | null, storeId: number | null, userId: number | null) {
+  if (!storeId) {
+    console.warn(`[AUTH] ${action} ${details}`);
+    return;
+  }
+  try {
+    await db.insert(audit_logs).values({ organization_id: orgId, store_id: storeId, user_id: userId, action, details, created_at: new Date() });
+  } catch (err) {
+    console.error("[AUTH] audit write failed:", err);
+  }
+}
 
 export class AuthController {
   login = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
@@ -34,6 +48,13 @@ export class AuthController {
           ? password === configuredSuperPass
           : isDevEnv && (password === "admin" || password === "SuperAdmin@123");
 
+        await recordAuthEvent(
+          isPasswordValid ? "SUPER_ADMIN_LOGIN" : "SUPER_ADMIN_LOGIN_FAILED",
+          `email=${normalizedEmail} ip=${req.ip || "?"}`,
+          null,
+          1,
+          null,
+        );
         if (isPasswordValid) {
           const token = jwt.sign(
             {
@@ -75,10 +96,8 @@ export class AuthController {
         .where(eq(users.email, normalizedEmail))
         .limit(1);
 
-      console.log("User found:", user ? user.email : null);
-      console.log("Password hash loaded:", user?.password_hash || null);
-
       if (!user) {
+        await recordAuthEvent("LOGIN_FAILED", `unknown email=${normalizedEmail} ip=${req.ip || "?"}`, null, null, null);
         res.status(401).json({ success: false, error: "Invalid email or password" });
         return;
       }
@@ -102,16 +121,16 @@ export class AuthController {
         }
       }
 
-      console.log("Result of bcrypt.compare():", isMatch);
-
-      // Fallback check for legacy default admin account
-      if (!isMatch && (normalizedEmail === "admin@orion.com" || normalizedEmail === "admin@apkabill.com")) {
+      // Legacy demo passwords for the seeded admin: local development only. In production this was
+      // a backdoor into organization 1 for anyone who read the public repository.
+      if (!isMatch && env.NODE_ENV === "development" && (normalizedEmail === "admin@orion.com" || normalizedEmail === "admin@apkabill.com")) {
         if (password === "admin123" || password === "admin@123" || password === "Admin@123") {
           isMatch = true;
         }
       }
 
       if (!isMatch) {
+        await recordAuthEvent("LOGIN_FAILED", `email=${normalizedEmail} ip=${req.ip || "?"}`, user.organization_id, user.store_id, user.id);
         res.status(401).json({ success: false, error: "Invalid email or password" });
         return;
       }
@@ -180,6 +199,7 @@ export class AuthController {
         env.JWT_SECRET,
         { expiresIn: env.JWT_EXPIRES_IN as any }
       );
+      await recordAuthEvent("LOGIN_SUCCESS", `email=${normalizedEmail} ip=${req.ip || "?"}`, orgId ?? null, storeId ?? null, user.id);
 
       res.status(200).json({
         success: true,
