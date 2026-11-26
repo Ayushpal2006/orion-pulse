@@ -181,7 +181,7 @@ export const DEFAULT_RECEIPT_TEMPLATES: Record<TemplatePreset, ReceiptTemplateCo
       showBarcode: true,
       showSignature: true,
       showPoweredBy: true,
-      customFooter: "Visit us at apkabill.in",
+      customFooter: "",
     },
   },
   Minimal: {

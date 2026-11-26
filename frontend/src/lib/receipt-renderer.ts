@@ -198,8 +198,9 @@ export class ReceiptRenderer {
     encoder.line(divider);
 
     // QR & Barcode
-    if (options?.showQr !== false && (data.qrCodeUrl || data.invoiceNumber)) {
-      encoder.qrCode(data.qrCodeUrl || `https://apkabill.in/invoice/v/${data.invoiceNumber}`, 6);
+    // Only print a QR for a real link (UPI or invoice); never a guessed URL on a domain we do not serve.
+    if (options?.showQr !== false && data.qrCodeUrl) {
+      encoder.qrCode(data.qrCodeUrl, 6);
     }
     if (options?.showBarcode !== false && data.invoiceNumber) {
       encoder.barcode(data.invoiceNumber, "CODE128");
