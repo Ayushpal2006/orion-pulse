@@ -9,7 +9,7 @@ import {
   HeadContent,
   Scripts,
 } from "@tanstack/react-router";
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
@@ -17,6 +17,7 @@ import { AppShell } from "@/components/app-shell";
 import { Toaster } from "@/components/ui/sonner";
 import { PWAInstallBanner } from "@/components/pwa-install-banner";
 import { ErrorBoundary } from "@/components/error-boundary";
+import { LandingPage } from "@/components/landing-page";
 
 function NotFoundComponent() {
   return (
@@ -142,6 +143,14 @@ function RootShell({ children }: { children: ReactNode }) {
     <html lang="en">
       <head>
         <HeadContent />
+        {/* Hide the public landing page before first paint for signed-in users and the native app. */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html:
+              'try{if(location.pathname==="/"&&(localStorage.getItem("token")||(window.Capacitor&&window.Capacitor.isNativePlatform&&window.Capacitor.isNativePlatform())))document.documentElement.classList.add("has-session")}catch(e){}',
+          }}
+        />
+        <style>{".has-session #landing-root{display:none}"}</style>
       </head>
       <body>
         {children}
@@ -157,6 +166,14 @@ function RootComponent() {
   const isPrintRoute = pathname.startsWith("/print/");
   const isLoginRoute = pathname === "/login" || pathname.startsWith("/login");
   const isWizardRoute = pathname === "/setup-wizard" || pathname.startsWith("/setup-wizard");
+  // "/" is the public landing page for visitors. The server render cannot see localStorage, so the
+  // first client render matches it; after mount the token is read on every render (e.g. right after login).
+  const [hydrated, setHydrated] = useState(false);
+  useEffect(() => {
+    setHydrated(true);
+    if (!localStorage.getItem("token") && Capacitor.isNativePlatform()) window.location.href = "/login";
+  }, []);
+  const isLanding = pathname === "/" && !(hydrated && localStorage.getItem("token"));
 
   useEffect(() => {
     // The Capacitor app ships its assets inside the APK; a service worker there would only
@@ -180,7 +197,9 @@ function RootComponent() {
   return (
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
-        {isPrintRoute || isLoginRoute || isWizardRoute ? (
+        {isLanding ? (
+          <LandingPage />
+        ) : isPrintRoute || isLoginRoute || isWizardRoute ? (
           <Outlet />
         ) : (
           <AppShell>

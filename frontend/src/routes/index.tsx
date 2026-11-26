@@ -33,17 +33,17 @@ import { OrganizationDashboardCard } from "@/components/organization-dashboard-c
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Dashboard · Apka Bill" },
+      { title: "Apka Bill · Billing, GST, stock and khata for Indian shops" },
       {
         name: "description",
         content:
-          "Offline-first retail command center — sales, orders, profit and inventory at a glance.",
+          "Billing, GST, stock, customer dues and purchases for Indian shops. Works on phone or computer, even offline.",
       },
-      { property: "og:title", content: "Dashboard · Apka Bill" },
+      { property: "og:title", content: "Apka Bill · Billing app for Indian shops" },
       {
         property: "og:description",
         content:
-          "Offline-first retail command center — sales, orders, profit and inventory at a glance.",
+          "Billing, GST, stock, customer dues and purchases for Indian shops. Works on phone or computer, even offline.",
       },
     ],
   }),
