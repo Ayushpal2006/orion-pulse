@@ -166,14 +166,12 @@ function RootComponent() {
   const isPrintRoute = pathname.startsWith("/print/");
   const isLoginRoute = pathname === "/login" || pathname.startsWith("/login");
   const isWizardRoute = pathname === "/setup-wizard" || pathname.startsWith("/setup-wizard");
-  // "/" is the public landing page for visitors. The server render cannot see localStorage, so the
+  // "/" is the public landing page for visitors on the web. The server render cannot see localStorage, so the
   // first client render matches it; after mount the token is read on every render (e.g. right after login).
+  // The native app never shows it: AppShell's guard sends users without a token to /login.
   const [hydrated, setHydrated] = useState(false);
-  useEffect(() => {
-    setHydrated(true);
-    if (!localStorage.getItem("token") && Capacitor.isNativePlatform()) window.location.href = "/login";
-  }, []);
-  const isLanding = pathname === "/" && !(hydrated && localStorage.getItem("token"));
+  useEffect(() => setHydrated(true), []);
+  const isLanding = pathname === "/" && !Capacitor.isNativePlatform() && !(hydrated && localStorage.getItem("token"));
 
   useEffect(() => {
     // The Capacitor app ships its assets inside the APK; a service worker there would only
