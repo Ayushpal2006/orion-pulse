@@ -447,12 +447,15 @@ export function planInvoiceImagePages(
     invoice.shopEmail ? invoice.shopEmail : "",
   ].filter(Boolean);
 
-  const firstHeaderHeight =
-    120 +
-    Math.max(1, shopNameLines.length) * 30 +
-    (addressLines.length > 0 ? addressLines.length * 22 + 4 : 0) +
-    (contactSegments.length > 0 ? 24 : 0) +
-    (invoice.shopGstin ? 24 : 0);
+  // Shop text starts at y=32 next to an 80px logo box; leave a 24px gap before the customer card.
+  const firstHeaderHeight = Math.max(
+    32 + 80 + 24,
+    56 +
+      Math.max(1, shopNameLines.length) * 30 +
+      (addressLines.length > 0 ? addressLines.length * 22 + 4 : 0) +
+      (contactSegments.length > 0 ? 24 : 0) +
+      (invoice.shopGstin ? 24 : 0),
+  );
   const continuationHeaderHeight = 112;
 
   const customerCardHeight = invoice.customerAddress ? 124 : 104;
