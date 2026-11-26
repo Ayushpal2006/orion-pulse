@@ -88,6 +88,28 @@ export function LandingPage() {
           </div>
         </section>
 
+        <section className="mx-auto max-w-6xl px-4 pb-16 sm:pb-24" aria-label="Product preview">
+          {/* Real screenshots of the billing screen (demo shop data), not mockups. */}
+          <div className="flex items-end justify-center gap-6">
+            <img
+              src="/landing/billing-desktop.jpg"
+              alt="Apka Bill billing screen on a computer with five items in the cart and a grand total of ₹1,308 including GST"
+              width={1470}
+              height={779}
+              loading="lazy"
+              className="hidden w-full max-w-4xl rounded-2xl border border-border shadow-xl sm:block"
+            />
+            <img
+              src="/landing/billing-phone.jpg"
+              alt="Apka Bill billing screen on a phone with three items in the cart and a Pay button"
+              width={600}
+              height={1200}
+              loading="lazy"
+              className="w-64 rounded-[2rem] border-4 border-foreground/80 shadow-xl sm:w-44 lg:w-52 sm:-ml-24 sm:mb-[-1.5rem]"
+            />
+          </div>
+        </section>
+
         <section id="features" className="border-t border-border/60 bg-muted/30 py-16 sm:py-20">
           <div className="mx-auto max-w-6xl px-4">
             <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">Everything the counter needs</h2>
