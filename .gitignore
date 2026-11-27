@@ -55,6 +55,9 @@ mobile-expo/.git-broken/
 mobile-expo/apkabill-*.txt
 *.dump
 *.sql
+# CI test schema (schema only, no data) and minimal seed; dumps stay ignored.
+!backend/src/tests/fixtures/ci-schema.sql
+!backend/src/tests/fixtures/ci-seed.sql
 # Schema migrations are source code; the *.sql rule above is for database dumps only.
 !backend/src/db/migrations/*.sql
 !backend/src/schemas/*.sql
