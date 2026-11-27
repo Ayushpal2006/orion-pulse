@@ -1,5 +1,8 @@
 import {
+  BadgeIndianRupee,
   Boxes,
+  Clock,
+  Smartphone,
   ChefHat,
   FileBarChart,
   IndianRupee,
@@ -36,6 +39,18 @@ const steps = [
   { title: "Check your day", text: "Sales, dues and low stock are on the dashboard when you need them." },
 ];
 
+const benefits = [
+  { icon: Clock, title: "Shorter queues", text: "Scan or search, take payment and print or share the bill in a few taps." },
+  { icon: WifiOff, title: "No lost sales offline", text: "The counter keeps billing when the network drops; bills sync later." },
+  { icon: BadgeIndianRupee, title: "Know what you're owed", text: "Customer dues, supplier balances and low stock are on one dashboard." },
+];
+
+const navLinks = [
+  { href: "#features", label: "Features" },
+  { href: "#how-it-works", label: "How it works" },
+  { href: "#faq", label: "FAQ" },
+];
+
 const businesses = ["Kirana & grocery", "General stores", "Mobile & electronics", "Clothing & fashion", "Restaurants & cafes"];
 
 const faqs = [
@@ -55,14 +70,16 @@ export function LandingPage() {
             Apka Bill
           </a>
           <div className="flex items-center gap-1 sm:gap-2">
-            <a href="#features" className="hidden sm:inline-flex h-11 items-center rounded-xl px-3 text-sm font-medium text-muted-foreground hover:text-foreground">
-              Features
-            </a>
-            <a href="#faq" className="hidden sm:inline-flex h-11 items-center rounded-xl px-3 text-sm font-medium text-muted-foreground hover:text-foreground">
-              FAQ
-            </a>
-            <a href="/login" className="inline-flex h-11 items-center rounded-xl bg-primary px-5 text-sm font-semibold text-primary-foreground shadow-sm hover:opacity-90">
+            {navLinks.map((l) => (
+              <a key={l.href} href={l.href} className="hidden md:inline-flex h-11 items-center rounded-xl px-3 text-sm font-medium text-muted-foreground hover:text-foreground">
+                {l.label}
+              </a>
+            ))}
+            <a href="/login" className="inline-flex h-11 items-center rounded-xl px-3 text-sm font-semibold hover:bg-muted">
               Log in
+            </a>
+            <a href="#get-started" className="inline-flex h-11 items-center rounded-xl bg-primary px-4 sm:px-5 text-sm font-semibold text-primary-foreground shadow-sm hover:opacity-90">
+              Get started
             </a>
           </div>
         </nav>
@@ -79,11 +96,11 @@ export function LandingPage() {
             working when the internet does not.
           </p>
           <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-            <a href="/login" className="inline-flex h-12 items-center justify-center rounded-xl bg-primary px-6 text-base font-semibold text-primary-foreground shadow-sm hover:opacity-90">
-              Log in to your shop
+            <a href="#get-started" className="inline-flex h-12 items-center justify-center rounded-xl bg-primary px-6 text-base font-semibold text-primary-foreground shadow-sm hover:opacity-90">
+              Get started
             </a>
-            <a href="#features" className="inline-flex h-12 items-center justify-center rounded-xl border border-border px-6 text-base font-semibold hover:bg-muted">
-              See what it does
+            <a href="/login" className="inline-flex h-12 items-center justify-center rounded-xl border border-border px-6 text-base font-semibold hover:bg-muted">
+              Log in to your shop
             </a>
           </div>
         </section>
@@ -93,7 +110,7 @@ export function LandingPage() {
           <div className="flex items-end justify-center gap-6">
             <img
               src="/landing/billing-desktop.jpg"
-              alt="Apka Bill billing screen on a computer with five items in the cart and a grand total of ₹1,308 including GST"
+              alt="Apka Bill billing screen on a computer with five items in the cart and a grand total of ₹1,138 including GST"
               width={1470}
               height={835}
               loading="lazy"
@@ -108,6 +125,23 @@ export function LandingPage() {
               className="w-64 rounded-[2rem] border-4 border-foreground/80 shadow-xl sm:w-44 lg:w-52 sm:-ml-24 sm:mb-[-1.5rem]"
             />
           </div>
+        </section>
+
+        <section className="mx-auto max-w-6xl px-4 pb-16 sm:pb-20" aria-labelledby="benefits-title">
+          <h2 id="benefits-title" className="sr-only">Why shops use Apka Bill</h2>
+          <ul className="grid gap-6 sm:grid-cols-3">
+            {benefits.map((b) => (
+              <li key={b.title} className="flex gap-4">
+                <span className="grid size-12 shrink-0 place-items-center rounded-2xl bg-primary/10 text-primary">
+                  <b.icon className="size-6" aria-hidden />
+                </span>
+                <div>
+                  <h3 className="text-lg font-semibold">{b.title}</h3>
+                  <p className="mt-1 text-base text-muted-foreground">{b.text}</p>
+                </div>
+              </li>
+            ))}
+          </ul>
         </section>
 
         <section id="features" className="border-t border-border/60 bg-muted/30 py-16 sm:py-20">
@@ -125,7 +159,24 @@ export function LandingPage() {
           </div>
         </section>
 
-        <section className="py-16 sm:py-20">
+        <section className="py-16 sm:py-20" aria-labelledby="screens-title">
+          <div className="mx-auto max-w-6xl px-4">
+            <h2 id="screens-title" className="text-3xl font-bold tracking-tight sm:text-4xl">The real screens</h2>
+            <p className="mt-3 max-w-2xl text-lg text-muted-foreground">Captured from the app with a demo shop. No mockups.</p>
+            <div className="mt-10 grid gap-6 md:grid-cols-2">
+              <figure>
+                <img src="/landing/dashboard.jpg" alt="Apka Bill dashboard with today's sales, payment split and low-stock list" width={1470} height={835} loading="lazy" className="w-full rounded-2xl border border-border shadow-lg" />
+                <figcaption className="mt-3 text-base font-medium">Dashboard: sales, dues and low stock</figcaption>
+              </figure>
+              <figure>
+                <img src="/landing/inventory.jpg" alt="Apka Bill inventory list with stock levels and prices" width={1470} height={835} loading="lazy" className="w-full rounded-2xl border border-border shadow-lg" />
+                <figcaption className="mt-3 text-base font-medium">Inventory: stock that updates with every sale</figcaption>
+              </figure>
+            </div>
+          </div>
+        </section>
+
+        <section id="how-it-works" className="border-t border-border/60 py-16 sm:py-20">
           <div className="mx-auto max-w-6xl px-4">
             <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">How it works</h2>
             <ol className="mt-10 grid gap-6 sm:grid-cols-3">
@@ -151,6 +202,20 @@ export function LandingPage() {
           </div>
         </section>
 
+        <section className="py-16 sm:py-20" aria-labelledby="mobile-title">
+          <div className="mx-auto grid max-w-6xl items-center gap-10 px-4 md:grid-cols-[1fr_auto]">
+            <div>
+              <Smartphone className="size-8 text-primary" aria-hidden />
+              <h2 id="mobile-title" className="mt-3 text-3xl font-bold tracking-tight sm:text-4xl">An Android app for the counter</h2>
+              <p className="mt-4 max-w-xl text-lg text-muted-foreground">
+                Bill from an Android phone or tablet with the same account. The app keeps working offline, prints to
+                58mm thermal printers and shares bills on WhatsApp. Ask the Apka Bill team for the app.
+              </p>
+            </div>
+            <img src="/landing/billing-phone.jpg" alt="Apka Bill billing screen on an Android phone" width={600} height={1200} loading="lazy" className="mx-auto w-56 rounded-[2rem] border-4 border-foreground/80 shadow-xl" />
+          </div>
+        </section>
+
         <section id="faq" className="py-16 sm:py-20">
           <div className="mx-auto max-w-3xl px-4">
             <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">Questions</h2>
@@ -165,11 +230,15 @@ export function LandingPage() {
           </div>
         </section>
 
-        <section className="border-t border-border/60 py-16 sm:py-20">
-          <div className="mx-auto max-w-6xl px-4 text-center">
+        <section id="get-started" className="scroll-mt-20 border-t border-border/60 bg-muted/30 py-16 sm:py-20">
+          <div className="mx-auto max-w-3xl px-4 text-center">
             <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">Ready to bill?</h2>
-            <a href="/login" className="mt-6 inline-flex h-12 items-center justify-center rounded-xl bg-primary px-8 text-base font-semibold text-primary-foreground shadow-sm hover:opacity-90">
-              Log in
+            <p className="mt-4 text-lg text-muted-foreground">
+              Shop accounts are set up by the Apka Bill team, with your stores and staff logins. Once you have your
+              login, everything above works from day one.
+            </p>
+            <a href="/login" className="mt-8 inline-flex h-12 items-center justify-center rounded-xl bg-primary px-8 text-base font-semibold text-primary-foreground shadow-sm hover:opacity-90">
+              Log in to your shop
             </a>
           </div>
         </section>
@@ -178,7 +247,12 @@ export function LandingPage() {
       <footer className="border-t border-border/60 py-8">
         <div className="mx-auto flex max-w-6xl flex-col gap-2 px-4 text-sm text-muted-foreground sm:flex-row sm:justify-between">
           <span>© {new Date().getFullYear()} Apka Bill</span>
-          <a href="/login" className="inline-flex h-11 items-center hover:text-foreground">Log in</a>
+          <nav aria-label="Footer" className="flex flex-wrap gap-x-4">
+            {navLinks.map((l) => (
+              <a key={l.href} href={l.href} className="inline-flex h-11 items-center hover:text-foreground">{l.label}</a>
+            ))}
+            <a href="/login" className="inline-flex h-11 items-center hover:text-foreground">Log in</a>
+          </nav>
         </div>
       </footer>
     </div>
