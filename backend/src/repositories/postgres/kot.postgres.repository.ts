@@ -1,6 +1,6 @@
 import { db } from "../../db";
 import { kots, kot_items, sales, store_kot_sequences } from "../../db/schema";
-import { eq, and, desc, sql } from "drizzle-orm";
+import { eq, and, desc, sql, inArray } from "drizzle-orm";
 import { IKotRepository } from "../interfaces/kot.repository.interface";
 import { KotDTO, KotItemDTO, CreateKotInput } from "../../types/kot.types";
 
@@ -163,12 +163,10 @@ export class KotPostgresRepository implements IKotRepository {
       .where(and(...conditions))
       .orderBy(desc(kots.id));
 
+    const itemsByKot = await this.loadItemsByKot(kotRows.map((r) => r.kot.id));
     const result: KotDTO[] = [];
     for (const row of kotRows) {
-      const itemsRows = await db
-        .select()
-        .from(kot_items)
-        .where(eq(kot_items.kot_id, row.kot.id));
+      const itemsRows = itemsByKot.get(row.kot.id) || [];
 
       result.push({
         id: row.kot.id,
@@ -200,6 +198,19 @@ export class KotPostgresRepository implements IKotRepository {
     return result;
   }
 
+  // One query for all listed KOTs instead of one per KOT (kitchen screens poll the list).
+  private async loadItemsByKot(kotIds: number[]) {
+    const map = new Map<number, (typeof kot_items.$inferSelect)[]>();
+    if (kotIds.length === 0) return map;
+    const rows = await db.select().from(kot_items).where(inArray(kot_items.kot_id, kotIds)).orderBy(kot_items.id);
+    for (const it of rows) {
+      const list = map.get(it.kot_id);
+      if (list) list.push(it);
+      else map.set(it.kot_id, [it]);
+    }
+    return map;
+  }
+
   async getAll(params: { storeId: number; orgId?: number; status?: string; limit?: number; offset?: number }): Promise<KotDTO[]> {
     const conditions = [eq(kots.store_id, params.storeId)];
     if (params.orgId) {
@@ -224,12 +235,10 @@ export class KotPostgresRepository implements IKotRepository {
       .limit(limit)
       .offset(offset);
 
+    const itemsByKot = await this.loadItemsByKot(kotRows.map((r) => r.kot.id));
     const result: KotDTO[] = [];
     for (const row of kotRows) {
-      const itemsRows = await db
-        .select()
-        .from(kot_items)
-        .where(eq(kot_items.kot_id, row.kot.id));
+      const itemsRows = itemsByKot.get(row.kot.id) || [];
 
       result.push({
         id: row.kot.id,

@@ -105,6 +105,21 @@ async function runKotDualPrinterE2ETest() {
           throw new Error(`❌ Expected exactly 1 item on KOT (Masala Dosa), but got ${fullKot.items.length}`);
         }
 
+        // List endpoints batch-load items; each KOT must still get exactly its own items.
+        const listed = await kotRepository.getAll({ storeId: fullKot.storeId, orgId: fullKot.organizationId, limit: 50 });
+        const listedKot = listed.find((k) => k.id === fullKot.id);
+        if (!listedKot || JSON.stringify(listedKot.items) !== JSON.stringify(fullKot.items)) {
+          throw new Error(`❌ getAll items for KOT ${fullKot.id} differ from getById`);
+        }
+        for (const k of listed) {
+          if (k.items.some((it) => it.kotId !== k.id)) throw new Error(`❌ KOT ${k.id} got another KOT's items`);
+        }
+        const bySale = await kotRepository.getBySaleId(fullKot.saleId!, fullKot.storeId);
+        if (!bySale.some((k) => k.id === fullKot.id && k.items.length === 1)) {
+          throw new Error("❌ getBySaleId items mismatch");
+        }
+        console.log(`✅ getAll/getBySaleId items match (${listed.length} KOTs listed)`);
+
         const kotItem = fullKot.items[0];
         if (kotItem.productId !== prodKitchen.id) {
           throw new Error(`❌ Expected KOT item to be Masala Dosa (ID: ${prodKitchen.id}), got ${kotItem.productId}`);
