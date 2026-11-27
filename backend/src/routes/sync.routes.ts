@@ -250,6 +250,10 @@ router.post("/upload", async (req: Request, res: Response): Promise<void> => {
         for (const sale of uploadedSales) {
           if (!sale.invoice_number) continue;
 
+          // Serialize uploads of the same invoice: a client retry after a timeout can arrive while the
+          // first request's transaction is still open, and the read-then-insert check below would miss it.
+          await tx.execute(sql`select pg_advisory_xact_lock(${storeId}, hashtext(${String(sale.invoice_number)}))`);
+
           // Check for duplicate invoice in same tenant
           const [existingSale] = await tx
             .select()
@@ -389,7 +393,11 @@ router.post("/upload", async (req: Request, res: Response): Promise<void> => {
                   .from(products)
                   .where(and(eq(products.organization_id, orgId), eq(products.store_id, storeId)))
                   .limit(1);
-                prodRow = firstProd.length > 0 ? firstProd[0] : { id: 1, gst: 18 };
+                // Never fall back to a hard-coded product id: it may belong to another organization.
+                if (firstProd.length === 0) {
+                  throw new Error(`Offline sale ${sale.invoice_number}: no product found in store ${storeId}`);
+                }
+                prodRow = firstProd[0];
               }
               const prodId = prodRow.id;
 
@@ -510,11 +518,16 @@ const handlePullSync = async (req: Request, res: Response): Promise<void> => {
 
     const lastSyncTimeStr = req.query.lastSyncTime as string | undefined;
 
-    const pageSize = Math.max(1, parsePositiveInt(req.query.pageSize, PULL_DEFAULT_PAGE_SIZE, PULL_MAX_PAGE_SIZE));
     const afterSalesId = parsePositiveInt(req.query.afterSalesId, 0);
     const afterPurchasesId = parsePositiveInt(req.query.afterPurchasesId, 0);
     const afterExpensesId = parsePositiveInt(req.query.afterExpensesId, 0);
     const isFirstPage = afterSalesId === 0 && afterPurchasesId === 0 && afterExpensesId === 0;
+    // Clients that send no paging params (the shipped Expo app) never read hasMore, so paging them
+    // would re-pull the same first page forever. Give them the whole delta in one response.
+    const legacyClient = req.query.pageSize === undefined && req.query.sweepStart === undefined && isFirstPage;
+    const pageSize = legacyClient
+      ? Number.MAX_SAFE_INTEGER - 1
+      : Math.max(1, parsePositiveInt(req.query.pageSize, PULL_DEFAULT_PAGE_SIZE, PULL_MAX_PAGE_SIZE));
 
     // The sweep start time is the cursor to persist once every page has been fetched. Taking it
     // before any query runs means rows written during the sweep are re-delivered next time, never lost.
