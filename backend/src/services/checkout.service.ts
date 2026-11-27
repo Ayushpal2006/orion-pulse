@@ -1,6 +1,6 @@
 import { db } from "../db";
 import { sales, sale_items, products, customers, inventory_logs, audit_logs } from "../db/schema";
-import { eq, and, desc, like } from "drizzle-orm";
+import { eq, and, desc, like, sql } from "drizzle-orm";
 import { CheckoutRequest, CheckoutResponse } from "../types/checkout.types";
 import { ValidationError, NotFoundError } from "../utils/errors";
 import { getStoreId, getOrganizationId, getUserId } from "../db/context";
@@ -198,6 +198,9 @@ export class CheckoutService {
     const t0 = performance.now();
 
     const result = await db.transaction(async (tx) => {
+      // Serialize checkouts per store until commit. Invoice numbers are "last + 1", so concurrent
+      // checkouts otherwise get the same number. Taken first so no row lock is held while waiting.
+      await tx.execute(sql`select pg_advisory_xact_lock(${storeId}, hashtext('invoice-seq'))`);
       // 3. Resolve customer
       const tCustomerStart = performance.now();
       let customer: any = null;
