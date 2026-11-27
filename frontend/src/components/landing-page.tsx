@@ -103,7 +103,17 @@ html { scroll-behavior: smooth; }
 @keyframes landing-open { from { opacity: 0; transform: translateY(-6px); } }
 @keyframes landing-float { 50% { transform: translateY(-10px); } }
 #landing-root .float { animation: landing-float 6s ease-in-out infinite; }
+#landing-root .progress { transform-origin: 0 50%; transform: scaleX(0); }
+@supports (animation-timeline: view()) {
+  @keyframes landing-progress { to { transform: scaleX(1); } }
+  #landing-root .progress { animation: landing-progress linear both; animation-timeline: scroll(root); }
+  @keyframes landing-zoom { from { transform: scale(.82); border-radius: 2.5rem; opacity: .6; } }
+  #landing-root .zoom-in { animation: landing-zoom linear both; animation-timeline: view(); animation-range: entry 0% cover 45%; }
+  @keyframes landing-tilt { from { transform: perspective(1400px) rotateX(22deg) scale(.9); opacity: .5; } }
+  #landing-root .tilt-in { transform-origin: 50% 100%; animation: landing-tilt linear both; animation-timeline: view(); animation-range: entry 0% cover 40%; }
+}
 @media (prefers-reduced-motion: reduce) {
+  #landing-root .progress, #landing-root .zoom-in, #landing-root .tilt-in { animation: none; }
   html { scroll-behavior: auto; }
   #landing-root [data-reveal], #landing-root.reveal-on [data-reveal]:not(.is-in) { opacity: 1; transform: none; transition: none; }
   #landing-root .float, #landing-root details > p { animation: none; }
@@ -265,13 +275,21 @@ export function LandingPage() {
     );
     root.querySelectorAll("[data-reveal]").forEach((el) => io.observe(el));
     root.classList.add("reveal-on");
-    return () => io.disconnect();
+    const video = root.querySelector("video");
+    const calm = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const vio = new IntersectionObserver(([e]) => {
+      if (!video || calm) return;
+      if (e.isIntersecting) { video.muted = true; video.play().catch(() => {}); } else video.pause();
+    }, { threshold: 0.5 });
+    if (video) vio.observe(video);
+    return () => { io.disconnect(); vio.disconnect(); };
   }, []);
 
   return (
     <div id="landing-root" className="min-h-screen overflow-x-clip bg-background text-foreground antialiased">
       <style>{css}</style>
       <header className="sticky top-0 z-20 border-b border-border/60 bg-background/80 backdrop-blur-xl">
+        <div className="progress absolute inset-x-0 bottom-0 h-0.5 bg-gradient-to-r from-blue-600 to-green-500" aria-hidden />
         <nav className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4" aria-label="Main">
           <a href="/" className="flex items-center gap-2.5 text-lg font-bold">
             <img src="/logo.png" alt="" className="size-9 rounded-xl border border-border/50" />
@@ -368,10 +386,13 @@ export function LandingPage() {
           </div>
         </section>
 
-        <section className="py-16 sm:py-24" aria-labelledby="video-title">
-          <div className="mx-auto max-w-4xl px-4 text-center" data-reveal>
-            <h2 id="video-title" className="text-3xl font-bold tracking-tight sm:text-4xl">See it in 30 seconds</h2>
-            <video className="mt-8 aspect-video w-full rounded-2xl border border-border bg-black shadow-2xl" controls playsInline preload="none" poster="/landing/video-poster.jpg">
+        <section className="bg-neutral-950 py-20 text-white sm:py-28" aria-labelledby="video-title">
+          <div className="mx-auto max-w-5xl px-4 text-center">
+            <h2 id="video-title" className="text-3xl font-bold tracking-tight sm:text-5xl" data-reveal>
+              See it in <span className="bg-gradient-to-r from-blue-400 to-green-400 bg-clip-text text-transparent">30 seconds</span>
+            </h2>
+            {/* Muted and looping; the effect above plays it only while it is on screen. Controls let visitors turn sound on. */}
+            <video className="zoom-in mt-10 aspect-video w-full rounded-2xl bg-black shadow-2xl ring-1 ring-white/10" controls muted loop playsInline preload="metadata" poster="/landing/video-poster.jpg">
               <source src="/landing/apka-bill.mp4" type="video/mp4" />
               <track kind="captions" src="/landing/apka-bill.vtt" srcLang="en" label="English" />
             </video>
@@ -427,7 +448,7 @@ export function LandingPage() {
               <h2 id="computer-title" className="text-3xl font-bold tracking-tight sm:text-4xl">On a computer too</h2>
               <p className="mt-3 max-w-2xl text-lg text-muted-foreground">Products on the left, the bill on the right. Scan, search or click.</p>
             </div>
-            <div className="mt-10" data-reveal>
+            <div className="tilt-in mt-10">
               <Desk />
             </div>
           </div>
