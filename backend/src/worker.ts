@@ -127,11 +127,8 @@ export default {
       }
     }
 
-    // Auto-ensure schema compatibility on live PostgreSQL for all incoming traffic
-    try {
-      const pool = getPool();
-      await ensureDatabaseSchema(pool);
-    } catch (_) {}
+    // Schema DDL is not run per request: ALTER TABLE takes an ACCESS EXCLUSIVE lock on products even
+    // when the column exists, and each new isolate would repeat it. /health/db still runs the check.
 
     try {
       return await nodeHandler.fetch(request, env, ctx);
