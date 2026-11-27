@@ -69,6 +69,9 @@ const faqs = [
   { q: "Is my shop's data kept separate?", a: "Yes. Every shop's data is isolated, and each user only sees the stores they are allowed to." },
 ];
 
+// Sales contact, supplied by the owner. Opens WhatsApp with a ready message.
+const WHATSAPP = `https://wa.me/917982272206?text=${encodeURIComponent("Hi, I want to use Apka Bill for my shop.")}`;
+
 // Demo shop for the illustrated screens. Generic goods, prices include GST.
 const items = [
   { e: "🧼", name: "Soap", price: 40 },
@@ -438,7 +441,8 @@ export function LandingPage() {
               <h2 id="mobile-title" className="mt-3 text-3xl font-bold tracking-tight sm:text-4xl">An Android app for the counter</h2>
               <p className="mt-4 max-w-xl text-lg text-muted-foreground">
                 Bill from an Android phone or tablet with the same account. The app keeps working offline, prints to
-                58mm thermal printers and shares bills on WhatsApp. Ask the Apka Bill team for the app.
+                58mm thermal printers and shares bills on WhatsApp.{" "}
+                <a href={WHATSAPP} target="_blank" rel="noopener noreferrer" className="font-semibold text-primary underline underline-offset-4">Ask us for the app on WhatsApp.</a>
               </p>
             </div>
             <div data-reveal style={{ transitionDelay: "120ms" }}>
@@ -450,7 +454,10 @@ export function LandingPage() {
         <section id="pricing" className="scroll-mt-20 border-t border-border/60 bg-muted/30 py-16 sm:py-20">
           <div className="mx-auto max-w-3xl px-4 text-center" data-reveal>
             <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">Pricing</h2>
-            <p className="mt-4 text-lg text-muted-foreground">Simple plans for every shop size are coming soon.</p>
+            <p className="mt-4 text-lg text-muted-foreground">
+              Simple plans for every shop size are coming soon.{" "}
+              <a href={WHATSAPP} target="_blank" rel="noopener noreferrer" className="font-semibold text-primary underline underline-offset-4">Ask for today's price on WhatsApp.</a>
+            </p>
           </div>
         </section>
 
@@ -475,12 +482,18 @@ export function LandingPage() {
           <div className="mx-auto max-w-3xl px-4 text-center" data-reveal>
             <h2 className="text-4xl font-bold tracking-tight sm:text-5xl">Ready to bill?</h2>
             <p className="mt-4 text-lg text-muted-foreground">
-              Shop accounts are set up by the Apka Bill team, with your stores and staff logins. Once you have your
-              login, everything above works from day one.
+              Message us on WhatsApp. We set up your shop, your products and your staff logins, so you can start
+              billing.
             </p>
-            <a href="/login" className={`mt-8 inline-flex items-center justify-center rounded-2xl bg-primary px-8 py-3.5 text-base font-semibold text-primary-foreground shadow-lg shadow-primary/20 ${press}`}>
-              Log in to your shop
-            </a>
+            <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
+              <a href={WHATSAPP} target="_blank" rel="noopener noreferrer" className={`inline-flex items-center justify-center gap-2 rounded-2xl bg-green-600 px-8 py-3.5 text-base font-semibold text-white shadow-lg shadow-green-600/20 ${press}`}>
+                <MessageCircle className="size-5" aria-hidden /> Chat on WhatsApp
+              </a>
+              <a href="/login" className={`inline-flex items-center justify-center rounded-2xl border border-border px-8 py-3.5 text-base font-semibold hover:bg-muted ${press}`}>
+                Log in to your shop
+              </a>
+            </div>
+            <p className="mt-4 text-base text-muted-foreground">WhatsApp: +91 79822 72206</p>
           </div>
         </section>
       </main>
