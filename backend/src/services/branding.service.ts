@@ -107,7 +107,7 @@ export class BrandingService {
     const email = settingsMap.shop_email || settingsMap.email || settingsMap.storeEmail || orgRecord?.email || "";
     const address = settingsMap.shop_address || settingsMap.address || settingsMap.storeAddress || storeRecord?.address || orgRecord?.address || "";
     const upi = settingsMap.shop_upi_id || settingsMap.upiId || settingsMap.upi_id || "";
-    const website = settingsMap.website || settingsMap.business_website || "https://apkabill.in";
+    const website = settingsMap.website || settingsMap.business_website || "";
     const footer = settingsMap.receipt_footer || settingsMap.receiptFooter || "Thank you for shopping with us\n*** Thank you — visit again ***";
     const returnPolicy = settingsMap.exchange_policy || "Items can be exchanged within 7 days in original condition.";
     const terms = settingsMap.terms_and_conditions || settingsMap.termsAndConditions || settingsMap.invoice_footer || returnPolicy;

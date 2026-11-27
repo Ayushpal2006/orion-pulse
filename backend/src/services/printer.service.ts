@@ -134,7 +134,7 @@ export class PrinterService {
       .lineFeed()
       .text(`Interface: ${config.type || "Internal POS"} | Width: ${config.paperWidth}`)
       .lineFeed()
-      .qrCode("https://apkabill.in/diag")
+      .qrCode("APKABILL-PRINTER-DIAG")
       .barcode("DIAG-12345")
       .printUnicode("Gujarati: નમસ્તે | Tamil: வணக்கம் | Hindi: नमस्ते\n", "multi")
       .pulseCashDrawer(0)

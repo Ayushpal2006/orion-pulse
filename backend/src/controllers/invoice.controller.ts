@@ -3,18 +3,15 @@ import path from "path";
 import fs from "fs";
 import { saleRepository } from "../repositories";
 import { SalesService } from "../services/sales.service";
-import { InvoiceService } from "../services/invoice.service";
 import { PdfService } from "../services/pdf.service";
 
 export class InvoiceController {
   private salesService: SalesService;
-  private invoiceService: InvoiceService;
   private pdfService: PdfService;
   private saleRepo = saleRepository;
 
   constructor() {
     this.salesService = new SalesService();
-    this.invoiceService = new InvoiceService();
     this.pdfService = new PdfService();
   }
 
