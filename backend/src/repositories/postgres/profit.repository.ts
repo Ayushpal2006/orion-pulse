@@ -249,7 +249,18 @@ export class PostgresProfitRepository implements IProfitRepository {
       .from(sale_items)
       .innerJoin(sales, eq(sale_items.sale_id, sales.id))
       .innerJoin(products, eq(sale_items.product_id, products.id))
-      .where(and(eq(sales.organization_id, organizationId), eq(sales.store_id, filters.storeId), eq(sales.status, "COMPLETED")))
+      .where(
+        and(
+          eq(sales.organization_id, organizationId),
+          eq(sales.store_id, filters.storeId),
+          eq(sales.status, "COMPLETED"),
+          // Last 12 IST calendar months. The coarse created_at bound lets the (store_id, created_at)
+          // index skip older history; the month comparison makes the cut exact. Without it, asc +
+          // limit(12) returned the OLDEST 12 months once a store had more than a year of sales.
+          sql`${sales.created_at} >= now() - interval '13 months'`,
+          sql`to_char(timezone('Asia/Kolkata', timezone('UTC', ${sales.created_at})), 'YYYY-MM') >= to_char(timezone('Asia/Kolkata', now()) - interval '11 months', 'YYYY-MM')`
+        )
+      )
       .groupBy(
         sql`to_char(timezone('Asia/Kolkata', timezone('UTC', ${sales.created_at})), 'Mon YYYY')`,
         sql`to_char(timezone('Asia/Kolkata', timezone('UTC', ${sales.created_at})), 'YYYY-MM')`
