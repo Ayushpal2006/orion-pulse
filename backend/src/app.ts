@@ -136,10 +136,11 @@ app.use("/kot", authenticate(), kotRoutes);
 app.use("/api/kot", authenticate(), kotRoutes);
 
 // New Modules
-app.use("/api/users", authenticate(), userRoutes);
-app.use("/users", authenticate(), userRoutes);
-app.use("/api/stores", authenticate(), storeRoutes);
-app.use("/stores", authenticate(), storeRoutes);
+// These routers call authenticate() themselves; adding it here ran auth (1-2 DB queries) twice.
+app.use("/api/users", userRoutes);
+app.use("/users", userRoutes);
+app.use("/api/stores", storeRoutes);
+app.use("/stores", storeRoutes);
 app.use("/api/suppliers", authenticate(), supplierRoutes);
 app.use("/api/supplier-payments", authenticate(), supplierPaymentRoutes);
 app.use("/api/profit", authenticate(), profitRoutes);
