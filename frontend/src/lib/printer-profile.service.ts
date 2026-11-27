@@ -171,6 +171,15 @@ export class PrinterProfileService {
     const cacheKey = `store_${storeId || "active"}`;
     const storageKey = `orion_printer_config_${cacheKey}`;
 
+    // /settings carries the shop logo (~400 KB); fetch it once per page load, not on every print.
+    // The cache is cleared on store switch (clearCache) and updated when profiles are saved.
+    const cachedConfig = this.profileCache.get(cacheKey);
+    if (cachedConfig) {
+      const activeProfile =
+        cachedConfig.profiles.find((p) => p.id === cachedConfig.activeId) || cachedConfig.profiles[0];
+      return { profiles: cachedConfig.profiles, activeProfile };
+    }
+
     try {
       const res = await apiFetch(`${API_BASE_URL}/settings`);
       if (res.ok) {

@@ -24,17 +24,25 @@ export function InvoiceHistory({ customerId }: { customerId?: string | number })
   const customers = useApp((s) => s.customers);
   const setCustomers = useApp((s) => s.setCustomers);
 
-  // Load customers if not loaded
+  // Load customers once if not loaded. Depending on `customers` looped forever for a store with
+  // no customers: every fetch stored a new [] and re-triggered the effect.
   useEffect(() => {
     if (customers.length === 0) {
       getCustomers()
         .then(setCustomers)
         .catch(() => {});
     }
-  }, [customers, setCustomers]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Search & Filters State
   const [search, setSearch] = useState("");
+  // One request after typing pauses, not one per keystroke.
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(search), 300);
+    return () => clearTimeout(t);
+  }, [search]);
   const [status, setStatus] = useState("ALL");
   const [payment, setPayment] = useState("ALL");
   const [selectedCustomerId, setSelectedCustomerId] = useState<string>("ALL");
@@ -67,7 +75,7 @@ export function InvoiceHistory({ customerId }: { customerId?: string | number })
         const queryParams: any = {
           page: 1,
           limit: 10,
-          search,
+          search: debouncedSearch,
           status: status === "ALL" ? undefined : status,
           paymentMethod: payment === "ALL" ? undefined : payment,
           customerId:
@@ -108,7 +116,7 @@ export function InvoiceHistory({ customerId }: { customerId?: string | number })
     return () => {
       active = false;
     };
-  }, [search, status, payment, selectedCustomerId, dateFilter, dateRange, sort, customerId]);
+  }, [debouncedSearch, status, payment, selectedCustomerId, dateFilter, dateRange, sort, customerId]);
 
   // Load More Function
   const handleLoadMore = async () => {
@@ -119,7 +127,7 @@ export function InvoiceHistory({ customerId }: { customerId?: string | number })
       const queryParams: any = {
         page: nextPage,
         limit: 10,
-        search,
+        search: debouncedSearch,
         status: status === "ALL" ? undefined : status,
         paymentMethod: payment === "ALL" ? undefined : payment,
         customerId:
