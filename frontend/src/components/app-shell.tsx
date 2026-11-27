@@ -692,7 +692,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             <img
               src="/logo.png"
               alt="Apka Bill Logo"
-              className="size-8 object-contain dark:rounded-lg dark:bg-white dark:p-0.5"
+              className="size-8 rounded-xl object-cover shadow-sm border border-border/50"
             />
             <span className="font-bold tracking-tight text-base leading-tight">Apka Bill</span>
           </div>
@@ -722,7 +722,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                   <img
                     src="/logo.png"
                     alt="Apka Bill Logo"
-                    className="size-8 object-contain dark:rounded-lg dark:bg-white dark:p-0.5"
+                    className="size-8 rounded-xl object-cover shadow-sm border border-border/50"
                   />
                   <SheetTitle className="text-base font-bold">Apka Bill</SheetTitle>
                 </div>

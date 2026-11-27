@@ -51,7 +51,7 @@ export function LandingPage() {
       <header className="sticky top-0 z-20 border-b border-border/60 bg-background/90 backdrop-blur">
         <nav className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4" aria-label="Main">
           <a href="/" className="flex items-center gap-2.5 font-bold text-lg">
-            <img src="/logo.png" alt="" className="size-9 object-contain dark:rounded-lg dark:bg-white dark:p-0.5" />
+            <img src="/logo.png" alt="" className="size-9 rounded-xl border border-border/50" />
             Apka Bill
           </a>
           <div className="flex items-center gap-1 sm:gap-2">

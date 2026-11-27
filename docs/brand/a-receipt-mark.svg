@@ -1,5 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Apka Bill">
-  <!-- Direction A: a till receipt with a torn edge; the bold total line doubles as the bar of a "B" -->
-  <path d="M14 6h36a4 4 0 0 1 4 4v46l-5-4-5 4-5-4-5 4-5-4-5 4-5-4-5 4V10a4 4 0 0 1 4-4z" fill="#14213D"/>
-  <path d="M22 16h13a7 7 0 0 1 0 14H22z M22 30h15a7.5 7.5 0 0 1 0 15H22z" fill="none" stroke="#FCA311" stroke-width="5" stroke-linejoin="round"/>
-</svg>
