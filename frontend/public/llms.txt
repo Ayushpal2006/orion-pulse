@@ -1,0 +1,26 @@
+# Apka Bill
+
+> Apka Bill is simple billing software for shop owners in India. Tap the items, take the payment, hand over the bill. It works on an Android phone, a tablet or a computer, and keeps working without internet.
+
+## Who it is for
+Kirana and grocery shops, general stores, mobile and electronics shops, clothing shops, restaurants and cafes.
+
+## What it does
+- GST bills in a few taps: search by name, SKU or barcode
+- Cash, UPI, card or credit; partial payments keep the balance as due
+- UPI QR on the bill, so the customer pays the exact amount
+- Bills shared on WhatsApp
+- 58mm thermal printing with logo, UPI QR and barcode
+- Offline billing; bills sync when the internet returns
+- Stock that updates with every sale and purchase, with low-stock alerts
+- Customer dues (khata), suppliers and purchases
+- Daily sales, profit and expense reports, with PDF and Excel export
+- Several stores under one account
+- Kitchen tickets (KOT) for restaurants
+
+## How to get it
+Shop accounts are set up by the Apka Bill team. Contact on WhatsApp: +91 79822 72206 (https://wa.me/917982272206).
+
+## Links
+- Website: https://apkabill.ayushpalworkplace2006.workers.dev/
+- 30 second video: https://apkabill.ayushpalworkplace2006.workers.dev/landing/apka-bill.mp4

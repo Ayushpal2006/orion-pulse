@@ -29,23 +29,61 @@ import { getDashboardData, getReportsTrendData } from "@/lib/api";
 import { formatToKolkataDateTime, formatToKolkataDate, parseDbTimestamp } from "@/lib/datetime";
 import { InvoiceDrawer } from "@/components/invoice-drawer";
 import { OrganizationDashboardCard } from "@/components/organization-dashboard-card";
+import { faqs } from "@/components/landing-page";
+
+// shortcut: hardcoded host, update here (and in robots.txt, sitemap.xml, llms.txt) with a custom domain.
+const SITE = "https://apkabill.ayushpalworkplace2006.workers.dev";
+const DESCRIPTION =
+  "Apka Bill is billing software for Indian shops: GST bills, UPI QR, WhatsApp bills, stock, customer dues (khata) and reports. Works on phone or computer, even offline.";
+// Structured data so search engines and AI assistants can read what the product is. Facts only: no prices or ratings.
+const jsonLd = [
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    name: "Apka Bill",
+    url: SITE,
+    image: `${SITE}/og-image.jpg`,
+    description: DESCRIPTION,
+    applicationCategory: "BusinessApplication",
+    applicationSubCategory: "Billing and point of sale software",
+    operatingSystem: "Android, Web",
+    inLanguage: "en-IN",
+    audience: { "@type": "BusinessAudience", name: "Shop owners in India: kirana, general stores, mobile, clothing, restaurants" },
+    featureList: [
+      "GST billing", "UPI QR on the bill", "Share bills on WhatsApp", "58mm thermal printing", "Works offline",
+      "Stock and low-stock alerts", "Customer dues (khata)", "Suppliers and purchases", "Sales and profit reports", "Multiple stores",
+    ],
+    publisher: {
+      "@type": "Organization",
+      name: "Apka Bill",
+      url: SITE,
+      logo: `${SITE}/logo.png`,
+      contactPoint: { "@type": "ContactPoint", contactType: "sales", telephone: "+91-7982272206", areaServed: "IN", availableLanguage: ["en", "hi"] },
+    },
+  },
+  {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    mainEntity: faqs.map((f) => ({ "@type": "Question", name: f.q, acceptedAnswer: { "@type": "Answer", text: f.a } })),
+  },
+];
 
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Apka Bill · Billing, GST, stock and khata for Indian shops" },
-      {
-        name: "description",
-        content:
-          "Billing, GST, stock, customer dues and purchases for Indian shops. Works on phone or computer, even offline.",
-      },
-      { property: "og:title", content: "Apka Bill · Billing app for Indian shops" },
-      {
-        property: "og:description",
-        content:
-          "Billing, GST, stock, customer dues and purchases for Indian shops. Works on phone or computer, even offline.",
-      },
+      { title: "Apka Bill · Simple billing software for Indian shops (GST, UPI QR, WhatsApp)" },
+      { name: "description", content: DESCRIPTION },
+      { name: "robots", content: "index, follow, max-image-preview:large" },
+      { property: "og:title", content: "Apka Bill · Billing so simple, anyone can do it" },
+      { property: "og:description", content: DESCRIPTION },
+      { property: "og:url", content: SITE },
+      { property: "og:site_name", content: "Apka Bill" },
+      { property: "og:locale", content: "en_IN" },
+      { name: "twitter:title", content: "Apka Bill · Billing so simple, anyone can do it" },
+      { name: "twitter:description", content: DESCRIPTION },
     ],
+    links: [{ rel: "canonical", href: `${SITE}/` }],
+    scripts: jsonLd.map((d) => ({ type: "application/ld+json", children: JSON.stringify(d) })),
   }),
   component: Dashboard,
 });

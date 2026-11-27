@@ -55,13 +55,12 @@ const compare = [
 const navLinks = [
   { href: "#how-it-works", label: "How it works" },
   { href: "#features", label: "Features" },
-  { href: "#pricing", label: "Pricing" },
   { href: "#faq", label: "FAQ" },
 ];
 
 const businesses = ["Kirana & grocery", "General stores", "Mobile & electronics", "Clothing & fashion", "Restaurants & cafes"];
 
-const faqs = [
+export const faqs = [
   { q: "Who is Apka Bill for?", a: "Shop owners and their staff: kirana and general stores, mobile and clothing shops, restaurants and cafes." },
   { q: "Do I need internet all the time?", a: "No. Billing keeps working offline and the bills sync when the connection returns." },
   { q: "Does it work on a phone?", a: "Yes. The screens are built for small Android phones as well as tablets and computers." },
@@ -448,16 +447,6 @@ export function LandingPage() {
             <div data-reveal style={{ transitionDelay: "120ms" }}>
               <Demo picked={[0, 1, 3]} screen="done" label="Apka Bill on an Android phone showing a finished bill with a UPI QR, Print and WhatsApp" className="mx-auto w-56" />
             </div>
-          </div>
-        </section>
-
-        <section id="pricing" className="scroll-mt-20 border-t border-border/60 bg-muted/30 py-16 sm:py-20">
-          <div className="mx-auto max-w-3xl px-4 text-center" data-reveal>
-            <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">Pricing</h2>
-            <p className="mt-4 text-lg text-muted-foreground">
-              Simple plans for every shop size are coming soon.{" "}
-              <a href={WHATSAPP} target="_blank" rel="noopener noreferrer" className="font-semibold text-primary underline underline-offset-4">Ask for today's price on WhatsApp.</a>
-            </p>
           </div>
         </section>
 

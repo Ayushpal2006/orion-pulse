@@ -1,0 +1,20 @@
+# Search engines and AI assistants are welcome on the public pages.
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /print/
+
+User-agent: GPTBot
+Allow: /
+User-agent: OAI-SearchBot
+Allow: /
+User-agent: ChatGPT-User
+Allow: /
+User-agent: Google-Extended
+Allow: /
+User-agent: ClaudeBot
+Allow: /
+User-agent: PerplexityBot
+Allow: /
+
+Sitemap: https://apkabill.ayushpalworkplace2006.workers.dev/sitemap.xml

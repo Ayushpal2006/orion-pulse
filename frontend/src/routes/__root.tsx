@@ -125,6 +125,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { rel: "preconnect", href: "https://rsms.me" },
       { rel: "stylesheet", href: "https://rsms.me/inter/inter.css" },
       { rel: "icon", href: "/favicon.ico", type: "image/x-icon" },
+      { rel: "icon", href: "/favicon-96.png", type: "image/png", sizes: "96x96" },
       { rel: "manifest", href: "/manifest.json" },
       { rel: "apple-touch-icon", href: "/apple-touch-icon.png" },
     ],
