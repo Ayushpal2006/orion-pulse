@@ -1,7 +1,7 @@
 import { ISettingsRepository } from "../interfaces/ISettingsRepository";
 import { db } from "../../db";
 import { settings, stores, organizations } from "../../db/schema";
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, desc, sql } from "drizzle-orm";
 import { getTenantContext, TenantContext } from "../../db/context";
 
 // Keys that name the same setting. Clients disagree on spelling (web sends shop_name, older
@@ -75,33 +75,60 @@ export class PostgresSettingsRepository implements ISettingsRepository {
     const ctx = getTenantContext();
     const storeId = await resolveStoreIdForContext(ctx, client);
 
+    // Logos are data URLs (~400 KB) duplicated across settings aliases, stores and organizations.
+    // Read light columns first and fetch exactly one logo copy, so each call moves one logo, not five.
+    const LOGO_KEYS = ["logo", "logoUrl", "logo_url"];
+    const rows: { key: string; value: string }[] = await client
+      .select({
+        key: settings.key,
+        value: sql<string>`case when ${settings.key} in ('logo', 'logoUrl', 'logo_url') then null else ${settings.value} end`,
+      })
+      .from(settings)
+      .where(eq(settings.store_id, storeId));
+
+    const rowLogoKey = LOGO_KEYS.find((k) => rows.some((r) => r.key === k));
+    let rowLogo: string | null = null;
+    if (rowLogoKey) {
+      const [r] = await client
+        .select({ value: settings.value })
+        .from(settings)
+        .where(and(eq(settings.store_id, storeId), eq(settings.key, rowLogoKey)))
+        .limit(1);
+      rowLogo = r?.value ?? null;
+    }
+
     const [storeRecord] = await client
-      .select()
+      .select({
+        name: stores.name,
+        gst_number: stores.gst_number,
+        phone: stores.phone,
+        address: stores.address,
+        organization_id: stores.organization_id,
+        logo_url: rowLogo !== null ? sql<string | null>`null` : stores.logo_url,
+      })
       .from(stores)
       .where(eq(stores.id, storeId))
       .limit(1);
 
+    const needOrgLogo = rowLogo === null && !storeRecord?.logo_url;
+    const orgColumns = {
+      gst_number: organizations.gst_number,
+      phone: organizations.phone,
+      address: organizations.address,
+      email: organizations.email,
+      invoice_prefix: organizations.invoice_prefix,
+      logo_url: needOrgLogo ? organizations.logo_url : sql<string | null>`null`,
+    };
     let orgRecord: any = null;
-    if (storeRecord?.organization_id) {
+    const orgId = storeRecord?.organization_id || (ctx.organizationId && ctx.organizationId > 0 ? ctx.organizationId : 0);
+    if (orgId) {
       const [org] = await client
-        .select()
+        .select(orgColumns)
         .from(organizations)
-        .where(eq(organizations.id, storeRecord.organization_id))
-        .limit(1);
-      orgRecord = org;
-    } else if (ctx.organizationId && ctx.organizationId > 0) {
-      const [org] = await client
-        .select()
-        .from(organizations)
-        .where(eq(organizations.id, ctx.organizationId))
+        .where(eq(organizations.id, orgId))
         .limit(1);
       orgRecord = org;
     }
-
-    const rows = await client
-      .select()
-      .from(settings)
-      .where(eq(settings.store_id, storeId));
 
     const settingsObj: Record<string, string> = {
       shop_name: storeRecord?.name || "",
@@ -160,9 +187,11 @@ export class PostgresSettingsRepository implements ISettingsRepository {
         settingsObj.email = row.value;
         settingsObj.storeEmail = row.value;
       } else if (row.key === "logo" || row.key === "logoUrl" || row.key === "logo_url") {
-        settingsObj.logo = row.value;
-        settingsObj.logoUrl = row.value;
-        settingsObj.logo_url = row.value;
+        if (rowLogo !== null) {
+          settingsObj.logo = rowLogo;
+          settingsObj.logoUrl = rowLogo;
+          settingsObj.logo_url = rowLogo;
+        }
       } else if (row.key === "shop_upi_id" || row.key === "upiId" || row.key === "upi_id") {
         settingsObj.shop_upi_id = row.value;
         settingsObj.upiId = row.value;
@@ -251,8 +280,17 @@ export class PostgresSettingsRepository implements ISettingsRepository {
         ? and(eq(stores.id, storeId), eq(stores.organization_id, ctx.organizationId))
         : eq(stores.id, storeId);
 
+      // Logos are stored as data URLs (~400 KB); read them only for logo keys to keep DB egress small.
+      const isLogo = searchKeys[0] === "logo";
       const [st] = await client
-        .select()
+        .select({
+          name: stores.name,
+          gst_number: stores.gst_number,
+          phone: stores.phone,
+          address: stores.address,
+          organization_id: stores.organization_id,
+          logo_url: isLogo ? stores.logo_url : sql<string | null>`null`,
+        })
         .from(stores)
         .where(storeWhereClause)
         .limit(1);
@@ -265,7 +303,14 @@ export class PostgresSettingsRepository implements ISettingsRepository {
 
         if (st.organization_id) {
           const [org] = await client
-            .select()
+            .select({
+              gst_number: organizations.gst_number,
+              phone: organizations.phone,
+              address: organizations.address,
+              email: organizations.email,
+              invoice_prefix: organizations.invoice_prefix,
+              logo_url: isLogo ? organizations.logo_url : sql<string | null>`null`,
+            })
             .from(organizations)
             .where(eq(organizations.id, st.organization_id))
             .limit(1);
