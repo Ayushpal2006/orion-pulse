@@ -45,6 +45,12 @@ const benefits = [
   { icon: BadgeIndianRupee, title: "Know what you're owed", text: "Customer dues, supplier balances and low stock are on one dashboard." },
 ];
 
+const phoneSteps = [
+  { img: "/landing/step-tap.jpg", title: "Tap", text: "Tap what the customer is buying.", alt: "Apka Bill on a phone with two products tapped into the cart" },
+  { img: "/landing/step-pay.jpg", title: "Pay", text: "Cash, UPI or card, then tap Pay.", alt: "Apka Bill on a phone with three items, a total of ₹549 and a Pay button" },
+  { img: "/landing/step-done.jpg", title: "Done", text: "Print the bill or send it on WhatsApp.", alt: "Apka Bill on a phone showing the finished receipt with Print and Share buttons" },
+];
+
 const navLinks = [
   { href: "#features", label: "Features" },
   { href: "#how-it-works", label: "How it works" },
@@ -89,11 +95,11 @@ export function LandingPage() {
         <section className="mx-auto max-w-6xl px-4 pt-14 pb-16 sm:pt-20 sm:pb-24">
           <p className="text-sm font-semibold text-primary">Billing app for Indian shops</p>
           <h1 className="mt-3 max-w-3xl text-4xl font-extrabold tracking-tight sm:text-6xl">
-            Make the bill in seconds. Know your shop every day.
+            Billing so simple, anyone can do it.
           </h1>
           <p className="mt-5 max-w-2xl text-lg text-muted-foreground sm:text-xl">
-            Apka Bill handles billing, GST, stock, customer dues and purchases on your phone or computer, and keeps
-            working when the internet does not.
+            Tap the items, take the payment, hand over the bill. Apka Bill is made to be easy for everyone, from ages
+            3 to 100, on a phone or a computer, even without internet.
           </p>
           <div className="mt-8 flex flex-col gap-3 sm:flex-row">
             <a href="#get-started" className="inline-flex h-12 items-center justify-center rounded-xl bg-primary px-6 text-base font-semibold text-primary-foreground shadow-sm hover:opacity-90">
@@ -119,8 +125,8 @@ export function LandingPage() {
             <img
               src="/landing/billing-phone.jpg"
               alt="Apka Bill billing screen on a phone with three items in the cart and a Pay button"
-              width={600}
-              height={1200}
+              width={390}
+              height={844}
               loading="lazy"
               className="w-64 rounded-[2rem] border-4 border-foreground/80 shadow-xl sm:w-44 lg:w-52 sm:-ml-24 sm:mb-[-1.5rem]"
             />
@@ -144,6 +150,22 @@ export function LandingPage() {
           </ul>
         </section>
 
+        <section className="py-16 sm:py-20" aria-labelledby="steps-title">
+          <div className="mx-auto max-w-6xl px-4">
+            <h2 id="steps-title" className="text-3xl font-bold tracking-tight sm:text-4xl">Three taps to a bill</h2>
+            <p className="mt-3 max-w-2xl text-lg text-muted-foreground">Real screens from the app, with a demo shop.</p>
+            <ol className="mt-10 grid gap-10 sm:grid-cols-3 sm:gap-6">
+              {phoneSteps.map((p, i) => (
+                <li key={p.title} className="text-center">
+                  <img src={p.img} alt={p.alt} width={390} height={844} loading="lazy" className="mx-auto w-56 rounded-[2rem] border-4 border-foreground/80 shadow-xl sm:w-full sm:max-w-60" />
+                  <h3 className="mt-5 text-xl font-bold">{i + 1}. {p.title}</h3>
+                  <p className="mt-1 text-base text-muted-foreground">{p.text}</p>
+                </li>
+              ))}
+            </ol>
+          </div>
+        </section>
+
         <section id="features" className="border-t border-border/60 bg-muted/30 py-16 sm:py-20">
           <div className="mx-auto max-w-6xl px-4">
             <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">Everything the counter needs</h2>
@@ -156,23 +178,6 @@ export function LandingPage() {
                 </li>
               ))}
             </ul>
-          </div>
-        </section>
-
-        <section className="py-16 sm:py-20" aria-labelledby="screens-title">
-          <div className="mx-auto max-w-6xl px-4">
-            <h2 id="screens-title" className="text-3xl font-bold tracking-tight sm:text-4xl">The real screens</h2>
-            <p className="mt-3 max-w-2xl text-lg text-muted-foreground">Captured from the app with a demo shop. No mockups.</p>
-            <div className="mt-10 grid gap-6 md:grid-cols-2">
-              <figure>
-                <img src="/landing/dashboard.jpg" alt="Apka Bill dashboard with today's sales, payment split and low-stock list" width={1470} height={835} loading="lazy" className="w-full rounded-2xl border border-border shadow-lg" />
-                <figcaption className="mt-3 text-base font-medium">Dashboard: sales, dues and low stock</figcaption>
-              </figure>
-              <figure>
-                <img src="/landing/inventory.jpg" alt="Apka Bill inventory list with stock levels and prices" width={1470} height={835} loading="lazy" className="w-full rounded-2xl border border-border shadow-lg" />
-                <figcaption className="mt-3 text-base font-medium">Inventory: stock that updates with every sale</figcaption>
-              </figure>
-            </div>
           </div>
         </section>
 
@@ -212,7 +217,7 @@ export function LandingPage() {
                 58mm thermal printers and shares bills on WhatsApp. Ask the Apka Bill team for the app.
               </p>
             </div>
-            <img src="/landing/billing-phone.jpg" alt="Apka Bill billing screen on an Android phone" width={600} height={1200} loading="lazy" className="mx-auto w-56 rounded-[2rem] border-4 border-foreground/80 shadow-xl" />
+            <img src="/landing/billing-phone.jpg" alt="Apka Bill billing screen on an Android phone" width={390} height={844} loading="lazy" className="mx-auto w-56 rounded-[2rem] border-4 border-foreground/80 shadow-xl" />
           </div>
         </section>
 
