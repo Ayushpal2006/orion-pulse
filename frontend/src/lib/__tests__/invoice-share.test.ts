@@ -286,7 +286,7 @@ describe("Invoice Share Cross-Platform Coordinator", () => {
         order.push("preOpen");
         return { navigate: () => order.push("navigate"), close: () => {} };
       },
-      downloadImage: () => {},
+      downloadImage: () => order.push("download"),
       copyText: async () => {
         textCopied = true;
         return true;
@@ -298,7 +298,45 @@ describe("Invoice Share Cross-Platform Coordinator", () => {
     assert.equal(textCopied, false);
     assert.equal(result.copiedText, false);
     assert.match(result.message, /Ctrl\+V/);
+    assert.ok(!order.includes("download"), "copied image must not also be downloaded");
+    assert.deepEqual(result.downloadedFiles, []);
     assert.ok(result.whatsappUrl?.startsWith("https://wa.me/919811122333?text="));
+  });
+
+  it("desktop with file Web Share: shares File + caption, keeps clipboard copy as safety net", async () => {
+    let shared: any = null;
+    let copyStarted = false;
+    const result = await shareInvoiceToWhatsApp(sampleReceipt, undefined, {
+      isNativeAndroid: () => false,
+      generateImages: async (inv) => [makeFakeImage(`${inv.invoiceNumber}.png`)],
+      canShareFiles: () => true,
+      copyImage: async () => { copyStarted = true; return true; },
+      webShare: async (data) => { shared = data; },
+      downloadImage: () => { throw new Error("must not download"); },
+    });
+    assert.equal(result.mode, "web_share");
+    assert.equal(shared.files[0].type, "image/png");
+    assert.match(shared.files[0].name, /\.png$/);
+    assert.match(shared.text, /Total Amount: ₹100\.00/);
+    assert.equal(copyStarted, true);
+  });
+
+  it("desktop share sheet rejected: falls back to pasted image + WhatsApp button, no download", async () => {
+    const downloaded: string[] = [];
+    const result = await shareInvoiceToWhatsApp(sampleReceipt, undefined, {
+      isNativeAndroid: () => false,
+      generateImages: async (inv) => [makeFakeImage(`${inv.invoiceNumber}.png`)],
+      canShareFiles: () => true,
+      copyImage: async () => true,
+      webShare: async () => { const e = new Error("no activation"); e.name = "NotAllowedError"; throw e; },
+      downloadImage: (img) => downloaded.push(img.filename),
+      openWhatsAppUrl: () => false,
+    });
+    assert.equal(result.mode, "web_fallback");
+    assert.equal(result.imageCopied, true);
+    assert.equal(result.popupBlocked, true);
+    assert.deepEqual(downloaded, []);
+    assert.match(result.message, /Open WhatsApp/);
   });
 
   it("falls back to PNG download + text copy + clean wa.me draft when file sharing is unsupported", async () => {

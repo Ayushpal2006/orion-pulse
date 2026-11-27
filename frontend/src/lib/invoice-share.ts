@@ -142,11 +142,6 @@ function defaultCanShareFiles(data?: { files: File[]; text?: string; title?: str
     ) {
       return false;
     }
-    // Desktop share sheets reject file shares (NotAllowedError) and burn the click, so the wa.me popup gets blocked.
-    const uaMobile = (navigator as any).userAgentData?.mobile;
-    if (!(uaMobile ?? /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent))) {
-      return false;
-    }
     if (data) {
       return navigator.canShare(data);
     }
@@ -158,6 +153,12 @@ function defaultCanShareFiles(data?: { files: File[]; text?: string; title?: str
   } catch {
     return false;
   }
+}
+
+function isMobileBrowser(): boolean {
+  if (typeof navigator === "undefined") return false;
+  const uaMobile = (navigator as any).userAgentData?.mobile;
+  return uaMobile ?? /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent || "");
 }
 
 function createDefaultDeps(): Required<ShareCoordinatorDeps> {
@@ -186,7 +187,8 @@ function createDefaultDeps(): Required<ShareCoordinatorDeps> {
  *
  * - Valid customer phone -> redirects directly to customer's WhatsApp chat where supported.
  * - Missing/invalid phone -> opens WhatsApp contact picker / native share sheet (never guesses a number).
- * - Web fallback -> downloads image + opens WhatsApp with text-only summary (never claims image was attached).
+ * - Desktop/mobile browser with file Web Share -> share sheet gets the PNG File(s) + caption.
+ * - Web fallback -> image on clipboard (else downloaded) + WhatsApp with text-only summary (never claims image was attached).
  */
 export async function shareInvoiceToWhatsApp(
   receipt: any,
@@ -208,10 +210,12 @@ export async function shareInvoiceToWhatsApp(
   const imagesPromise = deps.generateImages(invoice);
   const browserFallback = !isNative && !supportsWebFileShare;
   // wa.me links cannot carry files, so put the bill image on the clipboard for pasting into the chat.
-  // Both calls must start synchronously inside the click: clipboard first (needs focus), then the popup.
+  // Desktop also copies when it tries the share sheet: if the sheet is rejected (lost activation, no
+  // share target) the user can still paste the image. Must start synchronously inside the click.
   const firstPng = imagesPromise.then((imgs) => imgs[0].blob);
   firstPng.catch(() => {}); // generation errors surface from `await imagesPromise` below
-  const imageCopiedPromise = browserFallback ? deps.copyImage(firstPng) : Promise.resolve(false);
+  const imageCopiedPromise =
+    browserFallback || (!isNative && !isMobileBrowser()) ? deps.copyImage(firstPng) : Promise.resolve(false);
   // Reserve a browser popup synchronously BEFORE any `await` when Web File Share is unavailable,
   // preventing Chrome/Safari/Firefox from blocking the `wa.me` redirect after canvas encoding.
   const preOpenedWin = browserFallback ? deps.preOpenWindow() : null;
@@ -267,7 +271,7 @@ export async function shareInvoiceToWhatsApp(
           images,
           downloadedFiles: [],
           copiedText: false,
-          message: "Share sheet opened with invoice image and summary.",
+          message: "Bill image and message handed to the share sheet. Pick WhatsApp to send them together.",
         };
       } catch (err: any) {
         if (err?.name === "AbortError") {
@@ -287,13 +291,15 @@ export async function shareInvoiceToWhatsApp(
   }
 
   // 3. Browser Fallback (no file attachment via wa.me URL):
-  // Download PNG locally, copy text summary, and open WhatsApp cleanly without claiming attached.
-  const downloadedFiles: string[] = [];
-  for (const img of images) {
-    deps.downloadImage(img);
-    downloadedFiles.push(img.filename);
-  }
+  // Image on the clipboard for pasting; download only when the clipboard copy failed.
   const imageCopied = await imageCopiedPromise;
+  const downloadedFiles: string[] = [];
+  if (!imageCopied) {
+    for (const img of images) {
+      deps.downloadImage(img);
+      downloadedFiles.push(img.filename);
+    }
+  }
   // The text already travels in the wa.me link; copying it would replace the image on the clipboard.
   const copiedText = imageCopied ? false : await deps.copyText(textOnlyMessage);
   const whatsappUrl = buildWhatsAppDirectUrl(textOnlyMessage, validCustomerPhone);
