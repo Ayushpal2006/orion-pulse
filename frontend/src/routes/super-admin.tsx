@@ -543,8 +543,8 @@ export function SuperAdminPage() {
       )}
     >
       {/* LEFT SIDEBAR */}
-      <aside className="w-full md:w-64 border-r border-border bg-card/80 backdrop-blur shrink-0 flex flex-col justify-between p-4 space-y-6">
-        <div className="space-y-6">
+      <aside className="w-full md:w-64 md:sticky md:top-0 md:h-screen border-b md:border-b-0 md:border-r border-border bg-card/80 backdrop-blur shrink-0 flex flex-col justify-between p-3 md:p-4 space-y-3 md:space-y-6">
+        <div className="space-y-3 md:space-y-6 min-w-0">
           {/* BRAND HEADER */}
           <div className="flex items-center gap-3 px-2">
             <div className="size-10 rounded-xl bg-primary/10 border border-primary/20 text-primary flex items-center justify-center font-bold shadow-sm">
@@ -559,11 +559,11 @@ export function SuperAdminPage() {
           </div>
 
           {/* NAV LINKS */}
-          <nav className="space-y-1 text-xs">
+          <nav className="flex gap-1 overflow-x-auto md:block md:space-y-1 text-xs">
             <button
               onClick={() => setActiveTab("dashboard")}
               className={cn(
-                "w-full flex items-center gap-2.5 px-3 py-2 rounded-xl font-medium transition-colors text-left",
+                "shrink-0 whitespace-nowrap md:w-full flex items-center gap-2.5 px-3 py-2 rounded-xl font-medium transition-colors text-left",
                 activeTab === "dashboard"
                   ? "bg-primary text-primary-foreground font-semibold"
                   : "text-muted-foreground hover:bg-accent hover:text-foreground",
@@ -575,7 +575,7 @@ export function SuperAdminPage() {
             <button
               onClick={() => setActiveTab("organizations")}
               className={cn(
-                "w-full flex items-center gap-2.5 px-3 py-2 rounded-xl font-medium transition-colors text-left justify-between",
+                "shrink-0 whitespace-nowrap md:w-full flex items-center gap-2.5 px-3 py-2 rounded-xl font-medium transition-colors text-left justify-between",
                 activeTab === "organizations"
                   ? "bg-primary text-primary-foreground font-semibold"
                   : "text-muted-foreground hover:bg-accent hover:text-foreground",
@@ -592,7 +592,7 @@ export function SuperAdminPage() {
             <button
               onClick={() => setActiveTab("stores")}
               className={cn(
-                "w-full flex items-center gap-2.5 px-3 py-2 rounded-xl font-medium transition-colors text-left",
+                "shrink-0 whitespace-nowrap md:w-full flex items-center gap-2.5 px-3 py-2 rounded-xl font-medium transition-colors text-left",
                 activeTab === "stores"
                   ? "bg-primary text-primary-foreground font-semibold"
                   : "text-muted-foreground hover:bg-accent hover:text-foreground",
@@ -604,7 +604,7 @@ export function SuperAdminPage() {
             <button
               onClick={() => setActiveTab("users")}
               className={cn(
-                "w-full flex items-center gap-2.5 px-3 py-2 rounded-xl font-medium transition-colors text-left",
+                "shrink-0 whitespace-nowrap md:w-full flex items-center gap-2.5 px-3 py-2 rounded-xl font-medium transition-colors text-left",
                 activeTab === "users"
                   ? "bg-primary text-primary-foreground font-semibold"
                   : "text-muted-foreground hover:bg-accent hover:text-foreground",
@@ -616,7 +616,7 @@ export function SuperAdminPage() {
             <button
               onClick={() => setActiveTab("subscriptions")}
               className={cn(
-                "w-full flex items-center gap-2.5 px-3 py-2 rounded-xl font-medium transition-colors text-left",
+                "shrink-0 whitespace-nowrap md:w-full flex items-center gap-2.5 px-3 py-2 rounded-xl font-medium transition-colors text-left",
                 activeTab === "subscriptions"
                   ? "bg-primary text-primary-foreground font-semibold"
                   : "text-muted-foreground hover:bg-accent hover:text-foreground",
@@ -628,7 +628,7 @@ export function SuperAdminPage() {
             <button
               onClick={() => setActiveTab("payments")}
               className={cn(
-                "w-full flex items-center gap-2.5 px-3 py-2 rounded-xl font-medium transition-colors text-left",
+                "shrink-0 whitespace-nowrap md:w-full flex items-center gap-2.5 px-3 py-2 rounded-xl font-medium transition-colors text-left",
                 activeTab === "payments"
                   ? "bg-primary text-primary-foreground font-semibold"
                   : "text-muted-foreground hover:bg-accent hover:text-foreground",
@@ -640,7 +640,7 @@ export function SuperAdminPage() {
             <button
               onClick={() => setActiveTab("audit-logs")}
               className={cn(
-                "w-full flex items-center gap-2.5 px-3 py-2 rounded-xl font-medium transition-colors text-left",
+                "shrink-0 whitespace-nowrap md:w-full flex items-center gap-2.5 px-3 py-2 rounded-xl font-medium transition-colors text-left",
                 activeTab === "audit-logs"
                   ? "bg-primary text-primary-foreground font-semibold"
                   : "text-muted-foreground hover:bg-accent hover:text-foreground",
@@ -652,7 +652,7 @@ export function SuperAdminPage() {
             <button
               onClick={() => setActiveTab("system-health")}
               className={cn(
-                "w-full flex items-center gap-2.5 px-3 py-2 rounded-xl font-medium transition-colors text-left",
+                "shrink-0 whitespace-nowrap md:w-full flex items-center gap-2.5 px-3 py-2 rounded-xl font-medium transition-colors text-left",
                 activeTab === "system-health"
                   ? "bg-primary text-primary-foreground font-semibold"
                   : "text-muted-foreground hover:bg-accent hover:text-foreground",
@@ -664,7 +664,7 @@ export function SuperAdminPage() {
             <button
               onClick={() => setActiveTab("settings")}
               className={cn(
-                "w-full flex items-center gap-2.5 px-3 py-2 rounded-xl font-medium transition-colors text-left",
+                "shrink-0 whitespace-nowrap md:w-full flex items-center gap-2.5 px-3 py-2 rounded-xl font-medium transition-colors text-left",
                 activeTab === "settings"
                   ? "bg-primary text-primary-foreground font-semibold"
                   : "text-muted-foreground hover:bg-accent hover:text-foreground",
@@ -676,8 +676,8 @@ export function SuperAdminPage() {
         </div>
 
         {/* FOOTER USER / LOGOUT */}
-        <div className="pt-4 border-t border-border space-y-2">
-          <div className="flex items-center gap-2.5 px-2 py-1">
+        <div className="pt-3 md:pt-4 border-t border-border flex items-center justify-between md:block md:space-y-2">
+          <div className="flex items-center gap-2.5 px-2 py-1 min-w-0">
             <div className="size-8 rounded-full bg-primary/20 text-primary flex items-center justify-center font-bold text-xs">
               SA
             </div>
@@ -690,7 +690,7 @@ export function SuperAdminPage() {
             variant="ghost"
             size="sm"
             onClick={handleLogout}
-            className="w-full justify-start text-xs text-destructive hover:bg-destructive/10 hover:text-destructive h-8 gap-2 rounded-xl"
+            className="w-auto md:w-full justify-start text-xs text-destructive hover:bg-destructive/10 hover:text-destructive h-8 gap-2 rounded-xl"
           >
             <LogOut className="size-3.5" /> Logout
           </Button>
@@ -700,7 +700,7 @@ export function SuperAdminPage() {
       {/* RIGHT MAIN AREA */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* TOP BAR */}
-        <header className="h-14 border-b border-border bg-card/50 backdrop-blur px-6 flex items-center justify-between gap-4">
+        <header className="h-14 border-b border-border bg-card/50 backdrop-blur px-4 md:px-6 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3 flex-1 max-w-md">
             <div className="relative w-full">
               <Search className="absolute left-3 top-2.5 size-4 text-muted-foreground" />
@@ -744,7 +744,7 @@ export function SuperAdminPage() {
         </header>
 
         {/* MAIN BODY AREA */}
-        <main className="flex-1 p-6 md:p-8 space-y-6 overflow-y-auto">
+        <main className="flex-1 p-4 md:p-8 space-y-6 overflow-y-auto">
           {/* DASHBOARD TAB */}
           {activeTab === "dashboard" && (
             <div className="space-y-6">
@@ -768,7 +768,7 @@ export function SuperAdminPage() {
               </div>
 
               {/* KPI METRICS GRID */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
                 <div className="card-soft p-5 border-t-2 border-t-primary space-y-2">
                   <div className="flex items-center justify-between text-muted-foreground text-[10px] font-semibold uppercase tracking-widest">
                     <span>Total Organizations</span>
@@ -811,7 +811,7 @@ export function SuperAdminPage() {
                     <span>Platform Gross Sales</span>
                     <DollarSign className="size-4 text-emerald-500" />
                   </div>
-                  <div className="text-3xl font-extrabold text-foreground tabular">
+                  <div className="text-2xl font-extrabold text-foreground tabular truncate">
                     {inr((metrics?.totalSales ?? 0) / 100)}
                   </div>
                   <div className="text-xs text-emerald-600 dark:text-emerald-400 font-semibold">
@@ -821,7 +821,7 @@ export function SuperAdminPage() {
               </div>
 
               {/* SUBSCRIPTION DISTRIBUTION & TELEMETRY */}
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
                 <div className="lg:col-span-2 p-6 rounded-2xl bg-card border border-border shadow-sm space-y-4">
                   <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
                     <Activity className="size-4 text-primary" /> Active SaaS Tenant Subscriptions
@@ -978,7 +978,7 @@ export function SuperAdminPage() {
                               {org.createdAt ? new Date(org.createdAt).toLocaleDateString() : "N/A"}
                             </td>
 
-                            <td className="p-3.5 text-right space-x-1">
+                            <td className="p-3.5 text-right space-x-1 whitespace-nowrap">
                               <Button
                                 size="sm"
                                 variant="ghost"

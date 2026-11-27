@@ -683,6 +683,9 @@ export function AppShell({ children }: { children: ReactNode }) {
     });
   };
 
+  // The super-admin panel has its own sidebar and top bar; the shop shell around it only crowds it.
+  if (pathname.startsWith("/admin") || pathname.startsWith("/super-admin")) return <>{children}</>;
+
   return (
     <div className="min-h-screen overflow-x-hidden bg-background text-foreground antialiased">
       {/* Desktop Sidebar */}
