@@ -29,7 +29,8 @@ export class BrandingService {
    * Single Source of Truth for tenant branding across all print & invoice outputs.
    * Resolves branding dynamically using storeId and orgId context.
    */
-  static async getBranding(storeId?: number, orgId?: number): Promise<UnifiedBranding> {
+  static async getBranding(storeId?: number, orgId?: number, opts: { withLogo?: boolean } = {}): Promise<UnifiedBranding> {
+    const withLogo = opts.withLogo !== false;
     const ctx = getTenantContext();
     const targetStoreId = storeId && storeId > 0 ? storeId : ctx.currentStoreId;
     const targetOrgId = orgId && orgId > 0 ? orgId : ctx.organizationId;
@@ -50,7 +51,7 @@ export class BrandingService {
         settingsMap[row.key] = row.value;
       }
       const logoKey = ["logo", "logoUrl", "logo_url"].find((k) => k in settingsMap);
-      if (logoKey) {
+      if (logoKey && withLogo) {
         const [r] = await db
           .select({ value: settings.value })
           .from(settings)
@@ -75,7 +76,7 @@ export class BrandingService {
           phone: stores.phone,
           address: stores.address,
           organization_id: stores.organization_id,
-          logo_url: logo ? sql<string | null>`null` : stores.logo_url,
+          logo_url: logo || !withLogo ? sql<string | null>`null` : stores.logo_url,
         })
         .from(stores)
         .where(storeWhereClause)
@@ -92,7 +93,7 @@ export class BrandingService {
           phone: organizations.phone,
           address: organizations.address,
           email: organizations.email,
-          logo_url: logo ? sql<string | null>`null` : organizations.logo_url,
+          logo_url: logo || !withLogo ? sql<string | null>`null` : organizations.logo_url,
         })
         .from(organizations)
         .where(eq(organizations.id, resolvedOrgId))

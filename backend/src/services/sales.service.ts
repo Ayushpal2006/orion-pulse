@@ -75,8 +75,8 @@ export class SalesService {
     return this.saleRepo.getTodaySales();
   }
 
-  async getReceipt(idOrInvoice: string): Promise<ReceiptDTO> {
-    return await ReceiptBuilderService.buildReceipt(idOrInvoice);
+  async getReceipt(idOrInvoice: string, opts: { withLogo?: boolean } = {}): Promise<ReceiptDTO> {
+    return await ReceiptBuilderService.buildReceipt(idOrInvoice, opts);
   }
 
   async voidInvoice(saleId: number, reason: string, voidedBy: string, userId: number): Promise<any> {

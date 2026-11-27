@@ -14,7 +14,7 @@ export class ReceiptBuilderService {
    * Scoped strictly to the target sale's organization_id and store_id.
    * Contains ZERO hardcoded branding fallbacks.
    */
-  static async buildReceipt(idOrInvoice: string): Promise<ReceiptDTO> {
+  static async buildReceipt(idOrInvoice: string, opts: { withLogo?: boolean } = {}): Promise<ReceiptDTO> {
     let saleRecord: any = null;
     const ctx = getTenantContext();
 
@@ -93,7 +93,7 @@ export class ReceiptBuilderService {
 
         // Delegate Branding Resolution to BrandingService (Single Source of Truth)
         const { BrandingService } = require("./branding.service");
-        const unifiedBranding = await BrandingService.getBranding(targetStoreId, targetOrgId);
+        const unifiedBranding = await BrandingService.getBranding(targetStoreId, targetOrgId, opts);
 
         const branding: BrandingConfig = {
           shopName: unifiedBranding.businessName,

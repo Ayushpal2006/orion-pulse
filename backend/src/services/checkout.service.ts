@@ -570,7 +570,8 @@ export class CheckoutService {
         const shareService = new ShareService();
         const salesService = new SalesService();
 
-        const receipt = await salesService.getReceipt(result.invoice);
+        // Text-only WhatsApp link: skip the ~400 KB logo read.
+        const receipt = await salesService.getReceipt(result.invoice, { withLogo: false });
         if (receipt) {
           whatsappUrl = shareService.generateWhatsAppLink(receipt);
           whatsappPrepared = true;
