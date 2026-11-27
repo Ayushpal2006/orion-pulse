@@ -546,6 +546,7 @@ const handlePullSync = async (req: Request, res: Response): Promise<void> => {
     if (lastSyncTimeStr) {
       const lastSyncDate = new Date(lastSyncTimeStr);
       downloadCond = and(downloadCond, gt(products.updated_at, lastSyncDate));
+      settingsCond = and(settingsCond, gt(settings.updated_at, lastSyncDate));
       custCond = and(custCond, gt(customers.updated_at, lastSyncDate));
       salesCond = and(salesCond, or(gt(sales.created_at, lastSyncDate), gt(sales.voided_at, lastSyncDate)));
       suppCond = and(suppCond, gt(suppliers.updated_at, lastSyncDate));

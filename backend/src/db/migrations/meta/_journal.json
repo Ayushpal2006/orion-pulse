@@ -176,6 +176,13 @@
       "when": 1784900009000,
       "tag": "0024_add_sync_jobs_indexes",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1784900010000,
+      "tag": "0025_add_settings_updated_at",
+      "breakpoints": true
     }
   ]
 }

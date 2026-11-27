@@ -345,6 +345,7 @@ export const settings = pgTable(
     store_id: integer("store_id").references(() => stores.id, { onDelete: "cascade" }).notNull(),
     key: text("key").notNull(),
     value: text("value").notNull(),
+    updated_at: timestamp("updated_at").defaultNow().notNull(),
   },
   (table) => ({
     pk: primaryKey({ columns: [table.store_id, table.key] }),

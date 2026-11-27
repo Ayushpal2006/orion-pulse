@@ -341,7 +341,9 @@ export class PostgresSettingsRepository implements ISettingsRepository {
         .values({ store_id: storeId, key: aliasKey, value: valStr })
         .onConflictDoUpdate({
           target: [settings.store_id, settings.key],
-          set: { value: valStr },
+          set: { value: valStr, updated_at: new Date() },
+          // Unchanged values keep their updated_at so sync pulls don't re-send them (logos are ~400 KB).
+          setWhere: sql`${settings.value} is distinct from excluded.value`,
         });
     }
 
@@ -376,7 +378,8 @@ export class PostgresSettingsRepository implements ISettingsRepository {
           .values({ store_id: storeId, key: aliasKey, value: valStr })
           .onConflictDoUpdate({
             target: [settings.store_id, settings.key],
-            set: { value: valStr },
+            set: { value: valStr, updated_at: new Date() },
+            setWhere: sql`${settings.value} is distinct from excluded.value`,
           });
       }
 

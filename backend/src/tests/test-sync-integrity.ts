@@ -15,6 +15,7 @@ import { db, getPool } from "../db";
 import { products } from "../db/schema";
 import { storeStorage } from "../db/context";
 import syncRouter from "../routes/sync.routes";
+import { settingsRepository } from "../repositories";
 
 const url = process.env.DATABASE_URL || env.DATABASE_URL;
 if (!/^postgres(ql)?:\/\/[^@]+@(localhost|127\.0\.0\.1)[:/]/.test(url)) { console.error("REFUSING non-local DB"); process.exit(1); }
@@ -64,6 +65,24 @@ async function main() {
     assert.strictEqual(paged.data.hasMore ?? paged.hasMore, true);
     console.log("✓ paging client still paged");
   }
+
+  // 4. Delta pulls send a setting only when its value changed (logos are ~400 KB).
+  const ctx = { organizationId: 1, currentStoreId: 1, userId: 1, role: "admin" } as any;
+  const key = `si_test_${RUN}`;
+  const keysAfter = async (since: string) => {
+    const r = await (await fetch(`${base}/api/sync/download?lastSyncTime=${encodeURIComponent(since)}`)).json() as any;
+    return (r.data.settings as any[]).map((x) => x.key);
+  };
+  await storeStorage.run(ctx, () => settingsRepository.set(key, "v1"));
+  await new Promise((r) => setTimeout(r, 20));
+  const t1 = new Date().toISOString();
+  assert.ok(!(await keysAfter(t1)).includes(key), "unchanged setting must not be re-sent");
+  await storeStorage.run(ctx, () => settingsRepository.set(key, "v1"));
+  assert.ok(!(await keysAfter(t1)).includes(key), "re-saving the same value must not re-send it");
+  await storeStorage.run(ctx, () => settingsRepository.set(key, "v2"));
+  assert.ok((await keysAfter(t1)).includes(key), "changed setting must be sent");
+  await getPool().query("delete from settings where key=$1", [key]);
+  console.log("✓ delta pull sends only changed settings");
 
   server.close();
   await getPool().end();
