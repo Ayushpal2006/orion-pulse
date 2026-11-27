@@ -169,6 +169,13 @@
       "when": 1784900008000,
       "tag": "0023_add_kot_tables_and_kitchen_flag",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1784900009000,
+      "tag": "0024_add_sync_jobs_indexes",
+      "breakpoints": true
     }
   ]
 }
