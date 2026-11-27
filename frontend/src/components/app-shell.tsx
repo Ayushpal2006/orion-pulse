@@ -445,8 +445,9 @@ export function AppShell({ children }: { children: ReactNode }) {
       return;
     }
 
-    // 3. Non-Super Admin cannot access /admin
-    if (!isSuperAdminUser && isAdminRoute && roleLower) {
+    // 3. Non-Super Admin cannot access /admin. Wait for the server-confirmed user: the store's
+    // default role is "Admin", which bounced a super admin to /dashboard and back in a loop on reload.
+    if (!isSuperAdminUser && isAdminRoute && currentUser) {
       window.location.href = "/dashboard";
       return;
     }
