@@ -156,6 +156,12 @@
     /* Prevent double-tap zoom on touch POS terminals */
     touch-action: manipulation;
   }
+  /* Phones: owner found the app looked zoomed in. All sizes are rem, so this shrinks everything ~10%. */
+  @media (max-width: 640px) {
+    html {
+      font-size: 90%;
+    }
+  }
   html, body {
     background-color: var(--color-surface);
     color: var(--color-foreground);
