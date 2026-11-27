@@ -55,15 +55,16 @@ export class ReceiptBuilderService {
       { organizationId: targetOrgId, currentStoreId: targetStoreId, userId: 1, role: "system" },
       async () => {
         // Fetch Store record (strictly scoped to targetStoreId AND targetOrgId)
+        // Only the text columns the receipt uses: logo_url is a ~400 KB data URL (branding supplies the logo).
         const [storeRecord] = await db
-          .select()
+          .select({ name: stores.name, code: stores.code })
           .from(stores)
           .where(and(eq(stores.id, targetStoreId), eq(stores.organization_id, targetOrgId)))
           .limit(1);
 
         // Fetch Organization record
         const [orgRecord] = await db
-          .select()
+          .select({ name: organizations.name })
           .from(organizations)
           .where(eq(organizations.id, targetOrgId))
           .limit(1);
